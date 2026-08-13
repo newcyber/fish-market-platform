@@ -693,28 +693,138 @@ export default async function CustomerOrderDetailPage({
 {/* PAYMENT METHOD */}
 {/* ================================================ */}
 
+{/* ================================================ */}
+{/* PAYMENT METHOD */}
+{/* ================================================ */}
+
 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
-  <h2 className="mb-4 font-semibold text-slate-950">
-    Metode Pembayaran
-  </h2>
+  <div className="mb-5 flex items-center gap-3">
 
-  <div className="rounded-xl bg-slate-50 p-4">
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
+      <CreditCard className="h-5 w-5 text-slate-700" />
+    </div>
 
-    <p className="text-sm font-medium text-slate-900">
-      Transfer Bank
-    </p>
+    <div>
+      <h2 className="font-semibold text-slate-950">
+        Metode Pembayaran
+      </h2>
 
-    <p className="mt-1 text-sm text-slate-500">
-      Status pembayaran akan diperbarui setelah proses verifikasi.
-    </p>
+      <p className="text-sm text-slate-500">
+        Informasi pembayaran pesanan
+      </p>
+    </div>
 
   </div>
+
+  {order.paymentChannel ? (
+
+    <div className="space-y-4">
+
+      {/* PAYMENT CHANNEL NAME */}
+      <div className="rounded-xl bg-slate-50 p-4">
+
+        <p className="text-sm font-semibold text-slate-900">
+          {order.paymentChannel.name}
+        </p>
+
+        {order.paymentChannel.description && (
+          <p className="mt-1 text-sm leading-6 text-slate-500">
+            {order.paymentChannel.description}
+          </p>
+        )}
+
+      </div>
+
+
+      {/* BANK NAME */}
+      {order.paymentChannel.bankName && (
+        <div className="border-b border-slate-100 pb-4">
+
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Bank / Provider
+          </p>
+
+          <p className="mt-1 text-sm font-medium text-slate-900">
+            {order.paymentChannel.bankName}
+          </p>
+
+        </div>
+      )}
+
+
+      {/* ACCOUNT NUMBER */}
+      {order.paymentChannel.accountNumber && (
+        <div className="border-b border-slate-100 pb-4">
+
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Nomor Rekening
+          </p>
+
+          <p className="mt-1 break-all text-base font-semibold text-slate-950">
+            {order.paymentChannel.accountNumber}
+          </p>
+
+        </div>
+      )}
+
+
+      {/* ACCOUNT HOLDER */}
+      {order.paymentChannel.accountHolder && (
+        <div className="border-b border-slate-100 pb-4">
+
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Atas Nama
+          </p>
+
+          <p className="mt-1 text-sm font-medium text-slate-900">
+            {order.paymentChannel.accountHolder}
+          </p>
+
+        </div>
+      )}
+
+
+      {/* PAYMENT INSTRUCTIONS */}
+      {order.paymentChannel.instructions && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+
+          <p className="mb-2 text-sm font-semibold text-slate-900">
+            Instruksi Pembayaran
+          </p>
+
+          <p className="whitespace-pre-line text-sm leading-6 text-slate-600">
+            {order.paymentChannel.instructions}
+          </p>
+
+        </div>
+      )}
+
+    </div>
+
+  ) : (
+
+    <div className="rounded-xl bg-slate-50 p-4">
+
+      <p className="text-sm font-medium text-slate-900">
+        Metode pembayaran belum tersedia
+      </p>
+
+      <p className="mt-1 text-sm leading-6 text-slate-500">
+        Informasi metode pembayaran untuk pesanan ini tidak ditemukan.
+      </p>
+
+    </div>
+
+  )}
+
+
+  {/* UPLOAD PAYMENT PROOF */}
 
   {order.paymentStatus !== "VERIFIED" && (
     <Link
       href={`/customer/orders/${order.id}/payment`}
-      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
     >
       <CreditCard className="h-4 w-4" />
 

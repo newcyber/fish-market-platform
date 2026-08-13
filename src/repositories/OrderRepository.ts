@@ -38,6 +38,8 @@ const DEFAULT_INCLUDE = {
   },
 
   paymentProof: true,
+
+  paymentChannel: true,
 } as const;
 
 export class OrderRepository {
@@ -232,21 +234,26 @@ static async forceDelete(id: string) {
    */
   static async findById(id: string) {
     return prisma.order.findUnique({
-      where: {
-        id,
-      },
+  where: {
+    id,
+  },
 
+  include: {
+    user: true,
+
+    address: true,
+
+    items: {
       include: {
-        user: true,
-        address: true,
-        items: {
-          include: {
-            product: true,
-          },
-        },
-        paymentProof: true,
+        product: true,
       },
-    });
+    },
+
+    paymentProof: true,
+
+    paymentChannel: true,
+  },
+});
   }
 
   /**
@@ -269,6 +276,7 @@ static async forceDelete(id: string) {
           },
         },
         paymentProof: true,
+        paymentChannel: true,
       },
     });
   }
@@ -295,6 +303,7 @@ static async forceDelete(id: string) {
           },
         },
         paymentProof: true,
+        paymentChannel: true,
       },
     });
   }
@@ -391,24 +400,26 @@ static async updateStatus(
   }
 
   return prisma.order.findUnique({
-    where: {
-      id,
-    },
+  where: {
+    id,
+  },
 
-    include: {
-      user: true,
+  include: {
+    user: true,
 
-      address: true,
+    address: true,
 
-      items: {
-        include: {
-          product: true,
-        },
+    items: {
+      include: {
+        product: true,
       },
-
-      paymentProof: true,
     },
-  });
+
+    paymentProof: true,
+
+    paymentChannel: true,
+  },
+});
 }
 
   /**
