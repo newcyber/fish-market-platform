@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -438,84 +439,151 @@ function Feature({
  * ============================================================
  */
 
+type ProductCardProduct = {
+  id: string;
+  name: string;
+  slug: string;
+
+  description?: string | null;
+  unit?: string | null;
+
+  price:
+    | number
+    | {
+        toNumber: () => number;
+      };
+
+  stock?: number | null;
+
+  images?: Array<{
+  id?: string;
+  image?: string | null;
+  sortOrder?: number | null;
+  isThumbnail?: boolean;
+}>;
+};
+
+interface ProductCardProps {
+  product: ProductCardProduct;
+}
+
 function ProductCard({
   product,
-}: {
-  product: {
-    id: string;
-    name: string;
-    slug: string;
-    description: string | null;
-    unit: string;
-    // price can be a Decimal (from Prisma) or a number
-    price: number | { toNumber: () => number };
-    stock: number;
-  };
-}) {
+}: ProductCardProps) {
+  /**
+   * ==========================================================
+   * PRICE NORMALIZATION
+   * ==========================================================
+   */
+
   const priceNumber =
-    product && product.price && typeof product.price === "object" &&
-      typeof product.price.toNumber === "function"
+    product.price &&
+    typeof product.price === "object" &&
+    "toNumber" in product.price &&
+    typeof product.price.toNumber === "function"
       ? product.price.toNumber()
       : Number(product.price);
+
+  /**
+   * ==========================================================
+   * STOCK NORMALIZATION
+   * ==========================================================
+   */
+
+  const stock =
+    typeof product.stock === "number"
+      ? product.stock
+      : 0;
+
+  /**
+   * ==========================================================
+   * PRODUCT IMAGE
+   * ==========================================================
+   */
+
+  const productImage =
+  product.images?.[0]?.image ?? null;
+
   return (
     <Link
       href={`/customer/products/${product.slug}`}
       className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-xl"
     >
-      {/* PRODUCT VISUAL */}
+      {/* ====================================================== */}
+      {/* PRODUCT IMAGE */}
+      {/* ====================================================== */}
 
-      <div className="relative flex aspect-4/3 items-center justify-center overflow-hidden bg-linear-to-br from-cyan-50 via-slate-100 to-slate-200">
+      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+        {productImage ? (
+          <Image
+  src={productImage}
+  alt={product.name}
+  fill
+  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+  className="object-cover transition-transform duration-500 group-hover:scale-105"
+/>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,.25),transparent_30%),radial-gradient(circle_at_70%_80%,rgba(14,165,233,.15),transparent_35%)]" />
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,.25),transparent_30%),radial-gradient(circle_at_70%_80%,rgba(14,165,233,.15),transparent_35%)]" />
+            <div className="relative flex h-full items-center justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-white/60 bg-white/60 text-cyan-600 shadow-sm backdrop-blur">
+                <Fish className="h-10 w-10" />
+              </div>
+            </div>
+          </>
+        )}
 
-        <div className="relative flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-white/60 bg-white/60 text-cyan-600 shadow-sm backdrop-blur">
-          <Fish className="h-10 w-10" />
-        </div>
+        {/* ==================================================== */}
+        {/* STOCK BADGE */}
+        {/* ==================================================== */}
 
-        {product.stock > 0 ? (
-          <div className="absolute left-3 top-3 rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+        {stock > 0 ? (
+          <div className="absolute left-3 top-3 z-10 rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
             Tersedia
           </div>
         ) : (
-          <div className="absolute left-3 top-3 rounded-full bg-slate-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+          <div className="absolute left-3 top-3 z-10 rounded-full bg-slate-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
             Habis
           </div>
         )}
       </div>
 
-      {/* PRODUCT INFO */}
+      {/* ====================================================== */}
+      {/* PRODUCT INFORMATION */}
+      {/* ====================================================== */}
 
       <div className="p-5">
-
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-slate-900 transition group-hover:text-cyan-600">
               {product.name}
             </h3>
 
-            <p className="mt-1 text-xs text-slate-500">
-              {product.unit}
-            </p>
+            {product.unit ? (
+              <p className="mt-1 text-xs text-slate-500">
+                {product.unit}
+              </p>
+            ) : null}
           </div>
 
           <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-cyan-600" />
         </div>
 
-        {product.description && (
+        {product.description ? (
           <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">
             {product.description}
           </p>
-        )}
+        ) : null}
 
         <div className="mt-5 flex items-end justify-between gap-3">
-
           <div>
             <p className="text-xs text-slate-400">
               Harga
             </p>
 
             <p className="mt-1 text-base font-bold text-slate-900">
-              {formatPrice(product.price)}
+              {formatPrice(priceNumber)}
             </p>
           </div>
 
@@ -525,7 +593,7 @@ function ProductCard({
             </p>
 
             <p className="mt-1 text-sm font-semibold text-slate-700">
-              {product.stock}
+              {stock}
             </p>
           </div>
         </div>
