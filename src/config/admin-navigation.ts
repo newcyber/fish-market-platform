@@ -2,6 +2,12 @@ import type { NavigationItem } from "@/types/navigation";
 
 import { Role } from "@prisma/client";
 
+/**
+ * ============================================================
+ * ADMIN NAVIGATION
+ * ============================================================
+ */
+
 export const ADMIN_NAVIGATION: NavigationItem[] = [
   {
     id: "dashboard",
@@ -85,6 +91,11 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     order: 7,
   },
 
+  /**
+   * ==========================================================
+   * SETTINGS
+   * ==========================================================
+   */
   {
     id: "settings",
     title: "Settings",
@@ -94,6 +105,30 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       Role.SUPER_ADMIN,
     ],
     order: 8,
+
+    children: [
+      {
+        id: "store-settings",
+        title: "Pengaturan Toko",
+        href: "/admin/settings",
+        icon: "settings",
+        roles: [
+          Role.SUPER_ADMIN,
+        ],
+        order: 1,
+      },
+
+      {
+        id: "payment-channels",
+        title: "Metode Pembayaran",
+        href: "/admin/payment-channels",
+        icon: "payments",
+        roles: [
+          Role.SUPER_ADMIN,
+        ],
+        order: 2,
+      },
+    ],
   },
 ];
 

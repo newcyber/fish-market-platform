@@ -50,6 +50,14 @@ enum StockLedgerType {
   CANCEL
 }
 
+enum NotificationType {
+  NEW_ORDER
+  PAYMENT_PROOF
+  PAYMENT_VERIFIED
+  ORDER_STATUS
+  SYSTEM
+}
+
 model User {
   id            String    @id @default(uuid())
   name          String
@@ -598,4 +606,28 @@ model StoreSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id String @id @default(cuid())
+
+  title String
+
+  message String
+
+  type NotificationType
+
+  href String?
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([isRead])
+
+  @@index([createdAt])
+
+  @@index([type])
 }

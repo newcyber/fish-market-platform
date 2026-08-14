@@ -15,6 +15,8 @@ import {
   StorageService,
 } from "@/services/storage/storage.service";
 
+import notificationService from "@/services/notification/notification.service";
+
 export interface OrderDashboardSummary {
   totalOrders: number;
   pendingPayments: number;
@@ -1363,6 +1365,19 @@ static async updateStatus(
      * ========================================================
      */
 
+    /**
+     * --------------------------------------------------------
+     * PENDING
+     *
+     * PENDING hanya dapat menuju:
+     *
+     * - PROCESSING
+     * - CANCELLED
+     *
+     * PROCESSING membutuhkan pembayaran terverifikasi.
+     * --------------------------------------------------------
+     */
+
     if (order.status === "PENDING") {
       if (status === "PROCESSING") {
         if (!isPaymentVerified) {
@@ -1386,7 +1401,120 @@ static async updateStatus(
       }
     }
 
+    /**
+     * --------------------------------------------------------
+     * WAITING PAYMENT
+     *
+     * Status ini dapat:
+     *
+     * - Menunggu pembayaran
+     * - Dibatalkan
+     *
+     * Perubahan ke PROCESSING sebaiknya dilakukan setelah
+     * pembayaran diverifikasi.
+     * --------------------------------------------------------
+     */
+
+    if (
+      order.status === "WAITING_PAYMENT"
+    ) {
+      if (
+        status !== "WAITING_VERIFICATION" &&
+        status !== "CANCELLED"
+      ) {
+        return {
+          success: false,
+          message:
+            "Pesanan yang menunggu pembayaran hanya dapat dilanjutkan ke verifikasi atau dibatalkan.",
+        };
+      }
+    }
+
+    /**
+     * --------------------------------------------------------
+     * WAITING VERIFICATION
+     *
+     * Setelah pembayaran diverifikasi:
+     *
+     * WAITING_VERIFICATION
+     *        ↓
+     * PROCESSING
+     * --------------------------------------------------------
+     */
+
+    if (
+      order.status === "WAITING_VERIFICATION"
+    ) {
+      if (status === "PROCESSING") {
+        if (!isPaymentVerified) {
+          return {
+            success: false,
+            message:
+              "Pesanan tidak dapat diproses sebelum pembayaran diverifikasi.",
+          };
+        }
+      }
+
+      if (
+        status !== "PROCESSING" &&
+        status !== "CANCELLED"
+      ) {
+        return {
+          success: false,
+          message:
+            "Pesanan yang sedang menunggu verifikasi hanya dapat diproses atau dibatalkan.",
+        };
+      }
+    }
+
+    /**
+     * --------------------------------------------------------
+     * PROCESSING
+     *
+     * Pesanan sedang disiapkan.
+     *
+     * Dapat menuju:
+     *
+     * PROCESSING
+     *      ↓
+     * SHIPPING
+     *
+     * atau
+     *
+     * PROCESSING
+     *      ↓
+     * CANCELLED
+     * --------------------------------------------------------
+     */
+
     if (order.status === "PROCESSING") {
+      if (
+        status !== "SHIPPING" &&
+        status !== "CANCELLED"
+      ) {
+        return {
+          success: false,
+          message:
+            "Pesanan yang sedang diproses hanya dapat ditandai sebagai dikirim atau dibatalkan.",
+        };
+      }
+    }
+
+    /**
+     * --------------------------------------------------------
+     * SHIPPING
+     *
+     * Pesanan sudah dikirim.
+     *
+     * Dapat menuju:
+     *
+     * SHIPPING
+     *      ↓
+     * COMPLETED
+     * --------------------------------------------------------
+     */
+
+    if (order.status === "SHIPPING") {
       if (status === "COMPLETED") {
         if (!isPaymentVerified) {
           return {
@@ -1404,7 +1532,7 @@ static async updateStatus(
         return {
           success: false,
           message:
-            "Pesanan yang sedang diproses hanya dapat diselesaikan atau dibatalkan.",
+            "Pesanan yang sudah dikirim hanya dapat diselesaikan atau dibatalkan.",
         };
       }
     }
@@ -2598,22 +2726,69 @@ if (!paymentChannel) {
               },
             });
 
-            return createdOrder;
-          }
-        );
+                  return createdOrder;
+    }
+  );
 
-      /**
-       * ========================================================
-       * SUCCESS
-       * ========================================================
-       */
+/**
+ * ========================================================
+ * CREATE ADMIN NOTIFICATION
+ * ========================================================
+ *
+ * Notifikasi dibuat SETELAH transaction berhasil.
+ *
+ * Jika notifikasi gagal, order tetap berhasil
+ * dan checkout customer tidak terganggu.
+ */
+try {
+  /**
+   * Ambil data customer karena createdOrder
+   * saat ini hanya include items dan address.
+   */
+  const customer =
+    await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
 
-      return {
-        success: true,
-        message:
-          "Pesanan berhasil dibuat.",
-        data: order,
-      };
+      select: {
+        name: true,
+      },
+    });
+
+  await notificationService.createOrderNotification({
+    orderId: order.id,
+
+    orderNumber:
+      order.orderNumber,
+
+    customerName:
+      customer?.name ?? "Customer",
+
+    totalAmount:
+      Number(order.total),
+  });
+} catch (notificationError) {
+  console.error(
+    "[CREATE_ORDER_NOTIFICATION_ERROR]",
+    notificationError
+  );
+}
+
+/**
+ * ========================================================
+ * SUCCESS
+ * ========================================================
+ */
+
+return {
+  success: true,
+
+  message:
+    "Pesanan berhasil dibuat.",
+
+  data: order,
+};
     } catch (error) {
       console.error(
         "[CREATE_CHECKOUT_ORDER_ERROR]",
