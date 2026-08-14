@@ -488,7 +488,6 @@ function ProductCard({
       <div className="p-5">
 
         <div className="flex items-start justify-between gap-3">
-
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-slate-900 transition group-hover:text-cyan-600">
               {product.name}
