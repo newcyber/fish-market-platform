@@ -14,6 +14,7 @@ import {
 import {
   Loader2,
   MapPin,
+  Navigation,
   Save,
 } from "lucide-react";
 
@@ -40,6 +41,9 @@ export default function CreateAddressForm() {
 
   const [isSuccess, setIsSuccess] =
     useState(false);
+
+  const [isLocating, setIsLocating] =
+    useState(false);  
 
   const [formData, setFormData] =
     useState({
@@ -94,6 +98,88 @@ export default function CreateAddressForm() {
           : value,
     }));
   }
+
+  /**
+ * ============================================================
+ * DETECT CURRENT LOCATION
+ * ============================================================
+ */
+function handleDetectLocation() {
+  setMessage(null);
+
+  if (!("geolocation" in navigator)) {
+    setMessage(
+      "Browser atau perangkat ini tidak mendukung GPS."
+    );
+
+    return;
+  }
+
+  setIsLocating(true);
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude =
+        position.coords.latitude;
+
+      const longitude =
+        position.coords.longitude;
+
+      setFormData((previous) => ({
+        ...previous,
+
+        latitude:
+          latitude.toFixed(7),
+
+        longitude:
+          longitude.toFixed(7),
+      }));
+
+      setIsLocating(false);
+
+      setMessage(
+        `Lokasi berhasil ditemukan. Akurasi sekitar ±${Math.round(
+          position.coords.accuracy
+        )} meter.`
+      );
+    },
+
+    (error) => {
+      setIsLocating(false);
+
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          setMessage(
+            "Izin lokasi ditolak. Aktifkan izin lokasi pada browser Anda."
+          );
+          break;
+
+        case error.POSITION_UNAVAILABLE:
+          setMessage(
+            "Lokasi tidak tersedia. Pastikan GPS atau layanan lokasi perangkat aktif."
+          );
+          break;
+
+        case error.TIMEOUT:
+          setMessage(
+            "Waktu pencarian lokasi habis. Silakan coba lagi."
+          );
+          break;
+
+        default:
+          setMessage(
+            "Terjadi kesalahan saat mengambil lokasi."
+          );
+      }
+    },
+
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    }
+  );
+}
 
   /**
    * ============================================================
@@ -466,6 +552,45 @@ export default function CreateAddressForm() {
       </p>
     </div>
   </div>
+
+<div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div className="flex items-center gap-2">
+        <MapPin className="h-5 w-5 text-cyan-600" />
+
+        <h3 className="font-semibold text-slate-900">
+          Tentukan Lokasi
+        </h3>
+      </div>
+
+      <p className="mt-1 text-sm text-slate-600">
+        Gunakan GPS perangkat untuk menentukan titik lokasi alamat Anda.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={handleDetectLocation}
+      disabled={isLocating || isPending}
+      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {isLocating ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+
+          Mencari Lokasi...
+        </>
+      ) : (
+        <>
+          <Navigation className="h-4 w-4" />
+
+          Gunakan Lokasi Saya
+        </>
+      )}
+    </button>
+  </div>
+</div>
 
   <AddressMapPicker
     latitude={
