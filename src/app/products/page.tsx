@@ -472,7 +472,7 @@ export default async function ProductsPage() {
 
           {products.length > 0 ? (
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-3 gap-2">
 
               {products.map(
                 (product) => {
@@ -654,7 +654,7 @@ export default async function ProductsPage() {
 
           {products.length > 0 ? (
 
-            <div className="mt-8 grid grid-cols-3 gap-5 xl:grid-cols-4">
+            <div className="mt-8 grid grid-cols-3 gap-4 xl:grid-cols-6">
 
               {products.map(
                 (product) => {
