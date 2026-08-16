@@ -37,7 +37,7 @@ export default async function OrdersTrashPage() {
 
       <div className="rounded-xl border bg-background">
         {orders.length === 0 ? (
-          <div className="flex min-h-[240px] flex-col items-center justify-center px-6 text-center">
+          <div className="flex min-h-60 flex-col items-center justify-center px-6 text-center">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
               <span className="text-xl">
                 🗑️

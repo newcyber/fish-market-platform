@@ -42,8 +42,6 @@ export interface ProductTableItem {
 
   stock: number;
 
-  unit: string;
-
   featured: boolean;
 
   published: boolean;
@@ -120,10 +118,6 @@ export function ProductTable({
 
                       <span className="font-medium">
                         {product.name}
-                      </span>
-
-                      <span className="text-xs text-muted-foreground">
-                        {product.unit}
                       </span>
 
                     </div>

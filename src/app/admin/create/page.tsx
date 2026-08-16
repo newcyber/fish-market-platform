@@ -18,6 +18,12 @@ export const dynamic =
   "force-dynamic";
 
 export default async function CreateOrderPage() {
+  /**
+   * ============================================================
+   * LOAD DATA
+   * ============================================================
+   */
+
   const [
     customers,
     products,
@@ -35,24 +41,48 @@ export default async function CreateOrderPage() {
     }),
   ]);
 
+  /**
+   * ============================================================
+   * CUSTOMER OPTIONS
+   * ============================================================
+   */
+
   const customerOptions =
     customers.map((customer) => ({
       id: customer.id,
+
       name: customer.name,
+
       email: customer.email,
+
       addresses:
         customer.addresses,
     }));
 
+  /**
+   * ============================================================
+   * PRODUCT OPTIONS
+   * ============================================================
+   */
+
   const productOptions =
     products.map((product) => ({
       id: product.id,
+
       name: product.name,
+
       sku: product.sku,
+
       price: Number(product.price),
+
       stock: product.stock,
-      unit: product.unit,
     }));
+
+  /**
+   * ============================================================
+   * PAGE
+   * ============================================================
+   */
 
   return (
     <div className="space-y-6">
@@ -66,6 +96,7 @@ export default async function CreateOrderPage() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
+
           Kembali ke Order
         </Link>
 

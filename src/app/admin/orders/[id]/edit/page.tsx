@@ -122,7 +122,6 @@ export default async function EditOrderPage({
 
         stock: product.stock,
 
-        unit: product.unit,
       })
     );
 

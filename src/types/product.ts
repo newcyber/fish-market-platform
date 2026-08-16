@@ -29,8 +29,6 @@ export interface Product {
 
   sku: string | null;
 
-  unit: string;
-
   price: number;
 
   stock: number;

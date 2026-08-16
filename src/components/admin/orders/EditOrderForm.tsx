@@ -71,7 +71,6 @@ interface ProductOption {
 
   stock: number;
 
-  unit: string;
 }
 
 interface EditOrderItem {

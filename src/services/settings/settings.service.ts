@@ -23,34 +23,88 @@ import settingsRepository, {
  */
 
 export interface UpdateStoreSettingsPayload {
+  /**
+   * ==========================================================
+   * STORE INFORMATION
+   * ==========================================================
+   */
+
   storeName: string;
 
   storeDescription?: string;
+
   footerDescription?: string;
 
   email?: string;
+
   whatsapp?: string;
 
+  /**
+   * ==========================================================
+   * STORE ADDRESS
+   * ==========================================================
+   */
+
   address?: string;
+
   city?: string;
+
   province?: string;
+
   postalCode?: string;
 
+  /**
+   * ==========================================================
+   * STORE LOCATION / SHIPPING ORIGIN
+   * ==========================================================
+   */
+
+  latitude?: number | null;
+
+  longitude?: number | null;
+
+  /**
+   * ==========================================================
+   * INTERNAL SHIPPING CONFIGURATION
+   * ==========================================================
+   */
+
+  internalShippingEnabled?: boolean;
+
+  internalShippingName?: string | null;
+
+  internalShippingBaseFee?: number;
+
+  internalShippingPerKmFee?: number;
+
+  internalShippingMaxDistance?: number;
+
+  internalShippingFreeThreshold?: number | null;
+
+  /**
+   * ==========================================================
+   * OPERATIONAL
+   * ==========================================================
+   */
+
   openingTime?: string;
+
   closingTime?: string;
 }
+
+/**
+ * ============================================================
+ * SETTINGS SERVICE
+ * ============================================================
+ */
 
 class SettingsService {
   /**
    * ==========================================================
    * GET SETTINGS
    * ==========================================================
-   *
-   * Mengambil konfigurasi global toko.
-   *
-   * Jika belum ada record, repository akan otomatis membuat
-   * StoreSettings default.
    */
+
   async getSettings() {
     return settingsRepository.getOrCreate();
   }
@@ -60,6 +114,7 @@ class SettingsService {
    * UPDATE SETTINGS
    * ==========================================================
    */
+
   async updateSettings(
     payload: UpdateStoreSettingsPayload
   ) {
@@ -68,6 +123,7 @@ class SettingsService {
      * VALIDASI STORE NAME
      * --------------------------------------------------------
      */
+
     const storeName =
       payload.storeName?.trim();
 
@@ -79,14 +135,14 @@ class SettingsService {
 
     /**
      * --------------------------------------------------------
-     * NORMALIZE INPUT
+     * NORMALIZE STRING
      * --------------------------------------------------------
      *
-     * String kosong akan disimpan sebagai null
-     * agar database tetap bersih dan konsisten.
+     * String kosong akan disimpan sebagai null.
      */
+
     const normalize = (
-      value?: string
+      value?: string | null
     ): string | null => {
       const trimmed =
         value?.trim();
@@ -98,9 +154,70 @@ class SettingsService {
 
     /**
      * --------------------------------------------------------
+     * NORMALIZE COORDINATE
+     * --------------------------------------------------------
+     */
+
+    const normalizeCoordinate = (
+      value?: number | null
+    ): number | null => {
+      if (
+        value === null ||
+        value === undefined ||
+        !Number.isFinite(value)
+      ) {
+        return null;
+      }
+
+      return value;
+    };
+
+    const latitude =
+      normalizeCoordinate(
+        payload.latitude
+      );
+
+    const longitude =
+      normalizeCoordinate(
+        payload.longitude
+      );
+
+    /**
+     * --------------------------------------------------------
+     * VALIDASI GPS
+     * --------------------------------------------------------
+     */
+
+    if (
+      latitude !== null &&
+      (
+        latitude < -90 ||
+        latitude > 90
+      )
+    ) {
+      throw new Error(
+        "Latitude lokasi toko tidak valid."
+      );
+    }
+
+    if (
+      longitude !== null &&
+      (
+        longitude < -180 ||
+        longitude > 180
+      )
+    ) {
+      throw new Error(
+        "Longitude lokasi toko tidak valid."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
      * EMAIL VALIDATION
      * --------------------------------------------------------
      */
+
     const email =
       normalize(payload.email);
 
@@ -116,14 +233,175 @@ class SettingsService {
     }
 
     /**
+     * ========================================================
+     * INTERNAL SHIPPING CONFIGURATION
+     * ========================================================
+     */
+
+    const internalShippingEnabled =
+      payload.internalShippingEnabled ?? true;
+
+    const internalShippingName =
+      normalize(
+        payload.internalShippingName
+      );
+
+    /**
      * --------------------------------------------------------
-     * REPOSITORY PAYLOAD
+     * NORMALIZE NUMBER
      * --------------------------------------------------------
      *
-     * Data sudah dinormalisasi sebelum dikirim
-     * ke repository.
+     * Digunakan untuk biaya dan jarak.
      */
+
+    const normalizeNumber = (
+      value: number | null | undefined,
+      fallback: number
+    ): number => {
+      if (
+        value === null ||
+        value === undefined
+      ) {
+        return fallback;
+      }
+
+      if (!Number.isFinite(value)) {
+        throw new Error(
+          "Nilai konfigurasi pengiriman tidak valid."
+        );
+      }
+
+      return value;
+    };
+
+    /**
+     * --------------------------------------------------------
+     * BIAYA DASAR
+     * --------------------------------------------------------
+     */
+
+    const internalShippingBaseFee =
+      normalizeNumber(
+        payload.internalShippingBaseFee,
+        0
+      );
+
+    if (
+      internalShippingBaseFee < 0
+    ) {
+      throw new Error(
+        "Biaya dasar pengiriman tidak boleh kurang dari 0."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * BIAYA PER KM
+     * --------------------------------------------------------
+     */
+
+    const internalShippingPerKmFee =
+      normalizeNumber(
+        payload.internalShippingPerKmFee,
+        0
+      );
+
+    if (
+      internalShippingPerKmFee < 0
+    ) {
+      throw new Error(
+        "Biaya pengiriman per KM tidak boleh kurang dari 0."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * MAKSIMUM JARAK
+     * --------------------------------------------------------
+     */
+
+    const internalShippingMaxDistance =
+      normalizeNumber(
+        payload.internalShippingMaxDistance,
+        10
+      );
+
+    if (
+      internalShippingMaxDistance <= 0
+    ) {
+      throw new Error(
+        "Jarak maksimum pengiriman harus lebih dari 0 KM."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * GRATIS ONGKIR THRESHOLD
+     * --------------------------------------------------------
+     *
+     * null = fitur gratis ongkir tidak aktif.
+     */
+
+    let internalShippingFreeThreshold:
+      | number
+      | null = null;
+
+    if (
+      payload.internalShippingFreeThreshold !==
+        null &&
+      payload.internalShippingFreeThreshold !==
+        undefined
+    ) {
+      if (
+        !Number.isFinite(
+          payload.internalShippingFreeThreshold
+        )
+      ) {
+        throw new Error(
+          "Minimum belanja gratis ongkir tidak valid."
+        );
+      }
+
+      if (
+        payload.internalShippingFreeThreshold < 0
+      ) {
+        throw new Error(
+          "Minimum belanja gratis ongkir tidak boleh kurang dari 0."
+        );
+      }
+
+      internalShippingFreeThreshold =
+        payload.internalShippingFreeThreshold;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * VALIDASI NAMA LAYANAN
+     * --------------------------------------------------------
+     */
+
+    if (
+      internalShippingEnabled &&
+      !internalShippingName
+    ) {
+      throw new Error(
+        "Nama layanan kurir internal wajib diisi."
+      );
+    }
+
+    /**
+     * ========================================================
+     * REPOSITORY PAYLOAD
+     * ========================================================
+     */
+
     const data: UpdateSettingsPayload = {
+      /**
+       * ------------------------------------------------------
+       * STORE INFORMATION
+       * ------------------------------------------------------
+       */
+
       storeName,
 
       storeDescription:
@@ -142,6 +420,12 @@ class SettingsService {
         normalize(
           payload.whatsapp
         ),
+
+      /**
+       * ------------------------------------------------------
+       * STORE ADDRESS
+       * ------------------------------------------------------
+       */
 
       address:
         normalize(
@@ -163,6 +447,40 @@ class SettingsService {
           payload.postalCode
         ),
 
+      /**
+       * ------------------------------------------------------
+       * STORE GPS / SHIPPING ORIGIN
+       * ------------------------------------------------------
+       */
+
+      latitude,
+
+      longitude,
+
+      /**
+       * ------------------------------------------------------
+       * INTERNAL SHIPPING CONFIGURATION
+       * ------------------------------------------------------
+       */
+
+      internalShippingEnabled,
+
+      internalShippingName,
+
+      internalShippingBaseFee,
+
+      internalShippingPerKmFee,
+
+      internalShippingMaxDistance,
+
+      internalShippingFreeThreshold,
+
+      /**
+       * ------------------------------------------------------
+       * OPERATIONAL
+       * ------------------------------------------------------
+       */
+
       openingTime:
         normalize(
           payload.openingTime
@@ -179,6 +497,7 @@ class SettingsService {
      * UPDATE DATABASE
      * --------------------------------------------------------
      */
+
     return settingsRepository.update(
       data
     );
@@ -190,6 +509,7 @@ class SettingsService {
  * SINGLETON INSTANCE
  * ============================================================
  */
+
 const settingsService =
   new SettingsService();
 

@@ -53,8 +53,6 @@ export default async function ProductsPage({
 
       stock: product.stock,
 
-      unit: product.unit,
-
       featured: product.featured,
 
       published: product.isPublished,

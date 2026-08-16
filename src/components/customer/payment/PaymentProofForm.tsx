@@ -16,7 +16,6 @@ import {
   AlertCircle,
   CheckCircle2,
   CreditCard,
-  FileImage,
   Loader2,
   Upload,
   X,
@@ -34,6 +33,8 @@ import {
 
 interface PaymentProofFormProps {
   orderId: string;
+
+  paymentType?: string;
 }
 
 /**
@@ -60,6 +61,7 @@ const ALLOWED_FILE_TYPES = [
 
 export default function PaymentProofForm({
   orderId,
+  paymentType = "BANK_TRANSFER",
 }: PaymentProofFormProps) {
   /**
    * ==========================================================
@@ -69,6 +71,16 @@ export default function PaymentProofForm({
 
   const router =
     useRouter();
+
+  /**
+   * ==========================================================
+   * PAYMENT TYPE
+   * ==========================================================
+   */
+
+
+  const isBankTransfer =
+    paymentType === "BANK_TRANSFER";
 
   /**
    * ==========================================================
@@ -279,20 +291,30 @@ export default function PaymentProofForm({
         file
       );
 
-      formData.append(
-        "bankName",
-        bankName.trim()
-      );
+      /**
+       * BANK INFORMATION
+       *
+       * Hanya dikirim ketika
+       * metode pembayaran adalah
+       * BANK_TRANSFER.
+       */
 
-      formData.append(
-        "accountName",
-        accountName.trim()
-      );
+      if (isBankTransfer) {
+        formData.append(
+          "bankName",
+          bankName.trim()
+        );
 
-      formData.append(
-        "accountNumber",
-        accountNumber.trim()
-      );
+        formData.append(
+          "accountName",
+          accountName.trim()
+        );
+
+        formData.append(
+          "accountNumber",
+          accountNumber.trim()
+        );
+      }
 
       /**
        * SUBMIT
@@ -396,75 +418,108 @@ export default function PaymentProofForm({
 
       {/* ==================================================== */}
       {/* BANK INFORMATION */}
+      {/* HANYA UNTUK BANK TRANSFER */}
       {/* ==================================================== */}
 
-      <div className="space-y-5 rounded-2xl border bg-background p-5 sm:p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-            <CreditCard className="h-5 w-5" />
+      {isBankTransfer && (
+        <div className="space-y-5 rounded-2xl border bg-background p-5 sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+              <CreditCard className="h-5 w-5" />
+            </div>
+
+            <div>
+              <h2 className="font-semibold">
+                Informasi Pembayaran
+              </h2>
+
+              <p className="text-sm text-muted-foreground">
+                Masukkan informasi rekening yang digunakan untuk transfer.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="font-semibold">
-              Informasi Pembayaran
-            </h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {/* BANK NAME */}
 
-            <p className="text-sm text-muted-foreground">
-              Masukkan informasi rekening yang digunakan untuk transfer.
-            </p>
+            <div className="space-y-2">
+              <label
+                htmlFor="bankName"
+                className="text-sm font-medium"
+              >
+                Nama Bank
+              </label>
+
+              <input
+                id="bankName"
+                type="text"
+                value={bankName}
+                onChange={(event) =>
+                  setBankName(
+                    event.target.value
+                  )
+                }
+                placeholder="Contoh: BCA"
+                disabled={
+                  isSubmitting
+                }
+                className="flex h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+
+            {/* ACCOUNT NAME */}
+
+            <div className="space-y-2">
+              <label
+                htmlFor="accountName"
+                className="text-sm font-medium"
+              >
+                Nama Pemilik Rekening
+              </label>
+
+              <input
+                id="accountName"
+                type="text"
+                value={
+                  accountName
+                }
+                onChange={(event) =>
+                  setAccountName(
+                    event.target.value
+                  )
+                }
+                placeholder="Nama sesuai rekening"
+                disabled={
+                  isSubmitting
+                }
+                className="flex h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          {/* BANK NAME */}
+          {/* ACCOUNT NUMBER */}
 
           <div className="space-y-2">
             <label
-              htmlFor="bankName"
+              htmlFor="accountNumber"
               className="text-sm font-medium"
             >
-              Nama Bank
+              Nomor Rekening
             </label>
 
             <input
-              id="bankName"
+              id="accountNumber"
               type="text"
-              value={bankName}
-              onChange={(event) =>
-                setBankName(
-                  event.target.value
-                )
-              }
-              placeholder="Contoh: BCA"
-              disabled={
-                isSubmitting
-              }
-              className="flex h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-            />
-          </div>
-
-          {/* ACCOUNT NAME */}
-
-          <div className="space-y-2">
-            <label
-              htmlFor="accountName"
-              className="text-sm font-medium"
-            >
-              Nama Pemilik Rekening
-            </label>
-
-            <input
-              id="accountName"
-              type="text"
+              inputMode="numeric"
               value={
-                accountName
+                accountNumber
               }
               onChange={(event) =>
-                setAccountName(
+                setAccountNumber(
                   event.target.value
                 )
               }
-              placeholder="Nama sesuai rekening"
+              placeholder="Masukkan nomor rekening"
               disabled={
                 isSubmitting
               }
@@ -472,37 +527,7 @@ export default function PaymentProofForm({
             />
           </div>
         </div>
-
-        {/* ACCOUNT NUMBER */}
-
-        <div className="space-y-2">
-          <label
-            htmlFor="accountNumber"
-            className="text-sm font-medium"
-          >
-            Nomor Rekening
-          </label>
-
-          <input
-            id="accountNumber"
-            type="text"
-            inputMode="numeric"
-            value={
-              accountNumber
-            }
-            onChange={(event) =>
-              setAccountNumber(
-                event.target.value
-              )
-            }
-            placeholder="Masukkan nomor rekening"
-            disabled={
-              isSubmitting
-            }
-            className="flex h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-          />
-        </div>
-      </div>
+      )}
 
       {/* ==================================================== */}
       {/* PAYMENT PROOF */}
@@ -510,25 +535,13 @@ export default function PaymentProofForm({
 
       <div className="space-y-5 rounded-2xl border bg-background p-5 sm:p-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-            <FileImage className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h2 className="font-semibold">
-              Bukti Pembayaran
-            </h2>
-
-            <p className="text-sm text-muted-foreground">
-              Upload screenshot atau foto bukti transfer.
-            </p>
-          </div>
+          
         </div>
 
         {!previewUrl && (
           <label
             htmlFor="paymentProof"
-            className="flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition hover:bg-muted/50"
+            className="flex min-h-55 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition hover:bg-muted/50"
           >
             <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
 
@@ -558,7 +571,7 @@ export default function PaymentProofForm({
 
         {previewUrl && (
           <div className="relative overflow-hidden rounded-xl border">
-            <div className="relative aspect-[4/3] w-full bg-muted">
+            <div className="relative aspect-4/3 w-full bg-muted">
               <Image
                 src={
                   previewUrl

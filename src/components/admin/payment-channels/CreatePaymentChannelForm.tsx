@@ -1,22 +1,65 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  CreditCard,
+  FileText,
+  ImageIcon,
+  Loader2,
+  QrCode,
+  Save,
+  ScrollText,
+} from "lucide-react";
 
 import {
   createPaymentChannelAction,
 } from "@/actions/payment/payment-channel.actions";
 
+type PaymentChannelType =
+  | "BANK_TRANSFER"
+  | "QRIS";
+
+/**
+ * ============================================================
+ * CREATE PAYMENT CHANNEL FORM
+ * ============================================================
+ */
+
 export default function CreatePaymentChannelForm() {
   const router = useRouter();
+
+  /**
+   * ==========================================================
+   * SUBMIT STATE
+   * ==========================================================
+   */
 
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
+  /**
+   * ==========================================================
+   * PAYMENT CHANNEL STATE
+   * ==========================================================
+   */
+
   const [name, setName] =
     useState("");
+
+  const [type, setType] =
+    useState<PaymentChannelType>(
+      "BANK_TRANSFER"
+    );
+
+  /**
+   * ==========================================================
+   * BANK ACCOUNT STATE
+   * ==========================================================
+   */
 
   const [bankName, setBankName] =
     useState("");
@@ -27,16 +70,88 @@ export default function CreatePaymentChannelForm() {
   const [accountHolder, setAccountHolder] =
     useState("");
 
+  /**
+   * ==========================================================
+   * QRIS IMAGE STATE
+   * ==========================================================
+   */
+
+  const [qrisImage, setQrisImage] =
+    useState("");
+
+  /**
+   * ==========================================================
+   * PAYMENT INFORMATION STATE
+   * ==========================================================
+   */
+
+  const [description, setDescription] =
+    useState("");
+
+  const [instructions, setInstructions] =
+    useState("");
+
+  const [icon, setIcon] =
+    useState("");
+
+  /**
+   * ==========================================================
+   * GENERAL STATE
+   * ==========================================================
+   */
+
   const [sortOrder, setSortOrder] =
     useState("0");
 
   const [isActive, setIsActive] =
     useState(true);
 
+  /**
+   * ==========================================================
+   * HANDLE PAYMENT TYPE CHANGE
+   * ==========================================================
+   */
+
+  function handleTypeChange(
+    value: PaymentChannelType
+  ) {
+    setType(value);
+
+    /**
+     * QRIS tidak menggunakan rekening bank.
+     */
+
+    if (value === "QRIS") {
+      setBankName("");
+      setAccountNumber("");
+      setAccountHolder("");
+    }
+
+    /**
+     * BANK TRANSFER tidak menggunakan gambar QRIS.
+     */
+
+    if (value === "BANK_TRANSFER") {
+      setQrisImage("");
+    }
+  }
+
+  /**
+   * ==========================================================
+   * HANDLE SUBMIT
+   * ==========================================================
+   */
+
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
+
+    /**
+     * ========================================================
+     * VALIDATE NAME
+     * ========================================================
+     */
 
     if (!name.trim()) {
       window.alert(
@@ -46,49 +161,175 @@ export default function CreatePaymentChannelForm() {
       return;
     }
 
+    /**
+     * ========================================================
+     * VALIDATE BANK TRANSFER
+     * ========================================================
+     */
+
+    if (type === "BANK_TRANSFER") {
+      if (!bankName.trim()) {
+        window.alert(
+          "Nama bank wajib diisi."
+        );
+
+        return;
+      }
+
+      if (!accountNumber.trim()) {
+        window.alert(
+          "Nomor rekening wajib diisi."
+        );
+
+        return;
+      }
+
+      if (!accountHolder.trim()) {
+        window.alert(
+          "Nama pemilik rekening wajib diisi."
+        );
+
+        return;
+      }
+    }
+
+    /**
+     * ========================================================
+     * VALIDATE QRIS
+     * ========================================================
+     */
+
+    if (type === "QRIS") {
+      if (!qrisImage.trim()) {
+        window.alert(
+          "URL atau path gambar QRIS wajib diisi."
+        );
+
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
-      const normalizedName = name.trim();
+      /**
+       * ======================================================
+       * NORMALIZE NAME
+       * ======================================================
+       */
 
-const slug = normalizedName
-  .toLowerCase()
-  .trim()
-  .replace(/[^a-z0-9\s-]/g, "")
-  .replace(/\s+/g, "-")
-  .replace(/-+/g, "-");
+      const normalizedName =
+        name.trim();
 
-const result =
-  await createPaymentChannelAction({
-    name: normalizedName,
+      /**
+       * ======================================================
+       * GENERATE SLUG
+       * ======================================================
+       */
 
-    slug,
+      const slug =
+        normalizedName
+          .toLowerCase()
+          .trim()
+          .replace(
+            /[^a-z0-9\s-]/g,
+            ""
+          )
+          .replace(
+            /\s+/g,
+            "-"
+          )
+          .replace(
+            /-+/g,
+            "-"
+          );
 
-    type: "BANK_TRANSFER",
+      /**
+       * ======================================================
+       * CREATE PAYMENT CHANNEL
+       * ======================================================
+       */
 
-    bankName:
-      bankName.trim() || null,
+      const result =
+        await createPaymentChannelAction({
+          name:
+            normalizedName,
 
-    accountNumber:
-      accountNumber.trim() || null,
+          slug,
 
-    accountHolder:
-      accountHolder.trim() || null,
+          type,
 
-    sortOrder:
-      Number(sortOrder) || 0,
+          /**
+           * BANK ACCOUNT
+           */
 
-    isActive,
-  });
+          bankName:
+            type === "BANK_TRANSFER"
+              ? bankName.trim() || null
+              : null,
 
-if (!result.success) {
-  window.alert(
-    result.message ??
-      "Gagal menambahkan metode pembayaran."
-  );
+          accountNumber:
+            type === "BANK_TRANSFER"
+              ? accountNumber.trim() || null
+              : null,
 
-  return;
-}
+          accountHolder:
+            type === "BANK_TRANSFER"
+              ? accountHolder.trim() || null
+              : null,
+
+          /**
+           * QRIS IMAGE
+           */
+
+          qrisImage:
+            type === "QRIS"
+              ? qrisImage.trim() || null
+              : null,
+
+          /**
+           * PAYMENT INFORMATION
+           */
+
+          description:
+            description.trim() || null,
+
+          instructions:
+            instructions.trim() || null,
+
+          icon:
+            icon.trim() || null,
+
+          /**
+           * GENERAL
+           */
+
+          sortOrder:
+            Number(sortOrder) || 0,
+
+          isActive,
+        });
+
+      /**
+       * ======================================================
+       * HANDLE FAILURE
+       * ======================================================
+       */
+
+      if (!result.success) {
+        window.alert(
+          result.message ??
+            "Gagal menambahkan metode pembayaran."
+        );
+
+        return;
+      }
+
+      /**
+       * ======================================================
+       * SUCCESS
+       * ======================================================
+       */
 
       window.alert(
         result.message ??
@@ -119,27 +360,134 @@ if (!result.success) {
       onSubmit={handleSubmit}
       className="space-y-6"
     >
-      {/* INFORMASI UTAMA */}
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
 
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Tambah Metode Pembayaran
+          </h1>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tambahkan metode pembayaran baru untuk customer.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              "/admin/payment-channels"
+            )
+          }
+          className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+        >
+          <ArrowLeft className="h-4 w-4" />
+
+          Kembali
+        </button>
+      </div>
+
+      {/* =====================================================
+          PAYMENT TYPE
+      ====================================================== */}
+
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold">
+            Jenis Metode Pembayaran
+          </h2>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pilih jenis metode pembayaran yang ingin ditambahkan.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() =>
+              handleTypeChange(
+                "BANK_TRANSFER"
+              )
+            }
+            className={[
+              "rounded-2xl border p-5 text-left transition",
+              type === "BANK_TRANSFER"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "hover:bg-muted/50",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-muted p-3">
+                <CreditCard className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="font-semibold">
+                  Transfer Bank
+                </p>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pembayaran menggunakan rekening bank.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              handleTypeChange("QRIS")
+            }
+            className={[
+              "rounded-2xl border p-5 text-left transition",
+              type === "QRIS"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "hover:bg-muted/50",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-muted p-3">
+                <QrCode className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="font-semibold">
+                  QRIS
+                </p>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pembayaran menggunakan scan QRIS.
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* =====================================================
+          BASIC INFORMATION
+      ====================================================== */}
+
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
         <div className="mb-6">
           <h2 className="text-lg font-semibold">
             Informasi Metode Pembayaran
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Masukkan informasi metode pembayaran
-            yang akan tersedia untuk customer.
+            Informasi utama yang akan digunakan oleh customer.
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* NAME */}
-
-          <div className="space-y-2">
+        <div className="space-y-5">
+          <div>
             <label
               htmlFor="name"
-              className="text-sm font-medium"
+              className="mb-2 block text-sm font-medium"
             >
               Nama Metode Pembayaran
             </label>
@@ -149,125 +497,273 @@ if (!result.success) {
               type="text"
               value={name}
               onChange={(event) =>
-                setName(event.target.value)
+                setName(
+                  event.target.value
+                )
               }
-              placeholder="Contoh: Transfer Bank BCA"
-              className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
-              disabled={isSubmitting}
+              placeholder={
+                type === "QRIS"
+                  ? "Contoh: QRIS"
+                  : "Contoh: BCA Transfer"
+              }
+              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
             />
           </div>
 
-          {/* TYPE */}
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Tipe Pembayaran
+          <div>
+            <label
+              htmlFor="description"
+              className="mb-2 block text-sm font-medium"
+            >
+              Deskripsi
             </label>
 
-            <input
-              type="text"
-              value="Transfer Bank"
-              disabled
-              className="h-10 w-full rounded-lg border bg-muted px-3 text-sm text-muted-foreground"
+            <textarea
+              id="description"
+              value={description}
+              onChange={(event) =>
+                setDescription(
+                  event.target.value
+                )
+              }
+              placeholder="Deskripsi singkat metode pembayaran."
+              rows={3}
+              className="w-full resize-none rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
             />
-
-            <p className="text-xs text-muted-foreground">
-              Saat ini sistem mendukung metode
-              Transfer Bank.
-            </p>
           </div>
         </div>
       </div>
 
-      {/* INFORMASI REKENING */}
+      {/* =====================================================
+          BANK INFORMATION
+      ====================================================== */}
 
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold">
-            Informasi Rekening
-          </h2>
+      {type === "BANK_TRANSFER" && (
+        <div className="rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold">
+              Informasi Rekening
+            </h2>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            Data rekening tujuan pembayaran customer.
-          </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Informasi rekening tujuan pembayaran.
+            </p>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label
+                htmlFor="bankName"
+                className="mb-2 block text-sm font-medium"
+              >
+                Nama Bank
+              </label>
+
+              <input
+                id="bankName"
+                type="text"
+                value={bankName}
+                onChange={(event) =>
+                  setBankName(
+                    event.target.value
+                  )
+                }
+                placeholder="Contoh: BCA"
+                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="accountNumber"
+                className="mb-2 block text-sm font-medium"
+              >
+                Nomor Rekening
+              </label>
+
+              <input
+                id="accountNumber"
+                type="text"
+                value={accountNumber}
+                onChange={(event) =>
+                  setAccountNumber(
+                    event.target.value
+                  )
+                }
+                placeholder="Contoh: 1234567890"
+                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label
+                htmlFor="accountHolder"
+                className="mb-2 block text-sm font-medium"
+              >
+                Nama Pemilik Rekening
+              </label>
+
+              <input
+                id="accountHolder"
+                type="text"
+                value={accountHolder}
+                onChange={(event) =>
+                  setAccountHolder(
+                    event.target.value
+                  )
+                }
+                placeholder="Contoh: QRIS"
+                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          QRIS IMAGE
+      ====================================================== */}
+
+      {type === "QRIS" && (
+        <div className="rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="mb-6 flex items-start gap-3">
+            <div className="rounded-xl bg-muted p-3">
+              <QrCode className="h-5 w-5" />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold">
+                Gambar QRIS
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Masukkan URL atau path gambar QRIS yang akan
+                ditampilkan kepada customer.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <label
+                htmlFor="qrisImage"
+                className="mb-2 flex items-center gap-2 text-sm font-medium"
+              >
+                <ImageIcon className="h-4 w-4" />
+
+                URL / Path Gambar QRIS
+              </label>
+
+              <input
+                id="qrisImage"
+                type="text"
+                value={qrisImage}
+                onChange={(event) =>
+                  setQrisImage(
+                    event.target.value
+                  )
+                }
+                placeholder="/uploads/payments/qris.png"
+                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              />
+
+              <p className="mt-2 text-xs text-muted-foreground">
+                Contoh: /uploads/payments/qris.png atau URL
+                gambar dari storage Anda.
+              </p>
+            </div>
+
+            {qrisImage.trim() && (
+              <div className="overflow-hidden rounded-2xl border bg-muted/30 p-5">
+                <p className="mb-4 text-sm font-medium">
+                  Preview QRIS
+                </p>
+
+                <div className="flex justify-center">
+                  <div className="relative aspect-square w-full max-w-sm overflow-hidden rounded-xl border bg-white">
+                    <Image
+                      src={qrisImage}
+                      alt="Preview QRIS"
+                      fill
+                      unoptimized
+                      className="object-contain p-4"
+                      onError={() => {
+                        // Browser akan tetap menampilkan container
+                        // apabila URL gambar belum valid.
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          PAYMENT INSTRUCTIONS
+      ====================================================== */}
+
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="mb-6 flex items-start gap-3">
+          <div className="rounded-xl bg-muted p-3">
+            <ScrollText className="h-5 w-5" />
+          </div>
+
+          <div>
+            <h2 className="text-lg font-semibold">
+              Instruksi Pembayaran
+            </h2>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Instruksi yang akan ditampilkan kepada customer.
+            </p>
+          </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* BANK NAME */}
+        <textarea
+          value={instructions}
+          onChange={(event) =>
+            setInstructions(
+              event.target.value
+            )
+          }
+          rows={5}
+          placeholder={
+            type === "QRIS"
+              ? "Scan QRIS menggunakan aplikasi pembayaran Anda, lalu selesaikan pembayaran."
+              : "Silakan transfer ke rekening yang tertera."
+          }
+          className="w-full resize-none rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+        />
+      </div>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="bankName"
-              className="text-sm font-medium"
-            >
-              Nama Bank
-            </label>
+      {/* =====================================================
+          ADDITIONAL SETTINGS
+      ====================================================== */}
 
-            <input
-              id="bankName"
-              type="text"
-              value={bankName}
-              onChange={(event) =>
-                setBankName(event.target.value)
-              }
-              placeholder="Contoh: BCA"
-              className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
-              disabled={isSubmitting}
-            />
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="mb-6 flex items-start gap-3">
+          <div className="rounded-xl bg-muted p-3">
+            <FileText className="h-5 w-5" />
           </div>
 
-          {/* ACCOUNT NUMBER */}
+          <div>
+            <h2 className="text-lg font-semibold">
+              Pengaturan Tambahan
+            </h2>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="accountNumber"
-              className="text-sm font-medium"
-            >
-              Nomor Rekening
-            </label>
-
-            <input
-              id="accountNumber"
-              type="text"
-              value={accountNumber}
-              onChange={(event) =>
-                setAccountNumber(event.target.value)
-              }
-              placeholder="Contoh: 1234567890"
-              className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
-              disabled={isSubmitting}
-            />
+            <p className="mt-1 text-sm text-muted-foreground">
+              Atur urutan dan status metode pembayaran.
+            </p>
           </div>
+        </div>
 
-          {/* ACCOUNT HOLDER */}
-
-          <div className="space-y-2">
-            <label
-              htmlFor="accountHolder"
-              className="text-sm font-medium"
-            >
-              Nama Pemilik Rekening
-            </label>
-
-            <input
-              id="accountHolder"
-              type="text"
-              value={accountHolder}
-              onChange={(event) =>
-                setAccountHolder(event.target.value)
-              }
-              placeholder="Contoh: Fish Market Indonesia"
-              className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* SORT ORDER */}
-
-          <div className="space-y-2">
+        <div className="grid gap-5 md:grid-cols-2">
+          <div>
             <label
               htmlFor="sortOrder"
-              className="text-sm font-medium"
+              className="mb-2 block text-sm font-medium"
             >
               Urutan Tampilan
             </label>
@@ -278,68 +774,84 @@ if (!result.success) {
               min="0"
               value={sortOrder}
               onChange={(event) =>
-                setSortOrder(event.target.value)
+                setSortOrder(
+                  event.target.value
+                )
               }
-              className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:ring-2 focus:ring-ring"
-              disabled={isSubmitting}
+              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
             />
-
-            <p className="text-xs text-muted-foreground">
-              Angka lebih kecil akan tampil lebih dahulu.
-            </p>
           </div>
-        </div>
-      </div>
-
-      {/* STATUS */}
-
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={isActive}
-            onChange={(event) =>
-              setIsActive(event.target.checked)
-            }
-            disabled={isSubmitting}
-            className="mt-1 h-4 w-4"
-          />
 
           <div>
-            <p className="text-sm font-medium">
+            <label
+              htmlFor="icon"
+              className="mb-2 block text-sm font-medium"
+            >
+              Icon
+            </label>
+
+            <input
+              id="icon"
+              type="text"
+              value={icon}
+              onChange={(event) =>
+                setIcon(
+                  event.target.value
+                )
+              }
+              placeholder="Contoh: credit-card"
+              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+        </div>
+
+        <label className="mt-6 flex cursor-pointer items-center justify-between rounded-xl border p-4">
+          <div>
+            <p className="font-medium">
               Aktifkan metode pembayaran
             </p>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Metode pembayaran aktif dapat dipilih
-              oleh customer saat melakukan pembayaran.
+              Metode aktif akan tersedia untuk customer saat
+              checkout.
             </p>
           </div>
+
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(event) =>
+              setIsActive(
+                event.target.checked
+              )
+            }
+            className="h-5 w-5"
+          />
         </label>
       </div>
 
-      {/* ACTIONS */}
+      {/* =====================================================
+          SUBMIT
+      ====================================================== */}
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button
           type="button"
+          disabled={isSubmitting}
           onClick={() =>
             router.push(
               "/admin/payment-channels"
             )
           }
-          disabled={isSubmitting}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded-xl border px-5 py-3 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
         >
-          <ArrowLeft className="h-4 w-4" />
-
-          Kembali
+          Batal
         </button>
 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? (
             <>
@@ -351,7 +863,7 @@ if (!result.success) {
             <>
               <Save className="h-4 w-4" />
 
-              Simpan Metode
+              Simpan Metode Pembayaran
             </>
           )}
         </button>

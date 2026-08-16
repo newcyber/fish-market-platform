@@ -1,29 +1,19 @@
-import Link from "next/link";
+"use client";
 
-import { Pencil } from "lucide-react";
-
-import DeleteCategoryButton from "./DeleteCategoryButton";
+import { useRouter } from "next/navigation";
 
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
-import { Badge } from "@/components/ui/badge";
-
-import { Button } from "@/components/ui/button";
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface CategoryTableItem {
   id: string;
@@ -31,10 +21,6 @@ export interface CategoryTableItem {
   name: string;
 
   slug: string;
-
-  sortOrder: number;
-
-  isActive: boolean;
 
   totalProducts: number;
 }
@@ -46,113 +32,151 @@ interface CategoryTableProps {
 export function CategoryTable({
   categories,
 }: CategoryTableProps) {
+  const router = useRouter();
+
+  /**
+   * ============================================================
+   * EMPTY STATE
+   * ============================================================
+   */
+
+  if (categories.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-10 text-center">
+        <p className="text-sm text-muted-foreground">
+          Belum ada kategori.
+        </p>
+      </div>
+    );
+  }
+
+  /**
+   * ============================================================
+   * TABLE
+   * ============================================================
+   */
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          Daftar Kategori
-        </CardTitle>
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="border-b bg-muted/50">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">
+                Nama Kategori
+              </th>
 
-        <CardDescription>
-          Kelola seluruh kategori produk.
-        </CardDescription>
-      </CardHeader>
+              <th className="px-4 py-3 text-left font-medium">
+                Slug
+              </th>
 
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nama</TableHead>
+              <th className="px-4 py-3 text-center font-medium">
+                Total Produk
+              </th>
 
-              <TableHead>Slug</TableHead>
-
-              <TableHead className="text-center">
-                Produk
-              </TableHead>
-
-              <TableHead className="text-center">
-                Urutan
-              </TableHead>
-
-              <TableHead>Status</TableHead>
-
-              <TableHead className="text-right">
+              <th className="px-4 py-3 text-right font-medium">
                 Aksi
-              </TableHead>
-            </TableRow>
-          </TableHeader>
+              </th>
+            </tr>
+          </thead>
 
-          <TableBody>
-            {categories.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="h-32 text-center text-muted-foreground"
-                >
-                  Belum ada kategori.
-                </TableCell>
-              </TableRow>
-            ) : (
-              categories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">
-                    {category.name}
-                  </TableCell>
+          <tbody>
+            {categories.map((category) => (
+              <tr
+                key={category.id}
+                className="border-b last:border-b-0 hover:bg-muted/40"
+              >
+                {/* ============================================================
+                    CATEGORY NAME
+                ============================================================ */}
 
-                  <TableCell>
-                    {category.slug}
-                  </TableCell>
+                <td className="px-4 py-4 font-medium">
+                  {category.name}
+                </td>
 
-                  <TableCell className="text-center">
-                    {category.totalProducts}
-                  </TableCell>
+                {/* ============================================================
+                    SLUG
+                ============================================================ */}
 
-                  <TableCell className="text-center">
-                    {category.sortOrder}
-                  </TableCell>
+                <td className="px-4 py-4 text-muted-foreground">
+                  {category.slug}
+                </td>
 
-                  <TableCell>
-                    <Badge
-                      variant={
-                        category.isActive
-                          ? "default"
-                          : "secondary"
-                      }
+                {/* ============================================================
+                    TOTAL PRODUCTS
+                ============================================================ */}
+
+                <td className="px-4 py-4 text-center">
+                  {category.totalProducts}
+                </td>
+
+                {/* ============================================================
+                    ACTIONS
+                ============================================================ */}
+
+                <td className="px-4 py-4 text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="
+                        inline-flex
+                        h-9
+                        w-9
+                        items-center
+                        justify-center
+                        rounded-md
+                        text-muted-foreground
+                        transition-colors
+                        hover:bg-muted
+                        hover:text-foreground
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-ring
+                        focus-visible:ring-offset-2
+                        disabled:pointer-events-none
+                        disabled:opacity-50
+                      "
+                      aria-label={`Aksi ${category.name}`}
                     >
-                      {category.isActive
-                        ? "Aktif"
-                        : "Nonaktif"}
-                    </Badge>
-                  </TableCell>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </DropdownMenuTrigger>
 
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        href={`/admin/categories/${category.id}/edit`}
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          router.push(
+                            `/admin/categories/${category.id}/edit`
+                          );
+                        }}
                       >
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                        <Pencil className="mr-2 h-4 w-4" />
 
-                      <DeleteCategoryButton
-  id={category.id}
-  name={category.name}
-/>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+                        Edit
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={() => {
+                          console.log(
+                            "Delete category:",
+                            category.id
+                          );
+                        }}
+                        className="
+                          text-destructive
+                          focus:text-destructive
+                        "
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+
+                        Hapus
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
-
-export default CategoryTable;

@@ -8,7 +8,6 @@ interface ShowcaseProduct {
     name: string;
     slug: string;
     price: number;
-    unit: string;
     stock: number;
     image: string | null;
 }
@@ -258,10 +257,6 @@ export default function MobileProductsShowcase({
                                     <h3 className="line-clamp-2 min-h-8 text-[11px] font-medium leading-4 text-slate-800">
                                         {product.name}
                                     </h3>
-
-                                    <p className="mt-1 truncate text-[9px] text-slate-400">
-                                        {product.unit}
-                                    </p>
 
                                     <p className="mt-1.5 text-xs font-bold text-cyan-600">
                                         {formatPrice(product.price)}

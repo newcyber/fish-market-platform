@@ -2,26 +2,32 @@ import { ProductRepository } from "@/repositories/ProductRepository";
 
 export interface ProductFilters {
   search?: string;
+
   categoryId?: string;
+
   published?: boolean;
+
   featured?: boolean;
 }
 
 export interface CreateProductInput {
   categoryId: string;
+
   name: string;
+
   slug: string;
+
   description?: string;
 
   sku?: string;
-
-  unit: string;
 
   price: number;
 
   stock: number;
 
-  weight: number;
+  variantOptions?: string[];
+
+  weightOptions?: string[];
 
   isPublished?: boolean;
 
@@ -33,35 +39,53 @@ export type UpdateProductInput =
 
 export class ProductService {
   /**
-   * Product List
+   * ============================================================
+   * PRODUCT LIST
+   * ============================================================
    */
+
   static async getProducts(
     filters: ProductFilters = {}
   ) {
-    return ProductRepository.findMany(filters);
+    return ProductRepository.findMany(
+      filters
+    );
   }
 
   /**
-   * Product Detail
+   * ============================================================
+   * PRODUCT DETAIL
+   * ============================================================
    */
+
   static async getProductById(
     id: string
   ) {
-    return ProductRepository.findById(id);
+    return ProductRepository.findById(
+      id
+    );
   }
 
   /**
-   * Product by Slug
+   * ============================================================
+   * PRODUCT BY SLUG
+   * ============================================================
    */
+
   static async getProductBySlug(
     slug: string
   ) {
-    return ProductRepository.findBySlug(slug);
+    return ProductRepository.findBySlug(
+      slug
+    );
   }
 
   /**
-   * Create Product
+   * ============================================================
+   * CREATE PRODUCT
+   * ============================================================
    */
+
   static async createProduct(
     input: CreateProductInput
   ) {
@@ -89,26 +113,123 @@ export class ProductService {
       }
     }
 
+    /**
+     * Bersihkan opsi kosong dan duplikat.
+     */
+
+    const variantOptions =
+      Array.from(
+        new Set(
+          (input.variantOptions ?? [])
+            .map((item) =>
+              item.trim()
+            )
+            .filter(
+              Boolean
+            )
+        )
+      );
+
+    const weightOptions =
+      Array.from(
+        new Set(
+          (input.weightOptions ?? [])
+            .map((item) =>
+              item.trim()
+            )
+            .filter(
+              Boolean
+            )
+        )
+      );
+
     return ProductRepository.create({
-      ...input,
+      categoryId:
+        input.categoryId,
+
+      name:
+        input.name,
+
+      slug:
+        input.slug,
+
+      description:
+        input.description || null,
+
+      sku:
+        input.sku || null,
+
+      price:
+        input.price,
+
+      stock:
+        input.stock,
+
+      isPublished:
+        input.isPublished ?? true,
+
+      featured:
+        input.featured ?? false,
+
+      variantOptions: {
+        create:
+          variantOptions.map(
+            (label, index) => ({
+              label,
+
+              sortOrder:
+                index,
+
+              isActive:
+                true,
+            })
+          ),
+      },
+
+      weightOptions: {
+        create:
+          weightOptions.map(
+            (label, index) => ({
+              label,
+
+              sortOrder:
+                index,
+
+              isActive:
+                true,
+            })
+          ),
+      },
     });
   }
 
   /**
-   * Update Product
+   * ============================================================
+   * UPDATE PRODUCT
+   * ============================================================
    */
+
   static async updateProduct(
     id: string,
+
     input: UpdateProductInput
   ) {
     const product =
-      await ProductRepository.findById(id);
+      await ProductRepository.findById(
+        id
+      );
 
     if (!product) {
       throw new Error(
         "Produk tidak ditemukan."
       );
     }
+
+    /**
+     * ==========================================================
+     * CHECK SLUG
+     * ==========================================================
+     */
 
     if (
       input.slug &&
@@ -126,6 +247,12 @@ export class ProductService {
       }
     }
 
+    /**
+     * ==========================================================
+     * CHECK SKU
+     * ==========================================================
+     */
+
     if (
       input.sku &&
       input.sku !== product.sku
@@ -142,22 +269,142 @@ export class ProductService {
       }
     }
 
+    /**
+     * ==========================================================
+     * CLEAN OPTIONS
+     * ==========================================================
+     */
+
+    const variantOptions =
+      input.variantOptions !== undefined
+        ? Array.from(
+            new Set(
+              input.variantOptions
+                .map((item) =>
+                  item.trim()
+                )
+                .filter(Boolean)
+            )
+          )
+        : undefined;
+
+    const weightOptions =
+      input.weightOptions !== undefined
+        ? Array.from(
+            new Set(
+              input.weightOptions
+                .map((item) =>
+                  item.trim()
+                )
+                .filter(Boolean)
+            )
+          )
+        : undefined;
+
+    /**
+     * ==========================================================
+     * UPDATE PRODUCT
+     * ==========================================================
+     *
+     * deleteMany() menghapus opsi lama.
+     * create() membuat ulang opsi sesuai
+     * kondisi terbaru dari Admin.
+     */
+
     return ProductRepository.update(
       id,
       {
-        ...input,
+        categoryId:
+          input.categoryId,
+
+        name:
+          input.name,
+
+        slug:
+          input.slug,
+
+        description:
+          input.description || null,
+
+        sku:
+          input.sku || null,
+
+        price:
+          input.price,
+
+        stock:
+          input.stock,
+
+        isPublished:
+          input.isPublished,
+
+        featured:
+          input.featured,
+
+        ...(variantOptions !== undefined
+          ? {
+              variantOptions: {
+                deleteMany: {},
+
+                create:
+                  variantOptions.map(
+                    (
+                      label,
+                      index
+                    ) => ({
+                      label,
+
+                      sortOrder:
+                        index,
+
+                      isActive:
+                        true,
+                    })
+                  ),
+              },
+            }
+          : {}),
+
+        ...(weightOptions !== undefined
+          ? {
+              weightOptions: {
+                deleteMany: {},
+
+                create:
+                  weightOptions.map(
+                    (
+                      label,
+                      index
+                    ) => ({
+                      label,
+
+                      sortOrder:
+                        index,
+
+                      isActive:
+                        true,
+                    })
+                  ),
+              },
+            }
+          : {}),
       }
     );
   }
 
   /**
-   * Soft Delete Product
+   * ============================================================
+   * SOFT DELETE PRODUCT
+   * ============================================================
    */
+
   static async deleteProduct(
     id: string
   ) {
     const product =
-      await ProductRepository.findById(id);
+      await ProductRepository.findById(
+        id
+      );
 
     if (!product) {
       throw new Error(
@@ -171,13 +418,18 @@ export class ProductService {
   }
 
   /**
-   * Publish Product
+   * ============================================================
+   * PUBLISH PRODUCT
+   * ============================================================
    */
+
   static async publishProduct(
     id: string
   ) {
     const product =
-      await ProductRepository.findById(id);
+      await ProductRepository.findById(
+        id
+      );
 
     if (!product) {
       throw new Error(
@@ -185,19 +437,27 @@ export class ProductService {
       );
     }
 
-    return ProductRepository.update(id, {
-      isPublished: true,
-    });
+    return ProductRepository.update(
+      id,
+      {
+        isPublished: true,
+      }
+    );
   }
 
   /**
-   * Unpublish Product
+   * ============================================================
+   * UNPUBLISH PRODUCT
+   * ============================================================
    */
+
   static async unpublishProduct(
     id: string
   ) {
     const product =
-      await ProductRepository.findById(id);
+      await ProductRepository.findById(
+        id
+      );
 
     if (!product) {
       throw new Error(
@@ -205,44 +465,60 @@ export class ProductService {
       );
     }
 
-    return ProductRepository.update(id, {
-      isPublished: false,
-    });
+    return ProductRepository.update(
+      id,
+      {
+        isPublished: false,
+      }
+    );
   }
 
   /**
- * Toggle Publish Product
- */
-static async togglePublish(
-  id: string
-) {
-  const product =
-    await ProductRepository.findById(
+   * ============================================================
+   * TOGGLE PUBLISH
+   * ============================================================
+   */
+
+  static async togglePublish(
+    id: string
+  ) {
+    const product =
+      await ProductRepository.findById(
+        id
+      );
+
+    if (!product) {
+      throw new Error(
+        "Produk tidak ditemukan."
+      );
+    }
+
+    if (product.isPublished) {
+      return this.unpublishProduct(
+        id
+      );
+    }
+
+    return this.publishProduct(
       id
     );
-
-  if (!product) {
-    throw new Error(
-      "Produk tidak ditemukan."
-    );
   }
-
-  if (product.isPublished) {
-    return this.unpublishProduct(id);
-  }
-
-  return this.publishProduct(id);
-}
 
   /**
-   * Set Featured
+   * ============================================================
+   * SET FEATURED
+   * ============================================================
    */
+
   static async setFeatured(
     id: string,
+
     featured: boolean
   ) {
     const product =
-      await ProductRepository.findById(id);
+      await ProductRepository.findById(
+        id
+      );
 
     if (!product) {
       throw new Error(
@@ -250,9 +526,12 @@ static async togglePublish(
       );
     }
 
-    return ProductRepository.update(id, {
-      featured,
-    });
+    return ProductRepository.update(
+      id,
+      {
+        featured,
+      }
+    );
   }
 }
 

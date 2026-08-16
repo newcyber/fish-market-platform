@@ -2,15 +2,21 @@ import { prisma } from "@/lib/prisma";
 
 export interface ProductFilters {
   search?: string;
+
   categoryId?: string;
+
   published?: boolean;
+
   featured?: boolean;
 }
 
 export class ProductRepository {
   /**
-   * Total produk aktif (belum dihapus).
+   * ============================================================
+   * TOTAL PRODUCTS
+   * ============================================================
    */
+
   static async getTotal() {
     return prisma.product.count({
       where: {
@@ -20,32 +26,79 @@ export class ProductRepository {
   }
 
   /**
-   * Total produk yang dipublikasikan.
+   * ============================================================
+   * TOTAL PUBLISHED PRODUCTS
+   * ============================================================
    */
+
   static async getPublishedTotal() {
     return prisma.product.count({
       where: {
         deletedAt: null,
+
         isPublished: true,
       },
     });
   }
 
   /**
-   * Total produk unggulan.
+   * ============================================================
+   * TOTAL FEATURED PRODUCTS
+   * ============================================================
    */
+
   static async getFeaturedTotal() {
     return prisma.product.count({
       where: {
         deletedAt: null,
+
         featured: true,
       },
     });
   }
 
   /**
-   * Daftar produk (Admin).
+   * ============================================================
+   * PRODUCT INCLUDE
+   * ============================================================
    */
+
+  private static readonly productInclude = {
+    category: true,
+
+    images: {
+      orderBy: {
+        sortOrder: "asc" as const,
+      },
+    },
+
+    variantOptions: {
+      where: {
+        isActive: true,
+      },
+
+      orderBy: {
+        sortOrder: "asc" as const,
+      },
+    },
+
+    weightOptions: {
+      where: {
+        isActive: true,
+      },
+
+      orderBy: {
+        sortOrder: "asc" as const,
+      },
+    },
+  };
+
+  /**
+   * ============================================================
+   * FIND MANY
+   * ============================================================
+   */
+
   static async findMany(
     filters: ProductFilters = {}
   ) {
@@ -66,18 +119,23 @@ export class ProductRepository {
                 {
                   name: {
                     contains: search,
+
                     mode: "insensitive",
                   },
                 },
+
                 {
                   slug: {
                     contains: search,
+
                     mode: "insensitive",
                   },
                 },
+
                 {
                   sku: {
                     contains: search,
+
                     mode: "insensitive",
                   },
                 },
@@ -104,15 +162,8 @@ export class ProductRepository {
           : {}),
       },
 
-      include: {
-        category: true,
-
-        images: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
-      },
+      include:
+        this.productInclude,
 
       orderBy: {
         createdAt: "desc",
@@ -121,9 +172,14 @@ export class ProductRepository {
   }
 
   /**
-   * Mengambil produk terbaru.
+   * ============================================================
+   * FIND LATEST
+   * ============================================================
    */
-  static async findLatest(limit = 10) {
+
+  static async findLatest(
+    limit = 10
+  ) {
     return prisma.product.findMany({
       take: limit,
 
@@ -131,15 +187,8 @@ export class ProductRepository {
         deletedAt: null,
       },
 
-      include: {
-        category: true,
-
-        images: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
-      },
+      include:
+        this.productInclude,
 
       orderBy: {
         createdAt: "desc",
@@ -148,27 +197,27 @@ export class ProductRepository {
   }
 
   /**
-   * Mengambil produk unggulan.
+   * ============================================================
+   * FIND FEATURED
+   * ============================================================
    */
-  static async findFeatured(limit = 8) {
+
+  static async findFeatured(
+    limit = 8
+  ) {
     return prisma.product.findMany({
       take: limit,
 
       where: {
         deletedAt: null,
+
         isPublished: true,
+
         featured: true,
       },
 
-      include: {
-        category: true,
-
-        images: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
-      },
+      include:
+        this.productInclude,
 
       orderBy: {
         createdAt: "desc",
@@ -177,30 +226,32 @@ export class ProductRepository {
   }
 
   /**
-   * Mengambil produk berdasarkan slug.
+   * ============================================================
+   * FIND BY SLUG
+   * ============================================================
    */
-  static async findBySlug(slug: string) {
+
+  static async findBySlug(
+    slug: string
+  ) {
     return prisma.product.findFirst({
       where: {
         slug,
+
         deletedAt: null,
       },
 
-      include: {
-        category: true,
-
-        images: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
-      },
+      include:
+        this.productInclude,
     });
   }
 
   /**
-   * Mengecek slug sudah digunakan.
+   * ============================================================
+   * CHECK SLUG
+   * ============================================================
    */
+
   static async existsBySlug(
     slug: string
   ) {
@@ -208,6 +259,7 @@ export class ProductRepository {
       await prisma.product.count({
         where: {
           slug,
+
           deletedAt: null,
         },
       });
@@ -216,8 +268,11 @@ export class ProductRepository {
   }
 
   /**
-   * Mengecek SKU sudah digunakan.
+   * ============================================================
+   * CHECK SKU
+   * ============================================================
    */
+
   static async existsBySku(
     sku: string
   ) {
@@ -229,6 +284,7 @@ export class ProductRepository {
       await prisma.product.count({
         where: {
           sku,
+
           deletedAt: null,
         },
       });
@@ -237,30 +293,32 @@ export class ProductRepository {
   }
 
   /**
-   * Mengambil produk berdasarkan ID.
+   * ============================================================
+   * FIND BY ID
+   * ============================================================
    */
-  static async findById(id: string) {
+
+  static async findById(
+    id: string
+  ) {
     return prisma.product.findFirst({
       where: {
         id,
+
         deletedAt: null,
       },
 
-      include: {
-        category: true,
-
-        images: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
-      },
+      include:
+        this.productInclude,
     });
   }
 
   /**
-   * Membuat produk baru.
+   * ============================================================
+   * CREATE PRODUCT
+   * ============================================================
    */
+
   static async create(
     data: Parameters<
       typeof prisma.product.create
@@ -268,14 +326,21 @@ export class ProductRepository {
   ) {
     return prisma.product.create({
       data,
+
+      include:
+        this.productInclude,
     });
   }
 
   /**
-   * Update produk.
+   * ============================================================
+   * UPDATE PRODUCT
+   * ============================================================
    */
+
   static async update(
     id: string,
+
     data: Parameters<
       typeof prisma.product.update
     >[0]["data"]
@@ -286,12 +351,18 @@ export class ProductRepository {
       },
 
       data,
+
+      include:
+        this.productInclude,
     });
   }
 
   /**
-   * Soft delete produk.
+   * ============================================================
+   * SOFT DELETE PRODUCT
+   * ============================================================
    */
+
   static async softDelete(
     id: string
   ) {
@@ -301,14 +372,18 @@ export class ProductRepository {
       },
 
       data: {
-        deletedAt: new Date(),
+        deletedAt:
+          new Date(),
       },
     });
   }
 
   /**
-   * Restore produk.
+   * ============================================================
+   * RESTORE PRODUCT
+   * ============================================================
    */
+
   static async restore(
     id: string
   ) {

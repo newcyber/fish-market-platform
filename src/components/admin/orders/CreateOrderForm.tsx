@@ -56,6 +56,7 @@ interface CustomerOption {
   email: string;
 
   addresses: AddressOption[];
+
 }
 
 interface ProductOption {
@@ -63,13 +64,12 @@ interface ProductOption {
 
   name: string;
 
-  sku?: string | null;
+  sku: string | null;
 
   price: number;
 
   stock: number;
-
-  unit: string;
+  
 }
 
 interface CartItem {

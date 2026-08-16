@@ -416,13 +416,6 @@ const wishlistProductIds =
                               price
                             )}
                           </div>
-
-                          <div className="mt-1 text-xs text-slate-400">
-                            per{" "}
-                            {
-                              product.unit
-                            }
-                          </div>
                         </div>
 
                         <div className="mt-4 flex items-center justify-between gap-2">

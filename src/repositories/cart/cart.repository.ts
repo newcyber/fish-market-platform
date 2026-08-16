@@ -6,7 +6,10 @@ export class CartRepository {
    * GET CART BY USER
    * ============================================================
    */
-  static async findByUserId(userId: string) {
+
+  static async findByUserId(
+    userId: string
+  ) {
     return prisma.cart.findUnique({
       where: {
         userId,
@@ -41,7 +44,10 @@ export class CartRepository {
    * GET CART ITEM COUNT
    * ============================================================
    */
-  static async countItems(userId: string) {
+
+  static async countItems(
+    userId: string
+  ) {
     const cart =
       await prisma.cart.findUnique({
         where: {
@@ -65,6 +71,7 @@ export class CartRepository {
    * CREATE CART
    * ============================================================
    */
+
   static async create(
     userId: string
   ) {
@@ -79,17 +86,37 @@ export class CartRepository {
    * ============================================================
    * FIND CART ITEM
    * ============================================================
+   *
+   * Satu produk dapat memiliki item cart berbeda
+   * berdasarkan variant dan weight.
+   *
+   * Contoh:
+   *
+   * Ikan A
+   * - Utuh / 500gr
+   * - Dibersihkan / 500gr
+   * - Dibersihkan / 1kg
+   *
+   * Semuanya dianggap sebagai cart item berbeda.
+   *
    */
+
   static async findItem(
     cartId: string,
-    productId: string
+    productId: string,
+    productVariant?: string | null,
+    productWeight?: string | null
   ) {
-    return prisma.cartItem.findUnique({
+    return prisma.cartItem.findFirst({
       where: {
-        cartId_productId: {
-          cartId,
-          productId,
-        },
+        cartId,
+        productId,
+
+        productVariant:
+          productVariant ?? null,
+
+        productWeight:
+          productWeight ?? null,
       },
 
       include: {
@@ -103,6 +130,7 @@ export class CartRepository {
    * FIND ITEM BY ID
    * ============================================================
    */
+
   static async findItemById(
     itemId: string
   ) {
@@ -113,6 +141,7 @@ export class CartRepository {
 
       include: {
         cart: true,
+
         product: true,
       },
     });
@@ -123,20 +152,43 @@ export class CartRepository {
    * CREATE ITEM
    * ============================================================
    */
+
   static async createItem(
     data: {
       cartId: string;
       productId: string;
+
+      productVariant?: string | null;
+      productWeight?: string | null;
+
+      customerNote?: string | null;
+
       quantity: number;
       price: number;
     }
   ) {
     return prisma.cartItem.create({
       data: {
-        cartId: data.cartId,
-        productId: data.productId,
-        quantity: data.quantity,
-        price: data.price,
+        cartId:
+          data.cartId,
+
+        productId:
+          data.productId,
+
+        productVariant:
+          data.productVariant ?? null,
+
+        productWeight:
+          data.productWeight ?? null,
+
+        customerNote:
+          data.customerNote ?? null,
+
+        quantity:
+          data.quantity,
+
+        price:
+          data.price,
       },
     });
   }
@@ -146,11 +198,19 @@ export class CartRepository {
    * UPDATE ITEM
    * ============================================================
    */
+
   static async updateItem(
     itemId: string,
     data: {
       quantity: number;
+
       price?: number;
+
+      productVariant?: string | null;
+
+      productWeight?: string | null;
+
+      customerNote?: string | null;
     }
   ) {
     return prisma.cartItem.update({
@@ -159,11 +219,37 @@ export class CartRepository {
       },
 
       data: {
-        quantity: data.quantity,
+        quantity:
+          data.quantity,
 
         ...(data.price !== undefined
           ? {
-              price: data.price,
+              price:
+                data.price,
+            }
+          : {}),
+
+        ...(data.productVariant !==
+        undefined
+          ? {
+              productVariant:
+                data.productVariant,
+            }
+          : {}),
+
+        ...(data.productWeight !==
+        undefined
+          ? {
+              productWeight:
+                data.productWeight,
+            }
+          : {}),
+
+        ...(data.customerNote !==
+        undefined
+          ? {
+              customerNote:
+                data.customerNote,
             }
           : {}),
       },
@@ -171,30 +257,32 @@ export class CartRepository {
   }
 
   /**
- * ==========================================================
- * UPDATE CART ITEM QUANTITY
- * ==========================================================
- */
-async updateItemQuantity(
-  cartItemId: string,
-  quantity: number
-) {
-  return prisma.cartItem.update({
-    where: {
-      id: cartItemId,
-    },
+   * ============================================================
+   * UPDATE CART ITEM QUANTITY
+   * ============================================================
+   */
 
-    data: {
-      quantity,
-    },
-  });
-}
+  static async updateItemQuantity(
+    cartItemId: string,
+    quantity: number
+  ) {
+    return prisma.cartItem.update({
+      where: {
+        id: cartItemId,
+      },
+
+      data: {
+        quantity,
+      },
+    });
+  }
 
   /**
    * ============================================================
    * DELETE ITEM
    * ============================================================
    */
+
   static async deleteItem(
     itemId: string
   ) {
@@ -210,6 +298,7 @@ async updateItemQuantity(
    * CLEAR CART
    * ============================================================
    */
+
   static async clear(
     cartId: string
   ) {

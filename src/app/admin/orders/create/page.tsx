@@ -85,9 +85,7 @@ const productOptions =
 
     stock:
       product.stock,
-
-    unit:
-      product.unit,
+      
   }));
 
   return (

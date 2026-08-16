@@ -172,7 +172,7 @@ const orders =
         {/* ================================================== */}
 
         {orders.length === 0 && (
-          <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <div className="flex min-h-100 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
               <ShoppingBag className="h-8 w-8 text-slate-400" />
             </div>

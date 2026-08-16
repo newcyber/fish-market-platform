@@ -197,9 +197,6 @@ export default async function ProductsPage() {
 
           price,
 
-          unit:
-            product.unit ?? "",
-
           stock:
             product.stock ?? 0,
 
@@ -550,12 +547,6 @@ export default async function ProductsPage() {
 
                         </h3>
 
-                        <p className="mt-1 truncate text-[10px] text-slate-400">
-
-                          {product.unit}
-
-                        </p>
-
                         <p className="mt-2 text-sm font-bold leading-none text-cyan-600">
 
                           {formatPrice(price)}
@@ -732,12 +723,6 @@ export default async function ProductsPage() {
                           {product.name}
 
                         </h3>
-
-                        <p className="mt-1 text-xs text-slate-400">
-
-                          {product.unit}
-
-                        </p>
 
                         <div className="mt-4 flex items-end justify-between gap-3">
 

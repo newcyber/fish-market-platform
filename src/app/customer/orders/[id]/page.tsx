@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+
 import {
   notFound,
   redirect,
@@ -17,8 +19,10 @@ import {
   MapPin,
   Package,
   Phone,
+  QrCode,
   ReceiptText,
   ShoppingBag,
+  Truck,
   User,
   XCircle,
 } from "lucide-react";
@@ -286,6 +290,100 @@ export default async function CustomerOrderDetailPage({
 
   /**
    * ==========================================================
+   * PAYMENT CHANNEL
+   * ==========================================================
+   */
+
+  const paymentChannel =
+    order.paymentChannel;
+
+  /**
+   * ==========================================================
+   * PAYMENT TYPE
+   * ==========================================================
+   */
+
+  const paymentType =
+    paymentChannel?.type ??
+    "BANK_TRANSFER";
+
+  /**
+   * ==========================================================
+   * QRIS DETECTION
+   * ==========================================================
+   */
+
+  const isQris =
+    paymentType === "QRIS";
+
+  /**
+   * ==========================================================
+   * PAYMENT CHANNEL DATA
+   * ==========================================================
+   */
+
+  const paymentName =
+    paymentChannel?.name ??
+    (
+      isQris
+        ? "QRIS"
+        : "Transfer Bank"
+    );
+
+  const paymentDescription =
+    paymentChannel?.description ??
+    null;
+
+  /**
+ * ==========================================================
+ * QRIS IMAGE
+ * ==========================================================
+ *
+ * Gambar QRIS disimpan pada:
+ *
+ * paymentChannel.qrisImage
+ *
+ * Contoh:
+ *
+ * /uploads/payments/qris.png
+ *
+ * atau:
+ *
+ * https://domain-storage.com/qris.png
+ * ==========================================================
+ */
+
+  const rawQrisImage =
+    isQris
+      ? paymentChannel?.qrisImage ?? null
+      : null;
+
+  const qrisImage =
+    rawQrisImage &&
+      rawQrisImage.trim().length > 0
+      ? rawQrisImage
+      : null;
+
+  /**
+   * ==========================================================
+   * PAYMENT STATE
+   * ==========================================================
+   */
+
+  const isPaymentVerified =
+    order.paymentStatus ===
+    "VERIFIED";
+
+  const isPaymentRejected =
+    order.paymentStatus ===
+    "REJECTED";
+
+  const isWaitingVerification =
+    order.status ===
+    "WAITING_VERIFICATION";
+
+  /**
+   * ==========================================================
    * RENDER
    * ==========================================================
    */
@@ -443,12 +541,104 @@ export default async function CustomerOrderDetailPage({
                           )}
                         </p>
                       </div>
+
                     </div>
                   )
                 )}
 
               </div>
-            </section>
+                        </section>
+
+            {/* ================================================ */}
+            {/* SHIPPING INFORMATION */}
+            {/* ================================================ */}
+
+            {order.trackingNumber && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
+                    <Truck className="h-5 w-5 text-slate-700" />
+                  </div>
+
+                  <div>
+                    <h2 className="font-semibold text-slate-950">
+                      Informasi Pengiriman
+                    </h2>
+
+                    <p className="text-sm text-slate-500">
+                      Informasi pengiriman pesanan Anda
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Kurir
+                    </p>
+
+                    <p className="mt-1 font-medium text-slate-900">
+                      {order.shippingProvider === "INTERNAL"
+                        ? "Kurir Internal"
+                        : order.shippingProvider}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Layanan
+                    </p>
+
+                    <p className="mt-1 font-medium text-slate-900">
+                      {order.shippingService ??
+                        "Pengiriman Internal Fish Market"}
+                    </p>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Nomor Resi
+                    </p>
+
+                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm font-semibold tracking-wide text-slate-900">
+                      {order.trackingNumber}
+                    </div>
+                  </div>
+
+                  {order.shippedAt && (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        Tanggal Pengiriman
+                      </p>
+
+                      <p className="mt-1 font-medium text-slate-900">
+                        {new Intl.DateTimeFormat(
+                          "id-ID",
+                          {
+                            dateStyle: "long",
+                            timeStyle: "short",
+                          }
+                        ).format(
+                          new Date(order.shippedAt)
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Status Pengiriman
+                    </p>
+
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-cyan-100 px-3 py-1.5 text-xs font-semibold text-cyan-700">
+                      <Truck className="h-3.5 w-3.5" />
+
+                      Dalam Pengiriman
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* ================================================ */}
             {/* SHIPPING ADDRESS */}
@@ -526,9 +716,7 @@ export default async function CustomerOrderDetailPage({
                   </div>
                 </div>
 
-                {/* ============================================ */}
                 {/* SAVED COORDINATES */}
-                {/* ============================================ */}
 
                 {order.address.latitude !== null &&
                   order.address.longitude !== null && (
@@ -568,9 +756,7 @@ export default async function CustomerOrderDetailPage({
                     </div>
                   )}
 
-                {/* ============================================ */}
                 {/* NOTES */}
-                {/* ============================================ */}
 
                 {order.address.notes && (
                   <div className="rounded-xl border border-slate-200 p-4">
@@ -690,162 +876,233 @@ export default async function CustomerOrderDetailPage({
             </section>
 
             {/* ================================================ */}
-{/* PAYMENT METHOD */}
-{/* ================================================ */}
+            {/* PAYMENT METHOD */}
+            {/* ================================================ */}
 
-{/* ================================================ */}
-{/* PAYMENT METHOD */}
-{/* ================================================ */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
-<section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
 
-  <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
 
-    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
-      <CreditCard className="h-5 w-5 text-slate-700" />
-    </div>
+                  {isQris ? (
+                    <QrCode className="h-5 w-5 text-slate-700" />
+                  ) : (
+                    <CreditCard className="h-5 w-5 text-slate-700" />
+                  )}
 
-    <div>
-      <h2 className="font-semibold text-slate-950">
-        Metode Pembayaran
-      </h2>
+                </div>
 
-      <p className="text-sm text-slate-500">
-        Informasi pembayaran pesanan
-      </p>
-    </div>
+                <div>
+                  <h2 className="font-semibold text-slate-950">
+                    Metode Pembayaran
+                  </h2>
 
-  </div>
+                  <p className="text-sm text-slate-500">
+                    Informasi metode pembayaran pesanan
+                  </p>
+                </div>
 
-  {order.paymentChannel ? (
+              </div>
 
-    <div className="space-y-4">
+              {/* ============================================== */}
+              {/* QRIS */}
+              {/* ============================================== */}
 
-      {/* PAYMENT CHANNEL NAME */}
-      <div className="rounded-xl bg-slate-50 p-4">
+              {isQris ? (
+                <div className="space-y-4">
 
-        <p className="text-sm font-semibold text-slate-900">
-          {order.paymentChannel.name}
-        </p>
+                  <div className="rounded-xl bg-slate-50 p-4">
 
-        {order.paymentChannel.description && (
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            {order.paymentChannel.description}
-          </p>
-        )}
+                    <p className="font-semibold text-slate-900">
+                      {paymentName}
+                    </p>
 
-      </div>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      {paymentDescription ??
+                        "Scan QRIS di bawah menggunakan aplikasi pembayaran pilihan Anda."}
+                    </p>
 
+                  </div>
 
-      {/* BANK NAME */}
-      {order.paymentChannel.bankName && (
-        <div className="border-b border-slate-100 pb-4">
+                  {!isPaymentVerified && qrisImage && (
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4">
 
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Bank / Provider
-          </p>
+                      <div className="mb-4 text-center">
 
-          <p className="mt-1 text-sm font-medium text-slate-900">
-            {order.paymentChannel.bankName}
-          </p>
+                        <p className="font-semibold text-slate-950">
+                          Scan QRIS untuk Membayar
+                        </p>
 
-        </div>
-      )}
+                        <p className="mt-1 text-sm text-slate-500">
+                          Pastikan nominal pembayaran sesuai dengan total pesanan.
+                        </p>
 
+                      </div>
 
-      {/* ACCOUNT NUMBER */}
-      {order.paymentChannel.accountNumber && (
-        <div className="border-b border-slate-100 pb-4">
+                      <div className="relative mx-auto aspect-square w-full max-w-70 overflow-hidden rounded-xl border border-slate-100 bg-white">
 
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Nomor Rekening
-          </p>
+                        <Image
+                          src={qrisImage}
+                          alt={`QRIS ${paymentName}`}
+                          fill
+                          sizes="280px"
+                          className="object-contain p-2"
+                        />
 
-          <p className="mt-1 break-all text-base font-semibold text-slate-950">
-            {order.paymentChannel.accountNumber}
-          </p>
+                      </div>
 
-        </div>
-      )}
+                    </div>
+                  )}
 
+                  {!isPaymentVerified &&
+                    !qrisImage && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
 
-      {/* ACCOUNT HOLDER */}
-      {order.paymentChannel.accountHolder && (
-        <div className="border-b border-slate-100 pb-4">
+                        <div className="flex items-start gap-3">
 
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Atas Nama
-          </p>
+                          <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
 
-          <p className="mt-1 text-sm font-medium text-slate-900">
-            {order.paymentChannel.accountHolder}
-          </p>
+                          <div>
+                            <p className="font-medium text-amber-900">
+                              Gambar QRIS belum tersedia
+                            </p>
 
-        </div>
-      )}
+                            <p className="mt-1 text-sm leading-6 text-amber-800">
+                              Silakan hubungi admin atau buka halaman pembayaran untuk informasi lebih lanjut.
+                            </p>
+                          </div>
 
+                        </div>
 
-      {/* PAYMENT INSTRUCTIONS */}
-      {order.paymentChannel.instructions && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                      </div>
+                    )}
 
-          <p className="mb-2 text-sm font-semibold text-slate-900">
-            Instruksi Pembayaran
-          </p>
+                  {isPaymentVerified ? (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
 
-          <p className="whitespace-pre-line text-sm leading-6 text-slate-600">
-            {order.paymentChannel.instructions}
-          </p>
+                      <div className="flex items-start gap-3">
 
-        </div>
-      )}
+                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
 
-    </div>
+                        <div>
+                          <p className="font-medium text-emerald-900">
+                            Pembayaran QRIS berhasil diverifikasi
+                          </p>
 
-  ) : (
+                          <p className="mt-1 text-sm leading-6 text-emerald-800">
+                            Pembayaran Anda telah diterima dan pesanan sedang diproses.
+                          </p>
+                        </div>
 
-    <div className="rounded-xl bg-slate-50 p-4">
+                      </div>
 
-      <p className="text-sm font-medium text-slate-900">
-        Metode pembayaran belum tersedia
-      </p>
+                    </div>
+                  ) : isWaitingVerification ? (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
 
-      <p className="mt-1 text-sm leading-6 text-slate-500">
-        Informasi metode pembayaran untuk pesanan ini tidak ditemukan.
-      </p>
+                      <div className="flex items-start gap-3">
 
-    </div>
+                        <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
 
-  )}
+                        <div>
+                          <p className="font-medium text-blue-900">
+                            Pembayaran sedang menunggu verifikasi
+                          </p>
 
+                          <p className="mt-1 text-sm leading-6 text-blue-800">
+                            Konfirmasi pembayaran Anda sudah diterima dan sedang diperiksa oleh admin.
+                          </p>
+                        </div>
 
-  {/* UPLOAD PAYMENT PROOF */}
+                      </div>
 
-  {order.paymentStatus !== "VERIFIED" && (
-    <Link
-      href={`/customer/orders/${order.id}/payment`}
-      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-    >
-      <CreditCard className="h-4 w-4" />
+                    </div>
+                  ) : (
+                    <Link
+                      href={`/customer/orders/${order.id}/payment`}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      <QrCode className="h-4 w-4" />
 
-      Upload Bukti Pembayaran
-    </Link>
-  )}
+                      Lanjutkan Pembayaran QRIS
+                    </Link>
+                  )}
 
-</section>
+                  {isPaymentRejected && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+
+                      <div className="flex items-start gap-3">
+
+                        <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+
+                        <div>
+                          <p className="font-medium text-red-900">
+                            Pembayaran sebelumnya ditolak
+                          </p>
+
+                          <p className="mt-1 text-sm leading-6 text-red-800">
+                            Silakan lakukan pembayaran kembali dan kirimkan konfirmasi pembayaran.
+                          </p>
+                        </div>
+
+                      </div>
+
+                    </div>
+                  )}
+
+                </div>
+              ) : (
+                /* ============================================ */
+                /* BANK TRANSFER */
+                /* ============================================ */
+
+                <div className="space-y-4">
+
+                  <div className="rounded-xl bg-slate-50 p-4">
+
+                    <p className="text-sm font-medium text-slate-900">
+                      {paymentName}
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      {paymentDescription ??
+                        "Status pembayaran akan diperbarui setelah proses verifikasi."}
+                    </p>
+
+                  </div>
+
+                  {!isPaymentVerified && (
+                    <Link
+                      href={`/customer/orders/${order.id}/payment`}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      <CreditCard className="h-4 w-4" />
+
+                      {isWaitingVerification
+                        ? "Lihat Status Pembayaran"
+                        : "Upload Bukti Pembayaran"}
+                    </Link>
+                  )}
+
+                </div>
+              )}
+
+            </section>
 
             {/* ================================================ */}
             {/* SHIPPING STATUS */}
             {/* ================================================ */}
 
             {order.status === "SHIPPING" && (
-              <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-6">
+              <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-6 shadow-sm">
 
                 <div className="flex items-start gap-3">
 
                   <MapPin className="mt-0.5 h-5 w-5 text-cyan-600" />
 
                   <div>
+
                     <h2 className="font-semibold text-cyan-950">
                       Pesanan Sedang Dikirim
                     </h2>
@@ -853,6 +1110,7 @@ export default async function CustomerOrderDetailPage({
                     <p className="mt-2 text-sm leading-6 text-cyan-800">
                       Pesanan Anda sedang dalam perjalanan menuju alamat tujuan.
                     </p>
+
                   </div>
 
                 </div>
@@ -863,6 +1121,7 @@ export default async function CustomerOrderDetailPage({
           </div>
 
         </div>
+
       </div>
     </main>
   );

@@ -7,8 +7,11 @@ import {
 } from "lucide-react";
 
 import { auth } from "@/auth";
+
 import CartService from "@/services/cart/cart.service";
 import AddressRepository from "@/repositories/address.repository";
+
+import settingsService from "@/services/settings/settings.service";
 
 import CheckoutForm from "@/components/customer/checkout/CheckoutForm";
 
@@ -19,15 +22,33 @@ import {
 /**
  * ============================================================
  * CUSTOMER CHECKOUT PAGE
+ * ============================================================
  *
  * Server Component
  *
  * Responsibilities:
+ *
  * - Authentication
  * - Get cart
  * - Get customer addresses
+ * - Get store shipping configuration
+ * - Get active payment channels
  * - Prepare serializable data
  * - Pass data to CheckoutForm
+ *
+ * IMPORTANT:
+ *
+ * Shipping method state TIDAK disimpan di sini karena file ini
+ * adalah Server Component.
+ *
+ * State seperti:
+ *
+ * - selectedShippingProvider
+ * - selectedAddress
+ * - selectedPaymentChannel
+ *
+ * harus dikelola di CheckoutForm karena merupakan
+ * Client Component.
  * ============================================================
  */
 
@@ -68,20 +89,37 @@ export default async function CheckoutPage() {
       userId
     );
 
+  /**
+   * ==========================================================
+   * GET STORE SETTINGS
+   *
+   * Digunakan sebagai:
+   *
+   * - Shipping origin
+   * - Konfigurasi kurir internal
+   *
+   * Settings diambil dari Server Component,
+   * lalu seluruh Decimal dikonversi menjadi number
+   * sebelum dikirim ke Client Component.
+   * ==========================================================
+   */
 
-    /**
- * ==========================================================
- * GET ACTIVE PAYMENT CHANNELS
- * ==========================================================
- */
+  const settings =
+    await settingsService.getSettings();
 
-const paymentChannelsResult =
-  await PaymentChannelService.getAllActive();
+  /**
+   * ==========================================================
+   * GET ACTIVE PAYMENT CHANNELS
+   * ==========================================================
+   */
 
-const paymentChannels =
-  paymentChannelsResult.success
-    ? paymentChannelsResult.data ?? []
-    : [];
+  const paymentChannelsResult =
+    await PaymentChannelService.getAllActive();
+
+  const paymentChannels =
+    paymentChannelsResult.success
+      ? paymentChannelsResult.data ?? []
+      : [];
 
   /**
    * ==========================================================
@@ -96,7 +134,6 @@ const paymentChannels =
     return (
       <main className="min-h-screen bg-slate-50">
         <div className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center px-6 text-center">
-
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
             <ShoppingBag className="h-10 w-10 text-slate-400" />
           </div>
@@ -118,7 +155,6 @@ const paymentChannels =
 
             Kembali ke Produk
           </Link>
-
         </div>
       </main>
     );
@@ -140,7 +176,7 @@ const paymentChannels =
         return (
           total +
           Number(item.price) *
-            item.quantity
+          item.quantity
         );
       },
       0
@@ -194,15 +230,15 @@ const paymentChannels =
         latitude:
           address.latitude !== null
             ? Number(
-                address.latitude
-              )
+              address.latitude
+            )
             : null,
 
         longitude:
           address.longitude !== null
             ? Number(
-                address.longitude
-              )
+              address.longitude
+            )
             : null,
 
         isDefault:
@@ -247,7 +283,7 @@ const paymentChannels =
             item.product.name,
 
           unit:
-            item.product.unit,
+            (item.product as unknown as { unit?: string }).unit ?? "",
 
           stock:
             item.product.stock,
@@ -259,42 +295,128 @@ const paymentChannels =
       })
     );
 
+  /**
+   * ==========================================================
+   * SERIALIZE PAYMENT CHANNELS
+   * ==========================================================
+   */
+
+  const serializedPaymentChannels =
+    paymentChannels.map(
+      (channel) => ({
+        id:
+          channel.id,
+
+        name:
+          channel.name,
+
+        type:
+          channel.type,
+
+        bankName:
+          channel.bankName,
+
+        accountNumber:
+          channel.accountNumber,
+
+        accountHolder:
+          channel.accountHolder,
+
+        instructions:
+          channel.instructions,
+
+        description:
+          channel.description,
+
+        icon:
+          channel.icon,
+
+        sortOrder:
+          channel.sortOrder,
+      })
+    );
+
+  /**
+   * ==========================================================
+   * SERIALIZE INTERNAL SHIPPING
+   *
+   * IMPORTANT:
+   * Semua Decimal dari Prisma dikonversi menjadi
+   * JavaScript number agar aman dikirim ke Client Component.
+   * ==========================================================
+   */
+
+  const internalShipping = {
     /**
- * ==========================================================
- * SERIALIZE PAYMENT CHANNELS
- * ==========================================================
- */
+     * --------------------------------------------------------
+     * STATUS
+     * --------------------------------------------------------
+     */
 
-const serializedPaymentChannels =
-  paymentChannels.map(
-    (channel) => ({
-      id: channel.id,
+    enabled:
+      settings.internalShippingEnabled,
 
-      name: channel.name,
+    /**
+     * --------------------------------------------------------
+     * SERVICE NAME
+     * --------------------------------------------------------
+     */
 
-      type: channel.type,
+    name:
+      settings.internalShippingName ??
+      "Kurir Internal",
 
-      bankName: channel.bankName,
+    /**
+     * --------------------------------------------------------
+     * STORE LOCATION / SHIPPING ORIGIN
+     * --------------------------------------------------------
+     */
 
-      accountNumber:
-        channel.accountNumber,
+    storeLocation: {
+      latitude:
+        settings.latitude !== null
+          ? Number(
+            settings.latitude
+          )
+          : null,
 
-      accountHolder:
-        channel.accountHolder,
+      longitude:
+        settings.longitude !== null
+          ? Number(
+            settings.longitude
+          )
+          : null,
+    },
 
-      instructions:
-        channel.instructions,
+    /**
+     * --------------------------------------------------------
+     * SHIPPING CONFIGURATION
+     * --------------------------------------------------------
+     */
 
-      description:
-        channel.description,
+    baseFee:
+      Number(
+        settings.internalShippingBaseFee
+      ),
 
-      icon:
-        channel.icon,
+    perKmFee:
+      Number(
+        settings.internalShippingPerKmFee
+      ),
 
-      sortOrder:
-        channel.sortOrder,
-    })
-  );
+    maxDistanceKm:
+      Number(
+        settings.internalShippingMaxDistance
+      ),
+
+    freeShippingThreshold:
+      settings.internalShippingFreeThreshold !==
+        null
+        ? Number(
+          settings.internalShippingFreeThreshold
+        )
+        : null,
+  };
 
   /**
    * ==========================================================
@@ -304,18 +426,21 @@ const serializedPaymentChannels =
 
   return (
     <CheckoutForm
-  addresses={
-    serializedAddresses
-  }
-  items={
-    serializedItems
-  }
-  subtotal={
-    subtotal
-  }
-  paymentChannels={
-    serializedPaymentChannels
-  }
-/>
+      addresses={
+        serializedAddresses
+      }
+      items={
+        serializedItems
+      }
+      subtotal={
+        subtotal
+      }
+      paymentChannels={
+        serializedPaymentChannels
+      }
+      internalShipping={
+        internalShipping
+      }
+    />
   );
 }

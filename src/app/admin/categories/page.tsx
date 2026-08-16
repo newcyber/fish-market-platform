@@ -20,16 +20,33 @@ interface CategoriesPageProps {
 export default async function CategoriesPage({
   searchParams,
 }: CategoriesPageProps) {
+  /**
+   * ============================================================
+   * SEARCH PARAMS
+   * ============================================================
+   */
+
   const params =
     (await searchParams) ?? {};
+
+  /**
+   * ============================================================
+   * GET CATEGORIES
+   * ============================================================
+   */
 
   const categories =
     await CategoryService.getCategories({
       search: params.search,
     });
 
-  const tableData:
-    CategoryTableItem[] =
+  /**
+   * ============================================================
+   * TABLE DATA
+   * ============================================================
+   */
+
+  const tableData: CategoryTableItem[] =
     categories.map((category) => ({
       id: category.id,
 
@@ -37,15 +54,14 @@ export default async function CategoriesPage({
 
       slug: category.slug,
 
-      sortOrder:
-        category.sortOrder,
-
-      isActive:
-        category.isActive,
-
-      totalProducts:
-        category._count.products,
+      totalProducts: 0,
     }));
+
+  /**
+   * ============================================================
+   * PAGE
+   * ============================================================
+   */
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,8 +71,7 @@ export default async function CategoriesPage({
         </h1>
 
         <p className="mt-2 text-muted-foreground">
-          Kelola seluruh kategori
-          produk.
+          Kelola seluruh kategori produk.
         </p>
       </div>
 

@@ -97,24 +97,21 @@ async function main() {
 
   for (const category of categories) {
     await prisma.category.upsert({
-      where: {
-        slug: category.slug,
-      },
-      update: {
-        name: category.name,
-        description: category.description,
-        sortOrder: category.sortOrder,
-        isActive: true,
-      },
-      create: {
-        name: category.name,
-        slug: category.slug,
-        image: null,
-        description: category.description,
-        sortOrder: category.sortOrder,
-        isActive: true,
-      },
-    });
+  where: {
+    slug: category.slug,
+  },
+
+  update: {
+    name: category.name,
+    description: category.description,
+  },
+
+  create: {
+    name: category.name,
+    slug: category.slug,
+    description: category.description,
+  },
+});
   }
 
   console.log("✅ Categories seeded.");

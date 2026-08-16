@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
  * UPDATE SETTINGS PAYLOAD
  * ============================================================
  */
+
 export interface UpdateSettingsPayload {
   storeName: string;
 
@@ -37,6 +38,40 @@ export interface UpdateSettingsPayload {
 
   postalCode?: string | null;
 
+  /**
+   * ==========================================================
+   * STORE LOCATION / SHIPPING ORIGIN
+   * ==========================================================
+   */
+
+  latitude?: number | null;
+
+  longitude?: number | null;
+
+  /**
+   * ==========================================================
+   * INTERNAL SHIPPING CONFIGURATION
+   * ==========================================================
+   */
+
+  internalShippingEnabled?: boolean;
+
+  internalShippingName?: string | null;
+
+  internalShippingBaseFee?: number;
+
+  internalShippingPerKmFee?: number;
+
+  internalShippingMaxDistance?: number;
+
+  internalShippingFreeThreshold?: number | null;
+
+  /**
+   * ==========================================================
+   * OPERASIONAL
+   * ==========================================================
+   */
+
   openingTime?: string | null;
 
   closingTime?: string | null;
@@ -47,17 +82,14 @@ export interface UpdateSettingsPayload {
  * SETTINGS REPOSITORY
  * ============================================================
  */
+
 class SettingsRepository {
   /**
    * ==========================================================
    * GET SETTINGS
    * ==========================================================
-   *
-   * Mengambil konfigurasi global toko.
-   *
-   * Karena hanya ada satu record StoreSettings,
-   * gunakan findFirst().
    */
+
   async get() {
     return prisma.storeSettings.findFirst();
   }
@@ -66,10 +98,8 @@ class SettingsRepository {
    * ==========================================================
    * GET OR CREATE SETTINGS
    * ==========================================================
-   *
-   * Jika settings belum pernah dibuat,
-   * otomatis buat record default.
    */
+
   async getOrCreate() {
     const existingSettings =
       await prisma.storeSettings.findFirst();
@@ -80,6 +110,12 @@ class SettingsRepository {
 
     return prisma.storeSettings.create({
       data: {
+        /**
+         * ------------------------------------------------------
+         * STORE INFORMATION
+         * ------------------------------------------------------
+         */
+
         storeName: "Fish Market",
 
         storeDescription: null,
@@ -88,10 +124,53 @@ class SettingsRepository {
         email: null,
         whatsapp: null,
 
+        /**
+         * ------------------------------------------------------
+         * STORE ADDRESS
+         * ------------------------------------------------------
+         */
+
         address: null,
         city: null,
         province: null,
         postalCode: null,
+
+        /**
+         * ------------------------------------------------------
+         * STORE GPS / SHIPPING ORIGIN
+         * ------------------------------------------------------
+         */
+
+        latitude: null,
+        longitude: null,
+
+        /**
+         * ------------------------------------------------------
+         * INTERNAL SHIPPING CONFIGURATION
+         * ------------------------------------------------------
+         *
+         * Explicit default di sini membuat konfigurasi awal
+         * konsisten jika StoreSettings belum pernah dibuat.
+         */
+
+        internalShippingEnabled: true,
+
+        internalShippingName:
+          "Kurir Internal",
+
+        internalShippingBaseFee: 0,
+
+        internalShippingPerKmFee: 0,
+
+        internalShippingMaxDistance: 10,
+
+        internalShippingFreeThreshold: null,
+
+        /**
+         * ------------------------------------------------------
+         * OPERATIONAL
+         * ------------------------------------------------------
+         */
 
         openingTime: null,
         closingTime: null,
@@ -103,19 +182,8 @@ class SettingsRepository {
    * ==========================================================
    * UPDATE SETTINGS
    * ==========================================================
-   *
-   * Flow:
-   *
-   * getOrCreate()
-   *       ↓
-   * Settings ditemukan / dibuat
-   *       ↓
-   * Update berdasarkan ID
-   *       ↓
-   * Return updated settings
-   *
-   * ==========================================================
    */
+
   async update(
     data: UpdateSettingsPayload
   ) {
@@ -128,6 +196,12 @@ class SettingsRepository {
       },
 
       data: {
+        /**
+         * ------------------------------------------------------
+         * STORE INFORMATION
+         * ------------------------------------------------------
+         */
+
         storeName: data.storeName,
 
         storeDescription:
@@ -142,6 +216,12 @@ class SettingsRepository {
         whatsapp:
           data.whatsapp ?? null,
 
+        /**
+         * ------------------------------------------------------
+         * STORE ADDRESS
+         * ------------------------------------------------------
+         */
+
         address:
           data.address ?? null,
 
@@ -153,6 +233,49 @@ class SettingsRepository {
 
         postalCode:
           data.postalCode ?? null,
+
+        /**
+         * ------------------------------------------------------
+         * STORE LOCATION / SHIPPING ORIGIN
+         * ------------------------------------------------------
+         */
+
+        latitude:
+          data.latitude ?? null,
+
+        longitude:
+          data.longitude ?? null,
+
+        /**
+         * ------------------------------------------------------
+         * INTERNAL SHIPPING CONFIGURATION
+         * ------------------------------------------------------
+         */
+
+        internalShippingEnabled:
+          data.internalShippingEnabled ?? true,
+
+        internalShippingName:
+          data.internalShippingName ??
+          "Kurir Internal",
+
+        internalShippingBaseFee:
+          data.internalShippingBaseFee ?? 0,
+
+        internalShippingPerKmFee:
+          data.internalShippingPerKmFee ?? 0,
+
+        internalShippingMaxDistance:
+          data.internalShippingMaxDistance ?? 10,
+
+        internalShippingFreeThreshold:
+          data.internalShippingFreeThreshold ?? null,
+
+        /**
+         * ------------------------------------------------------
+         * OPERATIONAL
+         * ------------------------------------------------------
+         */
 
         openingTime:
           data.openingTime ?? null,
@@ -169,6 +292,7 @@ class SettingsRepository {
  * SINGLETON INSTANCE
  * ============================================================
  */
+
 const settingsRepository =
   new SettingsRepository();
 

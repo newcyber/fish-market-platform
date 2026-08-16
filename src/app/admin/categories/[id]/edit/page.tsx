@@ -19,14 +19,38 @@ interface EditCategoryPageProps {
 export default async function EditCategoryPage({
   params,
 }: EditCategoryPageProps) {
+  /**
+   * ============================================================
+   * PARAMS
+   * ============================================================
+   */
+
   const { id } = await params;
+
+  /**
+   * ============================================================
+   * GET CATEGORY
+   * ============================================================
+   */
 
   const category =
     await CategoryService.getCategoryById(id);
 
+  /**
+   * ============================================================
+   * NOT FOUND
+   * ============================================================
+   */
+
   if (!category) {
     notFound();
   }
+
+  /**
+   * ============================================================
+   * SERVER ACTION
+   * ============================================================
+   */
 
   async function action(
     formData: FormData
@@ -42,6 +66,12 @@ export default async function EditCategoryPage({
     );
   }
 
+  /**
+   * ============================================================
+   * PAGE
+   * ============================================================
+   */
+
   return (
     <div className="space-y-6">
       <div>
@@ -50,8 +80,7 @@ export default async function EditCategoryPage({
         </h1>
 
         <p className="text-muted-foreground">
-          Perbarui informasi kategori
-          produk.
+          Perbarui informasi kategori produk.
         </p>
       </div>
 
@@ -63,10 +92,6 @@ export default async function EditCategoryPage({
           slug: category.slug,
           description:
             category.description ?? "",
-          sortOrder:
-            category.sortOrder,
-          isActive:
-            category.isActive,
         }}
       />
     </div>

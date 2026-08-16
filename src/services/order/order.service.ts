@@ -17,6 +17,14 @@ import {
 
 import notificationService from "@/services/notification/notification.service";
 
+import type {
+  ShippingProviderCode,
+} from "@/services/shipping/shipping.types";
+
+import shippingService from "@/services/shipping/shipping.service";
+
+import settingsService from "@/services/settings/settings.service";
+
 export interface OrderDashboardSummary {
   totalOrders: number;
   pendingPayments: number;
@@ -2451,9 +2459,27 @@ static async submitPaymentProof(
   userId: string,
   addressId: string,
   paymentChannelId: string,
-  notes?: string | null
+  notes?: string | null,
+  shippingProvider: ShippingProviderCode = "INTERNAL"
 ) {
     try {
+
+          /**
+     * ========================================================
+     * VALIDATE SHIPPING PROVIDER
+     * ========================================================
+     */
+
+    if (
+      shippingProvider !== "INTERNAL"
+    ) {
+      return {
+        success: false,
+        message:
+          "Provider pengiriman yang dipilih belum tersedia.",
+      };
+    }
+    
       /**
        * ========================================================
        * VALIDATE ADDRESS
@@ -2556,7 +2582,7 @@ if (!paymentChannel) {
           return {
             success: false,
             message:
-              `Stok ${item.product.name} tidak mencukupi. Tersedia ${item.product.stock} ${item.product.unit}.`,
+              `Stok ${item.product.name} tidak mencukupi. Tersedia ${item.product.stock}.`,
           };
         }
       }
@@ -2579,17 +2605,208 @@ if (!paymentChannel) {
           0
         );
 
-      /**
-       * ========================================================
-       * SHIPPING COST
-       * ========================================================
-       */
+/**
+ * ========================================================
+ * CALCULATE SHIPPING ON SERVER
+ * ========================================================
+ *
+ * IMPORTANT:
+ *
+ * Ongkir tidak dipercaya dari Client Component.
+ *
+ * Server mengambil ulang:
+ *
+ * - Lokasi toko
+ * - Konfigurasi kurir internal
+ * - Lokasi alamat customer
+ * - Subtotal cart aktual
+ *
+ * Kemudian ongkir dihitung ulang di server.
+ * ========================================================
+ */
 
-      const shippingCost = 0;
+/**
+ * ========================================================
+ * GET STORE SETTINGS
+ * ========================================================
+ */
 
-      const total =
-        subtotal +
-        shippingCost;
+const settings =
+  await settingsService.getSettings();
+
+/**
+ * ========================================================
+ * VALIDATE STORE LOCATION
+ * ========================================================
+ */
+
+if (
+  settings.latitude === null ||
+  settings.longitude === null
+) {
+  return {
+    success: false,
+    message:
+      "Lokasi toko belum dikonfigurasi.",
+  };
+}
+
+/**
+ * ========================================================
+ * VALIDATE CUSTOMER LOCATION
+ * ========================================================
+ */
+
+if (
+  address.latitude === null ||
+  address.longitude === null
+) {
+  return {
+    success: false,
+    message:
+      "Alamat pengiriman belum memiliki lokasi GPS.",
+  };
+}
+
+/**
+ * ========================================================
+ * REGISTER INTERNAL SHIPPING PROVIDER
+ * ========================================================
+ */
+
+shippingService.registerInternalProvider({
+  enabled:
+    settings.internalShippingEnabled,
+
+  name:
+    settings.internalShippingName,
+
+  baseFee:
+    Number(
+      settings.internalShippingBaseFee
+    ),
+
+  perKmFee:
+    Number(
+      settings.internalShippingPerKmFee
+    ),
+
+  maxDistanceKm:
+    Number(
+      settings.internalShippingMaxDistance
+    ),
+
+  freeShippingThreshold:
+    settings.internalShippingFreeThreshold === null
+      ? null
+      : Number(
+          settings.internalShippingFreeThreshold
+        ),
+});
+
+/**
+ * ========================================================
+ * VALIDATE SHIPPING PROVIDER AVAILABILITY
+ * ========================================================
+ *
+ * Pastikan provider yang dipilih benar-benar sudah
+ * terdaftar dan tersedia di ShippingProviderRegistry.
+ *
+ * Ini mencegah provider masa depan seperti JNE, JNT,
+ * SICEPAT, ANTERAJA, atau POS diproses sebelum
+ * implementasinya tersedia.
+ */
+
+if (
+  !shippingService.hasProvider(
+    shippingProvider
+  )
+) {
+  return {
+    success: false,
+
+    message:
+      "Provider pengiriman yang dipilih belum tersedia.",
+  };
+}
+
+/**
+ * ========================================================
+ * GET SHIPPING QUOTE
+ * ========================================================
+ *
+ * Ongkir dihitung ulang langsung di server.
+ *
+ * Provider berasal dari pilihan customer, tetapi tetap
+ * divalidasi dan diproses menggunakan provider yang
+ * sudah terdaftar di server.
+ */
+
+const shippingResult =
+  await shippingService.getQuote({
+    provider:
+      shippingProvider,
+
+    origin: {
+      latitude:
+        Number(
+          settings.latitude
+        ),
+
+      longitude:
+        Number(
+          settings.longitude
+        ),
+    },
+
+    destination: {
+      latitude:
+        Number(
+          address.latitude
+        ),
+
+      longitude:
+        Number(
+          address.longitude
+        ),
+    },
+
+    subtotal,
+  });
+
+/**
+ * ========================================================
+ * VALIDATE SHIPPING AVAILABILITY
+ * ========================================================
+ */
+
+if (!shippingResult.available) {
+  return {
+    success: false,
+    message:
+      shippingResult.reason ??
+      "Pengiriman tidak tersedia untuk alamat ini.",
+  };
+}
+
+/**
+ * ========================================================
+ * FINAL SHIPPING COST
+ * ========================================================
+ */
+
+const shippingCost =
+  shippingResult.shippingCost ?? 0;
+
+/**
+ * ========================================================
+ * FINAL ORDER TOTAL
+ * ========================================================
+ */
+
+const total =
+  subtotal +
+  shippingCost;
 
       /**
        * ========================================================
@@ -2803,5 +3020,282 @@ return {
     }
   }
 
+  /**
+ * ============================================================
+ * CONFIRM QRIS PAYMENT
+ * ============================================================
+ *
+ * Customer menekan tombol "Saya Sudah Bayar".
+ *
+ * Sistem TIDAK langsung menganggap pembayaran berhasil.
+ *
+ * Alur:
+ *
+ * Customer
+ *      ↓
+ * Klik "Saya Sudah Bayar"
+ *      ↓
+ * Validasi order
+ *      ↓
+ * Validasi ownership
+ *      ↓
+ * Validasi metode QRIS
+ *      ↓
+ * Buat / update PaymentProof
+ *      ↓
+ * Status PENDING
+ *      ↓
+ * Admin melakukan verifikasi
+ *
+ * ============================================================
+ */
+
+static async confirmQrisPayment(
+  userId: string,
+  orderId: string
+) {
+  try {
+    /**
+     * ========================================================
+     * VALIDATE INPUT
+     * ========================================================
+     */
+
+    if (
+      !userId ||
+      !userId.trim()
+    ) {
+      return {
+        success: false,
+        message:
+          "User tidak valid.",
+      };
+    }
+
+    if (
+      !orderId ||
+      !orderId.trim()
+    ) {
+      return {
+        success: false,
+        message:
+          "ID pesanan tidak valid.",
+      };
+    }
+
+    /**
+     * ========================================================
+     * GET ORDER
+     * ========================================================
+     */
+
+    const order =
+      await prisma.order.findFirst({
+        where: {
+          id: orderId,
+          userId,
+          deletedAt: null,
+        },
+
+        include: {
+          paymentChannel: true,
+
+          paymentProof: true,
+        },
+      });
+
+    if (!order) {
+      return {
+        success: false,
+        message:
+          "Pesanan tidak ditemukan atau Anda tidak memiliki akses ke pesanan ini.",
+      };
+    }
+
+    /**
+     * ========================================================
+     * VALIDATE PAYMENT CHANNEL
+     * ========================================================
+     */
+
+    if (
+      order.paymentChannel?.type !==
+      "QRIS"
+    ) {
+      return {
+        success: false,
+        message:
+          "Pesanan ini tidak menggunakan metode pembayaran QRIS.",
+      };
+    }
+
+    /**
+     * ========================================================
+     * VALIDATE ORDER STATUS
+     * ========================================================
+     */
+
+    if (
+      order.status ===
+      "COMPLETED"
+    ) {
+      return {
+        success: false,
+        message:
+          "Pesanan ini sudah selesai.",
+      };
+    }
+
+    if (
+      order.status ===
+      "CANCELLED"
+    ) {
+      return {
+        success: false,
+        message:
+          "Pesanan ini telah dibatalkan.",
+      };
+    }
+
+    /**
+     * ========================================================
+     * ALREADY VERIFIED
+     * ========================================================
+     */
+
+    if (
+      order.paymentStatus ===
+      PaymentStatus.VERIFIED
+    ) {
+      return {
+        success: false,
+        message:
+          "Pembayaran pesanan ini sudah diverifikasi.",
+      };
+    }
+
+    /**
+     * ========================================================
+     * CREATE / UPDATE PAYMENT CONFIRMATION
+     * ========================================================
+     *
+     * Untuk QRIS:
+     *
+     * image = null
+     *
+     * Karena customer cukup melakukan konfirmasi
+     * bahwa pembayaran telah dilakukan.
+     *
+     * Admin tetap wajib memverifikasi pembayaran.
+     * ========================================================
+     */
+
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.paymentProof.upsert({
+          where: {
+            orderId: order.id,
+          },
+
+          create: {
+            orderId: order.id,
+
+            image: null,
+
+            bankName:
+              "QRIS",
+
+            accountName:
+              null,
+
+            accountNumber:
+              null,
+
+            status:
+              PaymentStatus.PENDING,
+
+            verifiedAt:
+              null,
+
+            verifiedById:
+              null,
+
+            rejectionReason:
+              null,
+          },
+
+          update: {
+            image: null,
+
+            bankName:
+              "QRIS",
+
+            accountName:
+              null,
+
+            accountNumber:
+              null,
+
+            status:
+              PaymentStatus.PENDING,
+
+            verifiedAt:
+              null,
+
+            verifiedById:
+              null,
+
+            rejectionReason:
+              null,
+          },
+        });
+
+        /**
+         * ======================================================
+         * UPDATE ORDER PAYMENT STATUS
+         * ======================================================
+         */
+
+        await tx.order.update({
+          where: {
+            id: order.id,
+          },
+
+          data: {
+            paymentStatus:
+              PaymentStatus.PENDING,
+          },
+        });
+      }
+    );
+
+    /**
+     * ========================================================
+     * SUCCESS
+     * ========================================================
+     */
+
+    return {
+      success: true,
+
+      message:
+        "Konfirmasi pembayaran berhasil dikirim. Pembayaran Anda sedang menunggu verifikasi admin.",
+    };
+  } catch (error) {
+    console.error(
+      "[CONFIRM_QRIS_PAYMENT_ERROR]",
+      error
+    );
+
+    return {
+      success: false,
+
+      message:
+        error instanceof Error
+          ? error.message
+          : "Gagal mengirim konfirmasi pembayaran QRIS.",
+    };
+  }
+}
 
 }

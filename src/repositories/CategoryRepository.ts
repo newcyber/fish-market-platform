@@ -1,37 +1,34 @@
 import { prisma } from "@/lib/prisma";
 
+/**
+ * ============================================================
+ * CATEGORY FILTERS
+ * ============================================================
+ */
+
 export interface CategoryFilters {
   search?: string;
+
+  /**
+   * true  = kategori aktif
+   * false = kategori nonaktif
+   */
   active?: boolean;
 }
 
+/**
+ * ============================================================
+ * CATEGORY REPOSITORY
+ * ============================================================
+ */
+
 export class CategoryRepository {
   /**
-   * Total kategori aktif.
+   * ==========================================================
+   * FIND MANY
+   * ==========================================================
    */
-  static async count() {
-    return prisma.category.count({
-      where: {
-        deletedAt: null,
-      },
-    });
-  }
 
-  /**
-   * Total kategori yang aktif.
-   */
-  static async getActiveTotal() {
-    return prisma.category.count({
-      where: {
-        deletedAt: null,
-        isActive: true,
-      },
-    });
-  }
-
-  /**
-   * Daftar kategori.
-   */
   static async findMany(
     filters: CategoryFilters = {}
   ) {
@@ -42,8 +39,23 @@ export class CategoryRepository {
 
     return prisma.category.findMany({
       where: {
+        /**
+         * Soft delete protection
+         */
         deletedAt: null,
 
+        /**
+         * Status filter
+         */
+        ...(active !== undefined
+          ? {
+              isActive: active,
+            }
+          : {}),
+
+        /**
+         * Search filter
+         */
         ...(search
           ? {
               OR: [
@@ -60,12 +72,6 @@ export class CategoryRepository {
                   },
                 },
               ],
-            }
-          : {}),
-
-        ...(active !== undefined
-          ? {
-              isActive: active,
             }
           : {}),
       },
@@ -90,14 +96,43 @@ export class CategoryRepository {
   }
 
   /**
-   * Cari kategori berdasarkan ID.
+   * ==========================================================
+   * FIND ALL ACTIVE
+   * ==========================================================
    */
+
+  static async findAllActive() {
+    return prisma.category.findMany({
+      where: {
+        deletedAt: null,
+
+        isActive: true,
+      },
+
+      orderBy: [
+        {
+          sortOrder: "asc",
+        },
+        {
+          name: "asc",
+        },
+      ],
+    });
+  }
+
+  /**
+   * ==========================================================
+   * FIND BY ID
+   * ==========================================================
+   */
+
   static async findById(
     id: string
   ) {
     return prisma.category.findFirst({
       where: {
         id,
+
         deletedAt: null,
       },
 
@@ -112,80 +147,80 @@ export class CategoryRepository {
   }
 
   /**
-   * Cari kategori berdasarkan slug.
+   * ==========================================================
+   * FIND BY SLUG
+   * ==========================================================
    */
+
   static async findBySlug(
     slug: string
   ) {
     return prisma.category.findFirst({
       where: {
         slug,
+
         deletedAt: null,
       },
     });
   }
 
   /**
-   * Cek apakah slug sudah digunakan.
+   * ==========================================================
+   * CREATE
+   * ==========================================================
    */
-  static async existsBySlug(
-    slug: string,
-    ignoreId?: string
-  ) {
-    const category =
-      await prisma.category.findFirst({
-        where: {
-          slug,
-          deletedAt: null,
-        },
 
-        select: {
-          id: true,
-        },
-      });
-
-    return !!(
-      category &&
-      category.id !== ignoreId
-    );
-  }
-
-  /**
-   * Membuat kategori.
-   */
   static async create(
-    data: Parameters<
-      typeof prisma.category.create
-    >[0]["data"]
+    data: {
+      name: string;
+      slug: string;
+      image?: string | null;
+      description?: string | null;
+      sortOrder?: number;
+      isActive?: boolean;
+    }
   ) {
     return prisma.category.create({
-      data,
+      data: {
+        name: data.name,
+
+        slug: data.slug,
+
+        image:
+          data.image ??
+          null,
+
+        description:
+          data.description ??
+          null,
+
+        sortOrder:
+          data.sortOrder ??
+          0,
+
+        isActive:
+          data.isActive ??
+          true,
+      },
     });
   }
 
   /**
-   * Update kategori.
+   * ==========================================================
+   * UPDATE
+   * ==========================================================
    */
+
   static async update(
     id: string,
-    data: Parameters<
-      typeof prisma.category.update
-    >[0]["data"]
-  ) {
-    return prisma.category.update({
-      where: {
-        id,
-      },
-
-      data,
-    });
-  }
-
-  /**
-   * Mengaktifkan kategori.
-   */
-  static async activate(
-    id: string
+    data: {
+      name?: string;
+      slug?: string;
+      image?: string | null;
+      description?: string | null;
+      sortOrder?: number;
+      isActive?: boolean;
+    }
   ) {
     return prisma.category.update({
       where: {
@@ -193,61 +228,181 @@ export class CategoryRepository {
       },
 
       data: {
-        isActive: true,
+        ...(data.name !== undefined
+          ? {
+              name: data.name,
+            }
+          : {}),
+
+        ...(data.slug !== undefined
+          ? {
+              slug: data.slug,
+            }
+          : {}),
+
+        ...(data.image !== undefined
+          ? {
+              image: data.image,
+            }
+          : {}),
+
+        ...(data.description !== undefined
+          ? {
+              description:
+                data.description,
+            }
+          : {}),
+
+        ...(data.sortOrder !== undefined
+          ? {
+              sortOrder:
+                data.sortOrder,
+            }
+          : {}),
+
+        ...(data.isActive !== undefined
+          ? {
+              isActive:
+                data.isActive,
+            }
+          : {}),
       },
     });
   }
 
   /**
-   * Menonaktifkan kategori.
-   */
-  static async deactivate(
-    id: string
-  ) {
-    return prisma.category.update({
-      where: {
-        id,
-      },
+ * ==========================================================
+ * SOFT DELETE
+ * ==========================================================
+ */
 
-      data: {
-        isActive: false,
-      },
-    });
-  }
+static async softDelete(
+  id: string
+) {
+  return prisma.category.update({
+    where: {
+      id,
+    },
+
+    data: {
+      deletedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * ==========================================================
+ * RESTORE CATEGORY
+ * ==========================================================
+ *
+ * Mengembalikan kategori yang sebelumnya di-soft delete.
+ */
+
+static async restore(
+  id: string
+) {
+  return prisma.category.update({
+    where: {
+      id,
+    },
+
+    data: {
+      deletedAt: null,
+    },
+  });
+}
+
+/**
+ * ==========================================================
+ * ACTIVATE CATEGORY
+ * ==========================================================
+ */
+
+static async activate(
+  id: string
+) {
+  return prisma.category.update({
+    where: {
+      id,
+    },
+
+    data: {
+      isActive: true,
+    },
+  });
+}
+
+/**
+ * ==========================================================
+ * DEACTIVATE CATEGORY
+ * ==========================================================
+ */
+
+static async deactivate(
+  id: string
+) {
+  return prisma.category.update({
+    where: {
+      id,
+    },
+
+    data: {
+      isActive: false,
+    },
+  });
+}
 
   /**
-   * Soft delete kategori.
+   * ==========================================================
+   * COUNT
+   * ==========================================================
    */
-  static async softDelete(
-    id: string
-  ) {
-    return prisma.category.update({
+
+  static async count() {
+    return prisma.category.count({
       where: {
-        id,
-      },
-
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-  }
-
-  /**
-   * Restore kategori.
-   */
-  static async restore(
-    id: string
-  ) {
-    return prisma.category.update({
-      where: {
-        id,
-      },
-
-      data: {
         deletedAt: null,
       },
     });
   }
+
+  /**
+ * ==========================================================
+ * CHECK SLUG EXISTS
+ * ==========================================================
+ *
+ * Mengecek apakah slug kategori sudah digunakan.
+ *
+ * ignoreId digunakan saat update kategori agar kategori
+ * yang sedang diedit tidak dianggap duplikat dengan dirinya sendiri.
+ */
+
+static async existsBySlug(
+  slug: string,
+  ignoreId?: string
+) {
+  const category =
+    await prisma.category.findFirst({
+      where: {
+        slug,
+
+        ...(ignoreId
+          ? {
+              id: {
+                not: ignoreId,
+              },
+            }
+          : {}),
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  return Boolean(category);
+}
+
 }
 
 export default CategoryRepository;

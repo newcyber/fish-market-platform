@@ -6,22 +6,57 @@ import { prisma } from "@/lib/prisma";
 
 import CartRepository from "@/repositories/cart/cart.repository";
 
+/**
+ * ============================================================
+ * ADD CART ITEM INPUT
+ * ============================================================
+ */
+
 export interface AddCartItemInput {
   userId: string;
+
   productId: string;
+
   quantity: number;
+
+  productVariant?: string | null;
+
+  productWeight?: string | null;
+
+  customerNote?: string | null;
 }
+
+/**
+ * ============================================================
+ * UPDATE CART ITEM INPUT
+ * ============================================================
+ */
 
 export interface UpdateCartItemInput {
   userId: string;
+
   cartItemId: string;
+
   quantity: number;
 }
 
+/**
+ * ============================================================
+ * REMOVE CART ITEM INPUT
+ * ============================================================
+ */
+
 export interface RemoveCartItemInput {
   userId: string;
+
   cartItemId: string;
 }
+
+/**
+ * ============================================================
+ * CART SERVICE
+ * ============================================================
+ */
 
 export default class CartService {
   /**
@@ -29,6 +64,7 @@ export default class CartService {
    * VALIDATE QUANTITY
    * ============================================================
    */
+
   private static validateQuantity(
     quantity: number
   ) {
@@ -44,9 +80,44 @@ export default class CartService {
 
   /**
    * ============================================================
+   * NORMALIZE OPTION
+   * ============================================================
+   */
+
+  private static normalizeOption(
+    value?: string | null
+  ) {
+    const normalized =
+      value?.trim();
+
+    return normalized
+      ? normalized
+      : null;
+  }
+
+  /**
+   * ============================================================
+   * NORMALIZE CUSTOMER NOTE
+   * ============================================================
+   */
+
+  private static normalizeCustomerNote(
+    value?: string | null
+  ) {
+    const normalized =
+      value?.trim();
+
+    return normalized
+      ? normalized
+      : null;
+  }
+
+  /**
+   * ============================================================
    * GET CART
    * ============================================================
    */
+
   static async getCart(
     userId: string
   ) {
@@ -66,6 +137,7 @@ export default class CartService {
    * GET OR CREATE CART
    * ============================================================
    */
+
   static async getOrCreateCart(
     userId: string
   ) {
@@ -84,25 +156,14 @@ export default class CartService {
       return existingCart;
     }
 
-    /**
-     * User memiliki cart tunggal.
-     * Unique constraint pada userId akan menjaga
-     * agar tidak ada lebih dari satu cart aktif.
-     */
     try {
       return await CartRepository.create(
         userId
       );
     } catch (error) {
-      /**
-       * Race condition:
-       * request lain mungkin membuat cart
-       * pada waktu yang sama.
-       *
-       * Ambil kembali cart yang sudah berhasil dibuat.
-       */
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error instanceof
+          Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
         const cart =
@@ -124,6 +185,7 @@ export default class CartService {
    * GET ITEM COUNT
    * ============================================================
    */
+
   static async getItemCount(
     userId: string
   ) {
@@ -141,11 +203,21 @@ export default class CartService {
    * ADD ITEM
    * ============================================================
    */
+
   static async addItem({
     userId,
     productId,
     quantity,
+    productVariant,
+    productWeight,
+    customerNote,
   }: AddCartItemInput) {
+    /**
+     * ==========================================================
+     * BASIC VALIDATION
+     * ==========================================================
+     */
+
     if (!userId) {
       throw new Error(
         "Customer tidak valid."
@@ -163,8 +235,32 @@ export default class CartService {
     );
 
     /**
-     * Pastikan user aktif.
+     * ==========================================================
+     * NORMALIZE OPTIONS
+     * ==========================================================
      */
+
+    const normalizedVariant =
+      this.normalizeOption(
+        productVariant
+      );
+
+    const normalizedWeight =
+      this.normalizeOption(
+        productWeight
+      );
+
+    const normalizedCustomerNote =
+      this.normalizeCustomerNote(
+        customerNote
+      );
+
+    /**
+     * ==========================================================
+     * USER VALIDATION
+     * ==========================================================
+     */
+
     const user =
       await prisma.user.findFirst({
         where: {
@@ -185,8 +281,11 @@ export default class CartService {
     }
 
     /**
-     * Product harus aktif dan published.
+     * ==========================================================
+     * PRODUCT VALIDATION
+     * ==========================================================
      */
+
     const product =
       await prisma.product.findFirst({
         where: {
@@ -200,7 +299,6 @@ export default class CartService {
           name: true,
           price: true,
           stock: true,
-          unit: true,
         },
       });
 
@@ -209,6 +307,12 @@ export default class CartService {
         "Produk tidak ditemukan atau tidak tersedia."
       );
     }
+
+    /**
+     * ==========================================================
+     * STOCK VALIDATION
+     * ==========================================================
+     */
 
     if (product.stock <= 0) {
       throw new Error(
@@ -221,7 +325,7 @@ export default class CartService {
       product.stock
     ) {
       throw new Error(
-        `Jumlah melebihi stok tersedia. Stok ${product.name} hanya ${product.stock} ${product.unit}.`
+        `Jumlah melebihi stok tersedia. Stok ${product.name} hanya ${product.stock}.`
       );
     }
 
@@ -229,19 +333,16 @@ export default class CartService {
      * ==========================================================
      * TRANSACTION
      * ==========================================================
-     *
-     * Cart tidak mengurangi stock.
-     *
-     * Stock hanya dikurangi saat checkout/order berhasil.
      */
+
     return prisma.$transaction(
       async (tx) => {
         /**
-         * Ambil/create cart.
-         *
-         * Kita menggunakan transaction client supaya
-         * seluruh operasi item berada pada transaction yang sama.
+         * ========================================================
+         * GET OR CREATE CART
+         * ========================================================
          */
+
         let cart =
           await tx.cart.findUnique({
             where: {
@@ -260,7 +361,7 @@ export default class CartService {
           } catch (error) {
             if (
               error instanceof
-              Prisma.PrismaClientKnownRequestError &&
+                Prisma.PrismaClientKnownRequestError &&
               error.code === "P2002"
             ) {
               cart =
@@ -278,17 +379,38 @@ export default class CartService {
         }
 
         /**
-         * Cari item existing.
+         * ========================================================
+         * FIND EXISTING ITEM
+         * ========================================================
+         *
+         * Produk yang sama dapat menjadi
+         * item berbeda berdasarkan:
+         *
+         * - productVariant
+         * - productWeight
          */
+
         const existingItem =
-          await tx.cartItem.findUnique({
+          await tx.cartItem.findFirst({
             where: {
-              cartId_productId: {
-                cartId: cart.id,
-                productId,
-              },
+              cartId:
+                cart.id,
+
+              productId,
+
+              productVariant:
+                normalizedVariant,
+
+              productWeight:
+                normalizedWeight,
             },
           });
+
+        /**
+         * ========================================================
+         * UPDATE EXISTING ITEM
+         * ========================================================
+         */
 
         if (existingItem) {
           const newQuantity =
@@ -300,13 +422,14 @@ export default class CartService {
             product.stock
           ) {
             throw new Error(
-              `Jumlah di keranjang melebihi stok tersedia. Stok ${product.name} hanya ${product.stock} ${product.unit}.`
+              `Jumlah di keranjang melebihi stok tersedia. Stok ${product.name} hanya ${product.stock}.`
             );
           }
 
           await tx.cartItem.update({
             where: {
-              id: existingItem.id,
+              id:
+                existingItem.id,
             },
 
             data: {
@@ -316,32 +439,67 @@ export default class CartService {
               /**
                * Snapshot harga terbaru.
                */
+
               price:
                 product.price,
+
+              /**
+               * Catatan terbaru dari customer.
+               */
+
+              customerNote:
+                normalizedCustomerNote,
             },
           });
         } else {
+          /**
+           * ======================================================
+           * CREATE NEW ITEM
+           * ======================================================
+           */
+
           await tx.cartItem.create({
             data: {
-              cartId: cart.id,
+              cartId:
+                cart.id,
+
               productId:
                 product.id,
+
+              productVariant:
+                normalizedVariant,
+
+              productWeight:
+                normalizedWeight,
+
+              customerNote:
+                normalizedCustomerNote,
+
               quantity,
+
               price:
                 product.price,
             },
           });
         }
 
+        /**
+         * ========================================================
+         * RETURN UPDATED CART
+         * ========================================================
+         */
+
         return tx.cart.findUnique({
           where: {
-            id: cart.id,
+            id:
+              cart.id,
           },
 
           include: {
             items: {
               orderBy: {
-                createdAt: "asc",
+                createdAt:
+                  "asc",
               },
 
               include: {
@@ -370,6 +528,7 @@ export default class CartService {
    * UPDATE ITEM
    * ============================================================
    */
+
   static async updateItem({
     userId,
     cartItemId,
@@ -402,9 +561,6 @@ export default class CartService {
       );
     }
 
-    /**
-     * Ownership check.
-     */
     if (
       item.cart.userId !==
       userId
@@ -414,9 +570,6 @@ export default class CartService {
       );
     }
 
-    /**
-     * Product harus masih aktif.
-     */
     if (
       item.product.deletedAt ||
       !item.product.isPublished
@@ -426,9 +579,6 @@ export default class CartService {
       );
     }
 
-    /**
-     * Stock check.
-     */
     if (
       item.product.stock <= 0
     ) {
@@ -442,17 +592,15 @@ export default class CartService {
       item.product.stock
     ) {
       throw new Error(
-        `Jumlah melebihi stok tersedia. Stok hanya ${item.product.stock} ${item.product.unit}.`
+        `Jumlah melebihi stok tersedia. Stok hanya ${item.product.stock}.`
       );
     }
 
-    /**
-     * Update quantity + snapshot price terbaru.
-     */
     await CartRepository.updateItem(
       cartItemId,
       {
         quantity,
+
         price:
           Number(
             item.product.price
@@ -470,6 +618,7 @@ export default class CartService {
    * REMOVE ITEM
    * ============================================================
    */
+
   static async removeItem({
     userId,
     cartItemId,
@@ -497,9 +646,6 @@ export default class CartService {
       );
     }
 
-    /**
-     * Ownership check.
-     */
     if (
       item.cart.userId !==
       userId
@@ -523,6 +669,7 @@ export default class CartService {
    * CLEAR CART
    * ============================================================
    */
+
   static async clearCart(
     userId: string
   ) {
@@ -554,22 +701,22 @@ export default class CartService {
    * ============================================================
    * CALCULATE CART TOTAL
    * ============================================================
-   *
-   * Untuk display saja.
-   * Checkout akan menghitung ulang dari Product.price.
    */
+
   static calculateTotal(
     cart:
       | {
-        items: Array<{
-          quantity: number;
-          price: Prisma.Decimal;
-        }>;
-      }
+          items: Array<{
+            quantity: number;
+            price: Prisma.Decimal;
+          }>;
+        }
       | null
   ) {
     if (!cart) {
-      return new Prisma.Decimal(0);
+      return new Prisma.Decimal(
+        0
+      );
     }
 
     return cart.items.reduce(
@@ -591,37 +738,29 @@ export default class CartService {
   }
 
   /**
- * ============================================================
- * UPDATE CART ITEM QUANTITY
- * ============================================================
- */
+   * ============================================================
+   * UPDATE CART ITEM QUANTITY
+   * ============================================================
+   */
+
   static async updateItemQuantity(
     userId: string,
     cartItemId: string,
     quantity: number
   ) {
     try {
-      /**
-       * ==========================================================
-       * VALIDASI QUANTITY
-       * ==========================================================
-       */
       if (
         !Number.isInteger(quantity) ||
         quantity < 1
       ) {
         return {
           success: false,
+
           message:
             "Jumlah produk tidak valid.",
         };
       }
 
-      /**
-       * ==========================================================
-       * CARI CART ITEM
-       * ==========================================================
-       */
       const cartItem =
         await CartRepository.findItemById(
           cartItemId
@@ -630,58 +769,46 @@ export default class CartService {
       if (!cartItem) {
         return {
           success: false,
+
           message:
             "Item keranjang tidak ditemukan.",
         };
       }
 
-      /**
-       * ==========================================================
-       * VALIDASI KEPEMILIKAN CART
-       *
-       * Pastikan item benar-benar milik user
-       * yang sedang login.
-       * ==========================================================
-       */
       if (
         cartItem.cart.userId !==
         userId
       ) {
         return {
           success: false,
+
           message:
             "Anda tidak memiliki akses ke item keranjang ini.",
         };
       }
 
-      /**
-       * ==========================================================
-       * VALIDASI STOCK
-       * ==========================================================
-       */
       if (
         quantity >
         cartItem.product.stock
       ) {
         return {
           success: false,
+
           message:
-            `Jumlah melebihi stok tersedia. Stok ${cartItem.product.name} hanya ${cartItem.product.stock} ${cartItem.product.unit}.`,
+            `Jumlah melebihi stok yang tersedia. Stok ${cartItem.product.name}: ${cartItem.product.stock}.`,
         };
       }
 
-      /**
-       * ==========================================================
-       * UPDATE QUANTITY
-       * ==========================================================
-       */
       await CartRepository.updateItem(
         cartItemId,
-        { quantity }
+        {
+          quantity,
+        }
       );
 
       return {
         success: true,
+
         message:
           "Jumlah produk berhasil diperbarui.",
       };
@@ -693,6 +820,7 @@ export default class CartService {
 
       return {
         success: false,
+
         message:
           "Gagal memperbarui jumlah produk.",
       };
@@ -700,77 +828,64 @@ export default class CartService {
   }
 
   /**
- * ============================================================
- * DELETE CART ITEM
- * ============================================================
- */
-static async deleteItem(
-  userId: string,
-  cartItemId: string
-) {
-  try {
-    /**
-     * ==========================================================
-     * CARI CART ITEM
-     * ==========================================================
-     */
-    const cartItem =
-      await CartRepository.findItemById(
+   * ============================================================
+   * DELETE CART ITEM
+   * ============================================================
+   */
+
+  static async deleteItem(
+    userId: string,
+    cartItemId: string
+  ) {
+    try {
+      const cartItem =
+        await CartRepository.findItemById(
+          cartItemId
+        );
+
+      if (!cartItem) {
+        return {
+          success: false,
+
+          message:
+            "Item keranjang tidak ditemukan.",
+        };
+      }
+
+      if (
+        cartItem.cart.userId !==
+        userId
+      ) {
+        return {
+          success: false,
+
+          message:
+            "Anda tidak memiliki akses ke item keranjang ini.",
+        };
+      }
+
+      await CartRepository.deleteItem(
         cartItemId
       );
 
-    if (!cartItem) {
+      return {
+        success: true,
+
+        message:
+          "Produk berhasil dihapus dari keranjang.",
+      };
+    } catch (error) {
+      console.error(
+        "[CART_DELETE_ITEM_ERROR]",
+        error
+      );
+
       return {
         success: false,
+
         message:
-          "Item keranjang tidak ditemukan.",
+          "Gagal menghapus produk dari keranjang.",
       };
     }
-
-    /**
-     * ==========================================================
-     * VALIDASI KEPEMILIKAN
-     *
-     * Pastikan customer hanya dapat
-     * menghapus item miliknya sendiri.
-     * ==========================================================
-     */
-    if (
-      cartItem.cart.userId !==
-      userId
-    ) {
-      return {
-        success: false,
-        message:
-          "Anda tidak memiliki akses ke item keranjang ini.",
-      };
-    }
-
-    /**
-     * ==========================================================
-     * DELETE CART ITEM
-     * ==========================================================
-     */
-    await CartRepository.deleteItem(
-      cartItemId
-    );
-
-    return {
-      success: true,
-      message:
-        "Produk berhasil dihapus dari keranjang.",
-    };
-  } catch (error) {
-    console.error(
-      "[CART_DELETE_ITEM_ERROR]",
-      error
-    );
-
-    return {
-      success: false,
-      message:
-        "Gagal menghapus produk dari keranjang.",
-    };
   }
-}
 }

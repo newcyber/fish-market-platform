@@ -30,6 +30,7 @@ enum OrderStatus {
 
 enum PaymentMethod {
   BANK_TRANSFER
+  QRIS
 }
 
 enum PaymentStatus {
@@ -40,6 +41,7 @@ enum PaymentStatus {
 
 enum PaymentChannelType {
   BANK_TRANSFER
+  QRIS
 }
 
 enum StockLedgerType {
@@ -104,19 +106,70 @@ model CartItem {
   id String @id @default(uuid())
 
   cartId String
-  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
 
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+
+  product Product @relation(fields: [productId], references: [id])
+
+  /**
+   * ============================================================
+   * PRODUCT OPTIONS
+   * ============================================================
+   */
+
+  productVariant String?
+
+  productWeight String?
+
+  /**
+   * ============================================================
+   * CUSTOMER NOTE
+   * ============================================================
+   */
+
+  customerNote String?
+
+  /**
+   * ============================================================
+   * QUANTITY
+   * ============================================================
+   */
 
   quantity Int
 
+  /**
+   * ============================================================
+   * PRICE
+   * ============================================================
+   */
+
   price Decimal @db.Decimal(12, 2)
 
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
   createdAt DateTime @default(now())
+
   updatedAt DateTime @updatedAt
 
-  @@unique([cartId, productId])
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  /**
+   * ============================================================
+   * UNIQUE CART ITEM
+   * ============================================================
+   */
+
+  @@unique([cartId, productId, productVariant, productWeight])
   @@index([cartId])
   @@index([productId])
 }
@@ -156,89 +209,399 @@ model Address {
 }
 
 model Category {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
   id String @id @default(uuid())
 
+  /**
+   * ============================================================
+   * BASIC INFORMATION
+   * ============================================================
+   */
+
   name String
+
   slug String @unique
 
   image String?
 
   description String?
 
+  /**
+   * ============================================================
+   * DISPLAY ORDER
+   * ============================================================
+   * Digunakan untuk menentukan urutan kategori.
+   */
+
   sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   * true  = kategori aktif
+   * false = kategori nonaktif
+   */
 
   isActive Boolean @default(true)
 
+  /**
+   * ============================================================
+   * RELATIONS
+   * ============================================================
+   */
+
   products Product[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * SOFT DELETE
+   * ============================================================
+   */
+
   deletedAt DateTime?
 
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
   @@index([slug])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([deletedAt])
 }
 
 model Product {
   id String @id @default(uuid())
 
+  /**
+   * ============================================================
+   * CATEGORY RELATION
+   * ============================================================
+   */
+
   categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
+
+  category Category @relation(fields: [categoryId], references: [id])
+
+  /**
+   * ============================================================
+   * PRODUCT INFORMATION
+   * ============================================================
+   */
 
   name String
+
   slug String @unique
 
   description String?
 
   sku String? @unique
 
-  unit String
-
   price Decimal @db.Decimal(12, 2)
 
   stock Int
 
-  weight Decimal @db.Decimal(8, 2)
+  isPublished Boolean @default(true)
+
+  featured Boolean @default(false)
+
+  images ProductImage[]
+
+  variantOptions ProductVariantOption[]
+
+  weightOptions ProductWeightOption[] @relation("ProductWeightOptions")
+
+  stockLedgers StockLedger[] @relation("ProductStockLedgers")
+
+  orderItems OrderItem[]
+
+  cartItems CartItem[]
 
   wishlistItems WishlistItem[]
 
-  isPublished Boolean @default(true)
-  featured    Boolean @default(false)
+  createdAt DateTime @default(now())
 
-  images     ProductImage[]
-  orderItems OrderItem[]
-  cartItems  CartItem[]
+  updatedAt DateTime @updatedAt
 
-  stockLedgers StockLedger[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@index([slug])
   @@index([categoryId])
-  @@index([isPublished])
-  @@index([featured])
+  @@index([slug])
+}
+
+/**
+ * ============================================================
+ * PRODUCT WEIGHT OPTION
+ * ============================================================
+ * Menyimpan pilihan berat yang tersedia
+ * untuk setiap produk.
+ * Contoh:
+ * Produk Ikan Tuna:
+ * - 250gr
+ * - 500gr
+ * - 1kg
+ * Produk Udang:
+ * - 500gr
+ * - 1kg
+ * - 2kg
+ */
+
+model ProductWeightOption {
+  /**
+   * ============================================================
+   * PRIMARY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * PRODUCT RELATION
+   * ============================================================
+   */
+
+  productId String
+
+  product Product @relation("ProductWeightOptions", fields: [productId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * DISPLAY VALUE
+   * ============================================================
+   * Contoh:
+   * - 250gr
+   * - 500gr
+   * - 750gr
+   * - 1kg
+   * - 2kg
+   */
+
+  label String
+
+  /**
+   * ============================================================
+   * SORT ORDER
+   * ============================================================
+   */
+
+  sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   */
+
+  isActive Boolean @default(true)
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  /**
+   * Satu produk tidak boleh memiliki
+   * pilihan berat yang sama dua kali.
+   */
+
+  @@unique([productId, label])
+  @@index([productId])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+/**
+ * ============================================================
+ * PRODUCT VARIANT OPTION
+ * ============================================================
+ * Menyimpan pilihan varian produk.
+ * Contoh:
+ * Ikan:
+ * - Utuh
+ * - Dibersihkan
+ * - Fillet
+ */
+
+model ProductVariantOption {
+  /**
+   * ============================================================
+   * PRIMARY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * PRODUCT RELATION
+   * ============================================================
+   */
+
+  productId String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * DISPLAY VALUE
+   * ============================================================
+   * Contoh:
+   * - Utuh
+   * - Dibersihkan
+   * - Fillet
+   */
+
+  label String
+
+  /**
+   * ============================================================
+   * SORT ORDER
+   * ============================================================
+   */
+
+  sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   */
+
+  isActive Boolean @default(true)
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  /**
+   * Satu produk tidak boleh memiliki
+   * varian dengan nama yang sama.
+   */
+
+  @@unique([productId, label])
+  @@index([productId])
+  @@index([isActive])
+  @@index([sortOrder])
 }
 
 model StockLedger {
+  /**
+   * ============================================================
+   * PRIMARY
+   * ============================================================
+   */
+
   id String @id @default(uuid())
 
+  /**
+   * ============================================================
+   * PRODUCT RELATION
+   * ============================================================
+   */
+
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+
+  product Product @relation("ProductStockLedgers", fields: [productId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * ORDER RELATION
+   * ============================================================
+   */
 
   orderId String?
-  order   Order?  @relation(fields: [orderId], references: [id])
+
+  order Order? @relation("OrderStockLedgers", fields: [orderId], references: [id], onDelete: SetNull)
+
+  /**
+   * ============================================================
+   * LEDGER TYPE
+   * ============================================================
+   */
 
   type StockLedgerType
 
+  /**
+   * ============================================================
+   * QUANTITY
+   * ============================================================
+   */
+
   quantity Int
 
+  /**
+   * ============================================================
+   * STOCK SNAPSHOT
+   * ============================================================
+   */
+
   stockBefore Int
-  stockAfter  Int
+
+  stockAfter Int
+
+  /**
+   * ============================================================
+   * NOTE
+   * ============================================================
+   */
 
   note String?
 
+  /**
+   * ============================================================
+   * TIMESTAMP
+   * ============================================================
+   */
+
   createdAt DateTime @default(now())
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
 
   @@index([productId])
   @@index([orderId])
@@ -299,7 +662,44 @@ model Order {
 
   notes String?
 
+  /**
+   * ============================================================
+   * PAYMENT TIMESTAMP
+   * ============================================================
+   */
+
   paidAt DateTime?
+
+  /**
+   * ============================================================
+   * INTERNAL SHIPPING
+   * ============================================================
+   * Digunakan untuk sistem pengiriman Fish Market.
+   * Saat ini:
+   * - INTERNAL
+   * Masa depan dapat mendukung:
+   * - JNE
+   * - J&T
+   * - SiCepat
+   * - AnterAja
+   * - POS
+   */
+
+  shippingProvider String?
+
+  shippingService String?
+
+  trackingNumber String? @unique
+
+  shippedAt DateTime?
+
+  /**
+   * ============================================================
+   * LEGACY / COMPATIBILITY
+   * ============================================================
+   * Dipertahankan sementara agar tidak merusak kode lama
+   * yang mungkin masih menggunakan shippingAt.
+   */
 
   shippingAt DateTime?
 
@@ -307,11 +707,11 @@ model Order {
 
   items OrderItem[]
 
-  stockLedgers StockLedger[]
-
   paymentProof PaymentProof?
 
   deletedAt DateTime?
+
+  stockLedgers StockLedger[] @relation("OrderStockLedgers")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -326,19 +726,81 @@ model Order {
 model OrderItem {
   id String @id @default(uuid())
 
+  /**
+   * ============================================================
+   * ORDER RELATION
+   * ============================================================
+   */
+
   orderId String
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * PRODUCT RELATION
+   * ============================================================
+   */
 
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+
+  product Product @relation(fields: [productId], references: [id])
+
+  /**
+   * ============================================================
+   * PRODUCT SNAPSHOT
+   * ============================================================
+   */
 
   productName String
 
+  /**
+   * ============================================================
+   * PRODUCT OPTIONS
+   * ============================================================
+   */
+
+  productVariant String?
+
+  productWeight String?
+
+  /**
+   * ============================================================
+   * CUSTOMER NOTE
+   * ============================================================
+   */
+
+  customerNote String?
+
+  /**
+   * ============================================================
+   * PRICE
+   * ============================================================
+   */
+
   price Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * QUANTITY
+   * ============================================================
+   */
 
   quantity Int
 
+  /**
+   * ============================================================
+   * SUBTOTAL
+   * ============================================================
+   */
+
   subtotal Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
 
   @@index([orderId])
   @@index([productId])
@@ -350,7 +812,7 @@ model PaymentProof {
   orderId String @unique
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  image String
+  image String?
 
   bankName String?
 
@@ -480,6 +942,20 @@ model PaymentChannel {
 
   /**
    * ============================================================
+   * QRIS IMAGE
+   * ============================================================
+   * Menyimpan URL/path gambar QRIS.
+   * Digunakan hanya untuk payment channel
+   * dengan type QRIS.
+   * Contoh:
+   * /uploads/payments/qris.png
+   * atau URL storage.
+   */
+
+  qrisImage String?
+
+  /**
+   * ============================================================
    * DISPLAY
    * ============================================================
    */
@@ -593,6 +1069,29 @@ model StoreSettings {
   province   String?
   postalCode String?
 
+  // ==========================================================
+  // STORE LOCATION / SHIPPING ORIGIN
+  // ==========================================================
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  // ==========================================================
+  // INTERNAL SHIPPING CONFIGURATION
+  // ==========================================================
+
+  internalShippingEnabled Boolean @default(true)
+
+  internalShippingName String @default("Kurir Internal")
+
+  internalShippingBaseFee Decimal @default(0) @db.Decimal(12, 2)
+
+  internalShippingPerKmFee Decimal @default(0) @db.Decimal(12, 2)
+
+  internalShippingMaxDistance Decimal @default(10) @db.Decimal(10, 2)
+
+  internalShippingFreeThreshold Decimal? @db.Decimal(14, 2)
+
   // ----------------------------------------------------------
   // OPERASIONAL
   // ----------------------------------------------------------
@@ -626,8 +1125,6 @@ model Notification {
   updatedAt DateTime @updatedAt
 
   @@index([isRead])
-
   @@index([createdAt])
-
   @@index([type])
 }

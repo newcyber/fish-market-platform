@@ -6,21 +6,74 @@ import { auth } from "@/auth";
 
 import OrderService from "@/services/order/order.service";
 
+import type {
+  ShippingProviderCode,
+} from "@/services/shipping/shipping.types";
+
 /**
  * ============================================================
  * CREATE CHECKOUT ORDER ACTION
+ * ============================================================
  *
  * Server Action untuk membuat pesanan dari checkout customer.
+ *
+ * Shipping provider dikirim dari client hanya sebagai pilihan
+ * metode pengiriman.
+ *
+ * Biaya pengiriman TIDAK dikirim dari client.
+ *
+ * Ongkir akan dihitung ulang secara aman di server melalui
+ * OrderService dan ShippingService.
+ * ============================================================
+ */
+
+/**
+ * ============================================================
+ * INPUT
  * ============================================================
  */
 
 interface CreateCheckoutOrderInput {
+  /**
+   * Alamat tujuan customer.
+   */
+
   addressId: string;
+
+  /**
+   * Metode pembayaran yang dipilih.
+   */
 
   paymentChannelId: string;
 
+  /**
+   * Provider pengiriman yang dipilih customer.
+   *
+   * Saat ini:
+   * - INTERNAL
+   *
+   * Masa depan:
+   * - JNE
+   * - JNT
+   * - SICEPAT
+   * - ANTERAJA
+   * - POS
+   */
+
+  shippingProvider: ShippingProviderCode;
+
+  /**
+   * Catatan pesanan.
+   */
+
   notes?: string | null;
 }
+
+/**
+ * ============================================================
+ * RESULT
+ * ============================================================
+ */
 
 interface CreateCheckoutOrderResult {
   success: boolean;
@@ -34,7 +87,30 @@ interface CreateCheckoutOrderResult {
 
 /**
  * ============================================================
- * CREATE CHECKOUT ORDER
+ * VALID SHIPPING PROVIDERS
+ * ============================================================
+ *
+ * Nilai provider berasal dari client sehingga tetap harus
+ * divalidasi kembali di server.
+ *
+ * Provider yang belum benar-benar diregistrasikan nantinya
+ * tetap akan ditangani kembali oleh ShippingService /
+ * OrderService.
+ * ============================================================
+ */
+
+const VALID_SHIPPING_PROVIDERS: ShippingProviderCode[] = [
+  "INTERNAL",
+  "JNE",
+  "JNT",
+  "SICEPAT",
+  "ANTERAJA",
+  "POS",
+];
+
+/**
+ * ============================================================
+ * CREATE CHECKOUT ORDER ACTION
  * ============================================================
  */
 
@@ -53,6 +129,7 @@ export async function createCheckoutOrderAction(
     if (!session?.user?.id) {
       return {
         success: false,
+
         message:
           "Sesi Anda telah berakhir. Silakan login kembali.",
       };
@@ -70,6 +147,7 @@ export async function createCheckoutOrderAction(
     if (!addressId) {
       return {
         success: false,
+
         message:
           "Silakan pilih alamat pengiriman terlebih dahulu.",
       };
@@ -87,6 +165,7 @@ export async function createCheckoutOrderAction(
     if (!paymentChannelId) {
       return {
         success: false,
+
         message:
           "Silakan pilih metode pembayaran terlebih dahulu.",
       };
@@ -94,21 +173,80 @@ export async function createCheckoutOrderAction(
 
     /**
      * ==========================================================
+     * VALIDATE SHIPPING PROVIDER
+     * ==========================================================
+     */
+
+    const shippingProvider =
+      input.shippingProvider;
+
+    if (!shippingProvider) {
+      return {
+        success: false,
+
+        message:
+          "Silakan pilih metode pengiriman terlebih dahulu.",
+      };
+    }
+
+    if (
+      !VALID_SHIPPING_PROVIDERS.includes(
+        shippingProvider
+      )
+    ) {
+      return {
+        success: false,
+
+        message:
+          "Provider pengiriman yang dipilih tidak valid.",
+      };
+    }
+
+    /**
+     * ==========================================================
      * CREATE ORDER
      * ==========================================================
+     *
+     * shippingProvider hanya digunakan sebagai pilihan metode.
+     *
+     * Biaya ongkir tidak diterima dari client.
+     *
+     * OrderService akan:
+     *
+     * 1. Validasi alamat
+     * 2. Validasi cart
+     * 3. Hitung subtotal
+     * 4. Ambil konfigurasi toko
+     * 5. Register shipping provider
+     * 6. Hitung ulang shipping quote di server
+     * 7. Ambil shippingCost dari hasil server
+     * 8. Hitung total akhir
+     * 9. Simpan Order
      */
 
     const result =
       await OrderService.createCheckoutOrder(
         session.user.id,
+
         addressId,
+
         paymentChannelId,
-        input.notes ?? null
+
+        input.notes ?? null,
+
+        shippingProvider
       );
+
+    /**
+     * ==========================================================
+     * HANDLE SERVICE FAILURE
+     * ==========================================================
+     */
 
     if (!result.success) {
       return {
         success: false,
+
         message:
           result.message ??
           "Gagal membuat pesanan.",
@@ -130,15 +268,25 @@ export async function createCheckoutOrderAction(
      * ==========================================================
      */
 
-    revalidatePath("/customer/cart");
+    revalidatePath(
+      "/customer/cart"
+    );
 
-    revalidatePath("/customer/checkout");
+    revalidatePath(
+      "/customer/checkout"
+    );
 
-    revalidatePath("/customer/orders");
+    revalidatePath(
+      "/customer/orders"
+    );
 
-    revalidatePath("/admin/orders");
+    revalidatePath(
+      "/admin/orders"
+    );
 
-    revalidatePath("/admin/payments");
+    revalidatePath(
+      "/admin/payments"
+    );
 
     /**
      * ==========================================================

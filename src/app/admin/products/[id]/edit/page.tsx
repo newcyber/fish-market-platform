@@ -5,13 +5,16 @@ import { prisma } from "@/lib/prisma";
 import ProductForm from "@/components/admin/products/ProductForm";
 import ProductGallery from "@/components/admin/products/ProductGallery";
 
-import { ProductService } from "@/services/product/product.service";
+import {
+  ProductService,
+} from "@/services/product/product.service";
 
 import {
   updateProductAction,
 } from "@/actions/product/update-product";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
 interface EditProductPageProps {
   params: Promise<{
@@ -24,29 +27,49 @@ export default async function EditProductPage({
 }: EditProductPageProps) {
   const { id } = await params;
 
-  const [product, categories] =
-    await Promise.all([
-      ProductService.getProductById(id),
+  /**
+   * ============================================================
+   * LOAD PRODUCT + CATEGORIES
+   * ============================================================
+   */
 
-      prisma.category.findMany({
-        where: {
-          deletedAt: null,
-        },
+  const [
+    product,
+    categories,
+  ] = await Promise.all([
+    ProductService.getProductById(id),
 
-        orderBy: {
-          name: "asc",
-        },
+    prisma.category.findMany({
+      where: {
+        deletedAt: null,
+      },
 
-        select: {
-          id: true,
-          name: true,
-        },
-      }),
-    ]);
+      orderBy: {
+        name: "asc",
+      },
+
+      select: {
+        id: true,
+        name: true,
+      },
+    }),
+  ]);
+
+  /**
+   * ============================================================
+   * PRODUCT NOT FOUND
+   * ============================================================
+   */
 
   if (!product) {
     notFound();
   }
+
+  /**
+   * ============================================================
+   * UPDATE ACTION
+   * ============================================================
+   */
 
   async function action(
     formData: FormData
@@ -62,23 +85,55 @@ export default async function EditProductPage({
     );
   }
 
+  /**
+   * ============================================================
+   * FORM DEFAULT VALUES
+   * ============================================================
+   */
+
+  const variantOptions =
+    product.variantOptions.map(
+      (option) =>
+        option.label
+    );
+
+  const weightOptions =
+    product.weightOptions.map(
+      (option) =>
+        option.label
+    );
+
   return (
     <div className="space-y-6">
+
+      {/* ====================================================== */}
+      {/* HEADER */}
+      {/* ====================================================== */}
+
       <div>
         <h1 className="text-3xl font-bold">
           Edit Produk
         </h1>
 
         <p className="text-muted-foreground">
-          Perbarui informasi produk dan
-          kelola gallery gambar produk.
+          Perbarui informasi produk, stok,
+          varian, pilihan berat, dan kelola
+          gallery gambar produk.
         </p>
       </div>
+
+      {/* ====================================================== */}
+      {/* PRODUCT GALLERY */}
+      {/* ====================================================== */}
 
       <ProductGallery
         productId={product.id}
         images={product.images}
       />
+
+      {/* ====================================================== */}
+      {/* PRODUCT FORM */}
+      {/* ====================================================== */}
 
       <ProductForm
         categories={categories}
@@ -95,14 +150,10 @@ export default async function EditProductPage({
             product.slug,
 
           description:
-            product.description ??
-            "",
+            product.description ?? "",
 
           sku:
             product.sku ?? "",
-
-          unit:
-            product.unit,
 
           price:
             Number(product.price),
@@ -110,8 +161,21 @@ export default async function EditProductPage({
           stock:
             product.stock,
 
-          weight:
-            Number(product.weight),
+          /**
+           * PRODUCT VARIANTS
+           */
+
+          variantOptions,
+
+          /**
+           * PRODUCT WEIGHT OPTIONS
+           */
+
+          weightOptions,
+
+          /**
+           * STATUS
+           */
 
           isPublished:
             product.isPublished,

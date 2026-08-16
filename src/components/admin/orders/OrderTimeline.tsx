@@ -250,7 +250,7 @@ export default function OrderTimeline({
                   {!isLast && (
                     <div
                       className={[
-                        "absolute left-[15px] top-8 h-[calc(100%-8px)] w-px",
+                        "absolute left-3.75 top-8 h-[calc(100%-8px)] w-px",
                         item.completed
                           ? "bg-foreground/30"
                           : "bg-border",

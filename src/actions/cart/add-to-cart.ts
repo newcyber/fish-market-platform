@@ -6,61 +6,141 @@ import { auth } from "@/auth";
 
 import CartService from "@/services/cart/cart.service";
 
+/**
+ * ============================================================
+ * ADD TO CART INPUT
+ * ============================================================
+ */
+
+interface AddToCartActionInput {
+  productId: string;
+
+  quantity: number;
+
+  productVariant?: string | null;
+
+  productWeight?: string | null;
+
+  customerNote?: string | null;
+}
+
+/**
+ * ============================================================
+ * ADD TO CART ACTION
+ * ============================================================
+ */
+
 export async function addToCartAction(
-  productId: string,
-  quantity: number
+  input: AddToCartActionInput
 ) {
   try {
+    /**
+     * ==========================================================
+     * AUTHENTICATION
+     * ==========================================================
+     */
+
     const session = await auth();
 
     if (!session?.user?.id) {
       return {
         success: false,
-        message: "Silakan login terlebih dahulu.",
+        message:
+          "Silakan login terlebih dahulu.",
       };
     }
 
-    if (!productId) {
+    /**
+     * ==========================================================
+     * PRODUCT VALIDATION
+     * ==========================================================
+     */
+
+    if (!input.productId) {
       return {
         success: false,
-        message: "Produk tidak valid.",
+        message:
+          "Produk tidak valid.",
       };
     }
 
+    /**
+     * ==========================================================
+     * QUANTITY VALIDATION
+     * ==========================================================
+     */
+
     if (
-      !Number.isInteger(quantity) ||
-      quantity < 1
+      !Number.isInteger(
+        input.quantity
+      ) ||
+      input.quantity < 1
     ) {
       return {
         success: false,
-        message: "Jumlah produk tidak valid.",
+        message:
+          "Jumlah produk tidak valid.",
       };
     }
 
     /**
-     * ============================================================
-     * ADD TO CART
-     * ============================================================
-     *
-     * CartService dapat mengembalikan Prisma object
-     * yang berisi Decimal.
-     *
-     * Jangan return object tersebut langsung ke client.
+     * ==========================================================
+     * NORMALIZE INPUT
+     * ==========================================================
      */
+
+    const productVariant =
+      input.productVariant?.trim() ||
+      null;
+
+    const productWeight =
+      input.productWeight?.trim() ||
+      null;
+
+    const customerNote =
+      input.customerNote?.trim() ||
+      null;
+
+    /**
+     * ==========================================================
+     * ADD TO CART
+     * ==========================================================
+     */
+
     await CartService.addItem({
-      userId: session.user.id,
-      productId,
-      quantity,
+      userId:
+        session.user.id,
+
+      productId:
+        input.productId,
+
+      quantity:
+        input.quantity,
+
+      productVariant,
+
+      productWeight,
+
+      customerNote,
     });
 
     /**
-     * Refresh halaman terkait.
+     * ==========================================================
+     * REVALIDATE
+     * ==========================================================
      */
-    revalidatePath("/customer/cart");
-    revalidatePath("/customer/products");
+
+    revalidatePath(
+      "/customer/cart"
+    );
+
+    revalidatePath(
+      "/customer/products"
+    );
 
     return {
       success: true,
+
       message:
         "Produk berhasil ditambahkan ke keranjang.",
     };
@@ -72,6 +152,7 @@ export async function addToCartAction(
 
     return {
       success: false,
+
       message:
         error instanceof Error
           ? error.message

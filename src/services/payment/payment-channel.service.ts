@@ -26,6 +26,7 @@ import {
 
 export interface CreatePaymentChannelInput {
   name: string;
+
   slug: string;
 
   type?: PaymentChannelType;
@@ -38,6 +39,19 @@ export interface CreatePaymentChannelInput {
 
   instructions?: string | null;
 
+  /**
+   * URL atau path gambar QRIS.
+   *
+   * Contoh:
+   *
+   * /uploads/qris/qris-toko.png
+   *
+   * atau:
+   *
+   * https://domain.com/qris.png
+   */
+  qrisImage?: string | null;
+
   description?: string | null;
 
   icon?: string | null;
@@ -49,6 +63,7 @@ export interface CreatePaymentChannelInput {
 
 export interface UpdatePaymentChannelInput {
   name?: string;
+
   slug?: string;
 
   type?: PaymentChannelType;
@@ -60,6 +75,11 @@ export interface UpdatePaymentChannelInput {
   accountHolder?: string | null;
 
   instructions?: string | null;
+
+  /**
+   * URL atau path gambar QRIS.
+   */
+  qrisImage?: string | null;
 
   description?: string | null;
 
@@ -281,12 +301,20 @@ export class PaymentChannelService {
       }
 
       /**
-       * BANK TRANSFER VALIDATION
+       * ==========================================================
+       * PAYMENT TYPE
+       * ==========================================================
        */
 
       const type =
         input.type ??
         PaymentChannelType.BANK_TRANSFER;
+
+      /**
+       * ==========================================================
+       * BANK TRANSFER VALIDATION
+       * ==========================================================
+       */
 
       if (
         type ===
@@ -323,28 +351,71 @@ export class PaymentChannelService {
         }
       }
 
+      /**
+       * ==========================================================
+       * QRIS VALIDATION
+       * ==========================================================
+       *
+       * Saat type QRIS,
+       * gambar QRIS wajib tersedia.
+       */
+
+      if (
+        type ===
+        PaymentChannelType.QRIS
+      ) {
+        if (
+          !input.qrisImage?.trim()
+        ) {
+          return {
+            success: false,
+            message:
+              "Gambar QRIS wajib diisi.",
+          };
+        }
+      }
+
+      /**
+       * ==========================================================
+       * CREATE CHANNEL
+       * ==========================================================
+       */
+
       const channel =
         await PaymentChannelRepository.create({
           name,
+
           slug,
 
           type,
 
           bankName:
-            input.bankName?.trim() ||
-            null,
+            type ===
+            PaymentChannelType.BANK_TRANSFER
+              ? input.bankName?.trim() || null
+              : null,
 
           accountNumber:
-            input.accountNumber?.trim() ||
-            null,
+            type ===
+            PaymentChannelType.BANK_TRANSFER
+              ? input.accountNumber?.trim() || null
+              : null,
 
           accountHolder:
-            input.accountHolder?.trim() ||
-            null,
+            type ===
+            PaymentChannelType.BANK_TRANSFER
+              ? input.accountHolder?.trim() || null
+              : null,
 
           instructions:
             input.instructions?.trim() ||
             null,
+
+          qrisImage:
+            type ===
+            PaymentChannelType.QRIS
+              ? input.qrisImage?.trim() || null
+              : null,
 
           description:
             input.description?.trim() ||
@@ -363,8 +434,10 @@ export class PaymentChannelService {
 
       return {
         success: true,
+
         message:
           "Metode pembayaran berhasil ditambahkan.",
+
         data: channel,
       };
     } catch (error) {
@@ -413,8 +486,8 @@ export class PaymentChannelService {
         };
       }
 
-      const updateData: UpdatePaymentChannelInput =
-        {};
+      const updateData:
+        UpdatePaymentChannelInput = {};
 
       if (
         input.name !== undefined
@@ -508,6 +581,14 @@ export class PaymentChannelService {
       }
 
       if (
+        input.qrisImage !== undefined
+      ) {
+        updateData.qrisImage =
+          input.qrisImage?.trim() ||
+          null;
+      }
+
+      if (
         input.description !== undefined
       ) {
         updateData.description =
@@ -538,7 +619,9 @@ export class PaymentChannelService {
       }
 
       /**
-       * VALIDATE FINAL BANK DATA
+       * ==========================================================
+       * FINAL VALUES
+       * ==========================================================
        */
 
       const finalType =
@@ -556,6 +639,16 @@ export class PaymentChannelService {
       const finalAccountHolder =
         updateData.accountHolder ??
         existing.accountHolder;
+
+      const finalQrisImage =
+        updateData.qrisImage ??
+        existing.qrisImage;
+
+      /**
+       * ==========================================================
+       * VALIDATE BANK DATA
+       * ==========================================================
+       */
 
       if (
         finalType ===
@@ -584,7 +677,52 @@ export class PaymentChannelService {
               "Nama pemilik rekening wajib diisi.",
           };
         }
+
+        /**
+         * Bank transfer tidak menggunakan QRIS.
+         */
+
+        updateData.qrisImage =
+          null;
       }
+
+      /**
+       * ==========================================================
+       * VALIDATE QRIS
+       * ==========================================================
+       */
+
+      if (
+        finalType ===
+        PaymentChannelType.QRIS
+      ) {
+        if (!finalQrisImage) {
+          return {
+            success: false,
+            message:
+              "Gambar QRIS wajib diisi.",
+          };
+        }
+
+        /**
+         * QRIS tidak menggunakan data rekening.
+         */
+
+        updateData.bankName =
+          null;
+
+        updateData.accountNumber =
+          null;
+
+        updateData.accountHolder =
+          null;
+      }
+
+      /**
+       * ==========================================================
+       * UPDATE CHANNEL
+       * ==========================================================
+       */
 
       const channel =
         await PaymentChannelRepository.update(
@@ -594,8 +732,10 @@ export class PaymentChannelService {
 
       return {
         success: true,
+
         message:
           "Metode pembayaran berhasil diperbarui.",
+
         data: channel,
       };
     } catch (error) {
@@ -644,9 +784,11 @@ export class PaymentChannelService {
 
       return {
         success: true,
+
         message: isActive
           ? "Metode pembayaran berhasil diaktifkan."
           : "Metode pembayaran berhasil dinonaktifkan.",
+
         data: channel,
       };
     } catch (error) {

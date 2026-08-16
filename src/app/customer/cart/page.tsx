@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   ShoppingBag,
-  Trash2,
 } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -331,17 +330,7 @@ export default async function CartPage() {
 
                         </h2>
 
-                        <p className="mt-1 text-sm text-slate-500">
-
-                          {formatRupiah(
-                            item.price
-                          )}
-
-                          {" / "}
-
-                          {item.product.unit}
-
-                        </p>
+                        
 
                         {/* ================================= */}
                         {/* DELETE BUTTON */}

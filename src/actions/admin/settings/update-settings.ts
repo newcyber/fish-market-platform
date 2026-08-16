@@ -33,25 +33,77 @@ import settingsService from "@/services/settings/settings.service";
  * INPUT
  * ============================================================
  */
+
 export interface UpdateSettingsActionInput {
+  /**
+   * ==========================================================
+   * STORE INFORMATION
+   * ==========================================================
+   */
+
   storeName: string;
 
   storeDescription?: string;
 
   /**
-   * Deskripsi khusus untuk Footer Customer
+   * Deskripsi khusus untuk Footer Customer.
    */
   footerDescription?: string;
 
   email?: string;
+
   whatsapp?: string;
 
+  /**
+   * ==========================================================
+   * STORE ADDRESS
+   * ==========================================================
+   */
+
   address?: string;
+
   city?: string;
+
   province?: string;
+
   postalCode?: string;
 
+  /**
+   * ==========================================================
+   * STORE LOCATION / SHIPPING ORIGIN
+   * ==========================================================
+   */
+
+  latitude?: number | null;
+
+  longitude?: number | null;
+
+  /**
+   * ==========================================================
+   * INTERNAL SHIPPING CONFIGURATION
+   * ==========================================================
+   */
+
+  internalShippingEnabled?: boolean;
+
+  internalShippingName?: string | null;
+
+  internalShippingBaseFee?: number;
+
+  internalShippingPerKmFee?: number;
+
+  internalShippingMaxDistance?: number;
+
+  internalShippingFreeThreshold?: number | null;
+
+  /**
+   * ==========================================================
+   * OPERATIONAL
+   * ==========================================================
+   */
+
   openingTime?: string;
+
   closingTime?: string;
 }
 
@@ -60,8 +112,10 @@ export interface UpdateSettingsActionInput {
  * RESULT
  * ============================================================
  */
+
 export interface UpdateSettingsActionResult {
   success: boolean;
+
   message: string;
 }
 
@@ -70,6 +124,7 @@ export interface UpdateSettingsActionResult {
  * UPDATE SETTINGS
  * ============================================================
  */
+
 export async function updateSettingsAction(
   input: UpdateSettingsActionInput
 ): Promise<UpdateSettingsActionResult> {
@@ -79,12 +134,15 @@ export async function updateSettingsAction(
      * AUTHENTICATION
      * --------------------------------------------------------
      */
+
     const session = await auth();
 
     if (!session?.user?.id) {
       return {
         success: false,
-        message: "Anda harus login terlebih dahulu.",
+
+        message:
+          "Anda harus login terlebih dahulu.",
       };
     }
 
@@ -93,6 +151,7 @@ export async function updateSettingsAction(
      * AUTHORIZATION
      * --------------------------------------------------------
      */
+
     const role = session.user.role;
 
     const isAdmin =
@@ -102,6 +161,7 @@ export async function updateSettingsAction(
     if (!isAdmin) {
       return {
         success: false,
+
         message:
           "Anda tidak memiliki izin untuk mengubah pengaturan toko.",
       };
@@ -115,19 +175,20 @@ export async function updateSettingsAction(
      * Semua data dari Admin Settings diteruskan ke
      * Settings Service.
      */
+
     await settingsService.updateSettings({
-      storeName: input.storeName,
+      /**
+       * ------------------------------------------------------
+       * STORE INFORMATION
+       * ------------------------------------------------------
+       */
+
+      storeName:
+        input.storeName,
 
       storeDescription:
         input.storeDescription,
 
-      /**
-       * FOOTER DESCRIPTION
-       *
-       * Sebelumnya bagian ini belum diteruskan,
-       * sehingga data footerDescription hilang
-       * sebelum sampai ke Settings Service.
-       */
       footerDescription:
         input.footerDescription,
 
@@ -136,6 +197,12 @@ export async function updateSettingsAction(
 
       whatsapp:
         input.whatsapp,
+
+      /**
+       * ------------------------------------------------------
+       * STORE ADDRESS
+       * ------------------------------------------------------
+       */
 
       address:
         input.address,
@@ -149,6 +216,48 @@ export async function updateSettingsAction(
       postalCode:
         input.postalCode,
 
+      /**
+       * ------------------------------------------------------
+       * STORE LOCATION / SHIPPING ORIGIN
+       * ------------------------------------------------------
+       */
+
+      latitude:
+        input.latitude,
+
+      longitude:
+        input.longitude,
+
+      /**
+       * ------------------------------------------------------
+       * INTERNAL SHIPPING CONFIGURATION
+       * ------------------------------------------------------
+       */
+
+      internalShippingEnabled:
+        input.internalShippingEnabled,
+
+      internalShippingName:
+        input.internalShippingName,
+
+      internalShippingBaseFee:
+        input.internalShippingBaseFee,
+
+      internalShippingPerKmFee:
+        input.internalShippingPerKmFee,
+
+      internalShippingMaxDistance:
+        input.internalShippingMaxDistance,
+
+      internalShippingFreeThreshold:
+        input.internalShippingFreeThreshold,
+
+      /**
+       * ------------------------------------------------------
+       * OPERATIONAL
+       * ------------------------------------------------------
+       */
+
       openingTime:
         input.openingTime,
 
@@ -161,32 +270,44 @@ export async function updateSettingsAction(
      * REVALIDATE ADMIN SETTINGS
      * --------------------------------------------------------
      */
-    revalidatePath("/admin/settings");
+
+    revalidatePath(
+      "/admin/settings"
+    );
 
     /**
      * --------------------------------------------------------
      * REVALIDATE CUSTOMER PAGES
      * --------------------------------------------------------
      *
-     * Footer digunakan pada halaman customer,
-     * sehingga halaman customer juga perlu
-     * diperbarui setelah Settings disimpan.
+     * Customer layout menggunakan data StoreSettings.
      */
-    revalidatePath("/customer");
+
+    revalidatePath(
+      "/customer"
+    );
+
+    revalidatePath(
+      "/customer/products"
+    );
 
     /**
-     * Halaman customer lainnya yang menggunakan
-     * Customer Layout/Footer.
+     * Checkout akan menggunakan konfigurasi shipping.
      */
-    revalidatePath("/customer/products");
+
+    revalidatePath(
+      "/customer/checkout"
+    );
 
     /**
      * --------------------------------------------------------
      * SUCCESS
      * --------------------------------------------------------
      */
+
     return {
       success: true,
+
       message:
         "Pengaturan toko berhasil diperbarui.",
     };
@@ -198,6 +319,7 @@ export async function updateSettingsAction(
 
     return {
       success: false,
+
       message:
         error instanceof Error
           ? error.message
