@@ -317,7 +317,7 @@ model Product {
 
   price Decimal @db.Decimal(12, 2)
 
-  stock Int
+  stock Int @default(0)
 
   isPublished Boolean @default(true)
 
@@ -365,74 +365,31 @@ model Product {
  */
 
 model ProductWeightOption {
-  /**
-   * ============================================================
-   * PRIMARY
-   * ============================================================
-   */
-
   id String @id @default(uuid())
-
-  /**
-   * ============================================================
-   * PRODUCT RELATION
-   * ============================================================
-   */
 
   productId String
 
   product Product @relation("ProductWeightOptions", fields: [productId], references: [id], onDelete: Cascade)
 
-  /**
-   * ============================================================
-   * DISPLAY VALUE
-   * ============================================================
-   * Contoh:
-   * - 250gr
-   * - 500gr
-   * - 750gr
-   * - 1kg
-   * - 2kg
-   */
-
   label String
 
   /**
-   * ============================================================
-   * SORT ORDER
-   * ============================================================
+   * Harga khusus berdasarkan pilihan berat.
+   * Contoh:
+   * 1kg = 45000
+   * 2kg = 80000
+   * Nullable sementara agar data weight lama
+   * dapat dimigrasikan dengan aman.
    */
+  price Decimal @db.Decimal(12, 2)
 
   sortOrder Int @default(0)
 
-  /**
-   * ============================================================
-   * STATUS
-   * ============================================================
-   */
-
   isActive Boolean @default(true)
-
-  /**
-   * ============================================================
-   * TIMESTAMPS
-   * ============================================================
-   */
 
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
-
-  /**
-   * ============================================================
-   * INDEXES
-   * ============================================================
-   */
-
-  /**
-   * Satu produk tidak boleh memiliki
-   * pilihan berat yang sama dua kali.
-   */
 
   @@unique([productId, label])
   @@index([productId])
@@ -482,6 +439,21 @@ model ProductVariantOption {
    */
 
   label String
+
+  /**
+   * ============================================================
+   * PRICE ADJUSTMENT
+   * ============================================================
+   * Tambahan harga berdasarkan varian.
+   * Contoh:
+   * Utuh         = 0
+   * Dibersihkan  = 5000
+   * Fillet       = 10000
+   * Nilai ini akan ditambahkan ke harga dasar
+   * atau harga berdasarkan pilihan berat.
+   */
+
+  priceAdjustment Decimal @default(0) @db.Decimal(12, 2)
 
   /**
    * ============================================================

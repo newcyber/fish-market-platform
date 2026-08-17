@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-
 import { prisma } from "@/lib/prisma";
 
 import ProductForm from "@/components/admin/products/ProductForm";
@@ -8,9 +6,37 @@ import {
   createProductAction,
 } from "@/actions/product/create-product";
 
+import type {
+  ActionResult,
+} from "@/types/action-result";
+
+/**
+ * ============================================================
+ *
+ * FORCE DYNAMIC
+ *
+ * ============================================================
+ */
+
 export const dynamic = "force-dynamic";
 
+/**
+ * ============================================================
+ *
+ * CREATE PRODUCT PAGE
+ *
+ * ============================================================
+ */
+
 export default async function CreateProductPage() {
+  /**
+   * ==========================================================
+   *
+   * LOAD CATEGORIES
+   *
+   * ==========================================================
+   */
+
   const categories =
     await prisma.category.findMany({
       where: {
@@ -27,27 +53,49 @@ export default async function CreateProductPage() {
       },
     });
 
+  /**
+   * ==========================================================
+   *
+   * SERVER ACTION
+   *
+   * IMPORTANT:
+   *
+   * ProductForm menggunakan useActionState().
+   *
+   * Karena itu action wajib memiliki signature:
+   *
+   * (
+   *   state: ActionResult,
+   *   formData: FormData
+   * ) => Promise<ActionResult>
+   *
+   * ==========================================================
+   */
+
   async function action(
+    state: ActionResult,
     formData: FormData
-  ) {
+  ): Promise<ActionResult> {
     "use server";
 
-    const result =
-      await createProductAction(
-        {
-          success: false,
-        },
-        formData
-      );
+    /**
+     * Langsung teruskan state dan FormData
+     * ke Server Action utama.
+     */
 
-    if (!result.success) {
-      console.error(result);
-
-      return;
-    }
-
-    redirect("/admin/products");
+    return createProductAction(
+      state,
+      formData
+    );
   }
+
+  /**
+   * ==========================================================
+   *
+   * PAGE
+   *
+   * ==========================================================
+   */
 
   return (
     <div className="space-y-6">

@@ -453,6 +453,123 @@ export default async function PaymentPage({
             </div>
           )}
 
+{/* ================================================ */}
+{/* QRIS PAYMENT INSTRUCTIONS */}
+{/* ================================================ */}
+
+{isQris && (
+  <div className="mb-6 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-5">
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100">
+        <QrCode className="h-5 w-5 text-cyan-700" />
+      </div>
+
+      <div>
+        <h2 className="font-semibold text-slate-950">
+          Petunjuk Pembayaran QRIS
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Ikuti langkah berikut untuk menyelesaikan pembayaran.
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-5 space-y-4">
+      <div className="flex gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
+          1
+        </span>
+
+        <p className="pt-1 text-sm leading-6 text-slate-600">
+          Buka aplikasi{" "}
+          <span className="font-semibold text-slate-800">
+            Mobile Banking atau E-Wallet
+          </span>{" "}
+          yang mendukung pembayaran QRIS.
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
+          2
+        </span>
+
+        <p className="pt-1 text-sm leading-6 text-slate-600">
+          Pilih menu{" "}
+          <span className="font-semibold text-slate-800">
+            Scan QR
+          </span>{" "}
+          atau{" "}
+          <span className="font-semibold text-slate-800">
+            Scan QRIS
+          </span>.
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
+          3
+        </span>
+
+        <p className="pt-1 text-sm leading-6 text-slate-600">
+          Scan kode QRIS yang ditampilkan di atas.
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
+          4
+        </span>
+
+        <p className="pt-1 text-sm leading-6 text-slate-600">
+          Pastikan nominal pembayaran sesuai dengan total pesanan,
+          yaitu{" "}
+          <span className="font-semibold text-slate-900">
+            {formattedTotal}
+          </span>.
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
+          5
+        </span>
+
+        <p className="pt-1 text-sm leading-6 text-slate-600">
+          Selesaikan pembayaran hingga transaksi berhasil.
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
+          6
+        </span>
+
+        <p className="pt-1 text-sm leading-6 text-slate-600">
+          Setelah pembayaran berhasil, upload{" "}
+          <span className="font-semibold text-slate-800">
+            bukti pembayaran
+          </span>{" "}
+          di bagian bawah halaman ini agar dapat diperiksa oleh admin.
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <p className="text-sm font-semibold text-amber-900">
+        Penting
+      </p>
+
+      <p className="mt-1 text-sm leading-6 text-amber-800">
+        Pastikan nominal pembayaran sesuai dengan total pesanan.
+        Setelah bukti pembayaran diupload, pesanan akan masuk ke
+        proses menunggu verifikasi admin.
+      </p>
+    </div>
+  </div>
+)}
+
           {/* ================================================ */}
           {/* PAYMENT INSTRUCTIONS */}
           {/* HANYA UNTUK TRANSFER */}

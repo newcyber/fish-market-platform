@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
  * REPORT REPOSITORY
  * ============================================================
  *
- * Repository untuk mengambil data laporan dari database.
+ * Repository untuk mengambil data laporan.
  *
  * ============================================================
  */
@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 export class ReportRepository {
   /**
    * ==========================================================
-   * DASHBOARD SUMMARY
+   * GET SUMMARY
    * ==========================================================
    */
 
@@ -34,61 +34,127 @@ export class ReportRepository {
       cancelledOrders,
       verifiedRevenue,
     ] = await Promise.all([
+      /**
+       * TOTAL ORDERS
+       */
+
       prisma.order.count({
         where: {
           deletedAt: null,
         },
       }),
 
-      prisma.order.count({
-        where: {
-          deletedAt: null,
-          status: OrderStatus.PENDING,
-        },
-      }),
+      /**
+       * PENDING ORDERS
+       */
 
       prisma.order.count({
         where: {
           deletedAt: null,
-          status: OrderStatus.WAITING_PAYMENT,
-        },
-      }),
 
-      prisma.order.count({
-        where: {
-          deletedAt: null,
           status:
-            OrderStatus.WAITING_VERIFICATION,
+            OrderStatus.PENDING,
         },
       }),
+
+      /**
+       * WAITING PAYMENT
+       *
+       * Customer belum menyelesaikan proses pembayaran.
+       */
 
       prisma.order.count({
         where: {
           deletedAt: null,
-          status: OrderStatus.PROCESSING,
+
+          status:
+            OrderStatus.WAITING_PAYMENT,
         },
       }),
+
+      /**
+       * WAITING VERIFICATION
+       *
+       * Hanya menghitung bukti pembayaran yang:
+       *
+       * - Sudah diupload customer
+       * - Status masih PENDING
+       * - Belum dihapus
+       *
+       * Menggunakan PaymentProof sebagai sumber data
+       * agar sinkron dengan:
+       *
+       * - Admin Payments
+       * - Admin Dashboard
+       */
+
+      prisma.paymentProof.count({
+        where: {
+          deletedAt: null,
+
+          status:
+            PaymentStatus.PENDING,
+        },
+      }),
+
+      /**
+       * PROCESSING ORDERS
+       */
 
       prisma.order.count({
         where: {
           deletedAt: null,
-          status: OrderStatus.SHIPPING,
+
+          status:
+            OrderStatus.PROCESSING,
         },
       }),
+
+      /**
+       * SHIPPING ORDERS
+       */
 
       prisma.order.count({
         where: {
           deletedAt: null,
-          status: OrderStatus.COMPLETED,
+
+          status:
+            OrderStatus.SHIPPING,
         },
       }),
+
+      /**
+       * COMPLETED ORDERS
+       */
 
       prisma.order.count({
         where: {
           deletedAt: null,
-          status: OrderStatus.CANCELLED,
+
+          status:
+            OrderStatus.COMPLETED,
         },
       }),
+
+      /**
+       * CANCELLED ORDERS
+       */
+
+      prisma.order.count({
+        where: {
+          deletedAt: null,
+
+          status:
+            OrderStatus.CANCELLED,
+        },
+      }),
+
+      /**
+       * VERIFIED REVENUE
+       *
+       * Pendapatan hanya berasal dari pembayaran
+       * yang sudah diverifikasi.
+       */
 
       prisma.order.aggregate({
         _sum: {
@@ -97,6 +163,7 @@ export class ReportRepository {
 
         where: {
           deletedAt: null,
+
           paymentStatus:
             PaymentStatus.VERIFIED,
         },
@@ -151,7 +218,9 @@ export class ReportRepository {
         user: {
           select: {
             id: true,
+
             name: true,
+
             email: true,
           },
         },

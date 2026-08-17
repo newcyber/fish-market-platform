@@ -1,5 +1,36 @@
 import { prisma } from "@/lib/prisma";
 
+/**
+ * ============================================================
+ * CART REPOSITORY
+ * ============================================================
+ *
+ * Repository khusus untuk seluruh akses database Cart dan CartItem.
+ *
+ * PENTING:
+ *
+ * Harga pada CartItem adalah SNAPSHOT harga final saat produk
+ * dimasukkan ke keranjang.
+ *
+ * Contoh:
+ *
+ * Product.price              = 40.000
+ * ProductWeightOption.price  = 45.000
+ * Variant adjustment         = +5.000
+ *
+ * Maka CartItem.price dapat menjadi:
+ *
+ * 50.000
+ *
+ * Harga tersebut tidak boleh otomatis berubah ketika admin
+ * mengubah harga produk setelah item masuk ke keranjang.
+ *
+ * Perhitungan harga dilakukan di CartService.
+ * Repository hanya bertugas membaca dan menyimpan data.
+ *
+ * ============================================================
+ */
+
 export class CartRepository {
   /**
    * ============================================================
@@ -43,6 +74,18 @@ export class CartRepository {
    * ============================================================
    * GET CART ITEM COUNT
    * ============================================================
+   *
+   * Menghitung jumlah baris item dalam cart.
+   *
+   * Contoh:
+   *
+   * Ikan A
+   * Ikan B
+   * Ikan C
+   *
+   * Hasil = 3
+   *
+   * ============================================================
    */
 
   static async countItems(
@@ -84,21 +127,54 @@ export class CartRepository {
 
   /**
    * ============================================================
+   * FIND OR CREATE CART
+   * ============================================================
+   *
+   * Memastikan user selalu memiliki cart.
+   *
+   * ============================================================
+   */
+
+  static async findOrCreate(
+    userId: string
+  ) {
+    const existingCart =
+      await this.findByUserId(
+        userId
+      );
+
+    if (existingCart) {
+      return existingCart;
+    }
+
+    return this.create(
+      userId
+    );
+  }
+
+  /**
+   * ============================================================
    * FIND CART ITEM
    * ============================================================
    *
-   * Satu produk dapat memiliki item cart berbeda
-   * berdasarkan variant dan weight.
+   * Satu produk dapat memiliki beberapa CartItem berbeda
+   * berdasarkan kombinasi:
+   *
+   * productId
+   * productVariant
+   * productWeight
    *
    * Contoh:
    *
-   * Ikan A
-   * - Utuh / 500gr
-   * - Dibersihkan / 500gr
-   * - Dibersihkan / 1kg
+   * Ikan Bandeng:
    *
-   * Semuanya dianggap sebagai cart item berbeda.
+   * 1. Utuh / 500gr
+   * 2. Dibersihkan / 500gr
+   * 3. Dibersihkan / 1kg
    *
+   * Ketiganya dianggap item berbeda.
+   *
+   * ============================================================
    */
 
   static async findItem(
@@ -110,6 +186,7 @@ export class CartRepository {
     return prisma.cartItem.findFirst({
       where: {
         cartId,
+
         productId,
 
         productVariant:
@@ -120,14 +197,35 @@ export class CartRepository {
       },
 
       include: {
-        product: true,
+        product: {
+          include: {
+            category: true,
+
+            images: {
+              orderBy: {
+                sortOrder: "asc",
+              },
+            },
+          },
+        },
       },
     });
   }
 
   /**
    * ============================================================
-   * FIND ITEM BY ID
+   * FIND CART ITEM BY ID
+   * ============================================================
+   *
+   * PENTING:
+   *
+   * Method ini hanya mencari CartItem.
+   *
+   * Validasi bahwa CartItem benar-benar milik user harus
+   * dilakukan di CartService melalui:
+   *
+   * cartItem.cart.userId === userId
+   *
    * ============================================================
    */
 
@@ -142,28 +240,55 @@ export class CartRepository {
       include: {
         cart: true,
 
-        product: true,
+        product: {
+          include: {
+            category: true,
+
+            images: {
+              orderBy: {
+                sortOrder: "asc",
+              },
+            },
+          },
+        },
       },
     });
   }
 
   /**
    * ============================================================
-   * CREATE ITEM
+   * CREATE CART ITEM
+   * ============================================================
+   *
+   * price adalah HARGA FINAL.
+   *
+   * Contoh:
+   *
+   * Berat 1kg      = 45.000
+   * Dibersihkan    = +5.000
+   *
+   * CartItem.price = 50.000
+   *
+   * Repository tidak menghitung harga.
+   * Harga final harus dikirim oleh CartService.
+   *
    * ============================================================
    */
 
   static async createItem(
     data: {
       cartId: string;
+
       productId: string;
 
       productVariant?: string | null;
+
       productWeight?: string | null;
 
       customerNote?: string | null;
 
       quantity: number;
+
       price: number;
     }
   ) {
@@ -187,6 +312,10 @@ export class CartRepository {
         quantity:
           data.quantity,
 
+        /**
+         * SNAPSHOT HARGA FINAL
+         */
+
         price:
           data.price,
       },
@@ -195,7 +324,14 @@ export class CartRepository {
 
   /**
    * ============================================================
-   * UPDATE ITEM
+   * UPDATE CART ITEM
+   * ============================================================
+   *
+   * price bersifat optional.
+   *
+   * Jika hanya quantity yang berubah,
+   * harga tidak disentuh.
+   *
    * ============================================================
    */
 
@@ -260,6 +396,14 @@ export class CartRepository {
    * ============================================================
    * UPDATE CART ITEM QUANTITY
    * ============================================================
+   *
+   * PENTING:
+   *
+   * Method ini HANYA mengubah quantity.
+   *
+   * Harga snapshot CartItem.price tidak boleh berubah.
+   *
+   * ============================================================
    */
 
   static async updateItemQuantity(
@@ -279,7 +423,7 @@ export class CartRepository {
 
   /**
    * ============================================================
-   * DELETE ITEM
+   * DELETE CART ITEM
    * ============================================================
    */
 

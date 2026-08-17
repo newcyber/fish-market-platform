@@ -131,40 +131,96 @@ export default async function ProductDetailPage({
     null;
 
   /**
-   * ==========================================================
-   * WEIGHT OPTIONS
-   * ==========================================================
-   *
-   * Mengambil pilihan berat yang:
-   *
-   * - Aktif
-   * - Diurutkan berdasarkan sortOrder
-   *
-   * Data ini dikirim ke AddToCartButton
-   * agar customer dapat memilih berat produk.
-   * ==========================================================
-   */
+ * ==========================================================
+ *
+ * PRODUCT VARIANT OPTIONS
+ *
+ * ==========================================================
+ *
+ * Mengambil varian aktif beserta
+ * tambahan harganya.
+ *
+ * Contoh:
+ *
+ * Utuh        = +0
+ * Dibersihkan = +5000
+ *
+ * ==========================================================
+ */
 
-  const weightOptions =
-    (
-      product.weightOptions ??
-      []
+const variantOptions =
+  (
+    product.variantOptions ??
+    []
+  )
+    .filter(
+      (option) =>
+        option.isActive
     )
-      .filter(
-        (option) =>
-          option.isActive
-      )
-      .sort(
-        (a, b) =>
-          a.sortOrder -
-          b.sortOrder
-      )
-      .map(
-        (option) => ({
-          id: option.id,
-          label: option.label,
-        })
-      );
+    .sort(
+      (a, b) =>
+        a.sortOrder -
+        b.sortOrder
+    )
+    .map(
+      (option) => ({
+        id:
+          option.id,
+
+        label:
+          option.label,
+
+        priceAdjustment:
+          Number(
+            option.priceAdjustment ?? 0
+          ),
+      })
+    );
+
+/**
+ * ==========================================================
+ *
+ * PRODUCT WEIGHT OPTIONS
+ *
+ * ==========================================================
+ *
+ * Contoh:
+ *
+ * 250gr = 15000
+ * 500gr = 30000
+ * 1kg   = 60000
+ *
+ * ==========================================================
+ */
+
+const weightOptions =
+  (
+    product.weightOptions ??
+    []
+  )
+    .filter(
+      (option) =>
+        option.isActive
+    )
+    .sort(
+      (a, b) =>
+        a.sortOrder -
+        b.sortOrder
+    )
+    .map(
+      (option) => ({
+        id:
+          option.id,
+
+        label:
+          option.label,
+
+        price:
+          Number(
+            option.price
+          ),
+      })
+    );
 
   /**
    * ==========================================================
@@ -291,17 +347,7 @@ export default async function ProductDetailPage({
                 </p>
               )}
 
-              {/* PRICE */}
-
-              <div className="mt-7 rounded-2xl bg-white p-5 ring-1 ring-slate-200">
-                <div className="text-3xl font-bold tracking-tight text-slate-950">
-                  {
-                    formatRupiah(
-                      price
-                    )
-                  }
-                </div>
-              </div>
+              
 
               {/* STOCK */}
 
@@ -355,15 +401,20 @@ export default async function ProductDetailPage({
                   <div className="min-w-0 flex-1">
                     <AddToCartButton
                       productId={
-                        product.id
-                      }
+                      product.id
+                              }
                       stock={
-                        product.stock
+                      product.stock
                       }
-                      weightOptions={
+                        basePrice={
+                      price}
+                    variantOptions={
+                      variantOptions
+                    }
+                    weightOptions={
                         weightOptions
                       }
-                    />
+                  />
                   </div>
 
                   {/* WISHLIST */}

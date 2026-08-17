@@ -232,6 +232,7 @@ function formatAddressKey(
     whatsapp: "WhatsApp",
     senderName: "Nama Pengirim",
     senderPhone: "Telepon Pengirim",
+    isDefault: "Alamat Utama",
   };
 
   return (
@@ -649,9 +650,21 @@ export default async function OrderDetailPage({
                       )}
                     </p>
 
-                    <p className="mt-1 whitespace-pre-line font-medium">
-                      {String(value)}
-                    </p>
+                    <div className="mt-1 whitespace-pre-line font-medium">
+  {typeof value === "boolean" ? (
+    value ? (
+      <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+        ✓ Alamat Utama
+      </span>
+    ) : (
+      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+        Bukan Alamat Utama
+      </span>
+    )
+  ) : (
+    String(value)
+  )}
+</div>
                   </div>
                 )
               )}
@@ -715,18 +728,67 @@ export default async function OrderDetailPage({
                     className="border-b last:border-0"
                   >
                     <td className="px-6 py-4">
-                      <div className="font-medium">
-                        {item.productName}
-                      </div>
+  {/* ================================================ */}
+  {/* PRODUCT NAME */}
+  {/* ================================================ */}
 
-                      {item.product && (
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          SKU:{" "}
-                          {item.product.sku ??
-                            "-"}
-                        </div>
-                      )}
-                    </td>
+  <div className="font-medium">
+    {item.productName}
+  </div>
+
+  {/* ================================================ */}
+  {/* SKU */}
+  {/* ================================================ */}
+
+  {item.product && (
+    <div className="mt-1 text-xs text-muted-foreground">
+      SKU:{" "}
+      {item.product.sku ??
+        "-"}
+    </div>
+  )}
+
+  {/* ================================================ */}
+  {/* PRODUCT VARIANT */}
+  {/* ================================================ */}
+
+  {item.productVariant && (
+    <div className="mt-2">
+      <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        Varian: {item.productVariant}
+      </span>
+    </div>
+  )}
+
+  {/* ================================================ */}
+  {/* PRODUCT WEIGHT */}
+  {/* ================================================ */}
+
+  {item.productWeight && (
+    <div className="mt-2">
+      <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        Berat: {item.productWeight}
+      </span>
+    </div>
+  )}
+
+  {/* ================================================ */}
+  {/* CUSTOMER PURCHASE NOTE */}
+  {/* ================================================ */}
+
+  {typeof item.customerNote === "string" &&
+    item.customerNote.trim() !== "" && (
+      <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+        <p className="text-xs font-semibold text-blue-700">
+          📝 Catatan Pembelian Customer
+        </p>
+
+        <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm text-blue-950">
+          {item.customerNote.trim()}
+        </p>
+      </div>
+    )}
+</td>
 
                     <td className="px-6 py-4 text-right">
                       {formatCurrency(

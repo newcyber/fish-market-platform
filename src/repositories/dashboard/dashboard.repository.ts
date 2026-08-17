@@ -1,11 +1,23 @@
-import { OrderStatus, Role } from "@prisma/client";
+import {
+  PaymentStatus,
+  Role,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
+/**
+ * ============================================================
+ * DASHBOARD REPOSITORY
+ * ============================================================
+ */
+
 export class DashboardRepository {
   /**
-   * Total Products
+   * ==========================================================
+   * TOTAL PRODUCTS
+   * ==========================================================
    */
+
   static async countProducts() {
     return prisma.product.count({
       where: {
@@ -15,8 +27,11 @@ export class DashboardRepository {
   }
 
   /**
-   * Total Customers
+   * ==========================================================
+   * TOTAL CUSTOMERS
+   * ==========================================================
    */
+
   static async countCustomers() {
     return prisma.user.count({
       where: {
@@ -27,29 +42,63 @@ export class DashboardRepository {
   }
 
   /**
-   * Total Orders
+   * ==========================================================
+   * TOTAL ORDERS
+   * ==========================================================
    */
-  static async countOrders() {
-    return prisma.order.count();
-  }
 
-  /**
-   * Pending Verification
-   */
-  static async countPendingPayments() {
+  static async countOrders() {
     return prisma.order.count({
       where: {
-        status: OrderStatus.WAITING_VERIFICATION,
+        deletedAt: null,
       },
     });
   }
 
   /**
-   * Recent Orders
+   * ==========================================================
+   * PENDING PAYMENT VERIFICATION
+   * ==========================================================
+   *
+   * Hanya menghitung customer yang:
+   *
+   * - Sudah upload bukti pembayaran
+   * - Bukti pembayaran masih berstatus PENDING
+   * - Bukti pembayaran belum dihapus
+   *
+   * Sumber utama:
+   *
+   * PaymentProof.status = PENDING
+   *
+   * ==========================================================
    */
-  static async findRecentOrders(limit = 5) {
+
+  static async countPendingPayments() {
+    return prisma.paymentProof.count({
+      where: {
+        deletedAt: null,
+
+        status:
+          PaymentStatus.PENDING,
+      },
+    });
+  }
+
+  /**
+   * ==========================================================
+   * RECENT ORDERS
+   * ==========================================================
+   */
+
+  static async findRecentOrders(
+    limit = 5
+  ) {
     return prisma.order.findMany({
       take: limit,
+
+      where: {
+        deletedAt: null,
+      },
 
       orderBy: {
         createdAt: "desc",
@@ -63,9 +112,14 @@ export class DashboardRepository {
   }
 
   /**
-   * Recent Customers
+   * ==========================================================
+   * RECENT CUSTOMERS
+   * ==========================================================
    */
-  static async findRecentCustomers(limit = 5) {
+
+  static async findRecentCustomers(
+    limit = 5
+  ) {
     return prisma.user.findMany({
       take: limit,
 

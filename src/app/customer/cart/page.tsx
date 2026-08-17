@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ShoppingBag,
+  StickyNote,
 } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -23,6 +24,7 @@ import {
  * FORMAT RUPIAH
  * ============================================================
  */
+
 function formatRupiah(value: unknown) {
   const amount = Number(value);
 
@@ -45,19 +47,23 @@ function formatRupiah(value: unknown) {
  * CUSTOMER CART PAGE
  * ============================================================
  */
+
 export default async function CartPage() {
   /**
    * ==========================================================
    * AUTH
    * ==========================================================
    */
-  const session = await auth();
+
+  const session =
+    await auth();
 
   /**
    * ==========================================================
    * USER BELUM LOGIN
    * ==========================================================
    */
+
   if (!session?.user?.id) {
     return (
       <main className="min-h-screen bg-slate-50 px-4 py-16">
@@ -88,47 +94,36 @@ export default async function CartPage() {
    * GET CART
    * ==========================================================
    */
+
   const cart =
-  await CartService.getCart(
-    session.user.id
-);
+    await CartService.getCart(
+      session.user.id
+    );
 
   /**
    * ==========================================================
    * SERIALIZE PRISMA DATA
    * ==========================================================
-   *
-   * Penting:
-   *
-   * Prisma Decimal tidak dapat langsung dikirim
-   * ke Client Component.
-   *
-   * serializePrisma() akan mengubah Decimal
-   * menjadi plain object / number.
-   *
-   * Setelah bagian ini, gunakan serializedCart
-   * dan JANGAN lagi menggunakan cart untuk data
-   * yang akan diteruskan ke Client Component.
    */
+
   const serializedCart =
-  serializePrisma(cart);
+    serializePrisma(cart);
 
   /**
    * ==========================================================
    * CART ITEMS
    * ==========================================================
-   *
-   * Menggunakan serializedCart agar seluruh data
-   * sudah aman dari Prisma Decimal.
    */
+
   const items =
-  serializedCart?.items ?? [];
+    serializedCart?.items ?? [];
 
   /**
    * ==========================================================
    * SUBTOTAL
    * ==========================================================
    */
+
   const subtotal =
     items.reduce(
       (total, item) => {
@@ -145,9 +140,8 @@ export default async function CartPage() {
    * ==========================================================
    * TOTAL ITEMS
    * ==========================================================
-   *
-   * Menghitung total quantity seluruh produk.
    */
+
   const totalItems =
     items.reduce(
       (total, item) =>
@@ -160,6 +154,7 @@ export default async function CartPage() {
    * PAGE
    * ==========================================================
    */
+
   return (
     <main className="min-h-screen bg-slate-50">
 
@@ -188,7 +183,6 @@ export default async function CartPage() {
               </div>
 
               <div>
-
                 <h1 className="text-3xl font-bold tracking-tight text-slate-950">
                   Keranjang Saya
                 </h1>
@@ -198,7 +192,6 @@ export default async function CartPage() {
                     ? `${totalItems} item siap untuk checkout.`
                     : "Keranjang Anda masih kosong."}
                 </p>
-
               </div>
 
             </div>
@@ -266,6 +259,7 @@ export default async function CartPage() {
                  * PRODUCT IMAGE
                  * ==========================================
                  */
+
                 const image =
                   item.product.images?.[0]
                     ?.image;
@@ -275,9 +269,22 @@ export default async function CartPage() {
                  * ITEM SUBTOTAL
                  * ==========================================
                  */
+
                 const itemSubtotal =
                   Number(item.price) *
                   item.quantity;
+
+                /**
+                 * ==========================================
+                 * NORMALIZE CUSTOMER NOTE
+                 * ==========================================
+                 */
+
+                const customerNote =
+                  typeof item.customerNote ===
+                  "string"
+                    ? item.customerNote.trim()
+                    : "";
 
                 return (
                   <div
@@ -318,30 +325,86 @@ export default async function CartPage() {
                       <div className="min-w-0 flex-1">
 
                         <p className="text-xs font-semibold uppercase tracking-wide text-cyan-600">
-
                           {item.product.category?.name ??
                             "Seafood"}
-
                         </p>
 
                         <h2 className="mt-1 truncate text-lg font-bold text-slate-950">
-
                           {item.product.name}
-
                         </h2>
 
-                        
+                        {/* ================================ */}
+                        {/* VARIANT + WEIGHT */}
+                        {/* ================================ */}
 
-                        {/* ================================= */}
+                        {(item.productVariant ||
+                          item.productWeight) && (
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+
+                            {item.productVariant && (
+
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                                Varian:{" "}
+                                {item.productVariant}
+                              </span>
+
+                            )}
+
+                            {item.productWeight && (
+
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                                Berat:{" "}
+                                {item.productWeight}
+                              </span>
+
+                            )}
+
+                          </div>
+
+                        )}
+
+                        {/* ================================ */}
+                        {/* CUSTOMER NOTE */}
+                        {/* ================================ */}
+
+                        {customerNote && (
+
+                          <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 p-3">
+
+                            <div className="flex items-start gap-2">
+
+                              <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-cyan-600" />
+
+                              <div className="min-w-0">
+
+                                <p className="text-xs font-bold uppercase tracking-wide text-cyan-700">
+                                  Catatan Pembelian
+                                </p>
+
+                                <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                                  {customerNote}
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+                        )}
+
+                        {/* ================================ */}
                         {/* DELETE BUTTON */}
-                        {/* ================================= */}
+                        {/* ================================ */}
 
-                        <div className="flex items-center gap-3">
-                          
-  <DeleteCartItemButton
-    cartItemId={item.id}
-  />
-</div>
+                        <div className="mt-4 flex items-center gap-3">
+
+                          <DeleteCartItemButton
+                            cartItemId={item.id}
+                          />
+
+                        </div>
 
                       </div>
 
@@ -362,11 +425,9 @@ export default async function CartPage() {
                         />
 
                         <p className="text-lg font-bold text-slate-950">
-
                           {formatRupiah(
                             itemSubtotal
                           )}
-
                         </p>
 
                       </div>
@@ -412,11 +473,9 @@ export default async function CartPage() {
                     </span>
 
                     <span className="font-semibold text-slate-900">
-
                       {formatRupiah(
                         subtotal
                       )}
-
                     </span>
 
                   </div>
@@ -432,11 +491,9 @@ export default async function CartPage() {
                   </span>
 
                   <span className="text-xl font-bold text-slate-950">
-
                     {formatRupiah(
                       subtotal
                     )}
-
                   </span>
 
                 </div>
@@ -445,11 +502,9 @@ export default async function CartPage() {
                   href="/customer/checkout"
                   className="mt-6 flex h-12 items-center justify-center gap-2 rounded-full bg-cyan-600 px-6 text-sm font-semibold text-white transition hover:bg-cyan-700"
                 >
-
                   Lanjut Checkout
 
                   <ArrowRight className="h-4 w-4" />
-
                 </Link>
 
                 <p className="mt-4 text-center text-xs leading-5 text-slate-400">

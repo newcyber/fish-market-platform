@@ -1,73 +1,164 @@
-import { mkdir, writeFile, unlink } from "fs/promises";
+import {
+  mkdir,
+  writeFile,
+  unlink,
+} from "fs/promises";
+
 import path from "path";
-import { randomUUID } from "crypto";
+
+import {
+  randomUUID,
+} from "crypto";
+
+/**
+ * ============================================================
+ *
+ * STORAGE SERVICE
+ *
+ * ============================================================
+ *
+ * Service untuk menyimpan dan menghapus file upload produk.
+ *
+ * Storage:
+ *
+ * public/uploads/products
+ *
+ * File URL:
+ *
+ * /uploads/products/{filename}
+ *
+ * ============================================================
+ */
+
+/**
+ * ============================================================
+ * STATIC UPLOAD DIRECTORY
+ * ============================================================
+ *
+ * Turbopack dapat memberikan warning apabila filesystem path
+ * terlihat terlalu dinamis saat proses output tracing.
+ *
+ * Ignore comment ini memberi tahu Turbopack agar process.cwd()
+ * tidak dianggap sebagai dynamic project-wide dependency.
+ */
+
+const UPLOAD_DIRECTORY =
+  path.join(
+    /* turbopackIgnore: true */
+    process.cwd(),
+    "public",
+    "uploads",
+    "products"
+  );
 
 export class StorageService {
   /**
-   * Direktori upload produk.
-   *
-   * Dibuat secara statis agar Turbopack tidak melakukan
-   * tracing ke seluruh project.
+   * ==========================================================
+   * SIMPAN FILE PRODUK
+   * ==========================================================
    */
-  private static readonly UPLOAD_DIRECTORY =
-    path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      "products"
-    );
 
-  /**
-   * Simpan file produk.
-   */
   static async save(
     file: File
   ): Promise<string> {
+    /**
+     * Pastikan folder upload tersedia.
+     */
+
     await mkdir(
-      this.UPLOAD_DIRECTORY,
+      UPLOAD_DIRECTORY,
       {
         recursive: true,
       }
     );
 
+    /**
+     * Ambil extension file.
+     */
+
     const extension =
-      path.extname(file.name) || ".jpg";
+      path.extname(
+        file.name
+      ) || ".jpg";
+
+    /**
+     * Generate nama file unik.
+     */
 
     const filename =
       `${randomUUID()}${extension}`;
 
-    const buffer = Buffer.from(
-      await file.arrayBuffer()
-    );
+    /**
+     * Convert File menjadi Buffer.
+     */
 
-    const filepath = path.join(
-      this.UPLOAD_DIRECTORY,
-      filename
-    );
+    const buffer =
+      Buffer.from(
+        await file.arrayBuffer()
+      );
+
+    /**
+     * Generate absolute file path.
+     */
+
+    const filepath =
+      path.join(
+        UPLOAD_DIRECTORY,
+        filename
+      );
+
+    /**
+     * Simpan file.
+     */
 
     await writeFile(
       filepath,
       buffer
     );
 
+    /**
+     * Return public URL.
+     */
+
     return `/uploads/products/${filename}`;
   }
 
   /**
-   * Hapus file produk.
+   * ==========================================================
+   * HAPUS FILE PRODUK
+   * ==========================================================
    */
+
   static async delete(
     imagePath: string
   ): Promise<void> {
     try {
       /**
-       * Hanya izinkan file dari folder
-       * /uploads/products/
+       * ======================================================
+       * NORMALIZE PATH
+       * ======================================================
        */
+
       const normalizedPath =
         imagePath
-          .replace(/\\/g, "/")
-          .replace(/^\/+/, "");
+          .replace(
+            /\\/g,
+            "/"
+          )
+          .replace(
+            /^\/+/,
+            ""
+          );
+
+      /**
+       * ======================================================
+       * SECURITY CHECK
+       * ======================================================
+       *
+       * Hanya izinkan file dari:
+       *
+       * uploads/products/
+       */
 
       if (
         !normalizedPath.startsWith(
@@ -77,8 +168,20 @@ export class StorageService {
         return;
       }
 
+      /**
+       * ======================================================
+       * GET SAFE FILENAME
+       * ======================================================
+       */
+
       const filename =
-        path.basename(normalizedPath);
+        path.basename(
+          normalizedPath
+        );
+
+      /**
+       * Hindari path traversal.
+       */
 
       if (
         !filename ||
@@ -88,23 +191,43 @@ export class StorageService {
         return;
       }
 
-      const filepath = path.join(
-        this.UPLOAD_DIRECTORY,
-        filename
-      );
+      /**
+       * ======================================================
+       * BUILD FILE PATH
+       * ======================================================
+       */
 
-      await unlink(filepath);
+      const filepath =
+        path.join(
+          UPLOAD_DIRECTORY,
+          filename
+        );
+
+      /**
+       * ======================================================
+       * DELETE FILE
+       * ======================================================
+       */
+
+      await unlink(
+        filepath
+      );
     } catch {
       /**
-       * File mungkin sudah tidak ada.
-       * Tidak perlu menghentikan proses.
+       * File mungkin sudah tidak tersedia.
+       *
+       * Jangan menghentikan proses utama hanya karena
+       * file fisik sudah dihapus sebelumnya.
        */
     }
   }
 
   /**
-   * Ambil nama file dari path.
+   * ==========================================================
+   * AMBIL NAMA FILE
+   * ==========================================================
    */
+
   static filename(
     imagePath: string
   ): string {
@@ -114,8 +237,11 @@ export class StorageService {
   }
 
   /**
-   * Menghasilkan URL public file.
+   * ==========================================================
+   * GENERATE PUBLIC URL
+   * ==========================================================
    */
+
   static url(
     imagePath: string
   ): string {

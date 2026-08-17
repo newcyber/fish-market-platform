@@ -1,10 +1,6 @@
 "use server";
 
 import {
-  redirect,
-} from "next/navigation";
-
-import {
   revalidatePath,
 } from "next/cache";
 
@@ -20,138 +16,657 @@ import type {
   ActionResult,
 } from "@/types/action-result";
 
+import {
+  ProductImageService,
+} from "@/services/product/product-image.service";
+
+/**
+ * ============================================================
+ *
+ * UPDATE PRODUCT ACTION
+ *
+ * ============================================================
+ *
+ * Flow:
+ *
+ * ProductForm
+ *      ↓
+ * FormData
+ *      ↓
+ *
+ * variantOptions[]
+ * variantOptionPrices[]
+ *
+ * weightOptions[]
+ * weightOptionPrices[]
+ *
+ *      ↓
+ *
+ * ProductSchema
+ *
+ *      ↓
+ *
+ * ProductService.updateProduct()
+ *
+ * ============================================================
+ */
+
+/**
+ * ============================================================
+ *
+ * HELPER
+ *
+ * NORMALIZE PRICE
+ *
+ * Support:
+ *
+ * 15000
+ * 15.000
+ * 15,000
+ * Rp 15.000
+ *
+ * ============================================================
+ */
+
+function normalizePrice(
+  value: FormDataEntryValue | string | null | undefined
+): number {
+  const rawValue =
+    String(value ?? "").trim();
+
+  if (!rawValue) {
+    return 0;
+  }
+
+  const normalizedValue =
+    rawValue.replace(
+      /[^0-9]/g,
+      ""
+    );
+
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  const parsedValue =
+    Number(normalizedValue);
+
+  if (
+    !Number.isFinite(
+      parsedValue
+    )
+  ) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    parsedValue
+  );
+}
+
+/**
+ * ============================================================
+ *
+ * UPDATE PRODUCT
+ *
+ * ============================================================
+ */
+
 export async function updateProductAction(
   id: string,
-  _prevState: ActionResult | null,
+  _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
-  /**
-   * ============================================================
-   * GET VARIANT OPTIONS
-   * ============================================================
-   *
-   * Mengambil semua input dengan:
-   *
-   * name="variantOptions"
-   *
-   */
+  try {
 
-  const variantOptions =
-    Array.from(
-      new Set(
-        formData
-          .getAll("variantOptions")
-          .map((value) =>
-            String(value).trim()
-          )
-          .filter(
-            (value) =>
-              value.length > 0
-          )
-      )
+    /**
+ * ==========================================================
+ *
+ * GET PRODUCT IMAGES
+ *
+ * ==========================================================
+ *
+ * Ambil file gambar baru dari FormData.
+ *
+ * File kosong diabaikan.
+ */
+
+const imageFiles =
+  formData
+    .getAll("images")
+    .filter(
+      (value): value is File =>
+        value instanceof File &&
+        value.size > 0
     );
+    
+    /**
+     * ==========================================================
+     *
+     * VALIDATE PRODUCT ID
+     *
+     * ==========================================================
+     */
 
-  /**
-   * ============================================================
-   * GET WEIGHT OPTIONS
-   * ============================================================
-   *
-   * Mengambil semua input dengan:
-   *
-   * name="weightOptions"
-   *
-   */
+    const productId =
+      String(id ?? "").trim();
 
-  const weightOptions =
-    Array.from(
-      new Set(
-        formData
-          .getAll("weightOptions")
-          .map((value) =>
+    if (!productId) {
+      return {
+        success: false,
+
+        message:
+          "ID produk tidak valid.",
+      };
+    }
+
+    /**
+     * ==========================================================
+     *
+     * VALIDATE FORM DATA
+     *
+     * ==========================================================
+     */
+
+    if (
+      !formData ||
+      typeof formData.get !==
+        "function" ||
+      typeof formData.getAll !==
+        "function"
+    ) {
+      return {
+        success: false,
+
+        message:
+          "Data form produk tidak valid.",
+      };
+    }
+
+    /**
+     * ==========================================================
+     *
+     * VARIANT LABELS
+     *
+     * ==========================================================
+     *
+     * ProductForm mengirim:
+     *
+     * variantOptions
+     * variantOptions
+     *
+     * Contoh:
+     *
+     * [
+     *   "Utuh",
+     *   "Dibersihkan"
+     * ]
+     *
+     * ==========================================================
+     */
+
+    const variantLabels =
+      formData
+        .getAll(
+          "variantOptions"
+        )
+        .map(
+          (value) =>
             String(value).trim()
-          )
-          .filter(
-            (value) =>
-              value.length > 0
-          )
-      )
-    );
+        );
 
-  /**
-   * ============================================================
-   * VALIDATE DATA
-   * ============================================================
-   */
+    /**
+     * ==========================================================
+     *
+     * VARIANT PRICE ADJUSTMENTS
+     *
+     * ==========================================================
+     *
+     * ProductForm mengirim:
+     *
+     * variantOptionPrices
+     * variantOptionPrices
+     *
+     * Contoh:
+     *
+     * [
+     *   "0",
+     *   "5000"
+     * ]
+     *
+     * ==========================================================
+     */
 
-  const parsed =
-    ProductSchema.safeParse({
+    const variantPrices =
+      formData
+        .getAll(
+          "variantOptionPrices"
+        )
+        .map(
+          (value) =>
+            String(value).trim()
+        );
+
+    /**
+     * ==========================================================
+     *
+     * BUILD VARIANT OPTIONS
+     *
+     * ==========================================================
+     *
+     * Result:
+     *
+     * [
+     *   {
+     *     label: "Utuh",
+     *     priceAdjustment: 0
+     *   },
+     *   {
+     *     label: "Dibersihkan",
+     *     priceAdjustment: 5000
+     *   }
+     * ]
+     *
+     * ==========================================================
+     */
+
+    const variantOptions =
+      variantLabels.reduce<
+        Array<{
+          label: string;
+          priceAdjustment: number;
+        }>
+      >(
+        (
+          result,
+          label,
+          index
+        ) => {
+          /**
+           * Skip label kosong.
+           */
+
+          if (!label) {
+            return result;
+          }
+
+          /**
+           * Hindari duplicate variant.
+           *
+           * Perbandingan dibuat
+           * case-insensitive.
+           */
+
+          const alreadyExists =
+            result.some(
+              (item) =>
+                item.label
+                  .toLowerCase() ===
+                label.toLowerCase()
+            );
+
+          if (alreadyExists) {
+            return result;
+          }
+
+          const rawPrice =
+            variantPrices[index] ??
+            "";
+
+          const priceAdjustment =
+            normalizePrice(
+              rawPrice
+            );
+
+          result.push({
+            label,
+            priceAdjustment,
+          });
+
+          return result;
+        },
+        []
+      );
+
+    /**
+     * ==========================================================
+     *
+     * WEIGHT LABELS
+     *
+     * ==========================================================
+     *
+     * Contoh:
+     *
+     * [
+     *   "250gr",
+     *   "500gr",
+     *   "1kg"
+     * ]
+     *
+     * ==========================================================
+     */
+
+    const weightLabels =
+      formData
+        .getAll(
+          "weightOptions"
+        )
+        .map(
+          (value) =>
+            String(value).trim()
+        );
+
+    /**
+     * ==========================================================
+     *
+     * WEIGHT PRICES
+     *
+     * ==========================================================
+     *
+     * Contoh:
+     *
+     * [
+     *   "15000",
+     *   "30000",
+     *   "60000"
+     * ]
+     *
+     * ==========================================================
+     */
+
+    const weightPrices =
+      formData
+        .getAll(
+          "weightOptionPrices"
+        )
+        .map(
+          (value) =>
+            String(value).trim()
+        );
+
+    /**
+     * ==========================================================
+     *
+     * BUILD WEIGHT OPTIONS
+     *
+     * ==========================================================
+     *
+     * Result:
+     *
+     * [
+     *   {
+     *     label: "250gr",
+     *     price: 15000
+     *   },
+     *   {
+     *     label: "500gr",
+     *     price: 30000
+     *   },
+     *   {
+     *     label: "1kg",
+     *     price: 60000
+     *   }
+     * ]
+     *
+     * ==========================================================
+     */
+
+    const weightOptions =
+      weightLabels.reduce<
+        Array<{
+          label: string;
+          price: number;
+        }>
+      >(
+        (
+          result,
+          label,
+          index
+        ) => {
+          /**
+           * Skip label kosong.
+           */
+
+          if (!label) {
+            return result;
+          }
+
+          /**
+           * Hindari duplicate weight.
+           */
+
+          const alreadyExists =
+            result.some(
+              (item) =>
+                item.label
+                  .toLowerCase() ===
+                label.toLowerCase()
+            );
+
+          if (alreadyExists) {
+            return result;
+          }
+
+          const rawPrice =
+            weightPrices[index] ??
+            "";
+
+          const price =
+            normalizePrice(
+              rawPrice
+            );
+
+          result.push({
+            label,
+            price,
+          });
+
+          return result;
+        },
+        []
+      );
+
+    /**
+     * ==========================================================
+     *
+     * PREPARE RAW DATA
+     *
+     * ==========================================================
+     */
+
+    const rawData = {
       categoryId:
-        formData.get("categoryId"),
+        String(
+          formData.get(
+            "categoryId"
+          ) ?? ""
+        ).trim(),
 
       name:
-        formData.get("name"),
+        String(
+          formData.get(
+            "name"
+          ) ?? ""
+        ).trim(),
 
       slug:
-        formData.get("slug"),
+        String(
+          formData.get(
+            "slug"
+          ) ?? ""
+        ).trim(),
 
       description:
-        formData.get("description"),
+        String(
+          formData.get(
+            "description"
+          ) ?? ""
+        ).trim(),
 
       sku:
-        formData.get("sku"),
+        String(
+          formData.get(
+            "sku"
+          ) ?? ""
+        ).trim(),
 
       price:
-        formData.get("price"),
+        formData.get(
+          "price"
+        ),
 
       stock:
-        formData.get("stock"),
+        formData.get(
+          "stock"
+        ),
+
+      /**
+       * Format:
+       *
+       * [
+       *   {
+       *     label: string,
+       *     priceAdjustment: number
+       *   }
+       * ]
+       */
 
       variantOptions,
+
+      /**
+       * Format:
+       *
+       * [
+       *   {
+       *     label: string,
+       *     price: number
+       *   }
+       * ]
+       */
 
       weightOptions,
 
       isPublished:
-        formData.get("isPublished"),
+        formData.get(
+          "isPublished"
+        ),
 
       featured:
-        formData.get("featured"),
-    });
-
-  /**
-   * ============================================================
-   * VALIDATION FAILED
-   * ============================================================
-   */
-
-  if (!parsed.success) {
-    return {
-      success: false,
-
-      message:
-        "Validasi gagal.",
-
-      errors:
-        parsed.error
-          .flatten()
-          .fieldErrors,
+        formData.get(
+          "featured"
+        ),
     };
-  }
 
-  try {
     /**
      * ==========================================================
+     *
+     * PRODUCT VALIDATION
+     *
+     * ==========================================================
+     */
+
+    const parsed =
+      ProductSchema.safeParse(
+        rawData
+      );
+
+    /**
+     * ==========================================================
+     *
+     * VALIDATION FAILED
+     *
+     * ==========================================================
+     */
+
+    if (!parsed.success) {
+      const fieldErrors =
+        parsed.error
+          .flatten()
+          .fieldErrors;
+
+      console.error(
+        "[UPDATE_PRODUCT_VALIDATION_ERROR]",
+        {
+          rawData,
+
+          fieldErrors,
+
+          issues:
+            parsed.error.issues,
+        }
+      );
+
+      /**
+       * Ambil pesan error pertama
+       * agar lebih mudah melakukan
+       * debugging.
+       */
+
+      const firstError =
+        Object.values(
+          fieldErrors
+        )
+          .flat()
+          .find(
+            (
+              message
+            ): message is string =>
+              Boolean(
+                message
+              )
+          );
+
+      return {
+        success: false,
+
+        message:
+          firstError ??
+          "Validasi gagal. Periksa kembali data produk.",
+
+        errors:
+          fieldErrors,
+      };
+    }
+
+    /**
+     * ==========================================================
+     *
      * UPDATE PRODUCT
+     *
      * ==========================================================
      */
 
     await ProductService.updateProduct(
-      id,
-      parsed.data
-    );
+  productId,
+  parsed.data
+);
+
+/**
+ * ==========================================================
+ *
+ * UPLOAD NEW PRODUCT IMAGES
+ *
+ * ==========================================================
+ *
+ * Gambar lama tidak dihapus.
+ *
+ * Hanya gambar baru yang dipilih
+ * pada ProductForm yang akan ditambahkan.
+ */
+
+if (imageFiles.length > 0) {
+  await ProductImageService.upload(
+    productId,
+    imageFiles
+  );
+}
 
     /**
      * ==========================================================
+     *
      * REVALIDATE ADMIN
+     *
      * ==========================================================
      */
 
@@ -160,27 +675,57 @@ export async function updateProductAction(
     );
 
     revalidatePath(
-      `/admin/products/${id}/edit`
+      `/admin/products/${productId}`
+    );
+
+    revalidatePath(
+      `/admin/products/${productId}/edit`
     );
 
     /**
      * ==========================================================
+     *
      * REVALIDATE CUSTOMER
+     *
      * ==========================================================
      */
-
-    revalidatePath(
-      "/customer/products"
-    );
 
     revalidatePath(
       "/"
     );
 
-    redirect(
-      "/admin/products"
+    revalidatePath(
+      "/products"
     );
+
+    revalidatePath(
+      "/customer/products"
+    );
+
+    /**
+     * ==========================================================
+     *
+     * SUCCESS
+     *
+     * Redirect ditangani oleh
+     * ProductForm setelah
+     * state.success === true.
+     *
+     * ==========================================================
+     */
+
+    return {
+      success: true,
+
+      message:
+        "Produk berhasil diperbarui.",
+    };
   } catch (error) {
+    console.error(
+      "[UPDATE_PRODUCT_ACTION_ERROR]",
+      error
+    );
+
     return {
       success: false,
 

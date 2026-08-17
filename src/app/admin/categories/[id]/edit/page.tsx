@@ -8,7 +8,12 @@ import {
   updateCategoryAction,
 } from "@/actions/category/update-category";
 
-export const dynamic = "force-dynamic";
+import type {
+  ActionResult,
+} from "@/types/action-result";
+
+export const dynamic =
+  "force-dynamic";
 
 interface EditCategoryPageProps {
   params: Promise<{
@@ -20,26 +25,29 @@ export default async function EditCategoryPage({
   params,
 }: EditCategoryPageProps) {
   /**
-   * ============================================================
+   * ==========================================================
    * PARAMS
-   * ============================================================
+   * ==========================================================
    */
 
-  const { id } = await params;
+  const { id } =
+    await params;
 
   /**
-   * ============================================================
+   * ==========================================================
    * GET CATEGORY
-   * ============================================================
+   * ==========================================================
    */
 
   const category =
-    await CategoryService.getCategoryById(id);
+    await CategoryService.getCategoryById(
+      id
+    );
 
   /**
-   * ============================================================
+   * ==========================================================
    * NOT FOUND
-   * ============================================================
+   * ==========================================================
    */
 
   if (!category) {
@@ -47,29 +55,34 @@ export default async function EditCategoryPage({
   }
 
   /**
-   * ============================================================
-   * SERVER ACTION
-   * ============================================================
+   * ==========================================================
+   * BOUND SERVER ACTION
+   * ==========================================================
+   *
+   * useActionState membutuhkan signature:
+   *
+   * (prevState, formData)
    */
 
   async function action(
+    prevState:
+      | ActionResult
+      | null,
     formData: FormData
   ) {
     "use server";
 
-    await updateCategoryAction(
+    return updateCategoryAction(
       id,
-      {
-        success: false,
-      },
+      prevState,
       formData
     );
   }
 
   /**
-   * ============================================================
+   * ==========================================================
    * PAGE
-   * ============================================================
+   * ==========================================================
    */
 
   return (
@@ -88,10 +101,23 @@ export default async function EditCategoryPage({
         submitLabel="Update Kategori"
         action={action}
         defaultValues={{
-          name: category.name,
-          slug: category.slug,
+          name:
+            category.name,
+
+          slug:
+            category.slug,
+
           description:
-            category.description ?? "",
+            category.description ??
+            "",
+
+          sortOrder:
+            category.sortOrder ??
+            0,
+
+          isActive:
+            category.isActive ??
+            true,
         }}
       />
     </div>

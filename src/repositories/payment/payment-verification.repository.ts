@@ -1,6 +1,10 @@
-import { PaymentStatus } from "@prisma/client";
+import {
+  PaymentStatus,
+} from "@prisma/client";
 
-import { prisma } from "@/lib/prisma";
+import {
+  prisma,
+} from "@/lib/prisma";
 
 /**
  * ============================================================
@@ -9,6 +13,29 @@ import { prisma } from "@/lib/prisma";
  *
  * Database access layer untuk proses verifikasi
  * bukti pembayaran customer.
+ *
+ * IMPORTANT:
+ *
+ * PaymentProof menyimpan data snapshot pembayaran,
+ * sedangkan Order tetap menjadi sumber relasi terhadap
+ * PaymentChannel yang dipilih saat checkout.
+ *
+ * Flow:
+ *
+ * PaymentProof
+ *        ↓
+ * Order
+ *        ↓
+ * PaymentChannel
+ *
+ * Dengan relasi ini Admin dapat mengetahui apakah
+ * pembayaran menggunakan:
+ *
+ * - BANK_TRANSFER
+ * - QRIS
+ *
+ * termasuk untuk data lama ketika bankName pada
+ * PaymentProof bernilai null.
  *
  * ============================================================
  */
@@ -29,12 +56,48 @@ export class PaymentVerificationRepository {
       include: {
         order: {
           include: {
+            /**
+             * ==================================================
+             * CUSTOMER
+             * ==================================================
+             */
+
             user: {
               select: {
                 id: true,
                 name: true,
                 email: true,
                 phone: true,
+              },
+            },
+
+            /**
+             * ==================================================
+             * PAYMENT CHANNEL
+             * ==================================================
+             *
+             * Penting untuk membedakan:
+             *
+             * BANK_TRANSFER
+             * QRIS
+             *
+             * Jangan hanya bergantung kepada:
+             *
+             * paymentProof.bankName
+             *
+             * karena data lama dapat memiliki:
+             *
+             * bankName = null
+             */
+
+            paymentChannel: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                bankName: true,
+                accountNumber: true,
+                accountHolder: true,
               },
             },
           },
@@ -45,6 +108,7 @@ export class PaymentVerificationRepository {
         {
           status: "asc",
         },
+
         {
           createdAt: "desc",
         },
@@ -70,6 +134,12 @@ export class PaymentVerificationRepository {
       include: {
         order: {
           include: {
+            /**
+             * ==================================================
+             * CUSTOMER
+             * ==================================================
+             */
+
             user: {
               select: {
                 id: true,
@@ -79,7 +149,38 @@ export class PaymentVerificationRepository {
               },
             },
 
+            /**
+             * ==================================================
+             * PAYMENT CHANNEL
+             * ==================================================
+             */
+
+            paymentChannel: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                bankName: true,
+                accountNumber: true,
+                accountHolder: true,
+                instructions: true,
+                description: true,
+              },
+            },
+
+            /**
+             * ==================================================
+             * ADDRESS
+             * ==================================================
+             */
+
             address: true,
+
+            /**
+             * ==================================================
+             * ORDER ITEMS
+             * ==================================================
+             */
 
             items: {
               include: {
@@ -97,12 +198,24 @@ export class PaymentVerificationRepository {
    * VERIFY PAYMENT
    *
    * PaymentProof:
-   * PENDING → VERIFIED
+   *
+   * PENDING
+   *   ↓
+   * VERIFIED
    *
    * Order:
-   * paymentStatus → VERIFIED
-   * status → PROCESSING
-   * paidAt → now
+   *
+   * paymentStatus
+   *   ↓
+   * VERIFIED
+   *
+   * status
+   *   ↓
+   * PROCESSING
+   *
+   * paidAt
+   *   ↓
+   * now
    *
    * ==========================================================
    */
@@ -136,7 +249,14 @@ export class PaymentVerificationRepository {
           );
         }
 
-        const now = new Date();
+        const now =
+          new Date();
+
+        /**
+         * ====================================================
+         * UPDATE PAYMENT PROOF
+         * ====================================================
+         */
 
         const updatedProof =
           await tx.paymentProof.update({
@@ -154,6 +274,12 @@ export class PaymentVerificationRepository {
               verifiedById,
             },
           });
+
+        /**
+         * ====================================================
+         * UPDATE ORDER
+         * ====================================================
+         */
 
         await tx.order.update({
           where: {
@@ -183,13 +309,22 @@ export class PaymentVerificationRepository {
    * REJECT PAYMENT
    *
    * PaymentProof:
-   * PENDING → REJECTED
+   *
+   * PENDING
+   *   ↓
+   * REJECTED
    *
    * Order:
-   * paymentStatus → REJECTED
    *
-   * Order status kembali ke WAITING_PAYMENT
-   * agar customer dapat melakukan pembayaran ulang.
+   * paymentStatus
+   *   ↓
+   * REJECTED
+   *
+   * status
+   *   ↓
+   * WAITING_PAYMENT
+   *
+   * Customer dapat melakukan pembayaran ulang.
    *
    * ==========================================================
    */
@@ -224,7 +359,14 @@ export class PaymentVerificationRepository {
           );
         }
 
-        const now = new Date();
+        const now =
+          new Date();
+
+        /**
+         * ====================================================
+         * UPDATE PAYMENT PROOF
+         * ====================================================
+         */
 
         const updatedProof =
           await tx.paymentProof.update({
@@ -245,20 +387,26 @@ export class PaymentVerificationRepository {
             },
           });
 
+        /**
+         * ====================================================
+         * UPDATE ORDER
+         * ====================================================
+         */
+
         await tx.order.update({
-  where: {
-    id:
-      paymentProof.orderId,
-  },
+          where: {
+            id:
+              paymentProof.orderId,
+          },
 
-  data: {
-    paymentStatus:
-      PaymentStatus.REJECTED,
+          data: {
+            paymentStatus:
+              PaymentStatus.REJECTED,
 
-    status:
-      "PENDING",
-  },
-});
+            status:
+              "WAITING_PAYMENT",
+          },
+        });
 
         return updatedProof;
       }

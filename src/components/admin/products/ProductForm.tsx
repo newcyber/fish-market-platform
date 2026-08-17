@@ -1,13 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 
 import Link from "next/link";
 
 import {
+  useRouter,
+} from "next/navigation";
+
+import {
+  ImagePlus,
   Plus,
   Save,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 
 import {
@@ -38,36 +51,353 @@ import {
   Switch,
 } from "@/components/ui/switch";
 
+import type {
+  ActionResult,
+} from "@/types/action-result";
+
+/**
+ * ============================================================
+ * CATEGORY OPTION
+ * ============================================================
+ */
+
 interface CategoryOption {
   id: string;
   name: string;
 }
 
+/**
+ * ============================================================
+ * PRODUCT VARIANT OPTION
+ * ============================================================
+ *
+ * Contoh:
+ *
+ * {
+ *   label: "Utuh",
+ *   priceAdjustment: 0
+ * }
+ *
+ * {
+ *   label: "Dibersihkan",
+ *   priceAdjustment: 5000
+ * }
+ */
+
+export interface ProductVariantOptionValue {
+  label: string;
+  priceAdjustment: number;
+}
+
+/**
+ * ============================================================
+ * PRODUCT WEIGHT OPTION
+ * ============================================================
+ *
+ * Contoh:
+ *
+ * {
+ *   label: "500gr",
+ *   price: 30000
+ * }
+ */
+
+export interface ProductWeightOptionValue {
+  label: string;
+  price: number;
+}
+
+/**
+ * ============================================================
+ * PRODUCT FORM VALUES
+ * ============================================================
+ */
+
 export interface ProductFormValues {
   categoryId: string;
+
   name: string;
+
   slug: string;
+
   description: string;
+
   sku: string;
+
+  /**
+   * Harga dasar produk.
+   */
+
   price: number;
+
   stock: number;
-  variantOptions: string[];
-  weightOptions: string[];
+
+  /**
+   * Varian produk.
+   */
+
+  variantOptions:
+    ProductVariantOptionValue[];
+
+  /**
+   * Pilihan berat produk.
+   */
+
+  weightOptions:
+    ProductWeightOptionValue[];
+
   isPublished: boolean;
+
   featured: boolean;
 }
+
+/**
+ * ============================================================
+ * PRODUCT FORM PROPS
+ * ============================================================
+ */
 
 interface ProductFormProps {
   categories: CategoryOption[];
 
-  defaultValues?: Partial<ProductFormValues>;
+  defaultValues?: Partial<
+    Omit<
+      ProductFormValues,
+      | "variantOptions"
+      | "weightOptions"
+    >
+  > & {
+    /**
+     * Support format lama:
+     *
+     * ["Utuh", "Dibersihkan"]
+     *
+     * dan format baru:
+     *
+     * [
+     *   {
+     *     label: "Utuh",
+     *     priceAdjustment: 0
+     *   }
+     * ]
+     */
+
+    variantOptions?:
+      | ProductVariantOptionValue[]
+      | string[];
+
+    /**
+     * Support format lama:
+     *
+     * ["500gr", "1kg"]
+     *
+     * dan format baru:
+     *
+     * [
+     *   {
+     *     label: "500gr",
+     *     price: 30000
+     *   }
+     * ]
+     */
+
+    weightOptions?:
+      | ProductWeightOptionValue[]
+      | string[];
+  };
 
   submitLabel?: string;
 
   action: (
+    state: ActionResult,
     formData: FormData
-  ) => void | Promise<void>;
+  ) => Promise<ActionResult>;
 }
+
+/**
+ * ============================================================
+ * INITIAL ACTION STATE
+ * ============================================================
+ */
+
+const initialState: ActionResult = {
+  success: false,
+  message: "",
+};
+
+/**
+ * ============================================================
+ * DEFAULT VARIANT OPTIONS
+ * ============================================================
+ */
+
+const defaultVariantOptions:
+  ProductVariantOptionValue[] = [
+    {
+      label: "Utuh",
+      priceAdjustment: 0,
+    },
+    {
+      label: "Dibersihkan",
+      priceAdjustment: 0,
+    },
+  ];
+
+/**
+ * ============================================================
+ * DEFAULT WEIGHT OPTIONS
+ * ============================================================
+ */
+
+const defaultWeightOptions:
+  ProductWeightOptionValue[] = [
+    {
+      label: "250gr",
+      price: 0,
+    },
+    {
+      label: "500gr",
+      price: 0,
+    },
+    {
+      label: "1kg",
+      price: 0,
+    },
+  ];
+
+/**
+ * ============================================================
+ * NORMALIZE VARIANT OPTIONS
+ * ============================================================
+ */
+
+function normalizeVariantOptions(
+  options:
+    | ProductVariantOptionValue[]
+    | string[]
+    | undefined
+): ProductVariantOptionValue[] {
+  if (
+    !options ||
+    options.length === 0
+  ) {
+    return defaultVariantOptions.map(
+      (option) => ({
+        ...option,
+      })
+    );
+  }
+
+  return options.map(
+    (option) => {
+      /**
+       * Support format lama:
+       *
+       * "Utuh"
+       */
+
+      if (
+        typeof option === "string"
+      ) {
+        return {
+          label: option,
+          priceAdjustment: 0,
+        };
+      }
+
+      /**
+       * Format baru.
+       */
+
+      const parsedAdjustment =
+        Number(
+          option.priceAdjustment ?? 0
+        );
+
+      return {
+        label:
+          option.label ?? "",
+
+        priceAdjustment:
+          Number.isFinite(
+            parsedAdjustment
+          )
+            ? Math.max(
+                0,
+                parsedAdjustment
+              )
+            : 0,
+      };
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * NORMALIZE WEIGHT OPTIONS
+ * ============================================================
+ */
+
+function normalizeWeightOptions(
+  options:
+    | ProductWeightOptionValue[]
+    | string[]
+    | undefined
+): ProductWeightOptionValue[] {
+  if (
+    !options ||
+    options.length === 0
+  ) {
+    return defaultWeightOptions.map(
+      (option) => ({
+        ...option,
+      })
+    );
+  }
+
+  return options.map(
+    (option) => {
+      /**
+       * Support format lama.
+       */
+
+      if (
+        typeof option === "string"
+      ) {
+        return {
+          label: option,
+          price: 0,
+        };
+      }
+
+      const parsedPrice =
+        Number(
+          option.price ?? 0
+        );
+
+      return {
+        label:
+          option.label ?? "",
+
+        price:
+          Number.isFinite(
+            parsedPrice
+          )
+            ? Math.max(
+                0,
+                parsedPrice
+              )
+            : 0,
+      };
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * SUBMIT BUTTON
+ * ============================================================
+ */
 
 function SubmitButton({
   label,
@@ -76,7 +406,8 @@ function SubmitButton({
 }) {
   const {
     pending,
-  } = useFormStatus();
+  } =
+    useFormStatus();
 
   return (
     <Button
@@ -92,172 +423,637 @@ function SubmitButton({
   );
 }
 
+/**
+ * ============================================================
+ * PRODUCT FORM
+ * ============================================================
+ */
+
 export function ProductForm({
   categories,
   defaultValues,
   submitLabel = "Simpan Produk",
   action,
 }: ProductFormProps) {
+  const router =
+    useRouter();
+
+  /**
+   * ==========================================================
+   * SERVER ACTION STATE
+   * ==========================================================
+   */
+
+  const [
+    state,
+    formAction,
+  ] =
+    useActionState(
+      action,
+      initialState
+    );
+
+  /**
+   * ==========================================================
+   * LOCAL FORM STATE
+   * ==========================================================
+   */
+
   const [
     form,
     setForm,
-  ] = useState<ProductFormValues>({
-    categoryId:
-      defaultValues?.categoryId ?? "",
+  ] =
+    useState<ProductFormValues>({
+      categoryId:
+        defaultValues?.categoryId ??
+        "",
 
-    name:
-      defaultValues?.name ?? "",
+      name:
+        defaultValues?.name ??
+        "",
 
-    slug:
-      defaultValues?.slug ?? "",
+      slug:
+        defaultValues?.slug ??
+        "",
 
-    description:
-      defaultValues?.description ?? "",
+      description:
+        defaultValues?.description ??
+        "",
 
-    sku:
-      defaultValues?.sku ?? "",
+      sku:
+        defaultValues?.sku ??
+        "",
 
-    price:
-      defaultValues?.price ?? 0,
+      price:
+        Number(
+          defaultValues?.price ?? 0
+        ),
 
-    stock:
-      defaultValues?.stock ?? 0,
+      stock:
+        Number(
+          defaultValues?.stock ?? 0
+        ),
 
-    variantOptions:
-      defaultValues?.variantOptions ?? [
-        "Utuh",
-        "Dibersihkan",
-      ],
+      /**
+       * IMPORTANT:
+       *
+       * variantOptions sekarang selalu
+       * berbentuk object.
+       */
 
-    weightOptions:
-      defaultValues?.weightOptions ?? [
-        "250gr",
-        "500gr",
-        "1kg",
-      ],
+      variantOptions:
+        normalizeVariantOptions(
+          defaultValues?.variantOptions
+        ),
 
-    isPublished:
-      defaultValues?.isPublished ??
-      true,
+      weightOptions:
+        normalizeWeightOptions(
+          defaultValues?.weightOptions
+        ),
 
-    featured:
-      defaultValues?.featured ??
-      false,
-  });
+      isPublished:
+        defaultValues?.isPublished ??
+        true,
+
+      featured:
+        defaultValues?.featured ??
+        false,
+    });
 
   /**
-   * ============================================================
-   * VARIANT HANDLERS
-   * ============================================================
+   * ==========================================================
+   * PRODUCT IMAGE STATE
+   * ==========================================================
    */
 
-  const updateVariant = (
+  const [
+    selectedImages,
+    setSelectedImages,
+  ] =
+    useState<File[]>([]);
+
+    const imageInputRef =
+  useRef<HTMLInputElement | null>(
+    null
+  );
+
+  useEffect(() => {
+  if (!imageInputRef.current) {
+    return;
+  }
+
+  const dataTransfer =
+    new DataTransfer();
+
+  selectedImages.forEach((file) => {
+    dataTransfer.items.add(file);
+  });
+
+  imageInputRef.current.files =
+    dataTransfer.files;
+}, [selectedImages]);
+
+  const [
+    imagePreviews,
+    setImagePreviews,
+  ] =
+    useState<string[]>([]);
+
+  /**
+   * ==========================================================
+   * CLEANUP OBJECT URL
+   * ==========================================================
+   */
+
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach(
+        (preview) => {
+          if (
+            preview.startsWith(
+              "blob:"
+            )
+          ) {
+            URL.revokeObjectURL(
+              preview
+            );
+          }
+        }
+      );
+    };
+  }, [
+    imagePreviews,
+  ]);
+
+  /**
+   * ==========================================================
+   * SYNC FILE INPUT
+   * ==========================================================
+   */
+
+  useEffect(() => {
+    const input =
+      imageInputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    const dataTransfer =
+      new DataTransfer();
+
+    selectedImages.forEach(
+      (file) => {
+        dataTransfer.items.add(
+          file
+        );
+      }
+    );
+
+    input.files =
+      dataTransfer.files;
+  }, [
+    selectedImages,
+  ]);
+
+  /**
+   * ==========================================================
+   * ACTION RESULT
+   * ==========================================================
+   */
+
+  useEffect(() => {
+    if (!state.message) {
+      return;
+    }
+
+    if (state.success) {
+      window.alert(
+        state.message
+      );
+
+      router.push(
+        "/admin/products"
+      );
+
+      router.refresh();
+
+      return;
+    }
+
+    window.alert(
+      state.message
+    );
+  }, [
+    state.success,
+    state.message,
+    router,
+  ]);
+
+  /**
+   * ==========================================================
+   * VARIANT HANDLERS
+   * ==========================================================
+   */
+
+  const updateVariantLabel = (
     index: number,
     value: string
   ) => {
-    setForm({
-      ...form,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      variantOptions:
-        form.variantOptions.map(
-          (
-            item,
-            itemIndex
-          ) =>
-            itemIndex === index
-              ? value
-              : item
-        ),
-    });
+        variantOptions:
+          previous.variantOptions.map(
+            (
+              item,
+              itemIndex
+            ) =>
+              itemIndex === index
+                ? {
+                    ...item,
+                    label: value,
+                  }
+                : item
+          ),
+      })
+    );
+  };
+
+  const updateVariantPriceAdjustment = (
+    index: number,
+    value: string
+  ) => {
+    const normalizedValue =
+      value.trim();
+
+    const parsedValue =
+      normalizedValue === ""
+        ? 0
+        : Number(
+            normalizedValue
+          );
+
+    const priceAdjustment =
+      Number.isFinite(
+        parsedValue
+      )
+        ? Math.max(
+            0,
+            parsedValue
+          )
+        : 0;
+
+    setForm(
+      (previous) => ({
+        ...previous,
+
+        variantOptions:
+          previous.variantOptions.map(
+            (
+              item,
+              itemIndex
+            ) =>
+              itemIndex === index
+                ? {
+                    ...item,
+
+                    priceAdjustment,
+                  }
+                : item
+          ),
+      })
+    );
   };
 
   const removeVariant = (
     index: number
   ) => {
-    setForm({
-      ...form,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      variantOptions:
-        form.variantOptions.filter(
-          (
-            _item,
-            itemIndex
-          ) =>
-            itemIndex !== index
-        ),
-    });
+        variantOptions:
+          previous.variantOptions.filter(
+            (
+              _item,
+              itemIndex
+            ) =>
+              itemIndex !== index
+          ),
+      })
+    );
   };
 
   const addVariant = () => {
-    setForm({
-      ...form,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      variantOptions: [
-        ...form.variantOptions,
-        "",
-      ],
-    });
+        variantOptions: [
+          ...previous.variantOptions,
+          {
+            label: "",
+            priceAdjustment: 0,
+          },
+        ],
+      })
+    );
   };
 
   /**
-   * ============================================================
+   * ==========================================================
    * WEIGHT HANDLERS
-   * ============================================================
+   * ==========================================================
    */
 
-  const updateWeight = (
+  const updateWeightLabel = (
     index: number,
     value: string
   ) => {
-    setForm({
-      ...form,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      weightOptions:
-        form.weightOptions.map(
-          (
-            item,
-            itemIndex
-          ) =>
-            itemIndex === index
-              ? value
-              : item
-        ),
-    });
+        weightOptions:
+          previous.weightOptions.map(
+            (
+              item,
+              itemIndex
+            ) =>
+              itemIndex === index
+                ? {
+                    ...item,
+                    label: value,
+                  }
+                : item
+          ),
+      })
+    );
+  };
+
+  const updateWeightPrice = (
+    index: number,
+    value: string
+  ) => {
+    const normalizedValue =
+      value.trim();
+
+    const parsedPrice =
+      normalizedValue === ""
+        ? 0
+        : Number(
+            normalizedValue
+          );
+
+    const price =
+      Number.isFinite(
+        parsedPrice
+      )
+        ? Math.max(
+            0,
+            parsedPrice
+          )
+        : 0;
+
+    setForm(
+      (previous) => ({
+        ...previous,
+
+        weightOptions:
+          previous.weightOptions.map(
+            (
+              item,
+              itemIndex
+            ) =>
+              itemIndex === index
+                ? {
+                    ...item,
+                    price,
+                  }
+                : item
+          ),
+      })
+    );
   };
 
   const removeWeight = (
     index: number
   ) => {
-    setForm({
-      ...form,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      weightOptions:
-        form.weightOptions.filter(
-          (
-            _item,
-            itemIndex
-          ) =>
-            itemIndex !== index
-        ),
-    });
+        weightOptions:
+          previous.weightOptions.filter(
+            (
+              _item,
+              itemIndex
+            ) =>
+              itemIndex !== index
+          ),
+      })
+    );
   };
 
   const addWeight = () => {
-    setForm({
-      ...form,
+    setForm(
+      (previous) => ({
+        ...previous,
 
-      weightOptions: [
-        ...form.weightOptions,
-        "",
-      ],
-    });
+        weightOptions: [
+          ...previous.weightOptions,
+          {
+            label: "",
+            price: 0,
+          },
+        ],
+      })
+    );
   };
+
+  /**
+   * ==========================================================
+   * IMAGE HANDLERS
+   * ==========================================================
+   */
+
+  const handleImageChange = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const files =
+      Array.from(
+        event.target.files ?? []
+      );
+
+    if (
+      files.length === 0
+    ) {
+      return;
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+
+    const maxSize =
+      5 * 1024 * 1024;
+
+    const validFiles =
+      files.filter(
+        (file) => {
+          if (
+            !allowedTypes.includes(
+              file.type
+            )
+          ) {
+            window.alert(
+              `${file.name} bukan format gambar yang didukung.`
+            );
+
+            return false;
+          }
+
+          if (
+            file.size >
+            maxSize
+          ) {
+            window.alert(
+              `${file.name} melebihi batas 5 MB.`
+            );
+
+            return false;
+          }
+
+          return true;
+        }
+      );
+
+    if (
+      validFiles.length === 0
+    ) {
+      return;
+    }
+
+    const newFiles =
+      validFiles.filter(
+        (file) => {
+          return !selectedImages.some(
+            (
+              existingFile
+            ) =>
+              existingFile.name ===
+                file.name &&
+              existingFile.size ===
+                file.size &&
+              existingFile.lastModified ===
+                file.lastModified
+          );
+        }
+      );
+
+    if (
+      newFiles.length === 0
+    ) {
+      return;
+    }
+
+    const previews =
+      newFiles.map(
+        (file) =>
+          URL.createObjectURL(
+            file
+          )
+      );
+
+    setSelectedImages(
+      (previous) => [
+        ...previous,
+        ...newFiles,
+      ]
+    );
+
+    setImagePreviews(
+      (previous) => [
+        ...previous,
+        ...previews,
+      ]
+    );
+
+    /**
+     * Reset value agar file yang sama
+     * dapat dipilih kembali setelah dihapus.
+     */
+
+    event.target.value = "";
+  };
+
+  const removeSelectedImage = (
+    index: number
+  ) => {
+    setImagePreviews(
+      (previous) => {
+        const preview =
+          previous[index];
+
+        if (
+          preview?.startsWith(
+            "blob:"
+          )
+        ) {
+          URL.revokeObjectURL(
+            preview
+          );
+        }
+
+        return previous.filter(
+          (
+            _preview,
+            previewIndex
+          ) =>
+            previewIndex !== index
+        );
+      }
+    );
+
+    setSelectedImages(
+      (previous) =>
+        previous.filter(
+          (
+            _image,
+            imageIndex
+          ) =>
+            imageIndex !== index
+        )
+    );
+  };
+
+  /**
+   * ==========================================================
+   * FORM
+   * ==========================================================
+   */
 
   return (
     <form
-      action={action}
+      action={formAction}
       className="space-y-6"
     >
+      {/* ====================================================== */}
+      {/* ERROR MESSAGE */}
+      {/* ====================================================== */}
+
+      {state.message &&
+        !state.success && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {state.message}
+          </div>
+        )}
+
       {/* ====================================================== */}
       {/* INFORMASI PRODUK */}
       {/* ====================================================== */}
@@ -274,9 +1070,6 @@ export function ProductForm({
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
-
-          {/* CATEGORY */}
-
           <div className="space-y-2">
             <Label htmlFor="categoryId">
               Kategori
@@ -286,33 +1079,50 @@ export function ProductForm({
               id="categoryId"
               name="categoryId"
               className="w-full rounded-md border bg-background px-3 py-2"
-              value={form.categoryId}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  categoryId:
-                    event.target.value,
-                })
+              value={
+                form.categoryId
               }
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    categoryId:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+              required
             >
               <option value="">
                 Pilih Kategori
               </option>
 
               {categories.map(
-                (category) => (
+                (
+                  category
+                ) => (
                   <option
-                    key={category.id}
-                    value={category.id}
+                    key={
+                      category.id
+                    }
+                    value={
+                      category.id
+                    }
                   >
-                    {category.name}
+                    {
+                      category.name
+                    }
                   </option>
                 )
               )}
             </select>
           </div>
-
-          {/* NAME */}
 
           <div className="space-y-2">
             <Label htmlFor="name">
@@ -323,18 +1133,24 @@ export function ProductForm({
               id="name"
               name="name"
               value={form.name}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  name:
-                    event.target.value,
-                })
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    name:
+                      event.target
+                        .value,
+                  })
+                )
               }
               required
             />
           </div>
-
-          {/* SLUG */}
 
           <div className="space-y-2">
             <Label htmlFor="slug">
@@ -345,18 +1161,24 @@ export function ProductForm({
               id="slug"
               name="slug"
               value={form.slug}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  slug:
-                    event.target.value,
-                })
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    slug:
+                      event.target
+                        .value,
+                  })
+                )
               }
               required
             />
           </div>
-
-          {/* SKU */}
 
           <div className="space-y-2">
             <Label htmlFor="sku">
@@ -367,19 +1189,24 @@ export function ProductForm({
               id="sku"
               name="sku"
               value={form.sku}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  sku:
-                    event.target.value,
-                })
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    sku:
+                      event.target
+                        .value,
+                  })
+                )
               }
             />
           </div>
-
         </div>
-
-        {/* DESCRIPTION */}
 
         <div className="space-y-2">
           <Label htmlFor="description">
@@ -389,17 +1216,123 @@ export function ProductForm({
           <Textarea
             id="description"
             name="description"
-            value={form.description}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                description:
-                  event.target.value,
-              })
+            value={
+              form.description
+            }
+            onChange={(
+              event
+            ) =>
+              setForm(
+                (
+                  previous
+                ) => ({
+                  ...previous,
+
+                  description:
+                    event.target
+                      .value,
+                })
+              )
             }
             rows={5}
           />
         </div>
+      </Card>
+
+      {/* ====================================================== */}
+      {/* GAMBAR PRODUK */}
+      {/* ====================================================== */}
+
+      <Card className="space-y-6 p-6">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <ImagePlus className="h-5 w-5" />
+
+            Gambar Produk
+          </h2>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upload satu atau beberapa gambar produk.
+            Format JPG, PNG, atau WEBP dengan ukuran
+            maksimal 5 MB per gambar.
+          </p>
+        </div>
+
+        <input
+          ref={imageInputRef}
+          id="product-images"
+          name="images"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={
+            handleImageChange
+          }
+        />
+
+        <label
+          htmlFor="product-images"
+          className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 transition hover:bg-muted/50"
+        >
+          <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+
+          <span className="text-sm font-medium">
+            Klik untuk memilih gambar
+          </span>
+
+          <span className="mt-1 text-xs text-muted-foreground">
+            Bisa memilih beberapa gambar sekaligus
+          </span>
+        </label>
+
+        {imagePreviews.length >
+          0 && (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {imagePreviews.map(
+              (
+                preview,
+                index
+              ) => (
+                <div
+                  key={`${preview}-${index}`}
+                  className="group relative overflow-hidden rounded-xl border bg-muted"
+                >
+                  <img
+                    src={preview}
+                    alt={`Preview produk ${
+                      index + 1
+                    }`}
+                    className="aspect-square w-full object-cover"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      removeSelectedImage(
+                        index
+                      )
+                    }
+                    className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm transition hover:bg-destructive hover:text-destructive-foreground"
+                    aria-label="Hapus gambar"
+                    title="Hapus gambar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <div className="absolute inset-x-0 bottom-0 bg-background/85 px-2 py-1.5">
+                    <p className="truncate text-xs">
+                      {selectedImages[
+                        index
+                      ]?.name ??
+                        "Gambar produk"}
+                    </p>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        )}
       </Card>
 
       {/* ====================================================== */}
@@ -413,17 +1346,16 @@ export function ProductForm({
           </h2>
 
           <p className="text-sm text-muted-foreground">
-            Atur harga dan jumlah stok produk.
+            Harga dasar digunakan sebagai fallback.
+            Harga pilihan berat dan varian dapat
+            menyesuaikan total harga produk.
           </p>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
-
-          {/* PRICE */}
-
           <div className="space-y-2">
             <Label htmlFor="price">
-              Harga Produk
+              Harga Dasar Produk
             </Label>
 
             <Input
@@ -431,21 +1363,31 @@ export function ProductForm({
               name="price"
               type="number"
               min="0"
+              step="1"
               value={form.price}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  price:
-                    Number(
-                      event.target.value
-                    ),
-                })
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    price:
+                      Math.max(
+                        0,
+                        Number(
+                          event.target
+                            .value
+                        ) || 0
+                      ),
+                  })
+                )
               }
               required
             />
           </div>
-
-          {/* STOCK */}
 
           <div className="space-y-2">
             <Label htmlFor="stock">
@@ -459,24 +1401,33 @@ export function ProductForm({
               min="0"
               step="1"
               value={form.stock}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  stock:
-                    Number(
-                      event.target.value
-                    ),
-                })
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    stock:
+                      Math.max(
+                        0,
+                        Number(
+                          event.target
+                            .value
+                        ) || 0
+                      ),
+                  })
+                )
               }
               required
             />
 
             <p className="text-xs text-muted-foreground">
-              Masukkan jumlah stok
-              produk yang tersedia.
+              Masukkan jumlah stok produk yang tersedia.
             </p>
           </div>
-
         </div>
       </Card>
 
@@ -492,16 +1443,17 @@ export function ProductForm({
             </h2>
 
             <p className="text-sm text-muted-foreground">
-              Tambahkan pilihan varian
-              produk yang dapat dipilih
-              oleh customer.
+              Tambahkan varian dan biaya tambahan
+              apabila diperlukan.
             </p>
           </div>
 
           <Button
             type="button"
             variant="outline"
-            onClick={addVariant}
+            onClick={
+              addVariant
+            }
           >
             <Plus className="mr-2 h-4 w-4" />
 
@@ -510,12 +1462,12 @@ export function ProductForm({
         </div>
 
         <div className="space-y-3">
-
-          {form.variantOptions.length === 0 ? (
+          {form.variantOptions
+            .length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
               Belum ada varian.
-              Klik Tambah Varian untuk
-              menambahkan pilihan.
+              Klik Tambah Varian untuk menambahkan
+              pilihan.
             </div>
           ) : (
             form.variantOptions.map(
@@ -524,64 +1476,113 @@ export function ProductForm({
                 index
               ) => (
                 <div
-                  key={index}
-                  className="flex items-center gap-3"
+                  key={`${index}-${variant.label}`}
+                  className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
                 >
-                  <Input
-                    name="variantOptions"
-                    value={variant}
-                    placeholder="Contoh: Utuh"
-                    onChange={(event) =>
-                      updateVariant(
-                        index,
-                        event.target.value
-                      )
-                    }
-                  />
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor={`variant-label-${index}`}
+                    >
+                      Nama Varian
+                    </Label>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      removeVariant(
-                        index
-                      )
-                    }
-                    aria-label="Hapus varian"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                    <Input
+                      id={`variant-label-${index}`}
+                      name="variantOptions"
+                      value={
+                        variant.label
+                      }
+                      placeholder="Contoh: Utuh"
+                      onChange={(
+                        event
+                      ) =>
+                        updateVariantLabel(
+                          index,
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor={`variant-price-${index}`}
+                    >
+                      Tambahan Harga
+                    </Label>
+
+                    <Input
+                      id={`variant-price-${index}`}
+                      name="variantOptionPrices"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={
+                        variant.priceAdjustment
+                      }
+                      placeholder="Contoh: 5000"
+                      onChange={(
+                        event
+                      ) =>
+                        updateVariantPriceAdjustment(
+                          index,
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        removeVariant(
+                          index
+                        )
+                      }
+                      aria-label={`Hapus varian ${
+                        variant.label ||
+                        index + 1
+                      }`}
+                      title="Hapus varian"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )
             )
           )}
-
         </div>
       </Card>
 
       {/* ====================================================== */}
-      {/* PILIHAN BERAT */}
+      {/* PILIHAN BERAT DAN HARGA */}
       {/* ====================================================== */}
 
       <Card className="space-y-6 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">
-              Pilihan Berat Produk
+              Pilihan Berat & Harga
             </h2>
 
             <p className="text-sm text-muted-foreground">
-              Tambahkan pilihan berat
-              yang dapat dipilih oleh
-              customer.
+              Setiap produk dapat memiliki harga
+              berbeda untuk setiap pilihan berat.
             </p>
           </div>
 
           <Button
             type="button"
             variant="outline"
-            onClick={addWeight}
+            onClick={
+              addWeight
+            }
           >
             <Plus className="mr-2 h-4 w-4" />
 
@@ -590,12 +1591,12 @@ export function ProductForm({
         </div>
 
         <div className="space-y-3">
-
-          {form.weightOptions.length === 0 ? (
+          {form.weightOptions
+            .length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
               Belum ada pilihan berat.
-              Klik Tambah Berat untuk
-              menambahkan pilihan.
+              Klik Tambah Berat untuk menambahkan
+              pilihan.
             </div>
           ) : (
             form.weightOptions.map(
@@ -604,39 +1605,87 @@ export function ProductForm({
                 index
               ) => (
                 <div
-                  key={index}
-                  className="flex items-center gap-3"
+                  key={`${index}-${weight.label}`}
+                  className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
                 >
-                  <Input
-                    name="weightOptions"
-                    value={weight}
-                    placeholder="Contoh: 500gr"
-                    onChange={(event) =>
-                      updateWeight(
-                        index,
-                        event.target.value
-                      )
-                    }
-                  />
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor={`weight-label-${index}`}
+                    >
+                      Berat
+                    </Label>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      removeWeight(
-                        index
-                      )
-                    }
-                    aria-label="Hapus berat"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                    <Input
+                      id={`weight-label-${index}`}
+                      name="weightOptions"
+                      value={
+                        weight.label
+                      }
+                      placeholder="Contoh: 500gr"
+                      onChange={(
+                        event
+                      ) =>
+                        updateWeightLabel(
+                          index,
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor={`weight-price-${index}`}
+                    >
+                      Harga
+                    </Label>
+
+                    <Input
+                      id={`weight-price-${index}`}
+                      name="weightOptionPrices"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={
+                        weight.price
+                      }
+                      placeholder="Contoh: 30000"
+                      onChange={(
+                        event
+                      ) =>
+                        updateWeightPrice(
+                          index,
+                          event.target
+                            .value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        removeWeight(
+                          index
+                        )
+                      }
+                      aria-label={`Hapus pilihan berat ${
+                        weight.label ||
+                        index + 1
+                      }`}
+                      title="Hapus pilihan berat"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )
             )
           )}
-
         </div>
       </Card>
 
@@ -651,14 +1700,11 @@ export function ProductForm({
           </h2>
 
           <p className="text-sm text-muted-foreground">
-            Atur status publikasi produk.
+            Atur status publikasi dan produk unggulan.
           </p>
         </div>
 
         <div className="space-y-5">
-
-          {/* PUBLISHED */}
-
           <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
             <div>
               <Label htmlFor="isPublished">
@@ -666,22 +1712,28 @@ export function ProductForm({
               </Label>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                Produk akan tampil
-                di halaman customer.
+                Produk akan tampil di halaman customer.
               </p>
             </div>
 
             <Switch
               id="isPublished"
-              checked={form.isPublished}
+              checked={
+                form.isPublished
+              }
               onCheckedChange={(
                 checked
               ) =>
-                setForm({
-                  ...form,
-                  isPublished:
-                    checked,
-                })
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    isPublished:
+                      checked,
+                  })
+                )
               }
             />
           </div>
@@ -696,8 +1748,6 @@ export function ProductForm({
             }
           />
 
-          {/* FEATURED */}
-
           <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
             <div>
               <Label htmlFor="featured">
@@ -705,22 +1755,28 @@ export function ProductForm({
               </Label>
 
               <p className="mt-1 text-sm text-muted-foreground">
-                Tampilkan produk sebagai
-                produk unggulan.
+                Tampilkan produk sebagai produk unggulan.
               </p>
             </div>
 
             <Switch
               id="featured"
-              checked={form.featured}
+              checked={
+                form.featured
+              }
               onCheckedChange={(
                 checked
               ) =>
-                setForm({
-                  ...form,
-                  featured:
-                    checked,
-                })
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    featured:
+                      checked,
+                  })
+                )
               }
             />
           </div>
@@ -734,7 +1790,6 @@ export function ProductForm({
                 : "false"
             }
           />
-
         </div>
       </Card>
 
@@ -743,17 +1798,19 @@ export function ProductForm({
       {/* ====================================================== */}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-  <Link
-    href="/admin/products"
-    className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-  >
-    Batal
-  </Link>
+        <Link
+          href="/admin/products"
+          className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          Batal
+        </Link>
 
-  <SubmitButton
-    label={submitLabel}
-  />
-</div>
+        <SubmitButton
+          label={
+            submitLabel
+          }
+        />
+      </div>
     </form>
   );
 }

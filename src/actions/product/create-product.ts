@@ -1,9 +1,16 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import {
+  revalidatePath,
+} from "next/cache";
 
-import { ProductService } from "@/services/product/product.service";
+import {
+  ProductService,
+} from "@/services/product/product.service";
+
+import {
+  ProductImageService,
+} from "@/services/product/product-image.service";
 
 import {
   ProductSchema,
@@ -13,49 +20,486 @@ import type {
   ActionResult,
 } from "@/types/action-result";
 
+/**
+ * ============================================================
+ *
+ * CREATE PRODUCT ACTION
+ *
+ * ============================================================
+ *
+ * Flow:
+ *
+ * ProductForm
+ *      ↓
+ * FormData
+ *      ↓
+ * Parse variantOptions
+ *      ↓
+ * Parse weightOptions
+ *      ↓
+ * Product validation
+ *      ↓
+ * ProductService.createProduct()
+ *      ↓
+ * ProductImageService.upload()
+ *      ↓
+ * Revalidate paths
+ *
+ * ============================================================
+ */
+
 export async function createProductAction(
   _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
-  const parsed =
-    ProductSchema.safeParse({
-      categoryId: formData.get("categoryId"),
-      name: formData.get("name"),
-      slug: formData.get("slug"),
-      description: formData.get("description"),
-      sku: formData.get("sku"),
-      unit: formData.get("unit"),
-      price: formData.get("price"),
-      stock: formData.get("stock"),
-      weight: formData.get("weight"),
-      isPublished: formData.get("isPublished"),
-      featured: formData.get("featured"),
-    });
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      message: "Validasi gagal.",
-      errors:
-        parsed.error.flatten().fieldErrors,
-    };
-  }
-
   try {
-    await ProductService.createProduct(
-      parsed.data
+    /**
+     * ========================================================
+     *
+     * FORM DATA GUARD
+     *
+     * ========================================================
+     */
+
+    if (
+      !formData ||
+      typeof formData.get !== "function" ||
+      typeof formData.getAll !== "function"
+    ) {
+      return {
+        success: false,
+        message:
+          "Data form produk tidak valid.",
+      };
+    }
+
+    /**
+     * ========================================================
+     *
+     * VARIANT OPTIONS
+     *
+     * ProductForm mengirim:
+     *
+     * variantOptions = "Utuh"
+     * variantOptions = "Dibersihkan"
+     *
+     * ========================================================
+     */
+
+    /**
+ * ========================================================
+ *
+ * VARIANT OPTIONS
+ *
+ * ProductForm mengirim:
+ *
+ * variantOptions[]
+ * variantOptionPrices[]
+ *
+ * Contoh:
+ *
+ * variantOptions:
+ * ["Utuh", "Dibersihkan"]
+ *
+ * variantOptionPrices:
+ * ["0", "5000"]
+ *
+ * Hasil:
+ *
+ * [
+ *   {
+ *     label: "Utuh",
+ *     priceAdjustment: 0,
+ *   },
+ *   {
+ *     label: "Dibersihkan",
+ *     priceAdjustment: 5000,
+ *   },
+ * ]
+ *
+ * ========================================================
+ */
+
+const variantLabels =
+  formData
+    .getAll("variantOptions")
+    .map(
+      (value) =>
+        String(value).trim()
     );
 
-    revalidatePath("/admin/products");
+const variantPrices =
+  formData
+    .getAll("variantOptionPrices")
+    .map(
+      (value) =>
+        String(value)
+    );
 
-    redirect("/admin/products");
+const variantOptions =
+  variantLabels.reduce<
+    Array<{
+      label: string;
+      priceAdjustment: number;
+    }>
+  >(
+    (
+      result,
+      label,
+      index
+    ) => {
+      if (!label) {
+        return result;
+      }
+
+      const alreadyExists =
+        result.some(
+          (item) =>
+            item.label.toLowerCase() ===
+            label.toLowerCase()
+        );
+
+      if (alreadyExists) {
+        return result;
+      }
+
+      const rawPrice =
+        variantPrices[index] ??
+        "";
+
+      const normalizedPrice =
+        rawPrice.replace(
+          /[^0-9]/g,
+          ""
+        );
+
+      const priceAdjustment =
+        normalizedPrice.length > 0
+          ? Number(
+              normalizedPrice
+            )
+          : 0;
+
+      result.push({
+        label,
+
+        priceAdjustment:
+          Number.isFinite(
+            priceAdjustment
+          )
+            ? Math.max(
+                0,
+                priceAdjustment
+              )
+            : 0,
+      });
+
+      return result;
+    },
+    []
+  );
+
+    /**
+     * ========================================================
+     *
+     * WEIGHT OPTIONS
+     *
+     * ProductForm mengirim:
+     *
+     * weightOptions = "500gr"
+     * weightOptionPrices = "25000"
+     *
+     * ========================================================
+     */
+
+    const weightLabels =
+      formData
+        .getAll("weightOptions")
+        .map(
+          (value) =>
+            String(value).trim()
+        );
+
+    const weightPrices =
+      formData
+        .getAll(
+          "weightOptionPrices"
+        )
+        .map(
+          (value) =>
+            String(value)
+        );
+
+    const weightOptions =
+      weightLabels.reduce<
+        Array<{
+          label: string;
+          price: number;
+        }>
+      >(
+        (
+          result,
+          label,
+          index
+        ) => {
+          if (!label) {
+            return result;
+          }
+
+          const rawPrice =
+            weightPrices[index] ??
+            "";
+
+          const normalizedPrice =
+            rawPrice.replace(
+              /[^0-9]/g,
+              ""
+            );
+
+          const price =
+            normalizedPrice.length > 0
+              ? Number(
+                  normalizedPrice
+                )
+              : 0;
+
+          result.push({
+            label,
+            price,
+          });
+
+          return result;
+        },
+        []
+      );
+
+    /**
+     * ========================================================
+     *
+     * GET PRODUCT IMAGE FILES
+     *
+     * Input:
+     *
+     * <input
+     *   name="images"
+     *   type="file"
+     *   multiple
+     * />
+     *
+     * ========================================================
+     */
+
+    const imageFiles =
+      formData
+        .getAll("images")
+        .filter(
+          (value): value is File =>
+            value instanceof File &&
+            value.size > 0
+        );
+
+    /**
+     * ========================================================
+     *
+     * VALIDATE PRODUCT
+     *
+     * ========================================================
+     */
+
+    const parsed =
+  ProductSchema.safeParse({
+    categoryId:
+      formData.get("categoryId"),
+
+    name:
+      formData.get("name"),
+
+    slug:
+      formData.get("slug"),
+
+    description:
+      formData.get("description"),
+
+    sku:
+      formData.get("sku"),
+
+    unit:
+      formData.get("unit"),
+
+    price:
+      formData.get("price"),
+
+    stock:
+      formData.get("stock"),
+
+    weight:
+      formData.get("weight"),
+
+    variantOptions,
+
+    weightOptions,
+
+    isPublished:
+      formData.get("isPublished"),
+
+    featured:
+      formData.get("featured"),
+  });
+
+    /**
+     * ========================================================
+     *
+     * VALIDATION FAILED
+     *
+     * ========================================================
+     */
+
+    if (!parsed.success) {
+  console.error(
+    "[CREATE_PRODUCT_VALIDATION_ERROR]",
+    parsed.error.flatten().fieldErrors
+  );
+
+  return {
+    success: false,
+
+    message:
+      "Validasi gagal. Silakan periksa kembali data produk.",
+
+    errors:
+      parsed.error.flatten().fieldErrors,
+  };
+}
+
+    /**
+     * ========================================================
+     *
+     * CREATE PRODUCT
+     *
+     * Product harus dibuat terlebih dahulu
+     * agar kita mendapatkan product.id.
+     *
+     * ========================================================
+     */
+
+    const product =
+      await ProductService.createProduct(
+        parsed.data
+      );
+
+    /**
+     * ========================================================
+     *
+     * UPLOAD PRODUCT IMAGES
+     *
+     * File:
+     *
+     * ProductForm
+     *      ↓
+     * FormData
+     *      ↓
+     * ProductImageService.upload()
+     *      ↓
+     * StorageService.save()
+     *      ↓
+     * ProductImage database
+     *
+     * ========================================================
+     */
+
+    if (
+      imageFiles.length > 0
+    ) {
+      await ProductImageService.upload(
+        product.id,
+        imageFiles
+      );
+    }
+
+    /**
+     * ========================================================
+     *
+     * REVALIDATE ADMIN PAGES
+     *
+     * Dilakukan setelah upload selesai
+     * agar gambar langsung tersedia
+     * ketika halaman produk dibuka kembali.
+     *
+     * ========================================================
+     */
+
+    revalidatePath(
+      "/admin/products"
+    );
+
+    revalidatePath(
+      "/admin/products/create"
+    );
+
+    revalidatePath(
+      `/admin/products/${product.id}`
+    );
+
+    revalidatePath(
+      `/admin/products/${product.id}/edit`
+    );
+
+    /**
+     * ========================================================
+     *
+     * REVALIDATE PUBLIC PAGES
+     *
+     * ========================================================
+     */
+
+    revalidatePath(
+      "/"
+    );
+
+    revalidatePath(
+      "/products"
+    );
+
+    revalidatePath(
+      `/products/${product.slug}`
+    );
+
+    revalidatePath(
+      "/customer/products"
+    );
+
+    /**
+     * ========================================================
+     *
+     * SUCCESS
+     *
+     * Jangan redirect di sini.
+     *
+     * ProductForm/useActionState dapat menangani
+     * success state sesuai implementasi Anda saat ini.
+     *
+     * ========================================================
+     */
+
+    return {
+      success: true,
+
+      message:
+        "Produk berhasil ditambahkan.",
+    };
   } catch (error) {
+    console.error(
+      "[CREATE_PRODUCT_ACTION_ERROR]",
+      error
+    );
+
     return {
       success: false,
+
       message:
         error instanceof Error
           ? error.message
-          : "Terjadi kesalahan.",
+          : "Terjadi kesalahan saat menambahkan produk.",
     };
   }
 }
