@@ -94,18 +94,36 @@ export default async function EditOrderPage({
   }
 
   const customerOptions =
-    customers.map(
-      (customer) => ({
-        id: customer.id,
+  customers.map(
+    (customer) => ({
+      id: customer.id,
 
-        name: customer.name,
+      name: customer.name,
 
-        email: customer.email,
+      email: customer.email,
 
-        addresses:
-          customer.addresses,
-      })
-    );
+      addresses:
+        customer.addresses.map(
+          (address) => ({
+            ...address,
+
+            latitude:
+              address.latitude !== null
+                ? Number(
+                    address.latitude
+                  )
+                : null,
+
+            longitude:
+              address.longitude !== null
+                ? Number(
+                    address.longitude
+                  )
+                : null,
+          })
+        ),
+    })
+  );
 
   const productOptions =
     products.map(

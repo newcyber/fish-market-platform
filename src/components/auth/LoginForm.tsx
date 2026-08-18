@@ -84,6 +84,31 @@ export function LoginForm() {
         await login(values);
 
       if (!result.success) {
+        /**
+ * ==========================================================
+ * EMAIL NOT VERIFIED
+ * ==========================================================
+ *
+ * Arahkan user ke halaman verifikasi email.
+ */
+
+if (
+  result.code ===
+  "EMAIL_NOT_VERIFIED"
+) {
+  toast.error(
+    result.message ??
+      "Email Anda belum diverifikasi."
+  );
+
+  router.push(
+    `/verify-email?email=${encodeURIComponent(
+      values.email.trim().toLowerCase()
+    )}`
+  );
+
+  return;
+}
         if (result.fieldErrors) {
           for (
             const [field, message]

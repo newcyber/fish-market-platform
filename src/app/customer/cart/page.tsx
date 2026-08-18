@@ -379,7 +379,7 @@ export default async function CartPage() {
                               <div className="min-w-0">
 
                                 <p className="text-xs font-bold uppercase tracking-wide text-cyan-700">
-                                  Catatan Pembelian
+                                  Pesan untuk Penjual
                                 </p>
 
                                 <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">

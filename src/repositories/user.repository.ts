@@ -167,6 +167,32 @@ export class UserRepository {
   }
 
   /**
+ * ============================================================
+ * UPDATE PASSWORD SECURITY TIMESTAMP
+ * ============================================================
+ *
+ * Menandai waktu terakhir password diubah.
+ *
+ * Digunakan untuk mendeteksi dan mencabut JWT/session lama
+ * setelah password berhasil diganti.
+ */
+
+static async updatePasswordChangedAt(
+  id: string,
+  passwordChangedAt: Date = new Date()
+): Promise<User> {
+  return prisma.user.update({
+    where: {
+      id,
+    },
+
+    data: {
+      passwordChangedAt,
+    },
+  });
+}
+
+  /**
    * Aktif / Nonaktif akun.
    */
   static async updateActiveStatus(

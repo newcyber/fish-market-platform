@@ -95,13 +95,36 @@ export default function RegisterForm() {
       );
 
       /**
-       * Redirect ke halaman login
-       * setelah customer berhasil dibuat.
-       */
+ * ==========================================================
+ * REDIRECT TO EMAIL VERIFICATION
+ * ==========================================================
+ *
+ * Setelah registrasi berhasil dan OTP dikirim,
+ * arahkan customer ke halaman verifikasi email.
+ */
 
-      router.push("/login");
+if (
+  result.data?.email &&
+  result.data.requiresEmailVerification
+) {
+  router.push(
+    `/verify-email?email=${encodeURIComponent(
+      result.data.email
+    )}`
+  );
 
-      router.refresh();
+  router.refresh();
+
+  return;
+}
+
+/**
+ * Fallback jika flow verifikasi email tidak tersedia.
+ */
+
+router.push("/login");
+
+router.refresh();
     } catch (error) {
       console.error(
         "[REGISTER_FORM_ERROR]",

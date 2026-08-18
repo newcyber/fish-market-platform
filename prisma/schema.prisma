@@ -61,10 +61,12 @@ enum NotificationType {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  name          String
-  email         String    @unique
-  password      String
+  id                String    @id @default(uuid())
+  name              String
+  email             String    @unique
+  password          String
+  passwordChangedAt DateTime?
+
   phone         String?   @unique
   avatar        String?
   emailVerified DateTime?
@@ -78,6 +80,10 @@ model User {
   accounts  Account[]
   sessions  Session[]
 
+  passwordResetTokens PasswordResetToken[]
+
+  emailVerificationOtps EmailVerificationOtp[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -86,6 +92,156 @@ model User {
 
   @@index([email])
   @@index([role])
+}
+
+// ============================================================
+// PASSWORD RESET TOKEN
+// ============================================================
+
+model PasswordResetToken {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * USER RELATION
+   * ============================================================
+   */
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * TOKEN SECURITY
+   * ============================================================
+   * Raw token TIDAK disimpan di database.
+   * Yang disimpan hanya hash dari token.
+   */
+
+  tokenHash String @unique
+
+  /**
+   * ============================================================
+   * EXPIRATION
+   * ============================================================
+   */
+
+  expiresAt DateTime
+
+  /**
+   * ============================================================
+   * SINGLE USE
+   * ============================================================
+   * null = belum digunakan
+   * DateTime = sudah digunakan
+   */
+
+  usedAt DateTime?
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
+}
+
+// ============================================================
+// EMAIL VERIFICATION OTP
+// ============================================================
+
+model EmailVerificationOtp {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * USER RELATION
+   * ============================================================
+   */
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * OTP SECURITY
+   * ============================================================
+   * OTP tidak disimpan dalam bentuk raw/plain text.
+   * Yang disimpan hanya hash OTP.
+   */
+
+  codeHash String
+
+  /**
+   * ============================================================
+   * EXPIRATION
+   * ============================================================
+   */
+
+  expiresAt DateTime
+
+  /**
+   * ============================================================
+   * SINGLE USE
+   * ============================================================
+   * null     = belum digunakan
+   * DateTime = sudah berhasil digunakan
+   */
+
+  usedAt DateTime?
+
+  /**
+   * ============================================================
+   * SECURITY
+   * ============================================================
+   * Jumlah percobaan memasukkan OTP.
+   */
+
+  attempts Int @default(0)
+
+  /**
+   * ============================================================
+   * RESEND CONTROL
+   * ============================================================
+   * Digunakan untuk membatasi pengiriman OTP berulang.
+   */
+
+  createdAt DateTime @default(now())
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
 }
 
 model Cart {

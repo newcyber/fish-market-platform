@@ -802,7 +802,7 @@ export default function AddToCartButton({
           htmlFor="customer-note"
           className="mb-2 block text-sm font-semibold text-slate-900"
         >
-          Catatan Pembelian
+          Pesan untuk Penjual
         </label>
 
         <textarea
