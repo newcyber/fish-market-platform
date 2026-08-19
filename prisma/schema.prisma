@@ -1233,6 +1233,12 @@ model StoreSettings {
 
   footerDescription String?
 
+  /**
+   * URL atau path logo situs.
+   * null berarti sistem menggunakan fallback logo default.
+   */
+  siteLogo String?
+
   email    String?
   whatsapp String?
 

@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Fish,
-  Menu,
   Package,
   Search,
   ShoppingBag,
@@ -13,13 +12,12 @@ import {
 
 import { auth } from "@/auth";
 
+import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import DynamicSiteFooter from "@/components/layout/DynamicSiteFooter";
 
 import MobileProductsShowcase from "@/components/products/MobileProductsShowcase";
 
 import { prisma } from "@/lib/prisma";
-
-import settingsService from "@/services/settings/settings.service";
 
 /**
  * ============================================================
@@ -89,12 +87,13 @@ function getProductImage(
  *
  * ✓ Bisa dibuka tanpa login
  * ✓ User login tetap terdeteksi
- * ✓ Header mengambil nama toko dari Admin Settings
- * ✓ Tidak menggunakan HomeUserMenu
- * ✓ Tidak mengubah component lain
+ * ✓ Menggunakan DynamicSiteHeader global
+ * ✓ Logo mengikuti Admin Settings
+ * ✓ Nama toko mengikuti Admin Settings
+ * ✓ Header konsisten dengan Homepage
  * ✓ Mobile showcase tetap berjalan
  * ✓ Produk desktop dan mobile menggunakan gambar produk
- * ✓ Footer tetap DynamicSiteFooter
+ * ✓ Footer menggunakan DynamicSiteFooter
  *
  * ============================================================
  */
@@ -118,30 +117,6 @@ export default async function ProductsPage() {
 
   const user =
     session?.user ?? null;
-
-  const userName =
-    user?.name?.trim() ||
-    "Pengguna";
-
-  /**
-   * ==========================================================
-   * STORE SETTINGS
-   * ==========================================================
-   *
-   * Mengambil konfigurasi toko yang sama dengan
-   * Admin Settings.
-   */
-
-  const settings =
-    await settingsService.getSettings();
-
-  const storeName =
-    settings?.storeName?.trim() ||
-    "Pisjo Market";
-
-  const storeDescription =
-    settings?.storeDescription?.trim() ||
-    "Fresh Seafood";
 
   /**
    * ==========================================================
@@ -217,141 +192,12 @@ export default async function ProductsPage() {
     <main className="min-h-screen bg-slate-50">
 
       {/* ====================================================== */}
-      {/* HEADER */}
+      {/* GLOBAL HEADER */}
       {/* ====================================================== */}
 
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-
-          {/* ================================================== */}
-          {/* STORE BRAND */}
-          {/* ================================================== */}
-
-          <Link
-            href="/"
-            className="flex min-w-0 shrink-0 items-center gap-3"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-lg shadow-slate-900/10">
-              <Fish className="h-5 w-5" />
-            </div>
-
-            <div className="min-w-0">
-
-              <p className="truncate text-sm font-bold tracking-tight text-slate-950 sm:text-base">
-                {storeName}
-              </p>
-
-              <p className="truncate text-[9px] font-semibold uppercase tracking-[0.18em] text-cyan-600 sm:text-[10px]">
-                {storeDescription}
-              </p>
-
-            </div>
-          </Link>
-
-          {/* ================================================== */}
-          {/* DESKTOP NAVIGATION */}
-          {/* ================================================== */}
-
-          <nav className="hidden items-center gap-7 md:flex">
-
-            <Link
-              href="/"
-              className="text-sm font-medium text-slate-600 transition hover:text-cyan-600"
-            >
-              Beranda
-            </Link>
-
-            <Link
-              href="/products"
-              className="text-sm font-semibold text-slate-950 transition hover:text-cyan-600"
-            >
-              Produk
-            </Link>
-
-            <Link
-              href="/customer"
-              className="text-sm font-medium text-slate-600 transition hover:text-cyan-600"
-            >
-              Belanja
-            </Link>
-
-          </nav>
-
-          {/* ================================================== */}
-          {/* DESKTOP USER ACTION */}
-          {/* ================================================== */}
-
-          <div className="hidden items-center gap-3 md:flex">
-
-            {user ? (
-              <Link
-                href="/customer"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950 text-xs font-bold text-white">
-                  {userName
-                    .charAt(0)
-                    .toUpperCase()}
-                </span>
-
-                <span className="max-w-35 truncate">
-                  {userName}
-                </span>
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
-                >
-                  Masuk
-                </Link>
-
-                <Link
-                  href="/register"
-                  className="inline-flex h-10 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  Daftar
-
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </>
-            )}
-
-          </div>
-
-          {/* ================================================== */}
-          {/* MOBILE USER ACTION */}
-          {/* ================================================== */}
-
-          <Link
-            href={
-              user
-                ? "/customer"
-                : "/login"
-            }
-            aria-label={
-              user
-                ? "Buka akun"
-                : "Masuk"
-            }
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 md:hidden"
-          >
-            {user ? (
-              <span className="text-sm font-bold">
-                {userName
-                  .charAt(0)
-                  .toUpperCase()}
-              </span>
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </Link>
-
-        </div>
-
-      </header>
+      <DynamicSiteHeader
+        activePage="products"
+      />
 
       {/* ====================================================== */}
       {/* MOBILE SHOWCASE */}
@@ -520,17 +366,13 @@ export default async function ProductsPage() {
                         {product.stock > 0 ? (
 
                           <div className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white">
-
                             Tersedia
-
                           </div>
 
                         ) : (
 
                           <div className="absolute left-1.5 top-1.5 rounded bg-slate-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white">
-
                             Habis
-
                           </div>
 
                         )}
@@ -542,21 +384,15 @@ export default async function ProductsPage() {
                       <div className="p-2.5">
 
                         <h3 className="line-clamp-2 min-h-8 text-[11px] font-medium leading-4 text-slate-800">
-
                           {product.name}
-
                         </h3>
 
                         <p className="mt-2 text-sm font-bold leading-none text-cyan-600">
-
                           {formatPrice(price)}
-
                         </p>
 
                         <p className="mt-2 text-[10px] text-slate-400">
-
                           Stok {product.stock}
-
                         </p>
 
                       </div>
@@ -579,9 +415,7 @@ export default async function ProductsPage() {
               </div>
 
               <h2 className="mt-5 text-lg font-bold text-slate-900">
-
                 Belum ada produk tersedia
-
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -614,15 +448,11 @@ export default async function ProductsPage() {
             <div>
 
               <h2 className="text-xl font-bold text-slate-950">
-
                 Semua Produk
-
               </h2>
 
               <p className="mt-1 text-sm text-slate-500">
-
                 Jelajahi produk seafood yang tersedia.
-
               </p>
 
             </div>
@@ -632,9 +462,7 @@ export default async function ProductsPage() {
               <Search className="h-4 w-4" />
 
               <span>
-
                 Klik produk untuk melihat detail
-
               </span>
 
             </div>
@@ -697,17 +525,13 @@ export default async function ProductsPage() {
                         {product.stock > 0 ? (
 
                           <div className="absolute left-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-
                             Tersedia
-
                           </div>
 
                         ) : (
 
                           <div className="absolute left-3 top-3 rounded-full bg-slate-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-
                             Habis
-
                           </div>
 
                         )}
@@ -719,9 +543,7 @@ export default async function ProductsPage() {
                       <div className="p-4">
 
                         <h3 className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-slate-800 transition group-hover:text-cyan-600">
-
                           {product.name}
-
                         </h3>
 
                         <div className="mt-4 flex items-end justify-between gap-3">
@@ -729,15 +551,11 @@ export default async function ProductsPage() {
                           <div>
 
                             <p className="text-base font-bold text-cyan-600">
-
                               {formatPrice(price)}
-
                             </p>
 
                             <p className="mt-1 text-xs text-slate-400">
-
                               Stok {product.stock}
-
                             </p>
 
                           </div>
@@ -766,9 +584,7 @@ export default async function ProductsPage() {
               </div>
 
               <h2 className="mt-6 text-xl font-bold text-slate-900">
-
                 Belum ada produk tersedia
-
               </h2>
 
               <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
@@ -811,6 +627,7 @@ export default async function ProductsPage() {
             {user ? (
 
               <>
+
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
 
                   <User className="h-6 w-6" />
@@ -818,9 +635,7 @@ export default async function ProductsPage() {
                 </div>
 
                 <h2 className="mt-5 text-2xl font-bold text-slate-950 sm:text-3xl">
-
                   Siap mulai berbelanja?
-
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">
@@ -840,15 +655,15 @@ export default async function ProductsPage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
 
                 </Link>
+
               </>
 
             ) : (
 
               <>
+
                 <h2 className="text-2xl font-bold text-slate-950 sm:text-3xl">
-
                   Siap memesan produk pilihan Anda?
-
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">
@@ -875,12 +690,11 @@ export default async function ProductsPage() {
                     href="/register"
                     className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50"
                   >
-
                     Buat Akun
-
                   </Link>
 
                 </div>
+
               </>
 
             )}

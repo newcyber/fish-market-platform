@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -95,8 +97,23 @@ export default async function CustomerLayout({
     "Pisjo Market";
 
   const storeDescription =
-  settings.storeDescription?.trim() ||
-  "Fresh Seafood";
+    settings.storeDescription?.trim() ||
+    "Fresh Seafood";
+
+  /**
+   * ============================================================
+   * STORE LOGO
+   * ============================================================
+   *
+   * Logo berasal dari Admin Settings.
+   *
+   * Jika logo belum tersedia, sistem akan
+   * menggunakan fallback storeInitial.
+   */
+
+  const siteLogo =
+    settings.siteLogo?.trim() ||
+    null;
 
   /* ============================================================
    * STORE INITIAL
@@ -154,16 +171,30 @@ export default async function CustomerLayout({
 
           <div className="flex h-16 items-center justify-between gap-3">
 
+            {/* ================================================= */}
             {/* LOGO */}
+            {/* ================================================= */}
 
             <Link
               href="/"
               className="flex min-w-0 shrink-0 items-center gap-2.5 sm:gap-3"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
-                <span className="text-sm font-bold">
-                  {storeInitial}
-                </span>
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-900 text-white shadow-sm">
+
+                {siteLogo ? (
+                  <Image
+                    src={siteLogo}
+                    alt={`${storeName} Logo`}
+                    fill
+                    sizes="40px"
+                    className="object-contain"
+                  />
+                ) : (
+                  <span className="text-sm font-bold">
+                    {storeInitial}
+                  </span>
+                )}
+
               </div>
 
               <div className="hidden min-w-0 sm:block">
@@ -180,7 +211,9 @@ export default async function CustomerLayout({
 
             </Link>
 
+            {/* ================================================= */}
             {/* DESKTOP NAVIGATION */}
+            {/* ================================================= */}
 
             <nav className="hidden items-center gap-1 lg:flex">
 
@@ -207,7 +240,9 @@ export default async function CustomerLayout({
 
             </nav>
 
+            {/* ================================================= */}
             {/* SEARCH */}
+            {/* ================================================= */}
 
             <div className="hidden min-w-0 flex-1 md:block md:max-w-sm lg:max-w-lg">
 
@@ -225,7 +260,9 @@ export default async function CustomerLayout({
 
             </div>
 
+            {/* ================================================= */}
             {/* ACTIONS */}
+            {/* ================================================= */}
 
             <div className="flex shrink-0 items-center gap-1">
 
@@ -398,7 +435,8 @@ export default async function CustomerLayout({
       <main className="flex-1">
         {children}
       </main>
-<DynamicSiteFooter />
+
+      <DynamicSiteFooter />
 
     </div>
   );

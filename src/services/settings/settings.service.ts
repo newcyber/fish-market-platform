@@ -35,6 +35,11 @@ export interface UpdateStoreSettingsPayload {
 
   footerDescription?: string;
 
+  /**
+   * URL atau path logo situs.
+   */
+  siteLogo?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -83,7 +88,7 @@ export interface UpdateStoreSettingsPayload {
 
   /**
    * ==========================================================
-   * OPERATIONAL
+   * OPERASIONAL
    * ==========================================================
    */
 
@@ -412,6 +417,11 @@ class SettingsService {
       footerDescription:
         normalize(
           payload.footerDescription
+        ),
+
+      siteLogo:
+        normalize(
+          payload.siteLogo
         ),
 
       email,

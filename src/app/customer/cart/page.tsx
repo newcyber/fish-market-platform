@@ -382,7 +382,7 @@ export default async function CartPage() {
                                   Pesan untuk Penjual
                                 </p>
 
-                                <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                                <p className="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-6 text-slate-700">
                                   {customerNote}
                                 </p>
 

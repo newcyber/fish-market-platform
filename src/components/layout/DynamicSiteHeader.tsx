@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -22,7 +23,7 @@ import settingsService from "@/services/settings/settings.service";
  * - Homepage /
  * - Products /products
  *
- * Data toko diambil dari Admin Settings.
+ * Data branding diambil dari Admin Settings.
  *
  * ============================================================
  */
@@ -80,7 +81,22 @@ export default async function DynamicSiteHeader({
 
   /**
    * ==========================================================
+   * STORE LOGO
+   *
+   * Logo berasal dari Admin Settings.
+   * Jika belum tersedia, gunakan fallback inisial toko.
+   * ==========================================================
+   */
+
+  const siteLogo =
+    settings.siteLogo?.trim() ||
+    null;
+
+  /**
+   * ==========================================================
    * STORE INITIAL
+   *
+   * Fallback jika logo belum diatur.
    * ==========================================================
    */
 
@@ -108,14 +124,25 @@ export default async function DynamicSiteHeader({
           href="/"
           className="flex shrink-0 items-center gap-3"
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-900/10">
-            {storeInitial ? (
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-900/10">
+
+            {siteLogo ? (
+              <Image
+                src={siteLogo}
+                alt={`${storeName} Logo`}
+                fill
+                sizes="44px"
+                className="object-contain p-1"
+                priority
+              />
+            ) : storeInitial ? (
               <span className="text-sm font-bold">
                 {storeInitial}
               </span>
             ) : (
               <Fish className="h-5 w-5" />
             )}
+
           </div>
 
           <div className="min-w-0">
@@ -135,8 +162,6 @@ export default async function DynamicSiteHeader({
 
         <nav className="hidden items-center gap-7 md:flex">
 
-          {/* BERANDA */}
-
           <Link
             href="/"
             className={[
@@ -149,8 +174,6 @@ export default async function DynamicSiteHeader({
             Beranda
           </Link>
 
-          {/* PRODUK */}
-
           <Link
             href="/products"
             className={[
@@ -162,8 +185,6 @@ export default async function DynamicSiteHeader({
           >
             Produk
           </Link>
-
-          {/* BELANJA */}
 
           <Link
             href="/customer"

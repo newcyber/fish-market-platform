@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -54,6 +55,19 @@ export default async function DynamicSiteFooter() {
   const footerDescription =
     settings.footerDescription?.trim() ||
     "Platform belanja dengan pengalaman belanja yang sederhana, nyaman, dan terpercaya.";
+
+  /**
+   * ==========================================================
+   * STORE LOGO
+   *
+   * Logo berasal dari Admin Settings.
+   * Jika belum tersedia, gunakan fallback inisial toko.
+   * ==========================================================
+   */
+
+  const siteLogo =
+    settings.siteLogo?.trim() ||
+    null;
 
   /**
    * ==========================================================
@@ -129,6 +143,8 @@ export default async function DynamicSiteFooter() {
   /**
    * ==========================================================
    * STORE INITIAL
+   *
+   * Fallback jika siteLogo belum tersedia.
    * ==========================================================
    */
 
@@ -164,8 +180,22 @@ export default async function DynamicSiteFooter() {
               href="/"
               className="inline-flex items-center gap-3"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white shadow-sm">
-                {storeInitial}
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-900 text-sm font-bold text-white shadow-sm">
+
+                {siteLogo ? (
+                  <Image
+                    src={siteLogo}
+                    alt={`${storeName} Logo`}
+                    fill
+                    sizes="44px"
+                    className="object-contain p-1"
+                  />
+                ) : (
+                  <span>
+                    {storeInitial}
+                  </span>
+                )}
+
               </div>
 
               <div className="min-w-0">

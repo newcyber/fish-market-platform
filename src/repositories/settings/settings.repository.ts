@@ -20,15 +20,34 @@ import { prisma } from "@/lib/prisma";
  */
 
 export interface UpdateSettingsPayload {
+  /**
+   * ==========================================================
+   * STORE INFORMATION
+   * ==========================================================
+   */
+
   storeName: string;
 
   storeDescription?: string | null;
 
   footerDescription?: string | null;
 
+  /**
+   * URL atau path logo situs.
+   *
+   * null berarti menggunakan fallback logo default.
+   */
+  siteLogo?: string | null;
+
   email?: string | null;
 
   whatsapp?: string | null;
+
+  /**
+   * ==========================================================
+   * STORE ADDRESS
+   * ==========================================================
+   */
 
   address?: string | null;
 
@@ -119,9 +138,13 @@ class SettingsRepository {
         storeName: "Pisjo Market",
 
         storeDescription: null,
+
         footerDescription: null,
 
+        siteLogo: null,
+
         email: null,
+
         whatsapp: null,
 
         /**
@@ -131,8 +154,11 @@ class SettingsRepository {
          */
 
         address: null,
+
         city: null,
+
         province: null,
+
         postalCode: null,
 
         /**
@@ -142,6 +168,7 @@ class SettingsRepository {
          */
 
         latitude: null,
+
         longitude: null,
 
         /**
@@ -173,6 +200,7 @@ class SettingsRepository {
          */
 
         openingTime: null,
+
         closingTime: null,
       },
     });
@@ -209,6 +237,9 @@ class SettingsRepository {
 
         footerDescription:
           data.footerDescription ?? null,
+
+        siteLogo:
+          data.siteLogo ?? null,
 
         email:
           data.email ?? null,

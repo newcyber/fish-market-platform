@@ -50,6 +50,11 @@ export interface UpdateSettingsActionInput {
    */
   footerDescription?: string;
 
+  /**
+   * URL atau path logo situs.
+   */
+  siteLogo?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -98,7 +103,7 @@ export interface UpdateSettingsActionInput {
 
   /**
    * ==========================================================
-   * OPERATIONAL
+   * OPERASIONAL
    * ==========================================================
    */
 
@@ -191,6 +196,9 @@ export async function updateSettingsAction(
 
       footerDescription:
         input.footerDescription,
+
+      siteLogo:
+        input.siteLogo,
 
       email:
         input.email,

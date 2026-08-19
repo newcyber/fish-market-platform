@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  useRef,
   useState,
   useTransition,
 } from "react";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 
 import {
   Store,
@@ -20,6 +22,8 @@ import {
   Navigation,
   LocateFixed,
   Truck,
+  ImagePlus,
+  Trash2,
 } from "lucide-react";
 
 import {
@@ -56,6 +60,11 @@ interface SettingsFormProps {
     storeDescription: string | null;
     footerDescription: string | null;
 
+    /**
+     * URL/path logo situs.
+     */
+    siteLogo: string | null;
+
     email: string | null;
     whatsapp: string | null;
 
@@ -91,6 +100,27 @@ interface SettingsFormProps {
   };
 }
 
+/**
+ * ============================================================
+ * LOGO CONFIGURATION
+ * ============================================================
+ */
+
+const MAX_LOGO_SIZE =
+  2 * 1024 * 1024;
+
+const ALLOWED_LOGO_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+];
+
+/**
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
+
 export default function SettingsForm({
   settings,
 }: SettingsFormProps) {
@@ -102,6 +132,27 @@ export default function SettingsForm({
 
   const [isSuccess, setIsSuccess] =
     useState<boolean | null>(null);
+
+  /**
+   * ==========================================================
+   * SITE LOGO STATE
+   * ==========================================================
+   */
+
+  const [siteLogo, setSiteLogo] =
+    useState<string | null>(
+      settings.siteLogo
+    );
+
+  const [
+    isUploadingLogo,
+    setIsUploadingLogo,
+  ] = useState(false);
+
+  const logoInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
 
   /**
    * ==========================================================
@@ -165,6 +216,164 @@ export default function SettingsForm({
 
   /**
    * ==========================================================
+   * UPLOAD SITE LOGO
+   * ==========================================================
+   */
+
+  async function handleLogoChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      event.target.files?.[0];
+
+    /**
+     * Reset input agar file yang sama tetap
+     * bisa dipilih kembali.
+     */
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setMessage(null);
+    setIsSuccess(null);
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE MIME TYPE
+     * --------------------------------------------------------
+     */
+
+    if (
+      !ALLOWED_LOGO_TYPES.includes(
+        file.type
+      )
+    ) {
+      setMessage(
+        "Format logo harus PNG, JPG, JPEG, atau WEBP."
+      );
+
+      setIsSuccess(false);
+
+      return;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE FILE SIZE
+     * --------------------------------------------------------
+     */
+
+    if (
+      file.size <= 0 ||
+      file.size > MAX_LOGO_SIZE
+    ) {
+      setMessage(
+        "Ukuran logo maksimal 2 MB."
+      );
+
+      setIsSuccess(false);
+
+      return;
+    }
+
+    try {
+      setIsUploadingLogo(true);
+
+      const formData =
+        new FormData();
+
+      formData.append(
+        "file",
+        file
+      );
+
+      const response =
+        await fetch(
+          "/api/settings/logo",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success ||
+        !result.url
+      ) {
+        throw new Error(
+          result.message ||
+            "Gagal mengupload logo."
+        );
+      }
+
+      /**
+       * URL hasil upload disimpan ke state.
+       *
+       * URL baru benar-benar masuk database
+       * setelah admin klik Simpan Pengaturan.
+       */
+
+      setSiteLogo(
+        result.url
+      );
+
+      setMessage(
+        "Logo berhasil diupload. Jangan lupa klik Simpan Pengaturan."
+      );
+
+      setIsSuccess(true);
+    } catch (error) {
+      console.error(
+        "Failed to upload site logo:",
+        error
+      );
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat mengupload logo."
+      );
+
+      setIsSuccess(false);
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  }
+
+  /**
+   * ==========================================================
+   * REMOVE SITE LOGO
+   * ==========================================================
+   *
+   * Tahap ini hanya menghapus URL dari state.
+   *
+   * Nilai null akan disimpan ke database setelah
+   * admin menekan Simpan Pengaturan.
+   *
+   * File fisik lama belum dihapus di tahap ini agar
+   * tidak ada risiko kehilangan logo sebelum Settings
+   * berhasil tersimpan.
+   */
+
+  function handleRemoveLogo() {
+    setSiteLogo(null);
+
+    setMessage(
+      "Logo akan dihapus setelah Anda menyimpan pengaturan."
+    );
+
+    setIsSuccess(true);
+  }
+
+  /**
+   * ==========================================================
    * GET CURRENT LOCATION
    * ==========================================================
    */
@@ -209,7 +418,6 @@ export default function SettingsForm({
 
         setIsLocating(false);
       },
-
       (error) => {
         console.error(
           "Failed to get store location:",
@@ -247,7 +455,6 @@ export default function SettingsForm({
         setIsSuccess(false);
         setIsLocating(false);
       },
-
       {
         enableHighAccuracy: true,
         timeout: 15000,
@@ -309,8 +516,6 @@ export default function SettingsForm({
    * ==========================================================
    * PARSE OPTIONAL NUMBER
    * ==========================================================
-   *
-   * Nilai kosong akan menjadi null.
    */
 
   function parseOptionalNumber(
@@ -343,6 +548,16 @@ export default function SettingsForm({
     setMessage(null);
     setIsSuccess(null);
 
+    if (isUploadingLogo) {
+      setMessage(
+        "Tunggu hingga proses upload logo selesai."
+      );
+
+      setIsSuccess(false);
+
+      return;
+    }
+
     const input = {
       /**
        * STORE INFORMATION
@@ -359,6 +574,12 @@ export default function SettingsForm({
       footerDescription: String(
         formData.get("footerDescription") ?? ""
       ),
+
+      /**
+       * SITE LOGO
+       */
+
+      siteLogo,
 
       email: String(
         formData.get("email") ?? ""
@@ -522,12 +743,118 @@ export default function SettingsForm({
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Kelola informasi utama toko.
+              Kelola informasi utama toko dan identitas brand.
             </p>
           </div>
         </div>
 
         <div className="grid gap-5">
+          {/* ================================================== */}
+          {/* SITE LOGO */}
+          {/* ================================================== */}
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Logo Situs
+            </label>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  {siteLogo ? (
+                    <Image
+                      src={siteLogo}
+                      alt="Logo situs"
+                      width={96}
+                      height={96}
+                      unoptimized
+                      className="h-full w-full object-contain p-2"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
+                      <ImagePlus className="h-7 w-7" />
+
+                      <span className="text-[10px] font-medium">
+                        Belum ada logo
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Identitas Logo Situs
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Upload logo yang akan digunakan sebagai identitas utama situs.
+                    Format PNG, JPG, JPEG, atau WEBP dengan ukuran maksimal 2 MB.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                      onChange={
+                        handleLogoChange
+                      }
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        logoInputRef.current?.click()
+                      }
+                      disabled={
+                        isPending ||
+                        isUploadingLogo
+                      }
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isUploadingLogo ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Mengupload...
+                        </>
+                      ) : (
+                        <>
+                          <ImagePlus className="h-4 w-4" />
+
+                          {siteLogo
+                            ? "Ganti Logo"
+                            : "Upload Logo"}
+                        </>
+                      )}
+                    </button>
+
+                    {siteLogo && (
+                      <button
+                        type="button"
+                        onClick={
+                          handleRemoveLogo
+                        }
+                        disabled={
+                          isPending ||
+                          isUploadingLogo
+                        }
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ================================================== */}
+          {/* STORE NAME */}
+          {/* ================================================== */}
+
           <div>
             <label
               htmlFor="storeName"
@@ -882,10 +1209,6 @@ export default function SettingsForm({
               Lokasi ini akan digunakan sebagai origin pengiriman.
             </p>
 
-            {/* ================================================ */}
-            {/* STORE LOCATION MAP PREVIEW */}
-            {/* ================================================ */}
-
             {hasValidLocation && (
               <div className="mt-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
@@ -901,7 +1224,6 @@ export default function SettingsForm({
 
                   <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
                     Lokasi Valid
                   </div>
                 </div>
@@ -944,10 +1266,6 @@ export default function SettingsForm({
             </p>
           </div>
         </div>
-
-        {/* ================================================== */}
-        {/* ENABLE / DISABLE */}
-        {/* ================================================== */}
 
         <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div>
@@ -992,10 +1310,6 @@ export default function SettingsForm({
             />
           </button>
         </div>
-
-        {/* ================================================== */}
-        {/* SHIPPING FORM */}
-        {/* ================================================== */}
 
         <div
           className={[
@@ -1251,7 +1565,8 @@ export default function SettingsForm({
           type="submit"
           disabled={
             isPending ||
-            isLocating
+            isLocating ||
+            isUploadingLogo
           }
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -1259,6 +1574,11 @@ export default function SettingsForm({
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               Menyimpan...
+            </>
+          ) : isUploadingLogo ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Mengupload Logo...
             </>
           ) : (
             <>
