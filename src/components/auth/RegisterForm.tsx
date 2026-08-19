@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 import {
   useForm,
@@ -38,8 +37,6 @@ import {
  */
 
 export default function RegisterForm() {
-  const router = useRouter();
-
   const [showPassword, setShowPassword] =
     useState(false);
 
@@ -80,6 +77,12 @@ export default function RegisterForm() {
       const result =
         await registerCustomerAction(data);
 
+      /**
+       * ========================================================
+       * REGISTER FAILED
+       * ========================================================
+       */
+
       if (!result.success) {
         toast.error(
           result.message ??
@@ -89,42 +92,74 @@ export default function RegisterForm() {
         return;
       }
 
+      /**
+       * ========================================================
+       * REGISTER SUCCESS
+       * ========================================================
+       */
+
       toast.success(
         result.message ??
           "Registrasi berhasil."
       );
 
       /**
- * ==========================================================
- * REDIRECT TO EMAIL VERIFICATION
- * ==========================================================
- *
- * Setelah registrasi berhasil dan OTP dikirim,
- * arahkan customer ke halaman verifikasi email.
- */
+       * ========================================================
+       * GET EMAIL
+       * ========================================================
+       */
 
-if (
-  result.data?.email &&
-  result.data.requiresEmailVerification
-) {
-  router.push(
-    `/verify-email?email=${encodeURIComponent(
-      result.data.email
-    )}`
-  );
+      const email =
+        result.data?.email ??
+        data.email;
 
-  router.refresh();
+      const requiresEmailVerification =
+        result.data
+          ?.requiresEmailVerification === true;
 
-  return;
-}
+      /**
+       * ========================================================
+       * REDIRECT TO EMAIL VERIFICATION
+       * ========================================================
+       */
 
-/**
- * Fallback jika flow verifikasi email tidak tersedia.
- */
+      if (
+        requiresEmailVerification &&
+        email
+      ) {
+        const verifyEmailUrl =
+          `/verify-email?email=${encodeURIComponent(
+            email
+          )}`;
 
-router.push("/login");
+        console.log(
+          "[REGISTER_REDIRECT]",
+          verifyEmailUrl
+        );
 
-router.refresh();
+        /**
+         * Full navigation.
+         *
+         * Digunakan agar flow register → verify-email
+         * tidak bergantung pada client-side router state.
+         */
+
+        window.location.assign(
+          verifyEmailUrl
+        );
+
+        return;
+      }
+
+      /**
+       * ========================================================
+       * FALLBACK
+       * ========================================================
+       */
+
+      window.location.assign(
+        "/login"
+      );
     } catch (error) {
       console.error(
         "[REGISTER_FORM_ERROR]",
