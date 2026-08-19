@@ -171,7 +171,7 @@ if (!order) {
       </p>
 
       <p className="mt-2 text-lg font-black">
-        KURIR INTERNAL
+        PISJO DELIVERY - KURIR INTERNAL
       </p>
     </div>
   </div>
@@ -284,45 +284,86 @@ if (!order) {
   </div>
 
   {/* ===================================================== */}
-  {/* DETAIL ISI PAKET */}
-  {/* ===================================================== */}
+{/* DETAIL ISI PAKET */}
+{/* ===================================================== */}
 
-  <div className="mt-6 border-t border-black pt-5">
-    <p className="mb-4 text-xs font-bold uppercase tracking-wider">
-      Detail Isi Paket
-    </p>
+<div className="mt-6 border-t border-black pt-5">
+  <p className="mb-4 text-xs font-bold uppercase tracking-wider">
+    Detail Isi Paket
+  </p>
 
-    <div className="space-y-3">
-      {order.items?.map((item, index) => (
+  <div className="space-y-4">
+    {order.items?.map((item, index) => {
+      const productName =
+        item.product?.name ??
+        item.productName ??
+        "Produk";
+
+      const variant =
+        item.productVariant;
+
+      const weight =
+        item.productWeight;
+
+      const customerNote =
+        item.customerNote;
+
+      return (
         <div
           key={item.id ?? index}
-          className="flex items-center justify-between gap-4 border-b border-dashed border-black pb-3"
+          className="border-b border-dashed border-black pb-4 last:border-b-0"
         >
-          {/* NAMA PRODUK */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-black">
+                {index + 1}. {productName}
+              </p>
 
-          <div className="min-w-0 flex-1">
-            <p className="font-bold text-black">
-              {item.product?.name ??
-                item.productName ??
-                "Produk"}
-            </p>
-          </div>
+              <div className="mt-2 space-y-1 text-sm text-gray-700">
+                {variant && (
+                  <p>
+                    <span className="font-semibold">
+                      Varian:
+                    </span>{" "}
+                    {variant}
+                  </p>
+                )}
 
-          {/* JUMLAH */}
+                {weight && (
+                  <p>
+                    <span className="font-semibold">
+                      Berat:
+                    </span>{" "}
+                    {weight}
+                  </p>
+                )}
 
-          <div className="shrink-0 text-right">
-            <p className="text-xs font-semibold uppercase text-gray-500">
-              Jumlah
-            </p>
+                {customerNote && (
+                  <p className="mt-2">
+                    <span className="font-semibold">
+                      Catatan:
+                    </span>{" "}
+                    {customerNote}
+                  </p>
+                )}
+              </div>
+            </div>
 
-            <p className="mt-1 text-lg font-black">
-              × {item.quantity}
-            </p>
+            <div className="shrink-0 text-right">
+              <p className="text-xs font-semibold uppercase text-gray-500">
+                Jumlah
+              </p>
+
+              <p className="mt-1 text-lg font-black">
+                × {item.quantity}
+              </p>
+            </div>
           </div>
         </div>
-      ))}
-    </div>
+      );
+    })}
   </div>
+</div>
 </div>
 
   {/* ===================================================== */}

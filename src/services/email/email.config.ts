@@ -70,7 +70,7 @@ export const EmailConfig = {
   get from() {
     return (
       process.env.EMAIL_FROM ??
-      "Fish Market <no-reply@localhost>"
+      "Pisjo Market <no-reply@localhost>"
     );
   },
 };

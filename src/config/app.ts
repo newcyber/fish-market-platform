@@ -1,7 +1,7 @@
 export const APP_CONFIG = {
-  name: "Fish Market",
+  name: "Pisjo Market",
 
-  shortName: "FishMarket",
+  shortName: "PisjoMarket",
 
   description:
     "Platform E-Commerce Perikanan Modern",
@@ -9,7 +9,7 @@ export const APP_CONFIG = {
   version: "1.0.0",
 
   company: {
-    name: "Fish Market",
+    name: "Pisjo Market",
   },
 
   urls: {
@@ -19,7 +19,7 @@ export const APP_CONFIG = {
   },
 
   branding: {
-    logoText: "Fish Market",
+    logoText: "Pisjo Market",
 
     adminTitle: "Enterprise Platform",
 

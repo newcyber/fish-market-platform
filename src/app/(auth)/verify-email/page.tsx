@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useEffect,
   useRef,
   useState,
@@ -28,7 +29,7 @@ import { resendEmailVerificationAction } from "@/actions/auth/resend-email-verif
 const OTP_LENGTH = 6;
 const INITIAL_COOLDOWN = 60;
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
 
   const searchParams =
@@ -585,5 +586,22 @@ export default function VerifyEmailPage() {
         </div>
       </section>
     </main>
+  );
+}
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              Memuat halaman verifikasi...
+            </p>
+          </div>
+        </main>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

@@ -116,7 +116,7 @@ class SettingsRepository {
          * ------------------------------------------------------
          */
 
-        storeName: "Fish Market",
+        storeName: "Pisjo Market",
 
         storeDescription: null,
         footerDescription: null,

@@ -458,7 +458,7 @@ const wishlistProductIds =
           <div className="flex flex-col gap-5 rounded-3xl bg-slate-950 p-7 text-white sm:flex-row sm:items-center sm:justify-between sm:p-9">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">
-                Fish Market
+                Pisjo Market
               </p>
 
               <h2 className="mt-2 text-xl font-bold sm:text-2xl">

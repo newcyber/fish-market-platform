@@ -45,7 +45,7 @@ export default async function DynamicSiteFooter() {
 
   const storeName =
     settings.storeName?.trim() ||
-    "Fish Market";
+    "Pisjo Market";
 
   const storeDescription =
     settings.storeDescription?.trim() ||

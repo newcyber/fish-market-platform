@@ -1,0 +1,31 @@
+warning: in the working copy of 'prisma/schema.prisma', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/layout.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+ .env.example                                       |  49 [32m+[m[31m-[m
+ prisma/schema.prisma                               |  60 [32m+[m[31m-[m
+ src/app/(auth)/layout.tsx                          |  10 [32m+[m[31m-[m
+ src/app/(auth)/verify-email/page.tsx               |  20 [32m+[m[31m-[m
+ src/app/admin/orders/[id]/page.tsx                 |   2 [32m+[m[31m-[m
+ src/app/admin/orders/[id]/shipping-label/page.tsx  | 105 [32m++[m[31m-[m
+ .../actions/create-internal-shipment.action.ts     |   2 [32m+[m[31m-[m
+ src/app/admin/settings/page.tsx                    |   2 [32m+[m[31m-[m
+ src/app/customer/layout.tsx                        |   2 [32m+[m[31m-[m
+ src/app/customer/orders/[id]/page.tsx              |   2 [32m+[m[31m-[m
+ src/app/customer/products/[slug]/page.tsx          | 794 [32m+++++++++++[m[31m----------[m
+ src/app/customer/products/page.tsx                 |   2 [32m+[m[31m-[m
+ src/app/layout.tsx                                 |   6 [32m+[m[31m-[m
+ src/app/page.tsx                                   |   4 [32m+[m[31m-[m
+ src/app/products/page.tsx                          |   2 [32m+[m[31m-[m
+ src/components/admin/settings/SettingsForm.tsx     |   4 [32m+[m[31m-[m
+ src/components/auth/LoginForm.tsx                  |   2 [32m+[m[31m-[m
+ .../customer/products/AddToCartButton.tsx          | 668 [32m++++++++[m[31m---------[m
+ src/components/home/site-footer.tsx                |   6 [32m+[m[31m-[m
+ src/components/layout/DynamicSiteFooter.tsx        |   2 [32m+[m[31m-[m
+ src/components/layout/DynamicSiteHeader.tsx        |   2 [32m+[m[31m-[m
+ src/config/app.ts                                  |   8 [32m+[m[31m-[m
+ src/repositories/settings/settings.repository.ts   |   2 [32m+[m[31m-[m
+ src/services/email-verification-email.service.ts   |  10 [32m+[m[31m-[m
+ src/services/email/email.config.ts                 |   2 [32m+[m[31m-[m
+ .../email/templates/password-reset.template.ts     |  10 [32m+[m[31m-[m
+ src/services/shipping/internal-shipment.service.ts |   2 [32m+[m[31m-[m
+ 27 files changed, 944 insertions(+), 836 deletions(-)

@@ -7,6 +7,10 @@ import {
 } from "react";
 
 import {
+  useRouter,
+} from "next/navigation";
+
+import {
   Check,
   Loader2,
   Minus,
@@ -20,9 +24,7 @@ import {
 
 /**
  * ============================================================
- *
  * PRODUCT VARIANT OPTION
- *
  * ============================================================
  */
 
@@ -36,9 +38,7 @@ interface ProductVariantOption {
 
 /**
  * ============================================================
- *
  * PRODUCT WEIGHT OPTION
- *
  * ============================================================
  */
 
@@ -52,9 +52,7 @@ interface ProductWeightOption {
 
 /**
  * ============================================================
- *
  * PROPS
- *
  * ============================================================
  */
 
@@ -63,58 +61,16 @@ interface AddToCartButtonProps {
 
   stock: number;
 
-  /**
-   * Harga dasar produk.
-   *
-   * Digunakan apabila:
-   *
-   * - Produk tidak memiliki pilihan berat
-   * - Customer belum memilih berat
-   */
   basePrice: number;
 
-  /**
-   * Contoh:
-   *
-   * [
-   *   {
-   *     id: "...",
-   *     label: "Utuh",
-   *     priceAdjustment: 0
-   *   },
-   *   {
-   *     id: "...",
-   *     label: "Dibersihkan",
-   *     priceAdjustment: 5000
-   *   }
-   * ]
-   */
   variantOptions?: ProductVariantOption[];
 
-  /**
-   * Contoh:
-   *
-   * [
-   *   {
-   *     id: "...",
-   *     label: "250gr",
-   *     price: 15000
-   *   },
-   *   {
-   *     id: "...",
-   *     label: "500gr",
-   *     price: 30000
-   *   }
-   * ]
-   */
   weightOptions?: ProductWeightOption[];
 }
 
 /**
  * ============================================================
- *
  * FORMAT RUPIAH
- *
  * ============================================================
  */
 
@@ -137,9 +93,7 @@ function formatRupiah(
 
 /**
  * ============================================================
- *
  * ADD TO CART BUTTON
- *
  * ============================================================
  */
 
@@ -150,11 +104,12 @@ export default function AddToCartButton({
   variantOptions = [],
   weightOptions = [],
 }: AddToCartButtonProps) {
+  const router =
+    useRouter();
+
   /**
    * ==========================================================
-   *
-   * DEFAULT VARIANT
-   *
+   * DEFAULT OPTIONS
    * ==========================================================
    */
 
@@ -162,27 +117,14 @@ export default function AddToCartButton({
     variantOptions[0]?.label ??
     null;
 
-  /**
-   * ==========================================================
-   *
-   * DEFAULT WEIGHT
-   *
-   * Jika hanya ada satu pilihan berat,
-   * otomatis dipilih.
-   *
-   * ==========================================================
-   */
-
   const defaultWeight =
     weightOptions.length === 1
-      ? weightOptions[0].label
+      ? weightOptions[0]?.label ?? null
       : null;
 
   /**
    * ==========================================================
-   *
    * STATE
-   *
    * ==========================================================
    */
 
@@ -236,9 +178,7 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
    * STOCK
-   *
    * ==========================================================
    */
 
@@ -247,9 +187,7 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
    * REQUIREMENTS
-   *
    * ==========================================================
    */
 
@@ -261,9 +199,7 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
-   * SELECTED VARIANT OBJECT
-   *
+   * SELECTED VARIANT
    * ==========================================================
    */
 
@@ -283,9 +219,7 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
-   * SELECTED WEIGHT OBJECT
-   *
+   * SELECTED WEIGHT
    * ==========================================================
    */
 
@@ -305,21 +239,7 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
-   * CALCULATE UNIT PRICE
-   *
-   * Rumus:
-   *
-   * Harga Berat
-   * +
-   * Tambahan Harga Varian
-   *
-   * Jika tidak ada pilihan berat:
-   *
-   * Harga Dasar
-   * +
-   * Tambahan Harga Varian
-   *
+   * PRICE CALCULATION
    * ==========================================================
    */
 
@@ -333,8 +253,7 @@ export default function AddToCartButton({
   const variantAdjustment =
     selectedVariantOption
       ? Number(
-          selectedVariantOption
-            .priceAdjustment
+          selectedVariantOption.priceAdjustment
         )
       : 0;
 
@@ -348,23 +267,13 @@ export default function AddToCartButton({
       variantAdjustment
     );
 
-  /**
-   * ==========================================================
-   *
-   * TOTAL PRICE
-   *
-   * ==========================================================
-   */
-
   const totalPrice =
     unitPrice *
     quantity;
 
   /**
    * ==========================================================
-   *
    * RESET MESSAGE
-   *
    * ==========================================================
    */
 
@@ -376,9 +285,7 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
-   * DECREASE
-   *
+   * QUANTITY
    * ==========================================================
    */
 
@@ -394,14 +301,6 @@ export default function AddToCartButton({
     resetMessage();
   }
 
-  /**
-   * ==========================================================
-   *
-   * INCREASE
-   *
-   * ==========================================================
-   */
-
   function increase() {
     setQuantity(
       (current) =>
@@ -416,9 +315,7 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
-   * SELECT VARIANT
-   *
+   * OPTION SELECTORS
    * ==========================================================
    */
 
@@ -432,14 +329,6 @@ export default function AddToCartButton({
     resetMessage();
   }
 
-  /**
-   * ==========================================================
-   *
-   * SELECT WEIGHT
-   *
-   * ==========================================================
-   */
-
   function selectWeight(
     weight: string
   ) {
@@ -452,54 +341,40 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   *
-   * ADD TO CART
-   *
+   * VALIDATION
    * ==========================================================
    */
 
-  function handleAddToCart() {
-    /**
-     * STOCK VALIDATION
-     */
+  function validateSelection() {
+    if (outOfStock) {
+      setSuccess(false);
 
-    if (
-      outOfStock
-    ) {
-      return;
+      setMessage(
+        "Produk sedang habis."
+      );
+
+      return false;
     }
 
-    /**
-     * QUANTITY VALIDATION
-     */
-
-    if (
-      quantity < 1
-    ) {
+    if (quantity < 1) {
       setSuccess(false);
 
       setMessage(
         "Jumlah produk minimal 1."
       );
 
-      return;
+      return false;
     }
 
-    if (
-      quantity > stock
-    ) {
+    if (quantity > stock) {
       setSuccess(false);
 
       setMessage(
         `Jumlah maksimal ${stock}.`
       );
 
-      return;
+      return false;
     }
-
-    /**
-     * VARIANT VALIDATION
-     */
 
     if (
       requiresVariant &&
@@ -511,12 +386,8 @@ export default function AddToCartButton({
         "Silakan pilih varian produk terlebih dahulu."
       );
 
-      return;
+      return false;
     }
-
-    /**
-     * WEIGHT VALIDATION
-     */
 
     if (
       requiresWeight &&
@@ -528,30 +399,37 @@ export default function AddToCartButton({
         "Silakan pilih berat produk terlebih dahulu."
       );
 
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * ==========================================================
+   * SUBMIT
+   * ==========================================================
+   *
+   * buyNow = false
+   * → Tambahkan ke keranjang
+   *
+   * buyNow = true
+   * → Tambahkan ke keranjang
+   * → Redirect ke halaman cart
+   *
+   * ==========================================================
+   */
+
+  function submitProduct(
+    buyNow = false
+  ) {
+    if (
+      !validateSelection()
+    ) {
       return;
     }
 
-    /**
-     * RESET MESSAGE
-     */
-
     resetMessage();
-
-    /**
-     * SERVER ACTION
-     *
-     * Harga tidak dikirim dari client.
-     *
-     * Server harus menentukan kembali
-     * harga berdasarkan:
-     *
-     * - Product
-     * - Variant
-     * - Weight
-     *
-     * Ini lebih aman daripada
-     * mempercayai harga dari browser.
-     */
 
     startTransition(
       async () => {
@@ -589,37 +467,48 @@ export default function AddToCartButton({
           result.message ??
             "Produk berhasil ditambahkan ke keranjang."
         );
+
+        /**
+         * BUY NOW
+         */
+
+        if (buyNow) {
+          router.push(
+            "/customer/cart"
+          );
+
+          router.refresh();
+        }
       }
     );
   }
 
   /**
    * ==========================================================
-   *
    * RENDER
-   *
    * ==========================================================
    */
 
   return (
     <div className="w-full space-y-6">
+
       {/* ====================================================== */}
       {/* LIVE PRICE */}
       {/* ====================================================== */}
 
-      <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+      <div className="border-y border-slate-200 bg-slate-50 px-5 py-4">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
           Harga Produk
         </p>
 
-        <div className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+        <div className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
           {formatRupiah(
             unitPrice
           )}
         </div>
 
         {quantity > 1 && (
-          <div className="mt-2 text-sm text-slate-500">
+          <div className="mt-2 text-xs text-slate-500">
             {quantity} ×{" "}
             {formatRupiah(
               unitPrice
@@ -639,26 +528,24 @@ export default function AddToCartButton({
       </div>
 
       {/* ====================================================== */}
-      {/* PRODUCT VARIANT */}
+      {/* VARIANT */}
       {/* ====================================================== */}
 
       {requiresVariant && (
-        <div>
-          <div className="mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">
+        <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
+          <div>
+            <h3 className="text-sm text-slate-500">
               Varian Produk
             </h3>
 
-            <p className="mt-1 text-xs text-slate-500">
-              Pilih kondisi produk yang Anda inginkan.
+            <p className="mt-1 text-xs text-slate-400">
+              Pilih kondisi produk.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             {variantOptions.map(
-              (
-                variant
-              ) => {
+              (variant) => {
                 const selected =
                   selectedVariant ===
                   variant.label;
@@ -671,9 +558,7 @@ export default function AddToCartButton({
 
                 return (
                   <button
-                    key={
-                      variant.id
-                    }
+                    key={variant.id}
                     type="button"
                     onClick={() =>
                       selectVariant(
@@ -685,32 +570,19 @@ export default function AddToCartButton({
                       isPending
                     }
                     className={[
-                      "flex min-h-12 flex-col items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition",
-                      selected
-                        ? "border-cyan-600 bg-cyan-50 text-cyan-700"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                      outOfStock ||
-                      isPending
-                        ? "cursor-not-allowed opacity-60"
-                        : "",
-                    ].join(
-                      " "
-                    )}
+  "min-h-[54px] rounded-xl border px-4 py-2 text-sm transition",
+  selected
+    ? "border-cyan-600 bg-cyan-50 text-cyan-700 shadow-sm"
+    : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50",
+  outOfStock ||
+  isPending
+    ? "cursor-not-allowed opacity-60"
+    : "",
+].join(" ")}
                   >
-                    <span>
-                      {
-                        variant.label
-                      }
-                    </span>
-
-                    {adjustment > 0 && (
-                      <span className="mt-1 text-xs font-medium text-cyan-600">
-                        +{" "}
-                        {formatRupiah(
-                          adjustment
-                        )}
-                      </span>
-                    )}
+                    <div className="font-medium">
+                      {variant.label}
+                    </div>
                   </button>
                 );
               }
@@ -720,35 +592,31 @@ export default function AddToCartButton({
       )}
 
       {/* ====================================================== */}
-      {/* PRODUCT WEIGHT */}
+      {/* WEIGHT */}
       {/* ====================================================== */}
 
       {requiresWeight && (
-        <div>
-          <div className="mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">
+        <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
+          <div>
+            <h3 className="text-sm text-slate-500">
               Berat Produk
             </h3>
 
-            <p className="mt-1 text-xs text-slate-500">
-              Pilih berat sesuai kebutuhan Anda.
+            <p className="mt-1 text-xs text-slate-400">
+              Pilih berat produk.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {weightOptions.map(
-              (
-                weight
-              ) => {
+              (weight) => {
                 const selected =
                   selectedWeight ===
                   weight.label;
 
                 return (
                   <button
-                    key={
-                      weight.id
-                    }
+                    key={weight.id}
                     type="button"
                     onClick={() =>
                       selectWeight(
@@ -760,31 +628,19 @@ export default function AddToCartButton({
                       isPending
                     }
                     className={[
-                      "flex min-h-11 flex-col items-center justify-center rounded-xl border px-5 py-2 text-sm font-semibold transition",
-                      selected
-                        ? "border-cyan-600 bg-cyan-50 text-cyan-700"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                      outOfStock ||
-                      isPending
-                        ? "cursor-not-allowed opacity-60"
-                        : "",
-                    ].join(
-                      " "
-                    )}
+  "min-w-[78px] rounded-xl border px-4 py-2 text-sm font-medium transition",
+  selected
+    ? "border-cyan-600 bg-cyan-50 text-cyan-700 shadow-sm"
+    : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50",
+  outOfStock ||
+  isPending
+    ? "cursor-not-allowed opacity-60"
+    : "",
+].join(" ")}
                   >
-                    <span>
-                      {
-                        weight.label
-                      }
-                    </span>
-
-                    <span className="mt-1 text-[11px] font-medium opacity-75">
-                      {formatRupiah(
-                        Number(
-                          weight.price
-                        )
-                      )}
-                    </span>
+                    <div className="font-medium">
+                      {weight.label}
+                    </div>
                   </button>
                 );
               }
@@ -797,116 +653,135 @@ export default function AddToCartButton({
       {/* CUSTOMER NOTE */}
       {/* ====================================================== */}
 
-      <div>
-        <label
-          htmlFor="customer-note"
-          className="mb-2 block text-sm font-semibold text-slate-900"
-        >
-          Pesan untuk Penjual
-        </label>
+      <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
+        <div>
+          <label
+            htmlFor="customer-note"
+            className="text-sm text-slate-500"
+          >
+            Pesan untuk Penjual
+          </label>
+        </div>
 
-        <textarea
-          id="customer-note"
-          value={
-            customerNote
-          }
-          onChange={(
-            event
-          ) => {
-            setCustomerNote(
-              event.target.value
-            );
+        <div>
+          <textarea
+            id="customer-note"
+            value={
+              customerNote
+            }
+            onChange={(
+              event
+            ) => {
+              setCustomerNote(
+                event.target.value
+              );
 
-            resetMessage();
-          }}
-          disabled={
-            outOfStock ||
-            isPending
-          }
-          rows={4}
-          maxLength={500}
-          placeholder="Contoh: Tolong ikan dipotong menjadi 4 bagian, kepala dibuang, atau pesanan ditaruh di meja depan teras."
-          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-        />
+              resetMessage();
+            }}
+            disabled={
+              outOfStock ||
+              isPending
+            }
+            rows={3}
+            maxLength={500}
+            placeholder="Contoh: Tolong ikan dipotong sesuai kebutuhan."
+            className="w-full resize-none border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+          />
 
-        <div className="mt-2 text-right text-xs text-slate-400">
-          {
-            customerNote.length
-          }
-          /500
+          <div className="mt-1 text-right text-[10px] text-slate-400">
+            {customerNote.length}
+            /500
+          </div>
         </div>
       </div>
 
       {/* ====================================================== */}
-{/* QUANTITY + ADD TO CART */}
+      {/* QUANTITY */}
+      {/* ====================================================== */}
+
+      <div className="grid gap-3 border-t border-slate-200 pt-5 sm:grid-cols-[130px_minmax(0,1fr)]">
+        <div className="text-sm text-slate-500">
+          Kuantitas
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <div
+            className={[
+              "flex h-11 items-center border bg-white",
+              outOfStock
+                ? "border-slate-200 opacity-60"
+                : "border-slate-300",
+            ].join(
+              " "
+            )}
+          >
+            <button
+              type="button"
+              onClick={decrease}
+              disabled={
+                outOfStock ||
+                isPending ||
+                quantity <= 1
+              }
+              className="flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Kurangi jumlah"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+
+            <span className="flex h-full min-w-12 items-center justify-center text-sm font-medium text-slate-900">
+              {quantity}
+            </span>
+
+            <button
+              type="button"
+              onClick={increase}
+              disabled={
+                outOfStock ||
+                isPending ||
+                quantity >= stock
+              }
+              className="flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Tambah jumlah"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+
+          {!outOfStock && (
+            <span className="text-xs text-slate-400">
+              {stock} tersedia
+            </span>
+          )}
+        </div>
+      </div>
+
+{/* ====================================================== */}
+{/* ACTION BUTTONS */}
 {/* ====================================================== */}
 
-<div className="border-t border-slate-200 pt-5 sm:pt-6">
-  <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+<div className="border-t border-slate-200 pt-6">
 
-    {/* QUANTITY */}
-
-    <div
-      className={[
-        "flex h-12 w-full items-center justify-between rounded-full border bg-white px-2 sm:w-36 sm:flex-none",
-        outOfStock
-          ? "border-slate-200 opacity-60"
-          : "border-slate-200",
-      ].join(" ")}
-    >
-      <button
-        type="button"
-        onClick={decrease}
-        disabled={
-          outOfStock ||
-          isPending ||
-          quantity <= 1
-        }
-        className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label="Kurangi jumlah"
-      >
-        <Minus className="h-4 w-4" />
-      </button>
-
-      <span className="min-w-10 text-center text-sm font-bold text-slate-900">
-        {quantity}
-      </span>
-
-      <button
-        type="button"
-        onClick={increase}
-        disabled={
-          outOfStock ||
-          isPending ||
-          quantity >= stock
-        }
-        className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label="Tambah jumlah"
-      >
-        <Plus className="h-4 w-4" />
-      </button>
-    </div>
+  <div className="flex flex-col gap-3 sm:flex-row">
 
     {/* ADD TO CART */}
 
     <button
       type="button"
-      onClick={handleAddToCart}
+      onClick={() =>
+        submitProduct(false)
+      }
       disabled={
         outOfStock ||
         isPending
       }
       className={[
-        "flex h-12 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition active:scale-[0.98] sm:flex-1 sm:px-6",
-
+        "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold whitespace-nowrap transition active:scale-[0.99] sm:flex-1",
         outOfStock
-          ? "cursor-not-allowed bg-slate-200 text-slate-500"
-          : success
-            ? "bg-emerald-600 text-white"
-            : "bg-cyan-600 text-white hover:bg-cyan-700",
-
+          ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+          : "border-cyan-600 bg-cyan-50 text-cyan-700 hover:bg-cyan-100",
         isPending
-          ? "cursor-wait opacity-80"
+          ? "cursor-wait opacity-70"
           : "",
       ].join(" ")}
     >
@@ -915,65 +790,82 @@ export default function AddToCartButton({
           <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
 
           <span>
-            Menambahkan...
+            Memproses...
           </span>
         </>
-      ) : success ? (
-        <>
-          <Check className="h-5 w-5 shrink-0" />
-
-          <span>
-            Berhasil Ditambahkan
-          </span>
-        </>
-      ) : outOfStock ? (
-        <span>
-          Stok Habis
-        </span>
       ) : (
         <>
           <ShoppingCart className="h-5 w-5 shrink-0" />
 
           <span>
-            Tambah ke Keranjang
+            Masukkan Keranjang
           </span>
         </>
       )}
     </button>
 
+    {/* BUY NOW */}
+
+    <button
+      type="button"
+      onClick={() =>
+        submitProduct(true)
+      }
+      disabled={
+        outOfStock ||
+        isPending
+      }
+      className={[
+        "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold whitespace-nowrap text-white transition active:scale-[0.99] sm:flex-1",
+        outOfStock
+          ? "cursor-not-allowed bg-slate-300"
+          : "bg-cyan-600 hover:bg-cyan-700",
+        isPending
+          ? "cursor-wait opacity-70"
+          : "",
+      ].join(" ")}
+    >
+      {isPending ? (
+        <>
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+
+          <span>
+            Memproses...
+          </span>
+        </>
+      ) : (
+        <span>
+          Beli Sekarang
+        </span>
+      )}
+    </button>
+
   </div>
 
-        {/* MESSAGE */}
+</div>
 
-        {message && (
-          <div
-            className={[
-              "mt-4 rounded-xl border px-4 py-3 text-sm",
+      {/* ====================================================== */}
+      {/* MESSAGE */}
+      {/* ====================================================== */}
 
-              success
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-red-200 bg-red-50 text-red-700",
-            ].join(
-              " "
-            )}
-          >
-            {
-              message
-            }
-          </div>
-        )}
+      {message && (
+        <div
+          className={[
+            "border px-4 py-3 text-sm",
+            success
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700",
+          ].join(
+            " "
+          )}
+        >
+          {success && (
+            <Check className="mr-2 inline h-4 w-4" />
+          )}
 
-        {/* STOCK */}
-
-        {!outOfStock && (
-          <p className="mt-3 text-center text-xs text-slate-400">
-            Stok tersedia:{" "}
-            {
-              stock
-            }
-          </p>
-        )}
-      </div>
+          {message}
+        </div>
+      )}
     </div>
   );
 }

@@ -72,7 +72,7 @@ export default async function DynamicSiteHeader({
 
   const storeName =
     settings.storeName?.trim() ||
-    "Fish Market";
+    "Pisjo Market";
 
   const storeDescription =
     settings.storeDescription?.trim() ||

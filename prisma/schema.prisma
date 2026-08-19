@@ -281,6 +281,17 @@ model CartItem {
 
   /**
    * ============================================================
+   * WEIGHT SKU SNAPSHOT
+   * ============================================================
+   * SKU dari pilihan berat yang dipilih customer.
+   * Disimpan sebagai snapshot agar cart tetap mengetahui
+   * SKU pilihan yang sedang dibeli.
+   */
+
+  weightSku String?
+
+  /**
+   * ============================================================
    * CUSTOMER NOTE
    * ============================================================
    */
@@ -519,7 +530,6 @@ model Product {
  * - 1kg
  * - 2kg
  */
-
 model ProductWeightOption {
   id String @id @default(uuid())
 
@@ -527,16 +537,39 @@ model ProductWeightOption {
 
   product Product @relation("ProductWeightOptions", fields: [productId], references: [id], onDelete: Cascade)
 
+  /**
+   * ============================================================
+   * WEIGHT LABEL
+   * ============================================================
+   * Contoh:
+   * - 250gr
+   * - 500gr
+   * - 1kg
+   */
+
   label String
 
   /**
-   * Harga khusus berdasarkan pilihan berat.
+   * ============================================================
+   * SKU
+   * ============================================================
+   * SKU khusus untuk pilihan berat produk.
    * Contoh:
-   * 1kg = 45000
-   * 2kg = 80000
-   * Nullable sementara agar data weight lama
-   * dapat dimigrasikan dengan aman.
+   * 250gr -> CMA-250
+   * 500gr -> CMA-500
+   * 1kg   -> CMA-1000
+   * Nullable sementara agar migration aman untuk
+   * data pilihan berat yang sudah ada.
    */
+
+  sku String?
+
+  /**
+   * ============================================================
+   * PRICE
+   * ============================================================
+   */
+
   price Decimal @db.Decimal(12, 2)
 
   sortOrder Int @default(0)
@@ -549,6 +582,7 @@ model ProductWeightOption {
 
   @@unique([productId, label])
   @@index([productId])
+  @@index([sku])
   @@index([isActive])
   @@index([sortOrder])
 }
@@ -891,6 +925,20 @@ model OrderItem {
   productVariant String?
 
   productWeight String?
+
+  /**
+   * ============================================================
+   * WEIGHT SKU SNAPSHOT
+   * ============================================================
+   * SKU pilihan berat saat checkout.
+   * Nilai ini disimpan permanen agar:
+   * - Resi pesanan lama tetap konsisten
+   * - Riwayat order tidak berubah
+   * - Perubahan SKU produk di masa depan
+   * tidak mempengaruhi pesanan lama
+   */
+
+  weightSku String?
 
   /**
    * ============================================================

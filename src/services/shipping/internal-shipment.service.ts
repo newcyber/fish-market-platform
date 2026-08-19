@@ -13,7 +13,7 @@ import {
  * ============================================================
  *
  * Service khusus untuk pengiriman menggunakan
- * Kurir Internal Fish Market.
+ * Kurir Internal Pisjo Market.
  *
  * Tanggung jawab:
  *

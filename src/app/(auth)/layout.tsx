@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 export const metadata: Metadata = {
   title: {
     default: "Authentication",
-    template: "%s | Fish Market Platform",
+    template: "%s | Pisjo Market Platform",
   },
-  description: "Authentication - Fish Market Platform",
+  description: "Authentication - Pisjo Market Platform",
 };
 
 interface AuthLayoutProps {
@@ -20,7 +20,7 @@ export default function AuthLayout({
     <main className="min-h-screen bg-slate-50">
       <div className="grid min-h-screen lg:grid-cols-2">
         {/* Left Side */}
-        <section className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-cyan-700 via-sky-700 to-blue-900 p-16 text-white">
+        <section className="hidden lg:flex flex-col justify-between bg-linear-to-br from-cyan-700 via-sky-700 to-blue-900 p-16 text-white">
           <div>
             <div className="inline-flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
@@ -29,7 +29,7 @@ export default function AuthLayout({
 
               <div>
                 <h1 className="text-2xl font-bold">
-                  Fish Market Platform
+                  Pisjo Market Platform
                 </h1>
 
                 <p className="text-sm text-white/80">
@@ -55,7 +55,7 @@ export default function AuthLayout({
           </div>
 
           <div className="text-sm text-white/70">
-            © {new Date().getFullYear()} Fish Market Platform
+            © {new Date().getFullYear()} Pisjo Market Platform
           </div>
         </section>
 

@@ -162,7 +162,7 @@ if (
     <AuthCard>
       <AuthHeader
         title="Welcome Back"
-        description="Masuk ke akun Fish Market Platform untuk melanjutkan."
+        description="Masuk ke akun Pisjo Market Platform untuk melanjutkan."
       />
 
       <form

@@ -24,12 +24,12 @@ export function createPasswordResetEmail(
   } = params;
 
   const subject =
-    "Atur Ulang Password - Fish Market Platform";
+    "Atur Ulang Password - Pisjo Market Platform";
 
   const text = `
 Halo, ${userName},
 
-Kami menerima permintaan untuk mengatur ulang password akun Fish Market Platform Anda.
+Kami menerima permintaan untuk mengatur ulang password akun Pisjo Market Platform Anda.
 
 Silakan buka link berikut untuk membuat password baru:
 
@@ -39,7 +39,7 @@ Link ini hanya dapat digunakan satu kali dan akan kedaluwarsa setelah masa berla
 
 Jika Anda tidak meminta pengaturan ulang password, abaikan email ini. Password akun Anda tidak akan berubah.
 
-Fish Market Platform
+Pisjo Market Platform
 `.trim();
 
   const html = `
@@ -109,7 +109,7 @@ Fish Market Platform
                   font-size: 24px;
                 "
               >
-                Fish Market Platform
+                Pisjo Market Platform
               </h1>
             </td>
           </tr>
@@ -221,7 +221,7 @@ Fish Market Platform
                   color: #94a3b8;
                 "
               >
-                © Fish Market Platform
+                © Pisjo Market Platform
               </p>
 
             </td>

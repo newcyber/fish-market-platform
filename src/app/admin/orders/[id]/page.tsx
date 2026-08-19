@@ -562,7 +562,7 @@ export default async function OrderDetailPage({
 
         <p className="mt-1 font-medium">
           {order.shippingService ??
-            "Pengiriman Internal Fish Market"}
+            "Pengiriman Internal Pisjo Market"}
         </p>
       </div>
 

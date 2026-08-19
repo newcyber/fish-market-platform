@@ -92,7 +92,7 @@ export default async function CustomerLayout({
 
   const storeName =
     settings.storeName?.trim() ||
-    "Fish Market";
+    "Pisjo Market";
 
   const storeDescription =
   settings.storeDescription?.trim() ||

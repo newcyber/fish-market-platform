@@ -136,7 +136,7 @@ export default async function AdminSettingsPage() {
 
         <p className="mt-2 text-sm text-slate-500">
           Kelola informasi, kontak, alamat, dan jam operasional
-          Fish Market.
+          Pisjo Market.
         </p>
       </div>
 

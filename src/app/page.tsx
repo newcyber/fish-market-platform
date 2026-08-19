@@ -361,7 +361,7 @@ export default function Home() {
               </div>
 
               <p className="mt-7 text-sm font-bold uppercase tracking-[0.18em] text-cyan-600">
-                Mengapa Fish Market
+                Mengapa Pisjo Market
               </p>
 
               <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
@@ -432,7 +432,7 @@ export default function Home() {
 
               <p className="mt-5 max-w-2xl leading-8 text-slate-300">
                 Jelajahi berbagai produk yang tersedia dan mulai
-                pengalaman belanja Anda bersama Fish Market.
+                pengalaman belanja Anda bersama Pisjo Market.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">

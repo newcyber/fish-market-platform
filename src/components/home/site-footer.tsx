@@ -8,7 +8,7 @@ import {
 
 /**
  * ============================================================
- * FISH MARKET
+ * Pisjo MARKET
  * SITE FOOTER
  *
  * Shared footer untuk:
@@ -45,7 +45,7 @@ export default function SiteFooter() {
 
               <div>
                 <div className="font-bold">
-                  Fish Market
+                  Pisjo Market
                 </div>
 
                 <div className="text-xs text-slate-400">
@@ -151,7 +151,7 @@ export default function SiteFooter() {
         <div className="mt-10 border-t pt-6">
 
           <p className="text-center text-xs text-slate-400">
-            © {currentYear} Fish Market.
+            © {currentYear} Pisjo Market.
             All rights reserved.
           </p>
 

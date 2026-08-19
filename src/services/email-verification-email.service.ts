@@ -39,12 +39,12 @@ export class EmailVerificationEmailService {
       name?.trim() || "Pelanggan";
 
     const subject =
-      `${otp} adalah kode verifikasi Fish Market`;
+      `${otp} adalah kode verifikasi Pisjo Market`;
 
     const text = [
       `Halo ${greetingName},`,
       "",
-      "Terima kasih telah mendaftar di Fish Market.",
+      "Terima kasih telah mendaftar di Pisjo Market.",
       "",
       `Kode verifikasi email Anda: ${otp}`,
       "",
@@ -64,7 +64,7 @@ export class EmailVerificationEmailService {
             name="viewport"
             content="width=device-width, initial-scale=1.0"
           />
-          <title>Verifikasi Email Fish Market</title>
+          <title>Verifikasi Email Pisjo Market</title>
         </head>
 
         <body
@@ -123,7 +123,7 @@ export class EmailVerificationEmailService {
                           font-size: 28px;
                         "
                       >
-                        Fish Market
+                        Pisjo Market
                       </h1>
 
                       <p
@@ -158,7 +158,7 @@ export class EmailVerificationEmailService {
 
                       <p>
                         Terima kasih telah mendaftar
-                        di Fish Market.
+                        di Pisjo Market.
                       </p>
 
                       <p>

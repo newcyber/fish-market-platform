@@ -591,7 +591,7 @@ export default async function CustomerOrderDetailPage({
 
                     <p className="mt-1 font-medium text-slate-900">
                       {order.shippingService ??
-                        "Pengiriman Internal Fish Market"}
+                        "Pengiriman Internal Pisjo Market"}
                     </p>
                   </div>
 

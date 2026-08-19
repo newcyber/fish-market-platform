@@ -544,7 +544,7 @@ export default function SettingsForm({
               defaultValue={settings.storeName}
               disabled={isPending}
               className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="Contoh: Fish Market"
+              placeholder="Contoh: Pisjo Market"
             />
           </div>
 
@@ -1026,7 +1026,7 @@ export default function SettingsForm({
                 !internalShippingEnabled
               }
               className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-              placeholder="Contoh: Fish Market Express"
+              placeholder="Contoh: Pisjo Market Express"
             />
           </div>
 

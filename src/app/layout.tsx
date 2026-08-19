@@ -14,11 +14,11 @@ const geist = Geist({
 
 export const metadata: Metadata = {
   title: {
-    default: "Fish Market Platform",
-    template: "%s | Fish Market Platform",
+    default: "Pisjo Market Platform",
+    template: "%s | Pisjo Market Platform",
   },
 
-  description: "Modern Fish Marketplace",
+  description: "Modern Pisjo Marketplace",
 };
 
 export default function RootLayout({

@@ -14,7 +14,7 @@ import internalShipmentService from "@/services/shipping/internal-shipment.servi
  * Server Action untuk:
  *
  * - Memastikan user sudah login
- * - Membuat resi Kurir Internal Fish Market
+ * - Membuat resi Kurir Internal Pisjo Market
  * - Mengubah order menjadi SHIPPING
  * - Refresh halaman yang berhubungan dengan order
  *
