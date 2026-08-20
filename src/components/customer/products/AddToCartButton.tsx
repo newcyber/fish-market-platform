@@ -52,6 +52,16 @@ interface ProductWeightOption {
 
 /**
  * ============================================================
+ * PRODUCT DISCOUNT
+ * ============================================================
+ */
+
+type ProductDiscountType =
+  | "PERCENTAGE"
+  | "FIXED_AMOUNT";
+
+/**
+ * ============================================================
  * PROPS
  * ============================================================
  */
@@ -61,11 +71,49 @@ interface AddToCartButtonProps {
 
   stock: number;
 
+  /**
+   * ============================================================
+   * BASE PRICE
+   * ============================================================
+   */
+
   basePrice: number;
+
+  /**
+   * ============================================================
+   * PRODUCT OPTIONS
+   * ============================================================
+   */
 
   variantOptions?: ProductVariantOption[];
 
   weightOptions?: ProductWeightOption[];
+
+  /**
+   * ============================================================
+   * PRODUCT DISCOUNT
+   * ============================================================
+   */
+
+  isDiscountActive?: boolean;
+
+  discountType?:
+    | ProductDiscountType
+    | null;
+
+  discountValue?:
+    | number
+    | null;
+
+  discountStartAt?:
+    | string
+    | Date
+    | null;
+
+  discountEndAt?:
+    | string
+    | Date
+    | null;
 }
 
 /**
@@ -103,6 +151,12 @@ export default function AddToCartButton({
   basePrice,
   variantOptions = [],
   weightOptions = [],
+
+  isDiscountActive = false,
+  discountType = null,
+  discountValue = null,
+  discountStartAt = null,
+  discountEndAt = null,
 }: AddToCartButtonProps) {
   const router =
     useRouter();
@@ -238,38 +292,157 @@ export default function AddToCartButton({
     );
 
   /**
-   * ==========================================================
-   * PRICE CALCULATION
-   * ==========================================================
-   */
+ * ==========================================================
+ * BASE COMBINATION PRICE
+ * ==========================================================
+ *
+ * Harga:
+ *
+ * Weight
+ * +
+ * Variant Adjustment
+ */
 
-  const weightPrice =
-    selectedWeightOption
-      ? Number(
-          selectedWeightOption.price
-        )
-      : Number(basePrice);
+/**
+ * ==========================================================
+ * BASE COMBINATION PRICE
+ * ==========================================================
+ */
 
-  const variantAdjustment =
-    selectedVariantOption
-      ? Number(
-          selectedVariantOption.priceAdjustment
-        )
-      : 0;
+const weightPrice =
+  selectedWeightOption
+    ? Number(
+        selectedWeightOption.price
+      )
+    : Number(basePrice);
 
-  const unitPrice =
-    Math.max(
-      0,
-      weightPrice
-    ) +
-    Math.max(
-      0,
-      variantAdjustment
-    );
+const variantAdjustment =
+  selectedVariantOption
+    ? Number(
+        selectedVariantOption.priceAdjustment
+      )
+    : 0;
 
-  const totalPrice =
-    unitPrice *
-    quantity;
+/**
+ * Harga normal berdasarkan:
+ *
+ * Weight Price
+ * +
+ * Variant Adjustment
+ */
+
+const originalUnitPrice =
+  Math.max(
+    0,
+    weightPrice
+  ) +
+  Math.max(
+    0,
+    variantAdjustment
+  );
+
+/**
+ * ==========================================================
+ * DISCOUNT STATUS
+ * ==========================================================
+ */
+
+const now =
+  new Date();
+
+const hasDiscountStarted =
+  !discountStartAt ||
+  new Date(
+    discountStartAt
+  ) <= now;
+
+const hasDiscountEnded =
+  !!discountEndAt &&
+  new Date(
+    discountEndAt
+  ) <= now;
+
+const isDiscountCurrentlyActive =
+  isDiscountActive &&
+  discountType !== null &&
+  discountValue !== null &&
+  Number(discountValue) > 0 &&
+  hasDiscountStarted &&
+  !hasDiscountEnded;
+
+/**
+ * ==========================================================
+ * DISCOUNT CALCULATION
+ * ==========================================================
+ */
+
+const discountAmount =
+  (() => {
+    if (
+      !isDiscountCurrentlyActive
+    ) {
+      return 0;
+    }
+
+    const value =
+      Math.max(
+        0,
+        Number(discountValue)
+      );
+
+    if (
+      discountType ===
+      "PERCENTAGE"
+    ) {
+      const percentage =
+        Math.min(
+          100,
+          value
+        );
+
+      return (
+        originalUnitPrice *
+        (percentage / 100)
+      );
+    }
+
+    if (
+      discountType ===
+      "FIXED_AMOUNT"
+    ) {
+      return Math.min(
+        originalUnitPrice,
+        value
+      );
+    }
+
+    return 0;
+  })();
+
+/**
+ * ==========================================================
+ * FINAL PRICE
+ * ==========================================================
+ */
+
+const unitPrice =
+  Math.max(
+    0,
+    originalUnitPrice -
+      discountAmount
+  );
+
+const totalPrice =
+  unitPrice *
+  quantity;
+
+const totalOriginalPrice =
+  originalUnitPrice *
+  quantity;
+
+const totalDiscountAmount =
+  discountAmount *
+  quantity;
 
   /**
    * ==========================================================
@@ -493,39 +666,97 @@ export default function AddToCartButton({
     <div className="w-full space-y-6">
 
       {/* ====================================================== */}
-      {/* LIVE PRICE */}
-      {/* ====================================================== */}
+{/* LIVE PRICE */}
+{/* ====================================================== */}
 
-      <div className="border-y border-slate-200 bg-slate-50 px-5 py-4">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-          Harga Produk
-        </p>
+<div className="border-y border-slate-200 bg-slate-50 px-5 py-4">
+  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+    Harga Produk
+  </p>
 
-        <div className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+  {isDiscountCurrentlyActive ? (
+    <>
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <span className="text-base text-slate-400 line-through">
           {formatRupiah(
-            unitPrice
+            originalUnitPrice
           )}
-        </div>
+        </span>
 
-        {quantity > 1 && (
-          <div className="mt-2 text-xs text-slate-500">
-            {quantity} ×{" "}
-            {formatRupiah(
-              unitPrice
-            )}
+        <span className="rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-600">
+          {discountType ===
+          "PERCENTAGE"
+            ? `${Math.min(
+                100,
+                Number(discountValue)
+              )}%`
+            : "DISKON"}
+        </span>
+      </div>
 
-            <span className="mx-2">
-              =
-            </span>
-
-            <span className="font-semibold text-slate-900">
-              {formatRupiah(
-                totalPrice
-              )}
-            </span>
-          </div>
+      <div className="mt-1 text-2xl font-bold tracking-tight text-cyan-700 sm:text-3xl">
+        {formatRupiah(
+          unitPrice
         )}
       </div>
+
+      <p className="mt-1 text-xs font-medium text-emerald-600">
+        Hemat{" "}
+        {formatRupiah(
+          discountAmount
+        )}
+        {" / produk"}
+      </p>
+    </>
+  ) : (
+    <div className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+      {formatRupiah(
+        originalUnitPrice
+      )}
+    </div>
+  )}
+
+  {quantity > 1 && (
+    <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-500">
+      {isDiscountCurrentlyActive && (
+        <div className="mb-1">
+          Harga normal total:{" "}
+          <span className="line-through">
+            {formatRupiah(
+              totalOriginalPrice
+            )}
+          </span>
+        </div>
+      )}
+
+      <div>
+        {quantity} ×{" "}
+        {formatRupiah(
+          unitPrice
+        )}
+
+        <span className="mx-2">
+          =
+        </span>
+
+        <span className="font-semibold text-slate-900">
+          {formatRupiah(
+            totalPrice
+          )}
+        </span>
+      </div>
+
+      {isDiscountCurrentlyActive && (
+        <div className="mt-1 font-medium text-emerald-600">
+          Total hemat{" "}
+          {formatRupiah(
+            totalDiscountAmount
+          )}
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
       {/* ====================================================== */}
       {/* VARIANT */}
@@ -570,7 +801,7 @@ export default function AddToCartButton({
                       isPending
                     }
                     className={[
-  "min-h-[54px] rounded-xl border px-4 py-2 text-sm transition",
+  "min-h-13.5 rounded-xl border px-4 py-2 text-sm transition",
   selected
     ? "border-cyan-600 bg-cyan-50 text-cyan-700 shadow-sm"
     : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50",
@@ -628,7 +859,7 @@ export default function AddToCartButton({
                       isPending
                     }
                     className={[
-  "min-w-[78px] rounded-xl border px-4 py-2 text-sm font-medium transition",
+  "min-w-19.5 rounded-xl border px-4 py-2 text-sm font-medium transition",
   selected
     ? "border-cyan-600 bg-cyan-50 text-cyan-700 shadow-sm"
     : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50",

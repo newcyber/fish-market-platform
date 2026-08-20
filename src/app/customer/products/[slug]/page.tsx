@@ -199,13 +199,235 @@ export default async function ProductDetailPage({
       );
 
   /**
-   * ==========================================================
-   * PRICE
-   * ==========================================================
-   */
+ * ==========================================================
+ * PRODUCT PRICE RANGE
+ * ==========================================================
+ *
+ * Harga utama produk diambil dari seluruh weight option aktif.
+ *
+ * Jika produk tidak memiliki weight option:
+ *
+ * fallback menggunakan product.price.
+ *
+ * Product Discount diterapkan pada setiap harga weight.
+ * Hasil akhirnya digunakan untuk menentukan:
+ *
+ * minimum price
+ * maximum price
+ */
 
-  const price =
-    Number(product.price);
+const price =
+  Number(product.price);
+
+/**
+ * ==========================================================
+ * PRODUCT DISCOUNT
+ * ==========================================================
+ */
+
+const discountValue =
+  product.discountValue !== null
+    ? Number(
+        product.discountValue
+      )
+    : 0;
+
+const now =
+  new Date();
+
+const hasDiscountStarted =
+  !product.discountStartAt ||
+  new Date(
+    product.discountStartAt
+  ) <= now;
+
+const hasDiscountEnded =
+  !!product.discountEndAt &&
+  new Date(
+    product.discountEndAt
+  ) <= now;
+
+const isDiscountCurrentlyActive =
+  product.isDiscountActive &&
+  product.discountType !== null &&
+  discountValue > 0 &&
+  hasDiscountStarted &&
+  !hasDiscountEnded;
+
+/**
+ * ==========================================================
+ * APPLY PRODUCT DISCOUNT
+ * ==========================================================
+ *
+ * Diskon diterapkan ke setiap harga.
+ *
+ * PERCENTAGE:
+ *
+ * price - percentage discount
+ *
+ * FIXED_AMOUNT:
+ *
+ * price - fixed discount
+ */
+
+const applyProductDiscount = (
+  originalPrice: number
+) => {
+  if (
+    !isDiscountCurrentlyActive
+  ) {
+    return originalPrice;
+  }
+
+  if (
+    product.discountType ===
+    "PERCENTAGE"
+  ) {
+    const percentage =
+      Math.min(
+        100,
+        Math.max(
+          0,
+          discountValue
+        )
+      );
+
+    const discountAmount =
+      originalPrice *
+      (percentage / 100);
+
+    return Math.max(
+      0,
+      originalPrice -
+        discountAmount
+    );
+  }
+
+  if (
+    product.discountType ===
+    "FIXED_AMOUNT"
+  ) {
+    const discountAmount =
+      Math.min(
+        originalPrice,
+        Math.max(
+          0,
+          discountValue
+        )
+      );
+
+    return Math.max(
+      0,
+      originalPrice -
+        discountAmount
+    );
+  }
+
+  return originalPrice;
+};
+
+/**
+ * ==========================================================
+ * ACTIVE WEIGHT PRICES
+ * ==========================================================
+ *
+ * Jika tersedia weight option aktif,
+ * gunakan seluruh harga weight.
+ *
+ * Jika tidak tersedia,
+ * fallback ke harga dasar produk.
+ */
+
+const originalPriceList =
+  weightOptions.length > 0
+    ? weightOptions.map(
+        (option) =>
+          option.price
+      )
+    : [price];
+
+/**
+ * ==========================================================
+ * ORIGINAL PRICE RANGE
+ * ==========================================================
+ */
+
+const minimumOriginalPrice =
+  Math.min(
+    ...originalPriceList
+  );
+
+const maximumOriginalPrice =
+  Math.max(
+    ...originalPriceList
+  );
+
+/**
+ * ==========================================================
+ * FINAL PRICE RANGE
+ * ==========================================================
+ *
+ * Diskon diterapkan pada setiap harga weight.
+ */
+
+const finalPriceList =
+  originalPriceList.map(
+    (originalPrice) =>
+      applyProductDiscount(
+        originalPrice
+      )
+  );
+
+const minimumFinalPrice =
+  Math.min(
+    ...finalPriceList
+  );
+
+const maximumFinalPrice =
+  Math.max(
+    ...finalPriceList
+  );
+
+/**
+ * ==========================================================
+ * TOTAL SAVING RANGE
+ * ==========================================================
+ */
+
+const minimumSaving =
+  Math.max(
+    0,
+    minimumOriginalPrice -
+      minimumFinalPrice
+  );
+
+const maximumSaving =
+  Math.max(
+    0,
+    maximumOriginalPrice -
+      maximumFinalPrice
+  );
+
+/**
+ * ==========================================================
+ * PRICE RANGE HELPERS
+ * ==========================================================
+ */
+
+const hasOriginalPriceRange =
+  minimumOriginalPrice !==
+  maximumOriginalPrice;
+
+const hasFinalPriceRange =
+  minimumFinalPrice !==
+  maximumFinalPrice;
+
+const hasPriceDiscount =
+  isDiscountCurrentlyActive &&
+  (
+    minimumSaving > 0 ||
+    maximumSaving > 0
+  );
 
   /**
    * ==========================================================
@@ -409,13 +631,87 @@ export default async function ProductDetailPage({
                   </div>
                 </div>
 
-                {/* PRICE */}
+{/* ====================================================== */}
+{/* PRODUCT PRICE RANGE */}
+{/* ====================================================== */}
 
-                <div className="mt-5 bg-slate-50 px-5 py-5">
-                  <p className="text-[30px] font-semibold tracking-tight text-cyan-700">
-                    {formatRupiah(price)}
-                  </p>
-                </div>
+<div className="mt-5 bg-slate-50 px-5 py-5">
+  {hasPriceDiscount ? (
+    <div>
+      {/* ORIGINAL PRICE */}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-lg text-slate-400 line-through">
+          {hasOriginalPriceRange
+            ? `${formatRupiah(
+                minimumOriginalPrice
+              )} - ${formatRupiah(
+                maximumOriginalPrice
+              )}`
+            : formatRupiah(
+                minimumOriginalPrice
+              )}
+        </p>
+
+        <span className="rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-600">
+          {product.discountType ===
+          "PERCENTAGE"
+            ? `${discountValue}%`
+            : "DISKON"}
+        </span>
+      </div>
+
+      {/* FINAL PRICE RANGE */}
+
+      <p className="mt-1 text-[30px] font-semibold tracking-tight text-cyan-700">
+        {hasFinalPriceRange
+          ? `${formatRupiah(
+              minimumFinalPrice
+            )} - ${formatRupiah(
+              maximumFinalPrice
+            )}`
+          : formatRupiah(
+              minimumFinalPrice
+            )}
+      </p>
+
+      {/* SAVING */}
+
+      <p className="mt-1 text-sm text-emerald-600">
+        {minimumSaving ===
+        maximumSaving
+          ? (
+              <>
+                Hemat{" "}
+                {formatRupiah(
+                  minimumSaving
+                )}
+              </>
+            )
+          : (
+              <>
+                Hemat hingga{" "}
+                {formatRupiah(
+                  maximumSaving
+                )}
+              </>
+            )}
+      </p>
+    </div>
+  ) : (
+    <p className="text-[30px] font-semibold tracking-tight text-cyan-700">
+      {hasOriginalPriceRange
+        ? `${formatRupiah(
+            minimumOriginalPrice
+          )} - ${formatRupiah(
+            maximumOriginalPrice
+          )}`
+        : formatRupiah(
+            minimumOriginalPrice
+          )}
+    </p>
+  )}
+</div>
 
                 {/* PRODUCT META */}
 
@@ -494,22 +790,50 @@ export default async function ProductDetailPage({
 
                 <div className="mt-8 border-t border-slate-200 pt-7">
                   <AddToCartButton
-                    productId={
-                      product.id
-                    }
-                    stock={
-                      product.stock
-                    }
-                    basePrice={
-                      price
-                    }
-                    variantOptions={
-                      variantOptions
-                    }
-                    weightOptions={
-                      weightOptions
-                    }
-                  />
+  productId={
+    product.id
+  }
+  stock={
+    product.stock
+  }
+  basePrice={
+    price
+  }
+  variantOptions={
+    variantOptions
+  }
+  weightOptions={
+    weightOptions
+  }
+
+  /**
+   * PRODUCT DISCOUNT
+   */
+
+  isDiscountActive={
+    product.isDiscountActive
+  }
+
+  discountType={
+    product.discountType
+  }
+
+  discountValue={
+    product.discountValue !== null
+      ? Number(
+          product.discountValue
+        )
+      : null
+  }
+
+  discountStartAt={
+    product.discountStartAt
+  }
+
+  discountEndAt={
+    product.discountEndAt
+  }
+/>
 
                   
                 </div>

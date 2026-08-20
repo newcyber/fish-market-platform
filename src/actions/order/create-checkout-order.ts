@@ -37,36 +37,27 @@ interface CreateCheckoutOrderInput {
   /**
    * Alamat tujuan customer.
    */
-
   addressId: string;
 
   /**
    * Metode pembayaran yang dipilih.
    */
-
   paymentChannelId: string;
 
   /**
-   * Provider pengiriman yang dipilih customer.
-   *
-   * Saat ini:
-   * - INTERNAL
-   *
-   * Masa depan:
-   * - JNE
-   * - JNT
-   * - SICEPAT
-   * - ANTERAJA
-   * - POS
+   * Provider pengiriman.
    */
-
   shippingProvider: ShippingProviderCode;
 
   /**
    * Catatan pesanan.
    */
-
   notes?: string | null;
+
+  /**
+   * Kode voucher customer.
+   */
+  voucherCode?: string | null;
 }
 
 /**
@@ -88,14 +79,6 @@ interface CreateCheckoutOrderResult {
 /**
  * ============================================================
  * VALID SHIPPING PROVIDERS
- * ============================================================
- *
- * Nilai provider berasal dari client sehingga tetap harus
- * divalidasi kembali di server.
- *
- * Provider yang belum benar-benar diregistrasikan nantinya
- * tetap akan ditangani kembali oleh ShippingService /
- * OrderService.
  * ============================================================
  */
 
@@ -124,7 +107,8 @@ export async function createCheckoutOrderAction(
      * ==========================================================
      */
 
-    const session = await auth();
+    const session =
+      await auth();
 
     if (!session?.user?.id) {
       return {
@@ -204,24 +188,45 @@ export async function createCheckoutOrderAction(
 
     /**
      * ==========================================================
-     * CREATE ORDER
+     * NORMALIZE VOUCHER CODE
      * ==========================================================
      *
-     * shippingProvider hanya digunakan sebagai pilihan metode.
+     * Voucher boleh kosong.
      *
-     * Biaya ongkir tidak diterima dari client.
+     * Jika customer mengisi voucher:
+     * - hapus spasi awal/akhir
+     * - ubah menjadi uppercase
+     *
+     * Jika kosong:
+     * - kirim null
+     */
+
+    const voucherCode =
+      input.voucherCode
+        ?.trim()
+        .toUpperCase() ||
+      null;
+
+    /**
+     * ==========================================================
+     * CREATE ORDER
+     * ==========================================================
      *
      * OrderService akan:
      *
      * 1. Validasi alamat
      * 2. Validasi cart
-     * 3. Hitung subtotal
-     * 4. Ambil konfigurasi toko
-     * 5. Register shipping provider
-     * 6. Hitung ulang shipping quote di server
-     * 7. Ambil shippingCost dari hasil server
+     * 3. Hitung ulang harga produk
+     * 4. Hitung subtotal
+     * 5. Validasi voucher
+     * 6. Hitung diskon voucher
+     * 7. Hitung ulang shipping quote
      * 8. Hitung total akhir
-     * 9. Simpan Order
+     * 9. Simpan order
+     * 10. Consume voucher
+     * 11. Catat VoucherUsage
+     * 12. Update stock
+     * 13. Buat Stock Ledger
      */
 
     const result =
@@ -234,7 +239,9 @@ export async function createCheckoutOrderAction(
 
         input.notes ?? null,
 
-        shippingProvider
+        shippingProvider,
+
+        voucherCode
       );
 
     /**

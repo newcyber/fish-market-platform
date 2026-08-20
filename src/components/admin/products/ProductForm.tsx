@@ -130,6 +130,25 @@ export interface ProductFormValues {
 
   price: number;
 
+    /**
+   * ============================================================
+   * PRODUCT DISCOUNT
+   * ============================================================
+   */
+
+  isDiscountActive: boolean;
+
+  discountType:
+    | "PERCENTAGE"
+    | "FIXED_AMOUNT"
+    | "";
+
+  discountValue: number | "";
+
+  discountStartAt: string;
+
+  discountEndAt: string;
+
   stock: number;
 
   /**
@@ -488,6 +507,46 @@ export function ProductForm({
         Number(
           defaultValues?.price ?? 0
         ),
+
+              /**
+       * ========================================================
+       * PRODUCT DISCOUNT
+       * ========================================================
+       */
+
+      isDiscountActive:
+        defaultValues?.isDiscountActive ??
+        false,
+
+      discountType:
+        defaultValues?.discountType ??
+        "",
+
+      discountValue:
+        defaultValues?.discountValue !==
+        undefined
+          ? Number(
+              defaultValues.discountValue
+            )
+          : "",
+
+      discountStartAt:
+        defaultValues?.discountStartAt
+          ? new Date(
+              defaultValues.discountStartAt
+            )
+              .toISOString()
+              .slice(0, 16)
+          : "",
+
+      discountEndAt:
+        defaultValues?.discountEndAt
+          ? new Date(
+              defaultValues.discountEndAt
+            )
+              .toISOString()
+              .slice(0, 16)
+          : "",
 
       stock:
         Number(
@@ -1431,6 +1490,294 @@ export function ProductForm({
         </div>
       </Card>
 
+      {/* ====================================================== */}
+      {/* DISKON PRODUK */}
+      {/* ====================================================== */}
+
+      <Card className="space-y-6 p-6">
+        <div>
+          <h2 className="text-lg font-semibold">
+            Diskon Produk
+          </h2>
+
+          <p className="text-sm text-muted-foreground">
+            Atur diskon khusus untuk produk ini.
+            Diskon akan dihitung setelah harga berat
+            dan tambahan harga varian diterapkan.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+          <div>
+            <Label htmlFor="isDiscountActive">
+              Aktifkan Diskon
+            </Label>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Aktifkan jika produk ini memiliki
+              harga promo.
+            </p>
+          </div>
+
+          <Switch
+            id="isDiscountActive"
+            checked={
+              form.isDiscountActive
+            }
+            onCheckedChange={(
+              checked
+            ) =>
+              setForm(
+                (
+                  previous
+                ) => ({
+                  ...previous,
+
+                  isDiscountActive:
+                    checked,
+
+                  /**
+                   * Bersihkan konfigurasi
+                   * ketika diskon dimatikan.
+                   */
+                  discountType:
+                    checked
+                      ? previous.discountType
+                      : "",
+
+                  discountValue:
+                    checked
+                      ? previous.discountValue
+                      : "",
+
+                  discountStartAt:
+                    checked
+                      ? previous.discountStartAt
+                      : "",
+
+                  discountEndAt:
+                    checked
+                      ? previous.discountEndAt
+                      : "",
+                })
+              )
+            }
+          />
+        </div>
+
+        <input
+          type="hidden"
+          name="isDiscountActive"
+          value={
+            form.isDiscountActive
+              ? "true"
+              : "false"
+          }
+        />
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="discountType">
+              Jenis Diskon
+            </Label>
+
+            <select
+              id="discountType"
+              name="discountType"
+              disabled={
+                !form.isDiscountActive
+              }
+              value={
+                form.discountType
+              }
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    discountType:
+                      event.target
+                        .value as
+                        | "PERCENTAGE"
+                        | "FIXED_AMOUNT"
+                        | "",
+                  })
+                )
+              }
+              className="w-full rounded-md border bg-background px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">
+                Pilih Jenis Diskon
+              </option>
+
+              <option value="PERCENTAGE">
+                Persentase (%)
+              </option>
+
+              <option value="FIXED_AMOUNT">
+                Nominal (Rp)
+              </option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="discountValue">
+              Nilai Diskon
+            </Label>
+
+            <Input
+              id="discountValue"
+              name="discountValue"
+              type="number"
+              min="0"
+              step="1"
+              disabled={
+                !form.isDiscountActive
+              }
+              value={
+                form.discountValue
+              }
+              placeholder={
+                form.discountType ===
+                "PERCENTAGE"
+                  ? "Contoh: 10"
+                  : "Contoh: 5000"
+              }
+              onChange={(
+                event
+              ) => {
+                const rawValue =
+                  event.target.value;
+
+                if (
+                  rawValue === ""
+                ) {
+                  setForm(
+                    (
+                      previous
+                    ) => ({
+                      ...previous,
+
+                      discountValue:
+                        "",
+                    })
+                  );
+
+                  return;
+                }
+
+                const value =
+                  Number(rawValue);
+
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    discountValue:
+                      Number.isFinite(
+                        value
+                      )
+                        ? Math.max(
+                            0,
+                            value
+                          )
+                        : 0,
+                  })
+                );
+              }}
+            />
+
+            {form.discountType ===
+              "PERCENTAGE" && (
+              <p className="text-xs text-muted-foreground">
+                Maksimal diskon adalah 100%.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="discountStartAt">
+              Mulai Diskon
+            </Label>
+
+            <Input
+              id="discountStartAt"
+              name="discountStartAt"
+              type="datetime-local"
+              disabled={
+                !form.isDiscountActive
+              }
+              value={
+                form.discountStartAt
+              }
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    discountStartAt:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Kosongkan agar diskon langsung aktif.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="discountEndAt">
+              Berakhir Diskon
+            </Label>
+
+            <Input
+              id="discountEndAt"
+              name="discountEndAt"
+              type="datetime-local"
+              disabled={
+                !form.isDiscountActive
+              }
+              value={
+                form.discountEndAt
+              }
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    discountEndAt:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Kosongkan jika diskon tidak memiliki
+              batas waktu.
+            </p>
+          </div>
+        </div>
+      </Card>
+      
       {/* ====================================================== */}
       {/* VARIAN PRODUK */}
       {/* ====================================================== */}

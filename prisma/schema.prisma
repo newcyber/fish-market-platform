@@ -60,6 +60,16 @@ enum NotificationType {
   SYSTEM
 }
 
+enum ProductDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum VoucherDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
 model User {
   id                String    @id @default(uuid())
   name              String
@@ -77,8 +87,11 @@ model User {
   addresses Address[]
   orders    Order[]
   cart      Cart?
-  accounts  Account[]
-  sessions  Session[]
+
+  voucherUsages VoucherUsage[]
+
+  accounts Account[]
+  sessions Session[]
 
   passwordResetTokens PasswordResetToken[]
 
@@ -484,6 +497,28 @@ model Product {
 
   price Decimal @db.Decimal(12, 2)
 
+  /**
+   * ============================================================
+   * PRODUCT DISCOUNT
+   * ============================================================
+   * Diskon diterapkan oleh ProductPricingService.
+   * Contoh:
+   * PERCENTAGE + 10
+   * = diskon 10%
+   * FIXED_AMOUNT + 5000
+   * = diskon Rp5.000
+   */
+
+  isDiscountActive Boolean @default(false)
+
+  discountType ProductDiscountType?
+
+  discountValue Decimal? @db.Decimal(12, 2)
+
+  discountStartAt DateTime?
+
+  discountEndAt DateTime?
+
   stock Int @default(0)
 
   isPublished Boolean @default(true)
@@ -512,6 +547,9 @@ model Product {
 
   @@index([categoryId])
   @@index([slug])
+  @@index([isDiscountActive])
+  @@index([discountStartAt])
+  @@index([discountEndAt])
 }
 
 /**
@@ -818,6 +856,25 @@ model Order {
 
   subtotal Decimal @db.Decimal(12, 2)
 
+  /**
+   * ============================================================
+   * VOUCHER SNAPSHOT
+   * ============================================================
+   * Informasi voucher yang digunakan saat order dibuat.
+   * Snapshot disimpan agar perubahan konfigurasi voucher
+   * di masa depan tidak mengubah riwayat order.
+   */
+
+  voucherId String?
+
+  voucherCode String?
+
+  voucherName String?
+
+  voucherDiscount Decimal @default(0) @db.Decimal(12, 2)
+
+  voucher Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
+
   shippingCost Decimal @db.Decimal(12, 2)
 
   total Decimal @db.Decimal(12, 2)
@@ -875,14 +932,17 @@ model Order {
 
   stockLedgers StockLedger[] @relation("OrderStockLedgers")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  voucherUsage VoucherUsage?
 
   @@index([orderNumber])
   @@index([userId])
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([voucherId])
+  @@index([voucherCode])
 }
 
 model OrderItem {
@@ -980,6 +1040,210 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+/**
+ * ============================================================
+ * VOUCHER
+ * ============================================================
+ * Menyimpan konfigurasi voucher yang dapat digunakan
+ * oleh customer saat checkout.
+ */
+
+model Voucher {
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * BASIC INFORMATION
+   * ============================================================
+   */
+
+  code String @unique
+
+  name String
+
+  description String?
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   */
+
+  isActive Boolean @default(true)
+
+  /**
+   * ============================================================
+   * DISCOUNT
+   * ============================================================
+   */
+
+  discountType VoucherDiscountType
+
+  discountValue Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * PURCHASE REQUIREMENT
+   * ============================================================
+   * Minimum subtotal agar voucher dapat digunakan.
+   */
+
+  minimumPurchase Decimal? @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * MAXIMUM DISCOUNT
+   * ============================================================
+   * Digunakan terutama untuk percentage voucher.
+   * Contoh:
+   * Diskon 20%
+   * Maximum Discount Rp25.000
+   */
+
+  maximumDiscount Decimal? @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * VALIDITY PERIOD
+   * ============================================================
+   */
+
+  startAt DateTime?
+
+  endAt DateTime?
+
+  /**
+   * ============================================================
+   * USAGE LIMIT
+   * ============================================================
+   * usageLimit:
+   * null = unlimited
+   * usageCount:
+   * jumlah voucher yang sudah digunakan.
+   */
+
+  usageLimit Int?
+
+  usageCount Int @default(0)
+
+  /**
+   * ============================================================
+   * PER USER LIMIT
+   * ============================================================
+   * null = unlimited
+   */
+
+  perUserLimit Int?
+
+  /**
+   * ============================================================
+   * RELATIONS
+   * ============================================================
+   */
+
+  orders Order[]
+
+  usages VoucherUsage[]
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  deletedAt DateTime?
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([code])
+  @@index([isActive])
+  @@index([startAt])
+  @@index([endAt])
+  @@index([deletedAt])
+}
+
+/**
+ * ============================================================
+ * VOUCHER USAGE
+ * ============================================================
+ * Mencatat penggunaan voucher oleh customer.
+ * Data ini digunakan untuk:
+ * - perUserLimit
+ * - audit penggunaan voucher
+ * - riwayat voucher
+ */
+
+model VoucherUsage {
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * VOUCHER
+   * ============================================================
+   */
+
+  voucherId String
+
+  voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Restrict)
+  /**
+   * ============================================================
+   * USER
+   * ============================================================
+   */
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * ORDER
+   * ============================================================
+   * Satu order hanya boleh memiliki
+   * satu record penggunaan voucher.
+   */
+
+  orderId String @unique
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * VOUCHER SNAPSHOT
+   * ============================================================
+   * Menyimpan nominal diskon aktual yang digunakan.
+   */
+
+  discountAmount Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * TIMESTAMP
+   * ============================================================
+   */
+
+  usedAt DateTime @default(now())
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([voucherId])
+  @@index([userId])
+  @@index([voucherId, userId])
+  @@index([usedAt])
 }
 
 model PaymentProof {

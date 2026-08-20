@@ -8,6 +8,8 @@ import {
 
 import CartRepository from "@/repositories/cart/cart.repository";
 
+import ProductPricingService from "@/services/pricing/product-pricing.service";
+
 /**
  * ============================================================
  * ADD CART ITEM INPUT
@@ -124,9 +126,7 @@ export default class CartService {
     const normalized =
       value?.trim();
 
-    return normalized
-      ? normalized
-      : null;
+    return normalized || null;
   }
 
   /**
@@ -141,9 +141,7 @@ export default class CartService {
     const normalized =
       value?.trim();
 
-    return normalized
-      ? normalized
-      : null;
+    return normalized || null;
   }
 
   /**
@@ -299,149 +297,6 @@ export default class CartService {
         );
       }
     }
-  }
-
-  /**
-   * ============================================================
-   * RESOLVE PRODUCT PRICE
-   * ============================================================
-   *
-   * FORMULA:
-   *
-   * base price =
-   * ProductWeightOption.price
-   * OR
-   * Product.price
-   *
-   * final price =
-   * base price + ProductVariantOption.priceAdjustment
-   *
-   * ============================================================
-   */
-
-  private static async resolveProductPrice(
-    tx: Prisma.TransactionClient,
-    input: {
-      productId: string;
-
-      productVariant?: string | null;
-
-      productWeight?: string | null;
-
-      fallbackPrice:
-        Prisma.Decimal;
-    }
-  ): Promise<Prisma.Decimal> {
-    const {
-      productId,
-      productVariant,
-      productWeight,
-      fallbackPrice,
-    } = input;
-
-    /**
-     * ----------------------------------------------------------
-     * RESOLVE BASE PRICE
-     * ----------------------------------------------------------
-     */
-
-    let basePrice =
-      fallbackPrice;
-
-    if (productWeight) {
-      const weightOption =
-        await tx.productWeightOption.findFirst({
-          where: {
-            productId,
-
-            label:
-              productWeight,
-
-            isActive:
-              true,
-          },
-
-          select: {
-            id: true,
-
-            label: true,
-
-            price: true,
-          },
-        });
-
-      if (!weightOption) {
-        throw new Error(
-          "Pilihan berat produk tidak valid atau sudah tidak tersedia."
-        );
-      }
-
-      if (
-        weightOption.price === null ||
-        weightOption.price === undefined
-      ) {
-        throw new Error(
-          `Harga untuk pilihan berat "${weightOption.label}" belum diatur.`
-        );
-      }
-
-      basePrice =
-        weightOption.price;
-    }
-
-    /**
-     * ----------------------------------------------------------
-     * RESOLVE VARIANT PRICE ADJUSTMENT
-     * ----------------------------------------------------------
-     */
-
-    let variantAdjustment =
-      new Prisma.Decimal(0);
-
-    if (productVariant) {
-      const variantOption =
-        await tx.productVariantOption.findFirst({
-          where: {
-            productId,
-
-            label:
-              productVariant,
-
-            isActive:
-              true,
-          },
-
-          select: {
-            id: true,
-
-            label: true,
-
-            priceAdjustment: true,
-          },
-        });
-
-      if (!variantOption) {
-        throw new Error(
-          "Varian produk yang dipilih tidak valid atau sudah tidak tersedia."
-        );
-      }
-
-      variantAdjustment =
-        new Prisma.Decimal(
-          variantOption.priceAdjustment ??
-            0
-        );
-    }
-
-    /**
-     * ----------------------------------------------------------
-     * FINAL PRICE
-     * ----------------------------------------------------------
-     */
-
-    return basePrice.add(
-      variantAdjustment
-    );
   }
 
   /**
@@ -615,37 +470,23 @@ export default class CartService {
           );
         }
 
-        await this.validateProductOptions(
-          tx,
-          {
-            productId:
-              currentProduct.id,
+        const pricing =
+  await ProductPricingService.resolve(
+    tx,
+    {
+      productId:
+        currentProduct.id,
 
-            productVariant:
-              normalizedVariant,
+      productVariant:
+        normalizedVariant,
 
-            productWeight:
-              normalizedWeight,
-          }
-        );
+      productWeight:
+        normalizedWeight,
 
-        const selectedPrice =
-          await this.resolveProductPrice(
-            tx,
-            {
-              productId:
-                currentProduct.id,
-
-              productVariant:
-                normalizedVariant,
-
-              productWeight:
-                normalizedWeight,
-
-              fallbackPrice:
-                currentProduct.price,
-            }
-          );
+      fallbackPrice:
+        currentProduct.price,
+    }
+  );
 
         let cart =
           await tx.cart.findUnique({
@@ -727,7 +568,7 @@ export default class CartService {
     newQuantity,
 
   price:
-    selectedPrice,
+  pricing.finalPrice,
 },
           });
         } else {
@@ -751,7 +592,7 @@ export default class CartService {
               quantity,
 
               price:
-                selectedPrice,
+                pricing.finalPrice,
             },
           });
         }
@@ -872,20 +713,6 @@ export default class CartService {
             cartItem.productWeight
           );
 
-        await this.validateProductOptions(
-          tx,
-          {
-            productId:
-              cartItem.productId,
-
-            productVariant:
-              normalizedVariant,
-
-            productWeight:
-              normalizedWeight,
-          }
-        );
-
         const currentProduct =
           await tx.product.findUnique({
             where: {
@@ -925,23 +752,23 @@ export default class CartService {
           );
         }
 
-        const selectedPrice =
-          await this.resolveProductPrice(
-            tx,
-            {
-              productId:
-                currentProduct.id,
+        const pricing =
+  await ProductPricingService.resolve(
+    tx,
+    {
+      productId:
+        currentProduct.id,
 
-              productVariant:
-                normalizedVariant,
+      productVariant:
+        normalizedVariant,
 
-              productWeight:
-                normalizedWeight,
+      productWeight:
+        normalizedWeight,
 
-              fallbackPrice:
-                currentProduct.price,
-            }
-          );
+      fallbackPrice:
+        currentProduct.price,
+    }
+  );
 
         await tx.cartItem.update({
           where: {
@@ -953,7 +780,7 @@ export default class CartService {
             quantity,
 
             price:
-              selectedPrice,
+              pricing.finalPrice,
           },
         });
       }

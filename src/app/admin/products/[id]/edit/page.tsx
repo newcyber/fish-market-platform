@@ -328,6 +328,44 @@ export default async function EditProductPage({
               product.price
             ),
 
+            /**
+ * ==========================================================
+ * PRODUCT DISCOUNT
+ * ==========================================================
+ */
+
+isDiscountActive:
+  product.isDiscountActive,
+
+discountType:
+  product.discountType ??
+  "",
+
+discountValue:
+  product.discountValue !== null
+    ? Number(
+        product.discountValue
+      )
+    : "",
+
+discountStartAt:
+  product.discountStartAt
+    ? new Date(
+        product.discountStartAt
+      )
+        .toISOString()
+        .slice(0, 16)
+    : "",
+
+discountEndAt:
+  product.discountEndAt
+    ? new Date(
+        product.discountEndAt
+      )
+        .toISOString()
+        .slice(0, 16)
+    : "",
+
           /**
            * STOCK
            */

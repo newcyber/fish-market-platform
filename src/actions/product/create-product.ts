@@ -23,6 +23,87 @@ import type {
 /**
  * ============================================================
  *
+ * NORMALIZE OPTIONAL DATE
+ *
+ * ============================================================
+ */
+
+function normalizeOptionalDate(
+  value: FormDataEntryValue | null
+): Date | null {
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const rawValue =
+    String(value).trim();
+
+  const date =
+    new Date(rawValue);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    throw new Error(
+      "Format tanggal diskon tidak valid."
+    );
+  }
+
+  return date;
+}
+
+/**
+ * ============================================================
+ *
+ * NORMALIZE PRICE
+ *
+ * ============================================================
+ */
+
+function normalizePrice(
+  value: FormDataEntryValue | null
+): number | null {
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const normalized =
+    String(value)
+      .replace(
+        /[^0-9]/g,
+        ""
+      )
+      .trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const numberValue =
+    Number(normalized);
+
+  if (
+    !Number.isFinite(
+      numberValue
+    )
+  ) {
+    return null;
+  }
+
+  return numberValue;
+}
+
+/**
+ * ============================================================
+ *
  * CREATE PRODUCT ACTION
  *
  * ============================================================
@@ -326,8 +407,71 @@ const variantOptions =
     unit:
       formData.get("unit"),
 
+    /**
+     * ========================================================
+     * PRODUCT PRICE
+     * ========================================================
+     */
+
     price:
       formData.get("price"),
+
+    /**
+     * ========================================================
+     * PRODUCT DISCOUNT
+     * ========================================================
+     */
+
+    isDiscountActive:
+      formData.get(
+        "isDiscountActive"
+      ) === "true" ||
+      formData.get(
+        "isDiscountActive"
+      ) === "on",
+
+    discountType: (() => {
+      const value =
+        formData.get(
+          "discountType"
+        );
+
+      if (
+        value === null ||
+        String(value).trim() === ""
+      ) {
+        return null;
+      }
+
+      return String(value);
+    })(),
+
+    discountValue:
+      normalizePrice(
+        formData.get(
+          "discountValue"
+        )
+      ),
+
+    discountStartAt:
+      normalizeOptionalDate(
+        formData.get(
+          "discountStartAt"
+        )
+      ),
+
+    discountEndAt:
+      normalizeOptionalDate(
+        formData.get(
+          "discountEndAt"
+        )
+      ),
+
+    /**
+     * ========================================================
+     * PRODUCT STOCK
+     * ========================================================
+     */
 
     stock:
       formData.get("stock"),
@@ -335,15 +479,31 @@ const variantOptions =
     weight:
       formData.get("weight"),
 
+    /**
+     * ========================================================
+     * PRODUCT OPTIONS
+     * ========================================================
+     */
+
     variantOptions,
 
     weightOptions,
 
+    /**
+     * ========================================================
+     * PRODUCT STATUS
+     * ========================================================
+     */
+
     isPublished:
-      formData.get("isPublished"),
+      formData.get(
+        "isPublished"
+      ),
 
     featured:
-      formData.get("featured"),
+      formData.get(
+        "featured"
+      ),
   });
 
     /**

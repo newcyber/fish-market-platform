@@ -2,6 +2,10 @@ import {
   ProductRepository,
 } from "@/repositories/ProductRepository";
 
+import {
+  ProductDiscountType,
+} from "@prisma/client";
+
 /**
  * ============================================================
  *
@@ -77,16 +81,90 @@ export interface CreateProductInput {
   sku?: string | null;
 
   /**
+   * ============================================================
+   * PRODUCT PRICE
+   * ============================================================
+   *
    * Harga dasar produk.
    *
    * Digunakan sebagai fallback apabila produk
    * tidak menggunakan pilihan berat.
    */
+
   price: number;
+
+  /**
+   * ============================================================
+   * PRODUCT DISCOUNT
+   * ============================================================
+   *
+   * Konfigurasi diskon produk.
+   *
+   * Contoh percentage:
+   *
+   * isDiscountActive: true
+   * discountType: PERCENTAGE
+   * discountValue: 10
+   *
+   * Artinya:
+   * Diskon 10%.
+   *
+   * ------------------------------------------------------------
+   *
+   * Contoh fixed amount:
+   *
+   * isDiscountActive: true
+   * discountType: FIXED_AMOUNT
+   * discountValue: 5000
+   *
+   * Artinya:
+   * Diskon Rp5.000.
+   */
+
+  isDiscountActive?: boolean;
+
+  discountType?:
+    | ProductDiscountType
+    | null;
+
+  discountValue?:
+    | number
+    | null;
+
+  /**
+   * Tanggal mulai diskon.
+   *
+   * Jika null, diskon dapat langsung aktif.
+   */
+
+  discountStartAt?:
+    | Date
+    | null;
+
+  /**
+   * Tanggal berakhir diskon.
+   *
+   * Jika null, diskon tidak memiliki
+   * batas waktu berakhir.
+   */
+
+  discountEndAt?:
+    | Date
+    | null;
+
+  /**
+   * ============================================================
+   * PRODUCT STOCK
+   * ============================================================
+   */
 
   stock: number;
 
   /**
+   * ============================================================
+   * PRODUCT VARIANT OPTIONS
+   * ============================================================
+   *
    * Contoh:
    *
    * [
@@ -100,9 +178,15 @@ export interface CreateProductInput {
    *   },
    * ]
    */
-  variantOptions?: ProductVariantOptionInput[];
+
+  variantOptions?:
+    ProductVariantOptionInput[];
 
   /**
+   * ============================================================
+   * PRODUCT WEIGHT OPTIONS
+   * ============================================================
+   *
    * Contoh:
    *
    * [
@@ -116,7 +200,15 @@ export interface CreateProductInput {
    *   },
    * ]
    */
-  weightOptions?: ProductWeightOptionInput[];
+
+  weightOptions?:
+    ProductWeightOptionInput[];
+
+  /**
+   * ============================================================
+   * PRODUCT STATUS
+   * ============================================================
+   */
 
   isPublished?: boolean;
 
@@ -411,6 +503,36 @@ export class ProductService {
       price:
         input.price,
 
+        /**
+ * ==========================================================
+ * PRODUCT DISCOUNT
+ * ==========================================================
+ */
+
+isDiscountActive:
+  input.isDiscountActive ??
+  false,
+
+discountType:
+  input.isDiscountActive
+    ? input.discountType ?? null
+    : null,
+
+discountValue:
+  input.isDiscountActive
+    ? input.discountValue ?? null
+    : null,
+
+discountStartAt:
+  input.isDiscountActive
+    ? input.discountStartAt ?? null
+    : null,
+
+discountEndAt:
+  input.isDiscountActive
+    ? input.discountEndAt ?? null
+    : null,
+
       stock:
         input.stock,
 
@@ -567,6 +689,35 @@ export class ProductService {
 
         price:
           input.price,
+
+          /**
+ * ==========================================================
+ * PRODUCT DISCOUNT
+ * ==========================================================
+ */
+
+isDiscountActive:
+  input.isDiscountActive,
+
+discountType:
+  input.isDiscountActive === false
+    ? null
+    : input.discountType,
+
+discountValue:
+  input.isDiscountActive === false
+    ? null
+    : input.discountValue,
+
+discountStartAt:
+  input.isDiscountActive === false
+    ? null
+    : input.discountStartAt,
+
+discountEndAt:
+  input.isDiscountActive === false
+    ? null
+    : input.discountEndAt,
 
         stock:
           input.stock,

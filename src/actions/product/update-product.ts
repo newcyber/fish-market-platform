@@ -113,6 +113,35 @@ function normalizePrice(
  * ============================================================
  */
 
+function normalizeOptionalDate(
+  value: FormDataEntryValue | null
+): Date | null {
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const rawValue =
+    String(value).trim();
+
+  const date =
+    new Date(rawValue);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    throw new Error(
+      "Format tanggal diskon tidak valid."
+    );
+  }
+
+  return date;
+}
+
 export async function updateProductAction(
   id: string,
   _prevState: ActionResult,
@@ -476,88 +505,129 @@ const imageFiles =
      */
 
     const rawData = {
-      categoryId:
-        String(
-          formData.get(
-            "categoryId"
-          ) ?? ""
-        ).trim(),
+  categoryId:
+    String(
+      formData.get(
+        "categoryId"
+      ) ?? ""
+    ).trim(),
 
-      name:
-        String(
-          formData.get(
-            "name"
-          ) ?? ""
-        ).trim(),
+  name:
+    String(
+      formData.get(
+        "name"
+      ) ?? ""
+    ).trim(),
 
-      slug:
-        String(
-          formData.get(
-            "slug"
-          ) ?? ""
-        ).trim(),
+  slug:
+    String(
+      formData.get(
+        "slug"
+      ) ?? ""
+    ).trim(),
 
-      description:
-        String(
-          formData.get(
-            "description"
-          ) ?? ""
-        ).trim(),
+  description:
+    String(
+      formData.get(
+        "description"
+      ) ?? ""
+    ).trim(),
 
-      sku:
-        String(
-          formData.get(
-            "sku"
-          ) ?? ""
-        ).trim(),
+  sku:
+    String(
+      formData.get(
+        "sku"
+      ) ?? ""
+    ).trim(),
 
-      price:
-        formData.get(
-          "price"
-        ),
+  price:
+    formData.get(
+      "price"
+    ),
 
-      stock:
-        formData.get(
-          "stock"
-        ),
+  /**
+   * ==========================================================
+   * PRODUCT DISCOUNT
+   * ==========================================================
+   */
 
-      /**
-       * Format:
-       *
-       * [
-       *   {
-       *     label: string,
-       *     priceAdjustment: number
-       *   }
-       * ]
-       */
+  isDiscountActive:
+    formData.get(
+      "isDiscountActive"
+    ) === "true" ||
+    formData.get(
+      "isDiscountActive"
+    ) === "on",
 
-      variantOptions,
+  discountType: (() => {
+    const value =
+      formData.get(
+        "discountType"
+      );
 
-      /**
-       * Format:
-       *
-       * [
-       *   {
-       *     label: string,
-       *     price: number
-       *   }
-       * ]
-       */
+    if (
+      value === null ||
+      String(value).trim() === ""
+    ) {
+      return null;
+    }
 
-      weightOptions,
+    return String(value);
+  })(),
 
-      isPublished:
-        formData.get(
-          "isPublished"
-        ),
+  discountValue: (() => {
+    const value =
+      formData.get(
+        "discountValue"
+      );
 
-      featured:
-        formData.get(
-          "featured"
-        ),
-    };
+    if (
+      value === null ||
+      String(value).trim() === ""
+    ) {
+      return null;
+    }
 
+    return normalizePrice(
+      value
+    );
+  })(),
+
+  discountStartAt:
+    normalizeOptionalDate(
+      formData.get(
+        "discountStartAt"
+      )
+    ),
+
+  discountEndAt:
+    normalizeOptionalDate(
+      formData.get(
+        "discountEndAt"
+      )
+    ),
+
+  stock:
+    formData.get(
+      "stock"
+    ),
+
+  variantOptions,
+
+  weightOptions,
+
+  isPublished:
+    formData.get(
+      "isPublished"
+    ),
+
+  featured:
+    formData.get(
+      "featured"
+    ),
+};
+
+    
     /**
      * ==========================================================
      *
@@ -580,22 +650,15 @@ const imageFiles =
      */
 
     if (!parsed.success) {
-      const fieldErrors =
-        parsed.error
-          .flatten()
-          .fieldErrors;
+      const { error } = parsed;
 
-      console.error(
-        "[UPDATE_PRODUCT_VALIDATION_ERROR]",
-        {
-          rawData,
+      const { fieldErrors } = error.flatten();
 
-          fieldErrors,
-
-          issues:
-            parsed.error.issues,
-        }
-      );
+      console.error("[UPDATE_PRODUCT_VALIDATION_ERROR]", {
+        rawData,
+        fieldErrors,
+        issues: error.issues,
+      });
 
       /**
        * Ambil pesan error pertama

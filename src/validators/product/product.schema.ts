@@ -1,3 +1,7 @@
+import {
+  ProductDiscountType,
+} from "@prisma/client";
+
 import { z } from "zod";
 
 /**
@@ -252,6 +256,76 @@ export const ProductSchema =
           "Harga produk tidak boleh negatif."
         ),
 
+        /**
+ * ======================================================
+ * PRODUCT DISCOUNT
+ * ======================================================
+ */
+
+isDiscountActive: z
+  .union([
+    z.boolean(),
+    z.literal("true"),
+    z.literal("false"),
+  ])
+  .transform(
+    (value) =>
+      value === true ||
+      value === "true"
+  )
+  .default(false),
+
+discountType: z
+  .nativeEnum(
+    ProductDiscountType
+  )
+  .nullable()
+  .optional()
+  .transform(
+    (value) =>
+      value ?? null
+  ),
+
+discountValue: z
+  .coerce
+  .number()
+  .finite(
+    "Nilai diskon tidak valid."
+  )
+  .min(
+    0,
+    "Nilai diskon tidak boleh negatif."
+  )
+  .nullable()
+  .optional()
+  .transform(
+    (value) =>
+      value === null ||
+      value === undefined
+        ? null
+        : value
+  ),
+
+discountStartAt: z
+  .coerce
+  .date()
+  .nullable()
+  .optional()
+  .transform(
+    (value) =>
+      value ?? null
+  ),
+
+discountEndAt: z
+  .coerce
+  .date()
+  .nullable()
+  .optional()
+  .transform(
+    (value) =>
+      value ?? null
+  ),
+
       /**
        * ======================================================
        * STOCK
@@ -360,6 +434,95 @@ export const ProductSchema =
         data,
         context
       ) => {
+
+        /**
+ * ====================================================
+ * VALIDATE PRODUCT DISCOUNT
+ * ====================================================
+ */
+
+if (data.isDiscountActive) {
+  if (!data.discountType) {
+    context.addIssue({
+      code:
+        z.ZodIssueCode.custom,
+
+      path: [
+        "discountType",
+      ],
+
+      message:
+        "Jenis diskon wajib dipilih.",
+    });
+  }
+
+  if (
+    data.discountValue === null ||
+    data.discountValue === undefined ||
+    data.discountValue <= 0
+  ) {
+    context.addIssue({
+      code:
+        z.ZodIssueCode.custom,
+
+      path: [
+        "discountValue",
+      ],
+
+      message:
+        "Nilai diskon harus lebih besar dari 0.",
+    });
+  }
+
+  /**
+   * Diskon persentase maksimal 100%.
+   */
+
+  if (
+    data.discountType ===
+      ProductDiscountType.PERCENTAGE &&
+    data.discountValue !== null &&
+    data.discountValue !== undefined &&
+    data.discountValue > 100
+  ) {
+    context.addIssue({
+      code:
+        z.ZodIssueCode.custom,
+
+      path: [
+        "discountValue",
+      ],
+
+      message:
+        "Diskon persentase tidak boleh lebih dari 100%.",
+    });
+  }
+
+  /**
+   * Tanggal akhir tidak boleh
+   * lebih awal dari tanggal mulai.
+   */
+
+  if (
+    data.discountStartAt &&
+    data.discountEndAt &&
+    data.discountEndAt <
+      data.discountStartAt
+  ) {
+    context.addIssue({
+      code:
+        z.ZodIssueCode.custom,
+
+      path: [
+        "discountEndAt",
+      ],
+
+      message:
+        "Tanggal berakhir diskon tidak boleh lebih awal dari tanggal mulai.",
+    });
+  }
+}
+
         /**
          * ====================================================
          * VALIDATE DUPLICATE VARIANTS
