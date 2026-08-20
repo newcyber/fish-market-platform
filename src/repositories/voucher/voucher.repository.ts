@@ -1,4 +1,8 @@
-import { Prisma, Voucher } from "@prisma/client";
+import {
+  Prisma,
+  Voucher,
+  VoucherDiscountType,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -101,11 +105,33 @@ export class VoucherRepository {
    * ============================================================
    */
 
+    /**
+   * ============================================================
+   * FIND MANY
+   * ============================================================
+   *
+   * Mendukung kebutuhan Voucher Engine dan Admin Management.
+   *
+   * Backward compatible dengan parameter lama:
+   * - includeDeleted
+   * - isActive
+   * - skip
+   * - take
+   *
+   * Admin additions:
+   * - search
+   * - discountType
+   */
+
   static async findMany(
     options?: {
       includeDeleted?: boolean;
 
       isActive?: boolean;
+
+      search?: string;
+
+      discountType?: VoucherDiscountType;
 
       skip?: number;
 
@@ -113,31 +139,64 @@ export class VoucherRepository {
     },
     tx?: Prisma.TransactionClient
   ) {
-    const client =
-      this.getClient(tx);
+    const client = this.getClient(tx);
 
     const {
       includeDeleted = false,
       isActive,
+      search,
+      discountType,
       skip,
       take,
     } = options ?? {};
 
-    return client.voucher.findMany({
-      where: {
-        ...(includeDeleted
-          ? {}
-          : {
-              deletedAt: null,
-            }),
+    const where: Prisma.VoucherWhereInput = {
+      ...(includeDeleted
+        ? {}
+        : {
+            deletedAt: null,
+          }),
 
-        ...(typeof isActive ===
-        "boolean"
-          ? {
-              isActive,
-            }
-          : {}),
-      },
+      ...(typeof isActive === "boolean"
+        ? {
+            isActive,
+          }
+        : {}),
+
+      ...(discountType
+        ? {
+            discountType,
+          }
+        : {}),
+    };
+
+    /**
+     * ============================================================
+     * SEARCH
+     * ============================================================
+     */
+
+    if (search?.trim()) {
+      const keyword = search.trim();
+
+      where.OR = [
+        {
+          code: {
+            contains: keyword,
+            mode: "insensitive",
+          },
+        },
+        {
+          name: {
+            contains: keyword,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
+
+    return client.voucher.findMany({
+      where,
 
       orderBy: {
         createdAt: "desc",
@@ -325,6 +384,198 @@ export class VoucherRepository {
     });
   }
 
+
+    /**
+   * ============================================================
+   * COUNT VOUCHERS
+   * ============================================================
+   *
+   * Digunakan untuk pagination Admin Voucher Management.
+   */
+
+  static async count(
+    options?: {
+      includeDeleted?: boolean;
+
+      isActive?: boolean;
+
+      search?: string;
+
+      discountType?: VoucherDiscountType;
+    },
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    const client = this.getClient(tx);
+
+    const {
+      includeDeleted = false,
+      isActive,
+      search,
+      discountType,
+    } = options ?? {};
+
+    const where: Prisma.VoucherWhereInput = {
+      ...(includeDeleted
+        ? {}
+        : {
+            deletedAt: null,
+          }),
+
+      ...(typeof isActive === "boolean"
+        ? {
+            isActive,
+          }
+        : {}),
+
+      ...(discountType
+        ? {
+            discountType,
+          }
+        : {}),
+    };
+
+    if (search?.trim()) {
+      const keyword = search.trim();
+
+      where.OR = [
+        {
+          code: {
+            contains: keyword,
+            mode: "insensitive",
+          },
+        },
+        {
+          name: {
+            contains: keyword,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
+
+    return client.voucher.count({
+      where,
+    });
+  }
+
+  /**
+   * ============================================================
+   * SET ACTIVE STATUS
+   * ============================================================
+   *
+   * Digunakan Admin untuk activate / deactivate voucher.
+   */
+
+  static async setActive(
+    id: string,
+    isActive: boolean,
+    tx?: Prisma.TransactionClient
+  ): Promise<Voucher> {
+    const client = this.getClient(tx);
+
+    return client.voucher.update({
+      where: {
+        id,
+      },
+
+      data: {
+        isActive,
+      },
+    });
+  }
+
+  /**
+   * ============================================================
+   * FIND VOUCHER USAGES
+   * ============================================================
+   *
+   * Digunakan Admin untuk melihat riwayat penggunaan voucher.
+   */
+
+  static async findUsages(
+    voucherId: string,
+    options?: {
+      skip?: number;
+
+      take?: number;
+    },
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = this.getClient(tx);
+
+    const {
+      skip,
+      take,
+    } = options ?? {};
+
+    return client.voucherUsage.findMany({
+      where: {
+        voucherId,
+      },
+
+      orderBy: {
+        usedAt: "desc",
+      },
+
+      ...(typeof skip === "number"
+        ? {
+            skip,
+          }
+        : {}),
+
+      ...(typeof take === "number"
+        ? {
+            take,
+          }
+        : {}),
+
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            paymentStatus: true,
+            subtotal: true,
+            voucherDiscount: true,
+            total: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * ============================================================
+   * COUNT VOUCHER USAGES
+   * ============================================================
+   *
+   * Digunakan untuk pagination riwayat penggunaan voucher.
+   */
+
+  static async countUsages(
+    voucherId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    const client = this.getClient(tx);
+
+    return client.voucherUsage.count({
+      where: {
+        voucherId,
+      },
+    });
+  }
+
+  
   /**
    * ============================================================
    * CREATE VOUCHER USAGE
