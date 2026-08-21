@@ -12,11 +12,13 @@ import {
 
 import {
   Check,
-  Loader2,
   Minus,
   Plus,
-  ShoppingCart,
 } from "lucide-react";
+
+import {
+  FlashSaleCountdown,
+} from "@/components/customer/flash-sale/FlashSaleCountdown";
 
 import {
   addToCartAction,
@@ -52,6 +54,34 @@ interface ProductWeightOption {
 
 /**
  * ============================================================
+ * FLASH SALE ITEM
+ * ============================================================
+ */
+
+interface ProductFlashSaleItem {
+  id: string;
+
+  weightOptionId:
+    | string
+    | null;
+
+  originalPrice: number;
+
+  flashPrice: number;
+
+  stockLimit: number;
+
+  soldQuantity: number;
+
+  campaignName: string;
+
+  endsAt:
+    | string
+    | Date;
+}
+
+/**
+ * ============================================================
  * PRODUCT DISCOUNT
  * ============================================================
  */
@@ -71,29 +101,13 @@ interface AddToCartButtonProps {
 
   stock: number;
 
-  /**
-   * ============================================================
-   * BASE PRICE
-   * ============================================================
-   */
-
   basePrice: number;
-
-  /**
-   * ============================================================
-   * PRODUCT OPTIONS
-   * ============================================================
-   */
 
   variantOptions?: ProductVariantOption[];
 
   weightOptions?: ProductWeightOption[];
 
-  /**
-   * ============================================================
-   * PRODUCT DISCOUNT
-   * ============================================================
-   */
+  flashSaleItems?: ProductFlashSaleItem[];
 
   isDiscountActive?: boolean;
 
@@ -151,6 +165,7 @@ export default function AddToCartButton({
   basePrice,
   variantOptions = [],
   weightOptions = [],
+  flashSaleItems = [],
 
   isDiscountActive = false,
   discountType = null,
@@ -291,6 +306,60 @@ export default function AddToCartButton({
       ]
     );
 
+    /**
+ * ==========================================================
+ * RESOLVE ACTIVE FLASH SALE
+ * ==========================================================
+ *
+ * Priority:
+ *
+ * 1. Flash Sale khusus weight option
+ * 2. Flash Sale umum produk
+ */
+
+const activeFlashSaleItem =
+  useMemo(() => {
+    const availableItems =
+      flashSaleItems.filter(
+        (item) =>
+          item.stockLimit >
+          item.soldQuantity
+      );
+
+    /**
+     * Flash Sale khusus weight.
+     */
+
+    if (selectedWeightOption) {
+      const weightSpecificItem =
+        availableItems.find(
+          (item) =>
+            item.weightOptionId ===
+            selectedWeightOption.id
+        );
+
+      if (weightSpecificItem) {
+        return weightSpecificItem;
+      }
+    }
+
+    /**
+     * Fallback ke Flash Sale
+     * yang berlaku untuk seluruh produk.
+     */
+
+    return (
+      availableItems.find(
+        (item) =>
+          item.weightOptionId ===
+          null
+      ) ?? null
+    );
+  }, [
+    flashSaleItems,
+    selectedWeightOption,
+  ]);
+
   /**
  * ==========================================================
  * BASE COMBINATION PRICE
@@ -423,160 +492,501 @@ const discountAmount =
  * ==========================================================
  * FINAL PRICE
  * ==========================================================
+ *
+ * Priority:
+ *
+ * 1. Flash Sale
+ * 2. Product Discount
+ * 3. Normal Price
+ *
+ * IMPORTANT:
+ *
+ * Harga Flash Sale adalah harga dasar untuk
+ * weight / produk yang dipilih.
+ *
+ * Variant adjustment tetap harus ditambahkan.
+ *
+ * Contoh:
+ *
+ * Flash Sale      Rp10.000
+ * Dibersihkan     +Rp5.000
+ *
+ * Final           Rp15.000
+ */
+
+const isFlashSaleApplied =
+  activeFlashSaleItem !== null;
+
+
+/**
+ * ==========================================================
+ * FLASH SALE BASE PRICE
+ * ==========================================================
+ */
+
+const flashSaleBasePrice =
+  isFlashSaleApplied
+    ? Math.max(
+        0,
+        Number(
+          activeFlashSaleItem.flashPrice
+        )
+      )
+    : 0;
+
+
+/**
+ * ==========================================================
+ * FINAL UNIT PRICE
+ * ==========================================================
  */
 
 const unitPrice =
-  Math.max(
-    0,
-    originalUnitPrice -
-      discountAmount
-  );
+  isFlashSaleApplied
+    ? Math.max(
+        0,
+        flashSaleBasePrice +
+          variantAdjustment
+      )
+    : Math.max(
+        0,
+        originalUnitPrice -
+          discountAmount
+      );
+
 
 const totalPrice =
   unitPrice *
   quantity;
 
+/**
+ * ==========================================================
+ * ORIGINAL PRICE
+ * ==========================================================
+ *
+ * Harga normal tetap mengikuti kombinasi:
+ *
+ * Weight Price
+ * +
+ * Variant Adjustment
+ *
+ * Jangan gunakan Flash Sale originalPrice secara langsung,
+ * karena variant adjustment harus tetap diperhitungkan.
+ */
+
+const currentOriginalPrice =
+  originalUnitPrice;
+
+
 const totalOriginalPrice =
-  originalUnitPrice *
+  currentOriginalPrice *
   quantity;
+
+/**
+ * ==========================================================
+ * SAVING
+ * ==========================================================
+ */
+
+const currentSaving =
+  Math.max(
+    0,
+    currentOriginalPrice -
+      unitPrice
+  );
 
 const totalDiscountAmount =
-  discountAmount *
+  currentSaving *
   quantity;
 
-  /**
-   * ==========================================================
-   * RESET MESSAGE
-   * ==========================================================
-   */
+/**
+ * ==========================================================
+ * FLASH SALE STOCK QUOTA
+ * ==========================================================
+ */
 
-  function resetMessage() {
+const flashSaleRemainingStock =
+  isFlashSaleApplied &&
+  activeFlashSaleItem
+    ? Math.max(
+        0,
+        activeFlashSaleItem.stockLimit -
+          activeFlashSaleItem.soldQuantity
+      )
+    : null;
+
+/**
+ * ==========================================================
+ * FLASH SALE SOLD PERCENTAGE
+ * ==========================================================
+ */
+
+const flashSaleSoldPercentage =
+  isFlashSaleApplied &&
+  activeFlashSaleItem &&
+  activeFlashSaleItem.stockLimit > 0
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          (
+            activeFlashSaleItem.soldQuantity /
+            activeFlashSaleItem.stockLimit
+          ) * 100
+        )
+      )
+    : 0;
+
+/**
+ * ==========================================================
+ * EFFECTIVE MAX QUANTITY
+ * ==========================================================
+ */
+
+const effectiveMaxQuantity =
+  flashSaleRemainingStock !== null
+    ? Math.min(
+        stock,
+        flashSaleRemainingStock
+      )
+    : stock;
+
+    /**
+ * ==========================================================
+ * FLASH SALE SOLD OUT
+ * ==========================================================
+ */
+
+const isFlashSaleSoldOut =
+  isFlashSaleApplied &&
+  flashSaleRemainingStock !== null &&
+  flashSaleRemainingStock <= 0;
+
+/**
+ * ==========================================================
+ * RESET MESSAGE
+ * ==========================================================
+ */
+
+function resetMessage() {
+  setSuccess(false);
+
+  setMessage(null);
+}
+
+/**
+ * ==========================================================
+ * QUANTITY
+ * ==========================================================
+ */
+
+function decrease() {
+  setQuantity(
+    (current) =>
+      Math.max(
+        1,
+        current - 1
+      )
+  );
+
+  resetMessage();
+}
+
+function increase() {
+  if (
+    effectiveMaxQuantity <= 0
+  ) {
     setSuccess(false);
 
-    setMessage(null);
-  }
-
-  /**
-   * ==========================================================
-   * QUANTITY
-   * ==========================================================
-   */
-
-  function decrease() {
-    setQuantity(
-      (current) =>
-        Math.max(
-          1,
-          current - 1
-        )
+    setMessage(
+      "Kuota Flash Sale sudah habis."
     );
 
-    resetMessage();
+    return;
   }
 
-  function increase() {
-    setQuantity(
-      (current) =>
-        Math.min(
+  setQuantity(
+    (current) =>
+      Math.min(
+        effectiveMaxQuantity,
+        current + 1
+      )
+  );
+
+  resetMessage();
+}
+
+/**
+ * ==========================================================
+ * OPTION SELECTORS
+ * ==========================================================
+ */
+
+function selectVariant(
+  variant: string
+) {
+  setSelectedVariant(
+    variant
+  );
+
+  resetMessage();
+}
+
+function selectWeight(
+  weight: string
+) {
+  /**
+   * ========================================================
+   * UPDATE SELECTED WEIGHT
+   * ========================================================
+   */
+
+  setSelectedWeight(
+    weight
+  );
+
+
+  /**
+   * ========================================================
+   * FIND NEXT FLASH SALE ITEM
+   * ========================================================
+   *
+   * Cari Flash Sale khusus weight yang baru dipilih.
+   * Jika tidak ada, gunakan Flash Sale product-wide.
+   */
+
+  const nextWeightOption =
+    weightOptions.find(
+      (option) =>
+        option.label === weight
+    );
+
+  const nextWeightOptionId =
+    nextWeightOption?.id ??
+    null;
+
+  const nextFlashSaleItem =
+    flashSaleItems.find(
+      (item) =>
+        item.weightOptionId ===
+        nextWeightOptionId
+    ) ??
+    flashSaleItems.find(
+      (item) =>
+        item.weightOptionId ===
+        null
+    ) ??
+    null;
+
+
+  /**
+   * ========================================================
+   * CALCULATE NEXT MAX QUANTITY
+   * ========================================================
+   */
+
+  const nextFlashSaleRemainingStock =
+    nextFlashSaleItem
+      ? Math.max(
+          0,
+          nextFlashSaleItem.stockLimit -
+            nextFlashSaleItem.soldQuantity
+        )
+      : null;
+
+  const nextEffectiveMaxQuantity =
+    nextFlashSaleRemainingStock !==
+    null
+      ? Math.min(
           stock,
-          current + 1
+          nextFlashSaleRemainingStock
         )
-    );
+      : stock;
 
-    resetMessage();
-  }
 
   /**
-   * ==========================================================
-   * OPTION SELECTORS
-   * ==========================================================
+   * ========================================================
+   * CLAMP CURRENT QUANTITY
+   * ========================================================
+   *
+   * Jika quantity saat ini lebih besar
+   * dari kuota weight baru,
+   * otomatis turunkan quantity.
    */
 
-  function selectVariant(
-    variant: string
-  ) {
-    setSelectedVariant(
-      variant
-    );
+  setQuantity(
+    (current) =>
+      Math.max(
+        1,
+        Math.min(
+          current,
+          nextEffectiveMaxQuantity
+        )
+      )
+  );
 
-    resetMessage();
-  }
-
-  function selectWeight(
-    weight: string
-  ) {
-    setSelectedWeight(
-      weight
-    );
-
-    resetMessage();
-  }
 
   /**
-   * ==========================================================
-   * VALIDATION
-   * ==========================================================
+   * ========================================================
+   * RESET MESSAGE
+   * ========================================================
    */
 
-  function validateSelection() {
-    if (outOfStock) {
-      setSuccess(false);
+  resetMessage();
+}
 
-      setMessage(
-        "Produk sedang habis."
-      );
+/**
+ * ==========================================================
+ * VALIDATION
+ * ==========================================================
+ */
 
-      return false;
-    }
+function validateSelection() {
+  /**
+   * ========================================================
+   * FLASH SALE SOLD OUT
+   * ========================================================
+   */
 
-    if (quantity < 1) {
-      setSuccess(false);
+  if (isFlashSaleSoldOut) {
+    setSuccess(false);
 
-      setMessage(
-        "Jumlah produk minimal 1."
-      );
+    setMessage(
+      "Maaf, kuota Flash Sale untuk pilihan ini sudah habis."
+    );
 
-      return false;
-    }
-
-    if (quantity > stock) {
-      setSuccess(false);
-
-      setMessage(
-        `Jumlah maksimal ${stock}.`
-      );
-
-      return false;
-    }
-
-    if (
-      requiresVariant &&
-      !selectedVariant
-    ) {
-      setSuccess(false);
-
-      setMessage(
-        "Silakan pilih varian produk terlebih dahulu."
-      );
-
-      return false;
-    }
-
-    if (
-      requiresWeight &&
-      !selectedWeight
-    ) {
-      setSuccess(false);
-
-      setMessage(
-        "Silakan pilih berat produk terlebih dahulu."
-      );
-
-      return false;
-    }
-
-    return true;
+    return false;
   }
+
+
+  /**
+   * ========================================================
+   * PRODUCT OUT OF STOCK
+   * ========================================================
+   */
+
+  if (outOfStock) {
+    setSuccess(false);
+
+    setMessage(
+      "Produk sedang habis."
+    );
+
+    return false;
+  }
+
+
+  /**
+   * ========================================================
+   * MINIMUM QUANTITY
+   * ========================================================
+   */
+
+  if (quantity < 1) {
+    setSuccess(false);
+
+    setMessage(
+      "Jumlah produk minimal 1."
+    );
+
+    return false;
+  }
+
+
+  /**
+   * ========================================================
+   * EFFECTIVE MAX QUANTITY
+   * ========================================================
+   *
+   * Jika Flash Sale aktif,
+   * quantity tidak boleh melebihi:
+   *
+   * stock produk
+   * ATAU
+   * sisa kuota Flash Sale.
+   */
+
+  if (
+    quantity >
+    effectiveMaxQuantity
+  ) {
+    setSuccess(false);
+
+    setMessage(
+      isFlashSaleApplied
+        ? `Kuota Flash Sale tersisa ${effectiveMaxQuantity} produk.`
+        : `Jumlah maksimal ${effectiveMaxQuantity}.`
+    );
+
+    return false;
+  }
+
+
+  /**
+   * ========================================================
+   * PRODUCT STOCK VALIDATION
+   * ========================================================
+   */
+
+  if (quantity > stock) {
+    setSuccess(false);
+
+    setMessage(
+      `Jumlah maksimal ${stock}.`
+    );
+
+    return false;
+  }
+
+
+  /**
+   * ========================================================
+   * VARIANT VALIDATION
+   * ========================================================
+   */
+
+  if (
+    requiresVariant &&
+    !selectedVariant
+  ) {
+    setSuccess(false);
+
+    setMessage(
+      "Silakan pilih varian produk terlebih dahulu."
+    );
+
+    return false;
+  }
+
+
+  /**
+   * ========================================================
+   * WEIGHT VALIDATION
+   * ========================================================
+   */
+
+  if (
+    requiresWeight &&
+    !selectedWeight
+  ) {
+    setSuccess(false);
+
+    setMessage(
+      "Silakan pilih berat produk terlebih dahulu."
+    );
+
+    return false;
+  }
+
+
+  /**
+   * ========================================================
+   * VALID
+   * ========================================================
+   */
+
+  return true;
+}
 
   /**
    * ==========================================================
@@ -665,92 +1075,565 @@ const totalDiscountAmount =
   return (
     <div className="w-full space-y-6">
 
-      {/* ====================================================== */}
+{/* ====================================================== */}
 {/* LIVE PRICE */}
 {/* ====================================================== */}
 
-<div className="border-y border-slate-200 bg-slate-50 px-5 py-4">
-  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-    Harga Produk
-  </p>
+<div>
+  {isFlashSaleApplied &&
+  activeFlashSaleItem ? (
+    <div className="overflow-hidden border-y border-orange-100 bg-[#fff4f1]">
 
-  {isDiscountCurrentlyActive ? (
-    <>
-      <div className="mt-1 flex flex-wrap items-center gap-2">
-        <span className="text-base text-slate-400 line-through">
-          {formatRupiah(
-            originalUnitPrice
+      {/* ================================================== */}
+      {/* FLASH SALE HEADER */}
+      {/* ================================================== */}
+
+      <div
+        className="
+          flex
+          flex-col
+          gap-3
+          bg-gradient-to-r
+          from-[#fc2600]
+          to-[#f739a8]
+          px-5
+          py-3
+          sm:flex-row
+          sm:items-center
+          sm:justify-between
+        "
+      >
+        {/* FLASH SALE LABEL */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
+          <span
+            className="
+              text-base
+              font-black
+              italic
+              tracking-wide
+              text-white
+              sm:text-lg
+            "
+          >
+            ⚡ FLASH SALE
+          </span>
+
+          {currentSaving > 0 &&
+          currentOriginalPrice > 0 && (
+            <span
+              className="
+                rounded
+                bg-white/20
+                px-2
+                py-1
+                text-xs
+                font-bold
+                text-white
+              "
+            >
+              -
+              {Math.round(
+                (
+                  currentSaving /
+                  currentOriginalPrice
+                ) * 100
+              )}
+              %
+            </span>
           )}
-        </span>
+        </div>
 
-        <span className="rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-600">
-          {discountType ===
-          "PERCENTAGE"
-            ? `${Math.min(
-                100,
-                Number(discountValue)
-              )}%`
-            : "DISKON"}
-        </span>
+        {/* COUNTDOWN */}
+
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            gap-3
+            sm:justify-end
+          "
+        >
+          <span
+            className="
+              text-xs
+              font-semibold
+              uppercase
+              tracking-wide
+              text-white
+            "
+          >
+            Berakhir Dalam
+          </span>
+
+          <FlashSaleCountdown
+            endsAt={
+              activeFlashSaleItem.endsAt
+            }
+          />
+        </div>
       </div>
 
-      <div className="mt-1 text-2xl font-bold tracking-tight text-cyan-700 sm:text-3xl">
-        {formatRupiah(
-          unitPrice
-        )}
-      </div>
+      {/* ================================================== */}
+      {/* FLASH SALE PRICE */}
+      {/* ================================================== */}
 
-      <p className="mt-1 text-xs font-medium text-emerald-600">
-        Hemat{" "}
-        {formatRupiah(
-          discountAmount
-        )}
-        {" / produk"}
-      </p>
-    </>
-  ) : (
-    <div className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-      {formatRupiah(
-        originalUnitPrice
-      )}
+      <div className="px-5 py-4">
+
+        {/* CAMPAIGN NAME */}
+
+        <p
+          className="
+            mb-3
+            text-xs
+            font-medium
+            text-slate-500
+          "
+        >
+          {activeFlashSaleItem.campaignName}
+        </p>
+
+        {/* ================================================== */}
+{/* FLASH SALE STOCK PROGRESS */}
+{/* ================================================== */}
+
+{flashSaleRemainingStock !== null && (
+  <div
+    className="
+      mb-4
+      rounded-lg
+      border
+      border-orange-100
+      bg-white/70
+      p-3
+    "
+  >
+    {/* HEADER */}
+
+    <div
+      className="
+        mb-2
+        flex
+        items-center
+        justify-between
+        gap-3
+      "
+    >
+      <span
+        className="
+          text-xs
+          font-semibold
+          text-slate-700
+        "
+      >
+        Stok promo terbatas
+      </span>
+
+      <span
+        className="
+          text-xs
+          font-bold
+          text-[#ee4d2d]
+        "
+      >
+        Sisa {flashSaleRemainingStock}
+      </span>
     </div>
-  )}
 
-  {quantity > 1 && (
-    <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-500">
-      {isDiscountCurrentlyActive && (
-        <div className="mb-1">
-          Harga normal total:{" "}
-          <span className="line-through">
+    {/* PROGRESS BAR */}
+
+    <div
+      className="
+        h-2.5
+        w-full
+        overflow-hidden
+        rounded-full
+        bg-orange-100
+      "
+    >
+      <div
+        className="
+          h-full
+          rounded-full
+          bg-gradient-to-r
+          from-[#ff4d2d]
+          to-[#ff8a4c]
+          transition-all
+          duration-500
+        "
+        style={{
+          width:
+            `${flashSaleSoldPercentage}%`,
+        }}
+      />
+    </div>
+
+    {/* SOLD INFORMATION */}
+
+    <div
+      className="
+        mt-2
+        flex
+        flex-wrap
+        items-center
+        justify-between
+        gap-2
+        text-[11px]
+      "
+    >
+      <span
+        className="
+          font-medium
+          text-slate-500
+        "
+      >
+        Terjual{" "}
+
+        <span
+          className="
+            font-bold
+            text-slate-700
+          "
+        >
+          {activeFlashSaleItem.soldQuantity}
+        </span>
+
+        {" dari "}
+
+        <span
+          className="
+            font-bold
+            text-slate-700
+          "
+        >
+          {activeFlashSaleItem.stockLimit}
+        </span>
+      </span>
+
+      {isFlashSaleSoldOut ? (
+  <span
+    className="
+      rounded
+      bg-red-100
+      px-2
+      py-1
+      font-bold
+      text-red-600
+    "
+  >
+    SOLD OUT
+  </span>
+) : flashSaleSoldPercentage >= 80 ? (
+  <span
+    className="
+      font-semibold
+      text-[#ee4d2d]
+    "
+  >
+    Hampir habis!
+  </span>
+) : null}
+    </div>
+  </div>
+)}
+
+        {/* PRICE */}
+
+        <div
+          className="
+            flex
+            flex-wrap
+            items-end
+            gap-3
+          "
+        >
+          {/* FLASH PRICE */}
+
+          <span
+            className="
+              text-2xl
+              font-bold
+              tracking-tight
+              text-[#ee4d2d]
+              sm:text-3xl
+            "
+          >
             {formatRupiah(
-              totalOriginalPrice
+              unitPrice
+            )}
+          </span>
+
+          {/* ORIGINAL PRICE */}
+
+          <span
+            className="
+              pb-1
+              text-sm
+              text-slate-400
+              line-through
+            "
+          >
+            {formatRupiah(
+              currentOriginalPrice
             )}
           </span>
         </div>
-      )}
 
-      <div>
-        {quantity} ×{" "}
-        {formatRupiah(
-          unitPrice
+        {/* SAVING */}
+
+        {currentSaving > 0 && (
+          <div
+            className="
+              mt-2
+              text-xs
+              font-semibold
+              text-red-600
+            "
+          >
+            Hemat{" "}
+            {formatRupiah(
+              currentSaving
+            )}
+            {" / produk"}
+          </div>
         )}
 
-        <span className="mx-2">
-          =
-        </span>
+        {/* QUANTITY TOTAL */}
 
-        <span className="font-semibold text-slate-900">
-          {formatRupiah(
-            totalPrice
-          )}
-        </span>
+        {quantity > 1 && (
+          <div
+            className="
+              mt-4
+              border-t
+              border-orange-100
+              pt-3
+              text-xs
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                gap-3
+                text-slate-500
+              "
+            >
+              <span>
+                {quantity} ×{" "}
+                {formatRupiah(
+                  unitPrice
+                )}
+              </span>
+
+              <span
+                className="
+                  font-semibold
+                  text-slate-900
+                "
+              >
+                {formatRupiah(
+                  totalPrice
+                )}
+              </span>
+            </div>
+
+            {totalDiscountAmount > 0 && (
+              <div
+                className="
+                  mt-1
+                  text-right
+                  font-medium
+                  text-emerald-600
+                "
+              >
+                Total hemat{" "}
+                {formatRupiah(
+                  totalDiscountAmount
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+    </div>
+  ) : (
+    <div className="border-y border-slate-200 bg-slate-50 px-5 py-4">
 
-      {isDiscountCurrentlyActive && (
-        <div className="mt-1 font-medium text-emerald-600">
-          Total hemat{" "}
+      <p
+        className="
+          text-[11px]
+          font-medium
+          uppercase
+          tracking-wide
+          text-slate-400
+        "
+      >
+        Harga Produk
+      </p>
+
+      {isDiscountCurrentlyActive ? (
+        <>
+          <div
+            className="
+              mt-1
+              flex
+              flex-wrap
+              items-center
+              gap-2
+            "
+          >
+            <span
+              className="
+                text-base
+                text-slate-400
+                line-through
+              "
+            >
+              {formatRupiah(
+                originalUnitPrice
+              )}
+            </span>
+
+            <span
+              className="
+                rounded-md
+                bg-red-100
+                px-2
+                py-1
+                text-xs
+                font-semibold
+                text-red-600
+              "
+            >
+              {discountType ===
+              "PERCENTAGE"
+                ? `${Math.min(
+                    100,
+                    Number(
+                      discountValue
+                    )
+                  )}%`
+                : "DISKON"}
+            </span>
+          </div>
+
+          <div
+            className="
+              mt-1
+              text-2xl
+              font-bold
+              tracking-tight
+              text-cyan-700
+              sm:text-3xl
+            "
+          >
+            {formatRupiah(
+              unitPrice
+            )}
+          </div>
+
+          <p
+            className="
+              mt-1
+              text-xs
+              font-medium
+              text-emerald-600
+            "
+          >
+            Hemat{" "}
+            {formatRupiah(
+              discountAmount
+            )}
+            {" / produk"}
+          </p>
+        </>
+      ) : (
+        <div
+          className="
+            mt-1
+            text-2xl
+            font-bold
+            tracking-tight
+            text-slate-950
+            sm:text-3xl
+          "
+        >
           {formatRupiah(
-            totalDiscountAmount
+            originalUnitPrice
+          )}
+        </div>
+      )}
+
+      {/* QUANTITY TOTAL */}
+
+      {quantity > 1 && (
+        <div
+          className="
+            mt-3
+            border-t
+            border-slate-200
+            pt-3
+            text-xs
+            text-slate-500
+          "
+        >
+          {isDiscountCurrentlyActive && (
+            <div className="mb-1">
+              Harga normal total:{" "}
+
+              <span className="line-through">
+                {formatRupiah(
+                  totalOriginalPrice
+                )}
+              </span>
+            </div>
+          )}
+
+          <div>
+            {quantity} ×{" "}
+
+            {formatRupiah(
+              unitPrice
+            )}
+
+            <span className="mx-2">
+              =
+            </span>
+
+            <span
+              className="
+                font-semibold
+                text-slate-900
+              "
+            >
+              {formatRupiah(
+                totalPrice
+              )}
+            </span>
+          </div>
+
+          {isDiscountCurrentlyActive && (
+            <div
+              className="
+                mt-1
+                font-medium
+                text-emerald-600
+              "
+            >
+              Total hemat{" "}
+
+              {formatRupiah(
+                totalDiscountAmount
+              )}
+            </div>
           )}
         </div>
       )}
@@ -927,75 +1810,473 @@ const totalDiscountAmount =
       </div>
 
       {/* ====================================================== */}
-      {/* QUANTITY */}
-      {/* ====================================================== */}
+{/* QUANTITY */}
+{/* ====================================================== */}
 
-      <div className="grid gap-3 border-t border-slate-200 pt-5 sm:grid-cols-[130px_minmax(0,1fr)]">
-        <div className="text-sm text-slate-500">
-          Kuantitas
-        </div>
+<div className="grid gap-3 border-t border-slate-200 pt-5 sm:grid-cols-[130px_minmax(0,1fr)]">
+  <div className="text-sm text-slate-500">
+    Kuantitas
+  </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <div
-            className={[
-              "flex h-11 items-center border bg-white",
-              outOfStock
-                ? "border-slate-200 opacity-60"
-                : "border-slate-300",
-            ].join(
-              " "
-            )}
+  <div className="flex flex-wrap items-center gap-4">
+    <div
+      className={[
+        "flex h-11 items-center border bg-white",
+
+        outOfStock ||
+        isFlashSaleSoldOut
+          ? "border-slate-200 opacity-60"
+          : "border-slate-300",
+      ].join(" ")}
+    >
+      {/* ================================================ */}
+      {/* DECREASE */}
+      {/* ================================================ */}
+
+      <button
+        type="button"
+        onClick={decrease}
+        disabled={
+          outOfStock ||
+          isFlashSaleSoldOut ||
+          isPending ||
+          quantity <= 1
+        }
+        className="flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Kurangi jumlah"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+
+      {/* ================================================ */}
+      {/* QUANTITY VALUE */}
+      {/* ================================================ */}
+
+      <span className="flex h-full min-w-12 items-center justify-center text-sm font-medium text-slate-900">
+        {quantity}
+      </span>
+
+      {/* ================================================ */}
+      {/* INCREASE */}
+      {/* ================================================ */}
+
+      <button
+        type="button"
+        onClick={increase}
+        disabled={
+          outOfStock ||
+          isFlashSaleSoldOut ||
+          isPending ||
+          effectiveMaxQuantity <= 0 ||
+          quantity >= effectiveMaxQuantity
+        }
+        className="flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Tambah jumlah"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+
+    {/* ================================================== */}
+    {/* STOCK / FLASH SALE QUOTA INFO */}
+    {/* ================================================== */}
+
+    {!outOfStock && (
+      <span className="text-xs text-slate-400">
+        {isFlashSaleApplied &&
+        flashSaleRemainingStock !== null
+          ? flashSaleRemainingStock <= 0
+            ? "Kuota Flash Sale habis"
+            : `${flashSaleRemainingStock} kuota Flash Sale tersisa`
+          : `${stock} tersedia`}
+      </span>
+    )}
+  </div>
+</div>
+
+{/* ============================================== */}
+{/* PRICE SUMMARY */}
+{/* ============================================== */}
+
+<div
+  className="
+    mt-6
+    rounded-2xl
+    border
+    border-slate-200
+    bg-slate-50
+    p-4
+  "
+>
+  {isFlashSaleApplied ? (
+    <div className="space-y-3">
+
+      {/* FLASH SALE HEADER */}
+
+      <div
+        className="
+          flex
+          items-start
+          justify-between
+          gap-3
+        "
+      >
+        <div>
+          <p
+            className="
+              text-xs
+              font-bold
+              uppercase
+              tracking-wide
+              text-red-600
+            "
           >
-            <button
-              type="button"
-              onClick={decrease}
-              disabled={
-                outOfStock ||
-                isPending ||
-                quantity <= 1
-              }
-              className="flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Kurangi jumlah"
+            🔥 Flash Sale
+          </p>
+
+          {activeFlashSaleItem?.campaignName && (
+            <p
+              className="
+                mt-1
+                text-xs
+                text-slate-500
+              "
             >
-              <Minus className="h-4 w-4" />
-            </button>
-
-            <span className="flex h-full min-w-12 items-center justify-center text-sm font-medium text-slate-900">
-              {quantity}
-            </span>
-
-            <button
-              type="button"
-              onClick={increase}
-              disabled={
-                outOfStock ||
-                isPending ||
-                quantity >= stock
-              }
-              className="flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Tambah jumlah"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-
-          {!outOfStock && (
-            <span className="text-xs text-slate-400">
-              {stock} tersedia
-            </span>
+              {activeFlashSaleItem.campaignName}
+            </p>
           )}
         </div>
+
+        {currentSaving > 0 && (
+          <span
+            className="
+              shrink-0
+              rounded-full
+              bg-red-100
+              px-2.5
+              py-1
+              text-xs
+              font-bold
+              text-red-600
+            "
+          >
+            Hemat{" "}
+            {formatRupiah(
+              currentSaving
+            )}
+          </span>
+        )}
       </div>
+
+      {/* PRICE */}
+
+      <div
+        className="
+          border-t
+          border-slate-200
+          pt-3
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            gap-4
+          "
+        >
+          <span
+            className="
+              text-sm
+              text-slate-500
+            "
+          >
+            Harga normal
+          </span>
+
+          <span
+            className="
+              text-sm
+              text-slate-400
+              line-through
+            "
+          >
+            {formatRupiah(
+              currentOriginalPrice
+            )}
+          </span>
+        </div>
+
+        <div
+          className="
+            mt-2
+            flex
+            items-center
+            justify-between
+            gap-4
+          "
+        >
+          <span
+            className="
+              font-semibold
+              text-slate-700
+            "
+          >
+            Harga Flash Sale
+          </span>
+
+          <span
+            className="
+              text-xl
+              font-bold
+              text-red-600
+            "
+          >
+            {formatRupiah(
+              unitPrice
+            )}
+          </span>
+        </div>
+      </div>
+
+      {/* TOTAL */}
+
+      {quantity > 1 && (
+        <div
+          className="
+            border-t
+            border-slate-200
+            pt-3
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              gap-4
+            "
+          >
+            <span
+              className="
+                text-sm
+                font-medium
+                text-slate-600
+              "
+            >
+              Total ({quantity} produk)
+            </span>
+
+            <span
+              className="
+                text-lg
+                font-bold
+                text-red-600
+              "
+            >
+              {formatRupiah(
+                totalPrice
+              )}
+            </span>
+          </div>
+
+          {totalDiscountAmount > 0 && (
+            <p
+              className="
+                mt-1
+                text-right
+                text-xs
+                font-medium
+                text-emerald-600
+              "
+            >
+              Total hemat{" "}
+              {formatRupiah(
+                totalDiscountAmount
+              )}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="space-y-3">
+
+      {/* ORIGINAL PRICE */}
+
+      {currentSaving > 0 && (
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            gap-4
+          "
+        >
+          <span
+            className="
+              text-sm
+              text-slate-500
+            "
+          >
+            Harga normal
+          </span>
+
+          <span
+            className="
+              text-sm
+              text-slate-400
+              line-through
+            "
+          >
+            {formatRupiah(
+              currentOriginalPrice
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* FINAL PRICE */}
+
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+          gap-4
+        "
+      >
+        <span
+          className="
+            text-sm
+            font-medium
+            text-slate-600
+          "
+        >
+          {currentSaving > 0
+            ? "Harga setelah diskon"
+            : "Harga"}
+        </span>
+
+        <span
+          className="
+            text-xl
+            font-bold
+            text-slate-900
+          "
+        >
+          {formatRupiah(
+            unitPrice
+          )}
+        </span>
+      </div>
+
+      {/* SAVING */}
+
+      {currentSaving > 0 && (
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            gap-4
+          "
+        >
+          <span
+            className="
+              text-sm
+              text-slate-500
+            "
+          >
+            Hemat
+          </span>
+
+          <span
+            className="
+              text-sm
+              font-semibold
+              text-emerald-600
+            "
+          >
+            {formatRupiah(
+              currentSaving
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* TOTAL */}
+
+      {quantity > 1 && (
+        <div
+          className="
+            border-t
+            border-slate-200
+            pt-3
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              gap-4
+            "
+          >
+            <span
+              className="
+                text-sm
+                font-medium
+                text-slate-600
+              "
+            >
+              Total ({quantity} produk)
+            </span>
+
+            <span
+              className="
+                text-lg
+                font-bold
+                text-slate-900
+              "
+            >
+              {formatRupiah(
+                totalPrice
+              )}
+            </span>
+          </div>
+
+          {totalDiscountAmount > 0 && (
+            <p
+              className="
+                mt-1
+                text-right
+                text-xs
+                font-medium
+                text-emerald-600
+              "
+            >
+              Total hemat{" "}
+              {formatRupiah(
+                totalDiscountAmount
+              )}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
 {/* ====================================================== */}
 {/* ACTION BUTTONS */}
 {/* ====================================================== */}
 
 <div className="border-t border-slate-200 pt-6">
-
-  <div className="flex flex-col gap-3 sm:flex-row">
-
+  <div className="grid gap-3 sm:grid-cols-2">
+    {/* ================================================== */}
     {/* ADD TO CART */}
+    {/* ================================================== */}
 
     <button
       type="button"
@@ -1004,38 +2285,52 @@ const totalDiscountAmount =
       }
       disabled={
         outOfStock ||
-        isPending
+        isFlashSaleSoldOut ||
+        isPending ||
+        effectiveMaxQuantity <= 0
       }
       className={[
-        "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold whitespace-nowrap transition active:scale-[0.99] sm:flex-1",
-        outOfStock
-          ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-          : "border-cyan-600 bg-cyan-50 text-cyan-700 hover:bg-cyan-100",
-        isPending
-          ? "cursor-wait opacity-70"
-          : "",
+        "flex min-h-12 items-center justify-center gap-2",
+        "rounded-xl border px-5 py-3",
+        "text-sm font-semibold transition",
+        outOfStock ||
+        isFlashSaleSoldOut ||
+        isPending ||
+        effectiveMaxQuantity <= 0
+          ? [
+              "cursor-not-allowed",
+              "border-slate-200",
+              "bg-slate-100",
+              "text-slate-400",
+            ].join(" ")
+          : [
+              "border-cyan-600",
+              "bg-white",
+              "text-cyan-700",
+              "hover:bg-cyan-50",
+              "active:scale-[0.99]",
+            ].join(" "),
       ].join(" ")}
     >
       {isPending ? (
         <>
-          <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
 
-          <span>
-            Memproses...
-          </span>
+          Memproses...
         </>
+      ) : isFlashSaleSoldOut ? (
+        "Kuota Flash Sale Habis"
+      ) : outOfStock ? (
+        "Produk Habis"
       ) : (
-        <>
-          <ShoppingCart className="h-5 w-5 shrink-0" />
-
-          <span>
-            Masukkan Keranjang
-          </span>
-        </>
+        "Tambah ke Keranjang"
       )}
     </button>
 
+
+    {/* ================================================== */}
     {/* BUY NOW */}
+    {/* ================================================== */}
 
     <button
       type="button"
@@ -1044,35 +2339,62 @@ const totalDiscountAmount =
       }
       disabled={
         outOfStock ||
-        isPending
+        isFlashSaleSoldOut ||
+        isPending ||
+        effectiveMaxQuantity <= 0
       }
       className={[
-        "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold whitespace-nowrap text-white transition active:scale-[0.99] sm:flex-1",
-        outOfStock
-          ? "cursor-not-allowed bg-slate-300"
-          : "bg-cyan-600 hover:bg-cyan-700",
-        isPending
-          ? "cursor-wait opacity-70"
-          : "",
+        "flex min-h-12 items-center justify-center gap-2",
+        "rounded-xl px-5 py-3",
+        "text-sm font-semibold text-white transition",
+        outOfStock ||
+        isFlashSaleSoldOut ||
+        isPending ||
+        effectiveMaxQuantity <= 0
+          ? [
+              "cursor-not-allowed",
+              "bg-slate-300",
+              "text-slate-500",
+            ].join(" ")
+          : [
+              isFlashSaleApplied
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-cyan-600 hover:bg-cyan-700",
+              "shadow-sm",
+              "active:scale-[0.99]",
+            ].join(" "),
       ].join(" ")}
     >
       {isPending ? (
         <>
-          <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
 
-          <span>
-            Memproses...
-          </span>
+          Memproses...
         </>
+      ) : isFlashSaleSoldOut ? (
+        "Kuota Flash Sale Habis"
+      ) : outOfStock ? (
+        "Produk Habis"
       ) : (
-        <span>
-          Beli Sekarang
-        </span>
+        "Beli Sekarang"
       )}
     </button>
-
   </div>
 
+
+  {/* ================================================== */}
+  {/* ACTION HELPER */}
+  {/* ================================================== */}
+
+  {!outOfStock &&
+    !isFlashSaleSoldOut &&
+    effectiveMaxQuantity > 0 && (
+      <p className="mt-3 text-center text-xs text-slate-400">
+        {isFlashSaleApplied
+          ? `Maksimal ${effectiveMaxQuantity} produk sesuai kuota Flash Sale.`
+          : `Maksimal ${effectiveMaxQuantity} produk dapat dibeli.`}
+      </p>
+    )}
 </div>
 
       {/* ====================================================== */}

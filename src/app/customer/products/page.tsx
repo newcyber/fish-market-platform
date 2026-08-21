@@ -12,6 +12,10 @@ import {
 import ProductService from "@/services/product/product.service";
 import CategoryService from "@/services/category/category.service";
 
+import {
+  prisma,
+} from "@/lib/prisma";
+
 import { auth } from "@/auth";
 
 import WishlistService from "@/services/wishlist/wishlist.service";
@@ -59,6 +63,171 @@ export default async function CustomerProductsPage({
         active: true,
       }),
     ]);
+
+    /**
+ * ============================================================
+ * ACTIVE FLASH SALE ITEMS
+ * ============================================================
+ *
+ * Ambil seluruh Flash Sale aktif untuk produk
+ * yang sedang ditampilkan.
+ *
+ * Tidak menggunakan query per Product Card
+ * agar menghindari masalah N+1 query.
+ */
+
+const now =
+  new Date();
+
+const productIds =
+  products.map(
+    (product) =>
+      product.id
+  );
+
+const flashSaleItems =
+  productIds.length > 0
+    ? await prisma.flashSaleItem.findMany({
+        where: {
+          productId: {
+            in: productIds,
+          },
+
+          isActive: true,
+
+          flashSale: {
+            status: "ACTIVE",
+
+            startAt: {
+              lte: now,
+            },
+
+            endAt: {
+              gt: now,
+            },
+          },
+        },
+
+        select: {
+          id: true,
+
+          productId: true,
+
+          weightOptionId: true,
+
+          originalPrice: true,
+
+          flashPrice: true,
+
+          stockLimit: true,
+
+          soldQuantity: true,
+
+          flashSale: {
+            select: {
+              id: true,
+
+              name: true,
+
+              slug: true,
+            },
+          },
+        },
+      })
+    : [];
+
+    /**
+ * ============================================================
+ * FLASH SALE MAP
+ * ============================================================
+ *
+ * Satu produk dapat memiliki:
+ *
+ * - Flash Sale umum
+ * - Flash Sale berdasarkan pilihan berat
+ *
+ * Untuk Product Listing kita tampilkan
+ * harga Flash Sale terendah yang masih
+ * memiliki kuota tersedia.
+ */
+
+const flashSaleByProductId =
+  new Map<
+    string,
+    {
+      id: string;
+      originalPrice: number;
+      flashPrice: number;
+      stockLimit: number;
+      soldQuantity: number;
+      campaignName: string;
+    }
+  >();
+
+for (
+  const item of flashSaleItems
+) {
+  const remainingQuota =
+    item.stockLimit -
+    item.soldQuantity;
+
+  /**
+   * Jangan tampilkan Flash Sale
+   * yang kuotanya sudah habis.
+   */
+
+  if (
+    remainingQuota <= 0
+  ) {
+    continue;
+  }
+
+  const normalizedItem = {
+    id:
+      item.id,
+
+    originalPrice:
+      Number(
+        item.originalPrice
+      ),
+
+    flashPrice:
+      Number(
+        item.flashPrice
+      ),
+
+    stockLimit:
+      item.stockLimit,
+
+    soldQuantity:
+      item.soldQuantity,
+
+    campaignName:
+      item.flashSale.name,
+  };
+
+  const existingItem =
+    flashSaleByProductId.get(
+      item.productId
+    );
+
+  /**
+   * Jika satu produk memiliki beberapa
+   * Flash Sale aktif, tampilkan harga
+   * promo terendah.
+   */
+
+  if (
+    !existingItem ||
+    normalizedItem.flashPrice <
+      existingItem.flashPrice
+  ) {
+    flashSaleByProductId.set(
+      item.productId,
+      normalizedItem
+    );
+  }
+}
 
     /**
  * ============================================================
@@ -289,9 +458,50 @@ const wishlistProductIds =
                     null;
 
                   const price =
-                    Number(
-                      product.price
-                    );
+  Number(
+    product.price
+  );
+
+/**
+ * ==========================================================
+ * FLASH SALE PRICING
+ * ==========================================================
+ */
+
+const flashSale =
+  flashSaleByProductId.get(
+    product.id
+  ) ?? null;
+
+const isFlashSale =
+  flashSale !== null;
+
+const originalPrice =
+  isFlashSale
+    ? flashSale.originalPrice
+    : price;
+
+const finalPrice =
+  isFlashSale
+    ? flashSale.flashPrice
+    : price;
+
+const saving =
+  Math.max(
+    0,
+    originalPrice -
+      finalPrice
+  );
+
+const discountPercentage =
+  originalPrice > 0
+    ? Math.round(
+        (
+          saving /
+          originalPrice
+        ) * 100
+      )
+    : 0;
 
                   const stock =
                     product.stock;
@@ -366,13 +576,23 @@ const wishlistProductIds =
                             </div>
                           )}
 
-                          {/* Featured */}
+                          {/* ====================================================== */}
+{/* PRODUCT BADGES */}
+{/* ====================================================== */}
 
-                          {product.featured && (
-                            <span className="absolute left-3 top-3 rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                              Pilihan
-                            </span>
-                          )}
+<div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-2">
+  {isFlashSale && (
+    <span className="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+      FLASH SALE
+    </span>
+  )}
+
+  {product.featured && (
+    <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+      Pilihan
+    </span>
+  )}
+</div>
 
                           {/* Stock */}
 
@@ -410,13 +630,52 @@ const wishlistProductIds =
                           </h2>
                         </Link>
 
-                        <div className="mt-3">
-                          <div className="text-base font-bold text-slate-950 sm:text-lg">
-                            {formatRupiah(
-                              price
-                            )}
-                          </div>
-                        </div>
+                        <div className="mt-3 min-h-14.5">
+  {isFlashSale ? (
+    <div>
+      {/* ORIGINAL PRICE */}
+
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-400 line-through">
+          {formatRupiah(
+            originalPrice
+          )}
+        </span>
+
+        {discountPercentage > 0 && (
+          <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+            -{discountPercentage}%
+          </span>
+        )}
+      </div>
+
+      {/* FLASH SALE PRICE */}
+
+      <div className="mt-1 text-base font-bold text-red-600 sm:text-lg">
+        {formatRupiah(
+          finalPrice
+        )}
+      </div>
+
+      {/* SAVING */}
+
+      {saving > 0 && (
+        <div className="mt-1 text-[10px] font-medium text-emerald-600">
+          Hemat{" "}
+          {formatRupiah(
+            saving
+          )}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="text-base font-bold text-slate-950 sm:text-lg">
+      {formatRupiah(
+        price
+      )}
+    </div>
+  )}
+</div>
 
                         <div className="mt-4 flex items-center justify-between gap-2">
                           <div className="text-[11px] text-slate-400">

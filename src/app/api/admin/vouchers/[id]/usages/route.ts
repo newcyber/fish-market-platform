@@ -137,8 +137,8 @@ export async function GET(
     const { id } =
       await context.params;
 
-    const searchParams =
-      request.nextUrl.searchParams;
+    const { searchParams } =
+      request.nextUrl;
 
     const page =
       getPositiveInteger(

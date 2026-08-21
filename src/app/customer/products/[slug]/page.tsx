@@ -16,9 +16,17 @@ import {
 
 import ProductService from "@/services/product/product.service";
 
+import {
+  prisma,
+} from "@/lib/prisma";
+
 import AddToCartButton from "@/components/customer/products/AddToCartButton";
 
 import ProductDetailGallery from "@/components/customer/products/ProductDetailGallery";
+
+import {
+  FlashSaleCountdown,
+} from "@/components/customer/flash-sale/FlashSaleCountdown";
 
 import ToggleWishlistButton from "@/components/customer/wishlist/ToggleWishlistButton";
 
@@ -92,9 +100,9 @@ export default async function ProductDetailPage({
   const initialInWishlist =
     session?.user?.id
       ? await WishlistService.isInWishlist(
-          session.user.id,
-          product.id
-        )
+        session.user.id,
+        product.id
+      )
       : false;
 
   /**
@@ -158,7 +166,7 @@ export default async function ProductDetailPage({
           priceAdjustment:
             Number(
               option.priceAdjustment ??
-                0
+              0
             ),
         })
       );
@@ -199,6 +207,285 @@ export default async function ProductDetailPage({
       );
 
   /**
+* ==========================================================
+* ACTIVE FLASH SALE ITEMS
+* ==========================================================
+*
+* Ambil seluruh Flash Sale Item aktif
+* untuk produk yang sedang dibuka.
+*
+* Data ini digunakan untuk display pricing
+* di Product Detail dan Add To Cart.
+*
+* Backend Cart dan Checkout tetap melakukan
+* validasi ulang melalui Pricing Engine.
+*/
+  const flashSaleNow =
+    new Date();
+
+  const flashSaleItems =
+    await prisma.flashSaleItem.findMany({
+      where: {
+        productId:
+          product.id,
+
+        isActive:
+          true,
+
+        flashSale: {
+          status:
+            "ACTIVE",
+
+          startAt: {
+            lte:
+              flashSaleNow,
+          },
+
+          endAt: {
+            gt:
+              flashSaleNow,
+          },
+        },
+      },
+
+      select: {
+        id:
+          true,
+
+        weightOptionId:
+          true,
+
+        originalPrice:
+          true,
+
+        flashPrice:
+          true,
+
+        stockLimit:
+          true,
+
+        soldQuantity:
+          true,
+
+        flashSale: {
+  select: {
+    name:
+      true,
+
+    endAt:
+      true,
+  },
+},
+      },
+    });
+
+  /**
+   * ==========================================================
+   * NORMALIZE FLASH SALE ITEMS
+   * ==========================================================
+   *
+   * Prisma Decimal tidak boleh diteruskan
+   * langsung ke Client Component.
+   */
+
+  const normalizedFlashSaleItems =
+    flashSaleItems
+      .filter(
+        (item) =>
+          item.stockLimit >
+          item.soldQuantity
+      )
+      .map(
+        (item) => ({
+          id:
+            item.id,
+
+          weightOptionId:
+            item.weightOptionId,
+
+          originalPrice:
+            Number(
+              item.originalPrice
+            ),
+
+          flashPrice:
+            Number(
+              item.flashPrice
+            ),
+
+          stockLimit:
+            item.stockLimit,
+
+          soldQuantity:
+            item.soldQuantity,
+
+          campaignName:
+  item.flashSale.name,
+
+endsAt:
+  item.flashSale.endAt.toISOString(),
+        })
+      );
+
+  /**
+* ==========================================================
+* PRODUCT DETAIL DISPLAY PRICING
+* ==========================================================
+*
+* Untuk harga utama Product Detail:
+*
+* 1. Prioritaskan Flash Sale product-wide.
+* 2. Jika tidak ada, gunakan Product Discount.
+* 3. Jika tidak ada, gunakan harga normal.
+*
+* Flash Sale khusus weight tidak dipilih secara otomatis
+* karena customer belum memilih weight option.
+*/
+
+  const productWideFlashSale =
+    normalizedFlashSaleItems.find(
+      (item) =>
+        item.weightOptionId ===
+        null
+    ) ?? null;
+
+  const baseProductPrice =
+    Number(
+      product.price
+    );
+
+  /**
+   * ==========================================================
+   * PRODUCT DISCOUNT STATUS
+   * ==========================================================
+   */
+
+  const now =
+    new Date();
+
+  const isProductDiscountActive =
+    product.isDiscountActive &&
+    product.discountType !== null &&
+    product.discountValue !== null &&
+    (
+      product.discountStartAt === null ||
+      product.discountStartAt <= now
+    ) &&
+    (
+      product.discountEndAt === null ||
+      product.discountEndAt > now
+    );
+
+  /**
+   * ==========================================================
+   * PRODUCT DISCOUNT AMOUNT
+   * ==========================================================
+   */
+
+  let productDiscountAmount =
+    0;
+
+  if (
+    isProductDiscountActive
+  ) {
+    const discountValue =
+      Number(
+        product.discountValue
+      );
+
+    if (
+      product.discountType ===
+      "PERCENTAGE"
+    ) {
+      productDiscountAmount =
+        (
+          baseProductPrice *
+          discountValue
+        ) / 100;
+    }
+
+    if (
+      product.discountType ===
+      "FIXED_AMOUNT"
+    ) {
+      productDiscountAmount =
+        discountValue;
+    }
+
+    productDiscountAmount =
+      Math.min(
+        baseProductPrice,
+        Math.max(
+          0,
+          productDiscountAmount
+        )
+      );
+  }
+
+  /**
+   * ==========================================================
+   * FINAL DISPLAY PRICE
+   * ==========================================================
+   *
+   * Priority:
+   *
+   * 1. Product-wide Flash Sale
+   * 2. Product Discount
+   * 3. Normal Price
+   */
+
+  const isFlashSaleDisplay =
+    productWideFlashSale !==
+    null;
+
+  const displayOriginalPrice =
+    isFlashSaleDisplay
+      ? productWideFlashSale.originalPrice
+      : baseProductPrice;
+
+  const displayFinalPrice =
+    isFlashSaleDisplay
+      ? productWideFlashSale.flashPrice
+      : Math.max(
+        0,
+        baseProductPrice -
+        productDiscountAmount
+      );
+
+  const displaySaving =
+    Math.max(
+      0,
+      displayOriginalPrice -
+      displayFinalPrice
+    );
+
+  const displayDiscountPercentage =
+    displayOriginalPrice > 0
+      ? Math.round(
+        (
+          displaySaving /
+          displayOriginalPrice
+        ) * 100
+      )
+      : 0;
+
+  /**
+   * ==========================================================
+   * WEIGHT-SPECIFIC FLASH SALE EXISTS
+   * ==========================================================
+   *
+   * Digunakan untuk memberi informasi kepada customer
+   * bahwa harga dapat berubah setelah memilih berat.
+   */
+
+  const hasWeightSpecificFlashSale =
+    normalizedFlashSaleItems.some(
+      (item) =>
+        item.weightOptionId !==
+        null
+    );
+
+  /**
  * ==========================================================
  * PRODUCT PRICE RANGE
  * ==========================================================
@@ -216,218 +503,215 @@ export default async function ProductDetailPage({
  * maximum price
  */
 
-const price =
-  Number(product.price);
+  const price =
+    Number(product.price);
 
-/**
- * ==========================================================
- * PRODUCT DISCOUNT
- * ==========================================================
- */
+  /**
+   * ==========================================================
+   * PRODUCT DISCOUNT
+   * ==========================================================
+   */
 
-const discountValue =
-  product.discountValue !== null
-    ? Number(
+  const discountValue =
+    product.discountValue !== null
+      ? Number(
         product.discountValue
       )
-    : 0;
+      : 0;
 
-const now =
-  new Date();
+  const hasDiscountStarted =
+    !product.discountStartAt ||
+    new Date(
+      product.discountStartAt
+    ) <= now;
 
-const hasDiscountStarted =
-  !product.discountStartAt ||
-  new Date(
-    product.discountStartAt
-  ) <= now;
+  const hasDiscountEnded =
+    !!product.discountEndAt &&
+    new Date(
+      product.discountEndAt
+    ) <= now;
 
-const hasDiscountEnded =
-  !!product.discountEndAt &&
-  new Date(
-    product.discountEndAt
-  ) <= now;
+  const isDiscountCurrentlyActive =
+    product.isDiscountActive &&
+    product.discountType !== null &&
+    discountValue > 0 &&
+    hasDiscountStarted &&
+    !hasDiscountEnded;
 
-const isDiscountCurrentlyActive =
-  product.isDiscountActive &&
-  product.discountType !== null &&
-  discountValue > 0 &&
-  hasDiscountStarted &&
-  !hasDiscountEnded;
+  /**
+   * ==========================================================
+   * APPLY PRODUCT DISCOUNT
+   * ==========================================================
+   *
+   * Diskon diterapkan ke setiap harga.
+   *
+   * PERCENTAGE:
+   *
+   * price - percentage discount
+   *
+   * FIXED_AMOUNT:
+   *
+   * price - fixed discount
+   */
 
-/**
- * ==========================================================
- * APPLY PRODUCT DISCOUNT
- * ==========================================================
- *
- * Diskon diterapkan ke setiap harga.
- *
- * PERCENTAGE:
- *
- * price - percentage discount
- *
- * FIXED_AMOUNT:
- *
- * price - fixed discount
- */
+  const applyProductDiscount = (
+    originalPrice: number
+  ) => {
+    if (
+      !isDiscountCurrentlyActive
+    ) {
+      return originalPrice;
+    }
 
-const applyProductDiscount = (
-  originalPrice: number
-) => {
-  if (
-    !isDiscountCurrentlyActive
-  ) {
+    if (
+      product.discountType ===
+      "PERCENTAGE"
+    ) {
+      const percentage =
+        Math.min(
+          100,
+          Math.max(
+            0,
+            discountValue
+          )
+        );
+
+      const discountAmount =
+        originalPrice *
+        (percentage / 100);
+
+      return Math.max(
+        0,
+        originalPrice -
+        discountAmount
+      );
+    }
+
+    if (
+      product.discountType ===
+      "FIXED_AMOUNT"
+    ) {
+      const discountAmount =
+        Math.min(
+          originalPrice,
+          Math.max(
+            0,
+            discountValue
+          )
+        );
+
+      return Math.max(
+        0,
+        originalPrice -
+        discountAmount
+      );
+    }
+
     return originalPrice;
-  }
+  };
 
-  if (
-    product.discountType ===
-    "PERCENTAGE"
-  ) {
-    const percentage =
-      Math.min(
-        100,
-        Math.max(
-          0,
-          discountValue
-        )
-      );
+  /**
+   * ==========================================================
+   * ACTIVE WEIGHT PRICES
+   * ==========================================================
+   *
+   * Jika tersedia weight option aktif,
+   * gunakan seluruh harga weight.
+   *
+   * Jika tidak tersedia,
+   * fallback ke harga dasar produk.
+   */
 
-    const discountAmount =
-      originalPrice *
-      (percentage / 100);
-
-    return Math.max(
-      0,
-      originalPrice -
-        discountAmount
-    );
-  }
-
-  if (
-    product.discountType ===
-    "FIXED_AMOUNT"
-  ) {
-    const discountAmount =
-      Math.min(
-        originalPrice,
-        Math.max(
-          0,
-          discountValue
-        )
-      );
-
-    return Math.max(
-      0,
-      originalPrice -
-        discountAmount
-    );
-  }
-
-  return originalPrice;
-};
-
-/**
- * ==========================================================
- * ACTIVE WEIGHT PRICES
- * ==========================================================
- *
- * Jika tersedia weight option aktif,
- * gunakan seluruh harga weight.
- *
- * Jika tidak tersedia,
- * fallback ke harga dasar produk.
- */
-
-const originalPriceList =
-  weightOptions.length > 0
-    ? weightOptions.map(
+  const originalPriceList =
+    weightOptions.length > 0
+      ? weightOptions.map(
         (option) =>
           option.price
       )
-    : [price];
+      : [price];
 
-/**
- * ==========================================================
- * ORIGINAL PRICE RANGE
- * ==========================================================
- */
+  /**
+   * ==========================================================
+   * ORIGINAL PRICE RANGE
+   * ==========================================================
+   */
 
-const minimumOriginalPrice =
-  Math.min(
-    ...originalPriceList
-  );
+  const minimumOriginalPrice =
+    Math.min(
+      ...originalPriceList
+    );
 
-const maximumOriginalPrice =
-  Math.max(
-    ...originalPriceList
-  );
+  const maximumOriginalPrice =
+    Math.max(
+      ...originalPriceList
+    );
 
-/**
- * ==========================================================
- * FINAL PRICE RANGE
- * ==========================================================
- *
- * Diskon diterapkan pada setiap harga weight.
- */
+  /**
+   * ==========================================================
+   * FINAL PRICE RANGE
+   * ==========================================================
+   *
+   * Diskon diterapkan pada setiap harga weight.
+   */
 
-const finalPriceList =
-  originalPriceList.map(
-    (originalPrice) =>
-      applyProductDiscount(
-        originalPrice
-      )
-  );
+  const finalPriceList =
+    originalPriceList.map(
+      (originalPrice) =>
+        applyProductDiscount(
+          originalPrice
+        )
+    );
 
-const minimumFinalPrice =
-  Math.min(
-    ...finalPriceList
-  );
+  const minimumFinalPrice =
+    Math.min(
+      ...finalPriceList
+    );
 
-const maximumFinalPrice =
-  Math.max(
-    ...finalPriceList
-  );
+  const maximumFinalPrice =
+    Math.max(
+      ...finalPriceList
+    );
 
-/**
- * ==========================================================
- * TOTAL SAVING RANGE
- * ==========================================================
- */
+  /**
+   * ==========================================================
+   * TOTAL SAVING RANGE
+   * ==========================================================
+   */
 
-const minimumSaving =
-  Math.max(
-    0,
-    minimumOriginalPrice -
+  const minimumSaving =
+    Math.max(
+      0,
+      minimumOriginalPrice -
       minimumFinalPrice
-  );
+    );
 
-const maximumSaving =
-  Math.max(
-    0,
-    maximumOriginalPrice -
+  const maximumSaving =
+    Math.max(
+      0,
+      maximumOriginalPrice -
       maximumFinalPrice
-  );
+    );
 
-/**
- * ==========================================================
- * PRICE RANGE HELPERS
- * ==========================================================
- */
+  /**
+   * ==========================================================
+   * PRICE RANGE HELPERS
+   * ==========================================================
+   */
 
-const hasOriginalPriceRange =
-  minimumOriginalPrice !==
-  maximumOriginalPrice;
+  const hasOriginalPriceRange =
+    minimumOriginalPrice !==
+    maximumOriginalPrice;
 
-const hasFinalPriceRange =
-  minimumFinalPrice !==
-  maximumFinalPrice;
+  const hasFinalPriceRange =
+    minimumFinalPrice !==
+    maximumFinalPrice;
 
-const hasPriceDiscount =
-  isDiscountCurrentlyActive &&
-  (
-    minimumSaving > 0 ||
-    maximumSaving > 0
-  );
+  const hasPriceDiscount =
+    isDiscountCurrentlyActive &&
+    (
+      minimumSaving > 0 ||
+      maximumSaving > 0
+    );
 
   /**
    * ==========================================================
@@ -454,7 +738,7 @@ const hasPriceDiscount =
       {/* ==================================================== */}
 
       <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1200px] px-4 py-4 lg:px-0">
+        <div className="mx-auto max-w-300 px-4 py-4 lg:px-0">
           <nav className="flex flex-wrap items-center gap-1 text-sm">
             <Link
               href="/"
@@ -486,7 +770,7 @@ const hasPriceDiscount =
 
             <ChevronRight className="h-4 w-4 text-slate-400" />
 
-            <span className="max-w-[280px] truncate text-slate-900">
+            <span className="max-w-70 truncate text-slate-900">
               {product.name}
             </span>
           </nav>
@@ -494,49 +778,49 @@ const hasPriceDiscount =
       </div>
 
       {/* ==================================================== */}
-{/* PRODUCT MAIN */}
-{/* ==================================================== */}
+      {/* PRODUCT MAIN */}
+      {/* ==================================================== */}
 
-<section>
-  <div className="mx-auto max-w-[1200px] px-3 py-3 sm:px-4 lg:px-0">
-    <div className="bg-white">
-      <div className="grid lg:grid-cols-[480px_minmax(0,1fr)]">
+      <section>
+        <div className="mx-auto max-w-300 px-3 py-3 sm:px-4 lg:px-0">
+          <div className="bg-white">
+            <div className="grid lg:grid-cols-[480px_minmax(0,1fr)]">
 
-        {/* ================================================= */}
-        {/* PRODUCT GALLERY */}
-        {/* ================================================= */}
+              {/* ================================================= */}
+              {/* PRODUCT GALLERY */}
+              {/* ================================================= */}
 
-        <div className="p-5 lg:p-6">
-          <ProductDetailGallery
-            productName={
-              product.name
-            }
-            images={
-              images.map(
-                (image) => ({
-                  id:
-                    image.id,
+              <div className="p-5 lg:p-6">
+                <ProductDetailGallery
+                  productName={
+                    product.name
+                  }
+                  images={
+                    images.map(
+                      (image) => ({
+                        id:
+                          image.id,
 
-                  image:
-                    image.image,
+                        image:
+                          image.image,
 
-                  isThumbnail:
-                    image.isThumbnail,
+                        isThumbnail:
+                          image.isThumbnail,
 
-                  sortOrder:
-                    image.sortOrder,
-                })
-              )
-            }
-            favoriteButton={
-              <ToggleWishlistButton
-                productId={
-                  product.id
-                }
-                initialInWishlist={
-                  initialInWishlist
-                }
-                className="
+                        sortOrder:
+                          image.sortOrder,
+                      })
+                    )
+                  }
+                  favoriteButton={
+                    <ToggleWishlistButton
+                      productId={
+                        product.id
+                      }
+                      initialInWishlist={
+                        initialInWishlist
+                      }
+                      className="
                   flex
                   h-11
                   w-11
@@ -556,10 +840,10 @@ const hasPriceDiscount =
                   hover:text-red-500
                   active:scale-95
                 "
-              />
-            }
-          />
-        </div>
+                    />
+                  }
+                />
+              </div>
 
               {/* ================================================= */}
               {/* PRODUCT INFO */}
@@ -612,7 +896,7 @@ const hasPriceDiscount =
 
                   <div className="border-r border-slate-200 px-5">
                     <span className="font-medium text-slate-900">
-                      -
+                      512
                     </span>
 
                     <span className="ml-2 text-slate-500">
@@ -622,7 +906,7 @@ const hasPriceDiscount =
 
                   <div className="px-5">
                     <span className="font-medium text-slate-900">
-                      -
+                      1025
                     </span>
 
                     <span className="ml-2 text-slate-500">
@@ -631,85 +915,263 @@ const hasPriceDiscount =
                   </div>
                 </div>
 
+                {/* ====================================================== */}
+{/* PRODUCT PRICE */}
 {/* ====================================================== */}
-{/* PRODUCT PRICE RANGE */}
-{/* ====================================================== */}
 
-<div className="mt-5 bg-slate-50 px-5 py-5">
-  {hasPriceDiscount ? (
-    <div>
-      {/* ORIGINAL PRICE */}
+<div className="mt-5">
+  {isFlashSaleDisplay &&
+  productWideFlashSale ? (
+    <div className="overflow-hidden bg-[#fff4f1]">
 
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-lg text-slate-400 line-through">
-          {hasOriginalPriceRange
-            ? `${formatRupiah(
-                minimumOriginalPrice
-              )} - ${formatRupiah(
-                maximumOriginalPrice
-              )}`
-            : formatRupiah(
-                minimumOriginalPrice
-              )}
-        </p>
+      {/* ================================================== */}
+      {/* FLASH SALE HEADER */}
+      {/* ================================================== */}
 
-        <span className="rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-600">
-          {product.discountType ===
-          "PERCENTAGE"
-            ? `${discountValue}%`
-            : "DISKON"}
-        </span>
+      <div
+        className="
+          flex
+          flex-col
+          gap-3
+          bg-gradient-to-r
+          from-[#ff4d2d]
+          to-[#ff6a3d]
+          px-4
+          py-3
+          sm:flex-row
+          sm:items-center
+          sm:justify-between
+        "
+      >
+        {/* FLASH SALE LABEL */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
+          <span
+            className="
+              text-lg
+              font-black
+              italic
+              tracking-wide
+              text-white
+              sm:text-xl
+            "
+          >
+            ⚡ FLASH SALE
+          </span>
+
+          {displayDiscountPercentage > 0 && (
+            <span
+              className="
+                rounded
+                bg-white/20
+                px-2
+                py-1
+                text-xs
+                font-bold
+                text-white
+              "
+            >
+              -{displayDiscountPercentage}%
+            </span>
+          )}
+        </div>
+
+        {/* COUNTDOWN */}
+
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            gap-3
+            sm:justify-end
+          "
+        >
+          <span
+            className="
+              text-xs
+              font-semibold
+              uppercase
+              tracking-wide
+              text-white
+              sm:text-sm
+            "
+          >
+            Berakhir Dalam
+          </span>
+
+          <FlashSaleCountdown
+            endsAt={
+              productWideFlashSale.endsAt
+            }
+          />
+        </div>
       </div>
 
-      {/* FINAL PRICE RANGE */}
+      {/* ================================================== */}
+      {/* FLASH SALE PRICE */}
+      {/* ================================================== */}
 
-      <p className="mt-1 text-[30px] font-semibold tracking-tight text-cyan-700">
-        {hasFinalPriceRange
-          ? `${formatRupiah(
-              minimumFinalPrice
-            )} - ${formatRupiah(
-              maximumFinalPrice
-            )}`
-          : formatRupiah(
-              minimumFinalPrice
+      <div
+        className="
+          px-4
+          py-5
+          sm:px-5
+        "
+      >
+        {/* CAMPAIGN NAME */}
+
+        <p
+          className="
+            mb-3
+            text-xs
+            font-medium
+            text-slate-500
+          "
+        >
+          {productWideFlashSale.campaignName}
+        </p>
+
+        <div
+          className="
+            flex
+            flex-wrap
+            items-end
+            gap-x-3
+            gap-y-2
+          "
+        >
+          {/* FLASH PRICE */}
+
+          <div
+            className="
+              text-3xl
+              font-bold
+              tracking-tight
+              text-[#ee4d2d]
+              sm:text-4xl
+            "
+          >
+            {formatRupiah(
+              displayFinalPrice
             )}
-      </p>
+          </div>
 
-      {/* SAVING */}
+          {/* ORIGINAL PRICE */}
 
-      <p className="mt-1 text-sm text-emerald-600">
-        {minimumSaving ===
-        maximumSaving
-          ? (
-              <>
-                Hemat{" "}
-                {formatRupiah(
-                  minimumSaving
-                )}
-              </>
-            )
-          : (
-              <>
-                Hemat hingga{" "}
-                {formatRupiah(
-                  maximumSaving
-                )}
-              </>
+          <div
+            className="
+              pb-1
+              text-sm
+              text-slate-400
+              line-through
+            "
+          >
+            {formatRupiah(
+              displayOriginalPrice
             )}
-      </p>
+          </div>
+        </div>
+
+        {/* SAVING */}
+
+        {displaySaving > 0 && (
+          <div
+            className="
+              mt-3
+              inline-flex
+              items-center
+              rounded
+              bg-red-100
+              px-2.5
+              py-1
+              text-xs
+              font-semibold
+              text-red-600
+            "
+          >
+            Hemat{" "}
+            {formatRupiah(
+              displaySaving
+            )}
+          </div>
+        )}
+      </div>
     </div>
   ) : (
-    <p className="text-[30px] font-semibold tracking-tight text-cyan-700">
-      {hasOriginalPriceRange
-        ? `${formatRupiah(
-            minimumOriginalPrice
-          )} - ${formatRupiah(
-            maximumOriginalPrice
-          )}`
-        : formatRupiah(
-            minimumOriginalPrice
+    <div>
+      {/* ================================================ */}
+      {/* PRODUCT DISCOUNT */}
+      {/* ================================================ */}
+
+      {isProductDiscountActive &&
+      displaySaving > 0 ? (
+        <div className="space-y-1">
+          <div className="text-sm text-slate-400 line-through">
+            {formatRupiah(
+              displayOriginalPrice
+            )}
+          </div>
+
+          <div className="text-2xl font-bold text-slate-950 sm:text-3xl">
+            {formatRupiah(
+              displayFinalPrice
+            )}
+          </div>
+
+          <div className="text-sm font-medium text-emerald-600">
+            Hemat{" "}
+            {formatRupiah(
+              displaySaving
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ============================================== */
+        /* NORMAL PRICE */
+        /* ============================================== */
+
+        <div className="text-2xl font-bold text-slate-950 sm:text-3xl">
+          {formatRupiah(
+            displayFinalPrice
           )}
-    </p>
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* ==================================================== */}
+  {/* WEIGHT SPECIFIC FLASH SALE */}
+  {/* ==================================================== */}
+
+  {hasWeightSpecificFlashSale &&
+  !isFlashSaleDisplay && (
+    <div
+      className="
+        mt-3
+        border-l-4
+        border-[#ee4d2d]
+        bg-[#fff4f1]
+        px-3
+        py-2.5
+      "
+    >
+      <p
+        className="
+          text-xs
+          font-medium
+          text-[#ee4d2d]
+        "
+      >
+        ⚡ Tersedia harga Flash Sale untuk pilihan berat tertentu.
+      </p>
+    </div>
   )}
 </div>
 
@@ -790,139 +1252,131 @@ const hasPriceDiscount =
 
                 <div className="mt-8 border-t border-slate-200 pt-7">
                   <AddToCartButton
-  productId={
-    product.id
-  }
-  stock={
-    product.stock
-  }
-  basePrice={
-    price
-  }
-  variantOptions={
-    variantOptions
-  }
-  weightOptions={
-    weightOptions
-  }
+                    productId={product.id}
+                    stock={product.stock}
+                    basePrice={
+                      Number(
+                        product.price
+                      )
+                    }
+                    variantOptions={
+                      variantOptions
+                    }
+                    weightOptions={
+                      weightOptions
+                    }
+                    flashSaleItems={
+                      normalizedFlashSaleItems
+                    }
+                    isDiscountActive={
+                      product.isDiscountActive
+                    }
+                    discountType={
+                      product.discountType
+                    }
+                    discountValue={
+                      product.discountValue
+                        ? Number(
+                          product.discountValue
+                        )
+                        : null
+                    }
+                    discountStartAt={
+                      product.discountStartAt
+                    }
+                    discountEndAt={
+                      product.discountEndAt
+                    }
+                  />
 
-  /**
-   * PRODUCT DISCOUNT
-   */
 
-  isDiscountActive={
-    product.isDiscountActive
-  }
-
-  discountType={
-    product.discountType
-  }
-
-  discountValue={
-    product.discountValue !== null
-      ? Number(
-          product.discountValue
-        )
-      : null
-  }
-
-  discountStartAt={
-    product.discountStartAt
-  }
-
-  discountEndAt={
-    product.discountEndAt
-  }
-/>
-
-                  
                 </div>
               </div>
             </div>
           </div>
 
           {/* ==================================================== */}
-{/* PRODUCT INFORMATION */}
-{/* ==================================================== */}
+          {/* PRODUCT INFORMATION */}
+          {/* ==================================================== */}
 
-<section className="mt-3 bg-white px-5 py-5 lg:px-8 lg:py-6">
-  <h2 className="border-b border-slate-100 pb-4 text-lg font-medium text-slate-900">
-    Informasi Produk
-  </h2>
+          <section className="mt-3 bg-white px-5 py-5 lg:px-8 lg:py-6">
+            <h2 className="border-b border-slate-100 pb-4 text-lg font-medium text-slate-900">
+              Informasi Produk
+            </h2>
 
-  <div className="mt-5 max-w-4xl">
+            <div className="mt-5 max-w-4xl">
 
-    <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-y-4 text-sm sm:grid-cols-[180px_minmax(0,1fr)]">
+              <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-y-4 text-sm sm:grid-cols-[180px_minmax(0,1fr)]">
 
-      <div className="text-slate-500">
-        Kategori
-      </div>
+                <div className="text-slate-500">
+                  Kategori
+                </div>
 
-      <div className="text-slate-900">
-        {product.category.name}
-      </div>
+                <div className="text-slate-900">
+                  {product.category.name}
+                </div>
 
-      <div className="text-slate-500">
-        SKU
-      </div>
+                <div className="text-slate-500">
+                  SKU
+                </div>
 
-      <div className="font-mono text-slate-900">
-        {product.sku ?? "-"}
-      </div>
+                <div className="font-mono text-slate-900">
+                  {product.sku ?? "-"}
+                </div>
 
-      <div className="text-slate-500">
-        Stok
-      </div>
+                <div className="text-slate-500">
+                  Stok
+                </div>
 
-      <div className="text-slate-900">
-        {stock} tersedia
-      </div>
+                <div className="text-slate-900">
+                  {stock} tersedia
+                </div>
 
-      <div className="text-slate-500">
-        Status
-      </div>
+                <div className="text-slate-500">
+                  Status
+                </div>
 
-      <div>
-        {outOfStock ? (
-          <span className="text-red-600">
-            Stok habis
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-emerald-600">
-            <Check className="h-4 w-4" />
+                <div>
+                  {outOfStock ? (
+                    <span className="text-red-600">
+                      Stok habis
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-emerald-600">
+                      <Check className="h-4 w-4" />
 
-            Tersedia
-          </span>
-        )}
-      </div>
+                      Tersedia
+                    </span>
+                  )}
+                </div>
 
-    </div>
-  </div>
-</section>
+              </div>
+            </div>
+          </section>
 
-{/* ==================================================== */}
-{/* DESCRIPTION */}
-{/* ==================================================== */}
+          {/* ==================================================== */}
+          {/* DESCRIPTION */}
+          {/* ==================================================== */}
 
-<section className="mt-3 bg-white px-5 py-5 lg:px-8 lg:py-6">
-  <h2 className="border-b border-slate-100 pb-4 text-lg font-medium text-slate-900">
-    Deskripsi Produk
-  </h2>
+          <section className="mt-3 bg-white px-5 py-5 lg:px-8 lg:py-6">
+            <h2 className="border-b border-slate-100 pb-4 text-lg font-medium text-slate-900">
+              Deskripsi Produk
+            </h2>
 
-  <div className="mt-5 max-w-[850px]">
+            <div className="mt-5 max-w-212.5">
 
-    {product.description ? (
-      <div className="whitespace-pre-line text-sm leading-7 text-slate-700">
-        {product.description}
-      </div>
-    ) : (
-      <p className="text-sm text-slate-400">
-        Belum ada deskripsi produk.
-      </p>
-    )}
+              {product.description ? (
+                <div className="whitespace-pre-line text-sm leading-7 text-slate-700">
+                  {product.description}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">
+                  Belum ada deskripsi produk.
+                </p>
+              )}
 
-  </div>
-</section>
+            </div>
+          </section>
 
           {/* ==================================================== */}
           {/* TRUST SECTION */}

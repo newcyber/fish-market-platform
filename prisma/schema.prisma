@@ -70,6 +70,14 @@ enum VoucherDiscountType {
   FIXED_AMOUNT
 }
 
+enum FlashSaleStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
 model User {
   id                String    @id @default(uuid())
   name              String
@@ -89,6 +97,8 @@ model User {
   cart      Cart?
 
   voucherUsages VoucherUsage[]
+
+  flashSalePurchases FlashSalePurchase[]
 
   accounts Account[]
   sessions Session[]
@@ -323,9 +333,38 @@ model CartItem {
    * ============================================================
    * PRICE
    * ============================================================
+   * Snapshot harga satuan ketika item dimasukkan
+   * ke dalam keranjang.
    */
 
   price Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * FLASH SALE SNAPSHOT
+   * ============================================================
+   * Cart tidak boleh menjadi sumber kebenaran final
+   * untuk Flash Sale.
+   * Field ini hanya menyimpan snapshot bahwa item
+   * masuk ke cart menggunakan Flash Sale tertentu.
+   * Saat checkout, Flash Sale wajib divalidasi ulang.
+   */
+
+  isFlashSaleApplied Boolean @default(false)
+
+  flashSaleId String?
+
+  flashSaleItemId String?
+
+  /**
+   * ============================================================
+   * FLASH SALE RELATIONS
+   * ============================================================
+   */
+
+  flashSale FlashSale? @relation("CartItemFlashSale", fields: [flashSaleId], references: [id], onDelete: SetNull)
+
+  flashSaleItem FlashSaleItem? @relation("CartItemFlashSaleItem", fields: [flashSaleItemId], references: [id], onDelete: SetNull)
 
   /**
    * ============================================================
@@ -352,6 +391,8 @@ model CartItem {
   @@unique([cartId, productId, productVariant, productWeight])
   @@index([cartId])
   @@index([productId])
+  @@index([flashSaleId])
+  @@index([flashSaleItemId])
 }
 
 model Address {
@@ -531,6 +572,8 @@ model Product {
 
   weightOptions ProductWeightOption[] @relation("ProductWeightOptions")
 
+  flashSaleItems FlashSaleItem[]
+
   stockLedgers StockLedger[] @relation("ProductStockLedgers")
 
   orderItems OrderItem[]
@@ -614,6 +657,8 @@ model ProductWeightOption {
 
   isActive Boolean @default(true)
 
+  flashSaleItems FlashSaleItem[]
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -623,6 +668,343 @@ model ProductWeightOption {
   @@index([sku])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+/**
+ * ============================================================
+ * FLASH SALE
+ * ============================================================
+ * Campaign utama Flash Sale.
+ * Contoh:
+ * Flash Sale Akhir Pekan
+ * startAt:
+ * 2026-08-22 00:00
+ * endAt:
+ * 2026-08-24 23:59
+ */
+model FlashSale {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * BASIC INFORMATION
+   * ============================================================
+   */
+
+  name String
+
+  slug String @unique
+
+  description String?
+
+  /**
+   * ============================================================
+   * VISUAL
+   * ============================================================
+   */
+
+  banner String?
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   */
+
+  status FlashSaleStatus @default(DRAFT)
+
+  /**
+   * ============================================================
+   * SCHEDULE
+   * ============================================================
+   */
+
+  startAt DateTime
+
+  endAt DateTime
+
+  /**
+   * ============================================================
+   * DISPLAY
+   * ============================================================
+   */
+
+  sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * RELATIONS
+   * ============================================================
+   */
+
+  items FlashSaleItem[]
+
+  cartItems CartItem[] @relation("CartItemFlashSale")
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  deletedAt DateTime?
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([slug])
+  @@index([status])
+  @@index([startAt])
+  @@index([endAt])
+  @@index([sortOrder])
+  @@index([deletedAt])
+  @@index([status, startAt, endAt])
+}
+
+/**
+ * ============================================================
+ * FLASH SALE ITEM
+ * ============================================================
+ * Produk atau pilihan berat produk yang mengikuti Flash Sale.
+ */
+model FlashSaleItem {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * FLASH SALE RELATION
+   * ============================================================
+   */
+
+  flashSaleId String
+
+  flashSale FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * PRODUCT RELATION
+   * ============================================================
+   */
+
+  productId String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * WEIGHT OPTION
+   * ============================================================
+   * null
+   * = Flash Sale berlaku untuk seluruh pilihan berat.
+   * value
+   * = Flash Sale hanya berlaku untuk berat tertentu.
+   */
+
+  weightOptionId String?
+
+  weightOption ProductWeightOption? @relation(fields: [weightOptionId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * PRICE SNAPSHOT
+   * ============================================================
+   * Harga normal saat item Flash Sale dikonfigurasi.
+   * Field ini digunakan sebagai snapshot dan audit.
+   */
+
+  originalPrice Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * FLASH SALE PRICE
+   * ============================================================
+   */
+
+  flashPrice Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * STOCK / QUOTA
+   * ============================================================
+   * stockLimit:
+   * Total kuota unit yang tersedia untuk Flash Sale.
+   * soldQuantity:
+   * Jumlah unit yang sudah berhasil dialokasikan/dibeli.
+   */
+
+  stockLimit Int
+
+  soldQuantity Int @default(0)
+
+  /**
+   * ============================================================
+   * CUSTOMER PURCHASE LIMIT
+   * ============================================================
+   * null
+   * = tidak ada batas per customer.
+   * Contoh:
+   * 2
+   * = satu customer maksimal membeli 2 unit.
+   */
+
+  perUserLimit Int?
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   * Digunakan untuk menonaktifkan item tertentu tanpa
+   * harus menghentikan seluruh campaign Flash Sale.
+   */
+
+  isActive Boolean @default(true)
+
+  /**
+   * ============================================================
+   * DISPLAY
+   * ============================================================
+   */
+
+  sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * RELATIONS
+   * ============================================================
+   */
+
+  purchases FlashSalePurchase[]
+
+  cartItems CartItem[] @relation("CartItemFlashSaleItem")
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([flashSaleId])
+  @@index([productId])
+  @@index([weightOptionId])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([flashSaleId, isActive])
+}
+
+/**
+ * ============================================================
+ * FLASH SALE PURCHASE
+ * ============================================================
+ * Mencatat pembelian Flash Sale.
+ * Digunakan untuk:
+ * - Per user limit
+ * - Audit
+ * - Riwayat Flash Sale
+ * - Validasi checkout
+ */
+model FlashSalePurchase {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * FLASH SALE ITEM
+   * ============================================================
+   */
+
+  flashSaleItemId String
+
+  flashSaleItem FlashSaleItem @relation(fields: [flashSaleItemId], references: [id], onDelete: Restrict)
+
+  /**
+   * ============================================================
+   * USER
+   * ============================================================
+   */
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * ORDER
+   * ============================================================
+   */
+
+  orderId String
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * QUANTITY
+   * ============================================================
+   */
+
+  quantity Int
+
+  /**
+   * ============================================================
+   * PRICE SNAPSHOT
+   * ============================================================
+   * Harga Flash Sale per unit saat checkout.
+   */
+
+  price Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * TIMESTAMP
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([flashSaleItemId])
+  @@index([userId])
+  @@index([orderId])
+  @@index([flashSaleItemId, userId])
 }
 
 /**
@@ -931,6 +1313,8 @@ model Order {
   deletedAt DateTime?
 
   stockLedgers StockLedger[] @relation("OrderStockLedgers")
+
+  flashSalePurchases FlashSalePurchase[]
 
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
