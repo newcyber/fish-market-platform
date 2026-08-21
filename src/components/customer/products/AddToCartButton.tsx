@@ -1093,7 +1093,7 @@ function validateSelection() {
           flex
           flex-col
           gap-3
-          bg-gradient-to-r
+          bg-linear-to-r
           from-[#fc2600]
           to-[#f739a8]
           px-5
@@ -1262,7 +1262,7 @@ function validateSelection() {
         className="
           h-full
           rounded-full
-          bg-gradient-to-r
+          bg-linear-to-r
           from-[#ff4d2d]
           to-[#ff8a4c]
           transition-all

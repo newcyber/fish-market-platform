@@ -2,43 +2,75 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ============================================================
+   DARK VARIANT
+============================================================ */
+
 @custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   PISJO MARKET DESIGN TOKENS
+============================================================ */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent-foreground: var(
+    --sidebar-accent-foreground
+  );
   --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary-foreground: var(
+    --sidebar-primary-foreground
+  );
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
+
   --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+
   --color-destructive: var(--destructive);
+
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-secondary-foreground: var(
+    --secondary-foreground
+  );
   --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
+
+  --color-primary-foreground: var(
+    --primary-foreground
+  );
   --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
+
+  --color-popover-foreground: var(
+    --popover-foreground
+  );
   --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
+
+  --color-card-foreground: var(
+    --card-foreground
+  );
   --color-card: var(--card);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,83 +80,195 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ============================================================
+   PISJO MARKET - LIGHT THEME
+============================================================ */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ----------------------------------------------------------
+     CORE
+  ---------------------------------------------------------- */
+
+  --background: #f5f8fc;
+  --foreground: #1d2b3a;
+
+  --card: #ffffff;
+  --card-foreground: #1d2b3a;
+
+  --popover: #ffffff;
+  --popover-foreground: #1d2b3a;
+
+  /* ----------------------------------------------------------
+     BRAND PRIMARY
+     Deep Ocean Navy
+  ---------------------------------------------------------- */
+
+  --primary: #123a63;
+  --primary-foreground: #ffffff;
+
+  /* ----------------------------------------------------------
+     SECONDARY
+     Soft Ocean Surface
+  ---------------------------------------------------------- */
+
+  --secondary: #eaf2f8;
+  --secondary-foreground: #123a63;
+
+  /* ----------------------------------------------------------
+     MUTED
+  ---------------------------------------------------------- */
+
+  --muted: #eef4f8;
+  --muted-foreground: #64748b;
+
+  /* ----------------------------------------------------------
+     ACCENT
+     Fresh Ocean Blue
+  ---------------------------------------------------------- */
+
+  --accent: #dcecf7;
+  --accent-foreground: #164e7a;
+
+  /* ----------------------------------------------------------
+     DANGER
+  ---------------------------------------------------------- */
+
+  --destructive: #dc2626;
+
+  /* ----------------------------------------------------------
+     BORDER / INPUT / FOCUS
+  ---------------------------------------------------------- */
+
+  --border: #dbe5ee;
+  --input: #dbe5ee;
+  --ring: #2f6fae;
+
+  /* ----------------------------------------------------------
+     CHART
+  ---------------------------------------------------------- */
+
+  --chart-1: #123a63;
+  --chart-2: #2f6fae;
+  --chart-3: #6fae45;
+  --chart-4: #f59e0b;
+  --chart-5: #dc2626;
+
+  /* ----------------------------------------------------------
+     RADIUS
+  ---------------------------------------------------------- */
+
+  --radius: 0.875rem;
+
+  /* ----------------------------------------------------------
+     SIDEBAR
+  ---------------------------------------------------------- */
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1d2b3a;
+
+  --sidebar-primary: #123a63;
+  --sidebar-primary-foreground: #ffffff;
+
+  --sidebar-accent: #eaf2f8;
+  --sidebar-accent-foreground: #123a63;
+
+  --sidebar-border: #dbe5ee;
+  --sidebar-ring: #2f6fae;
+
+  /* ==========================================================
+     CUSTOM PISJO MARKET TOKENS
+  ========================================================== */
+
+  --ocean-950: #0b243d;
+  --ocean-900: #123a63;
+  --ocean-800: #164e7a;
+  --ocean-700: #1e6091;
+  --ocean-600: #2f6fae;
+  --ocean-500: #4b89c6;
+
+  --fresh-700: #4f8a35;
+  --fresh-600: #639b42;
+  --fresh-500: #6fae45;
+  --fresh-400: #8cc968;
+  --fresh-100: #edf7e8;
+
+  --ice-50: #f8fbfd;
+  --ice-100: #f5f8fc;
+  --ice-200: #eef4f8;
+
+  --ink-900: #1d2b3a;
+  --ink-700: #334155;
+  --ink-600: #475569;
+  --ink-500: #64748b;
 }
 
+/* ============================================================
+   DARK THEME
+============================================================ */
+
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0b1622;
+  --foreground: #eef6fc;
+
+  --card: #112234;
+  --card-foreground: #eef6fc;
+
+  --popover: #112234;
+  --popover-foreground: #eef6fc;
+
+  --primary: #78add9;
+  --primary-foreground: #0b243d;
+
+  --secondary: #183149;
+  --secondary-foreground: #eef6fc;
+
+  --muted: #183149;
+  --muted-foreground: #9db1c4;
+
+  --accent: #1d3c58;
+  --accent-foreground: #d9ecfb;
+
+  --destructive: #f87171;
+
+  --border: rgb(180 210 235 / 14%);
+  --input: rgb(180 210 235 / 18%);
+  --ring: #78add9;
+
+  --chart-1: #78add9;
+  --chart-2: #5f96c5;
+  --chart-3: #8cc968;
+  --chart-4: #fbbf24;
+  --chart-5: #f87171;
+
+  --sidebar: #0e1d2c;
+  --sidebar-foreground: #eef6fc;
+
+  --sidebar-primary: #78add9;
+  --sidebar-primary-foreground: #0b243d;
+
+  --sidebar-accent: #183149;
+  --sidebar-accent-foreground: #eef6fc;
+
+  --sidebar-border: rgb(180 210 235 / 14%);
+  --sidebar-ring: #78add9;
 }
+
+/* ============================================================
+   BASE
+============================================================ */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    background: var(--background);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    min-height: 100vh;
   }
 }

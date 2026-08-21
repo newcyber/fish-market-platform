@@ -325,7 +325,7 @@ export default function ProductDetailGallery({
                     index + 1
                   }`}
                   className={[
-                    "relative h-[72px] w-[72px]",
+                    "relative h-18 w-18",
                     "shrink-0",
                     "overflow-hidden",
                     "rounded-lg",

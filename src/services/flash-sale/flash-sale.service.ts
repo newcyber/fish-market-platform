@@ -638,6 +638,37 @@ export default class FlashSaleService {
    * Soft delete campaign Flash Sale.
    */
 
+    /**
+   * ==========================================================
+   * GET ACTIVE FLASH SALE FOR HOMEPAGE
+   * ==========================================================
+   *
+   * Read-only method khusus homepage.
+   *
+   * Method ini hanya mengambil Flash Sale aktif
+   * beserta item yang tersedia untuk ditampilkan
+   * pada homepage.
+   *
+   * Tidak mengubah:
+   *
+   * - stock
+   * - sold quantity
+   * - pricing
+   * - cart
+   * - checkout
+   */
+  static async getActiveForHomepage() {
+    return FlashSaleRepository.findActiveForHomepage();
+  }
+
+  /**
+   * ==========================================================
+   * DELETE
+   * ==========================================================
+   *
+   * Soft delete campaign Flash Sale.
+   */
+
   static async delete(
     id: string
   ) {

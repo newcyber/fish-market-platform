@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
  * - Pricing
  * - Cart
  * - Checkout
+ * - Homepage Flash Sale
  * - Admin Flash Sale Campaign Management
  * - Admin Flash Sale Item Management
  *
@@ -196,6 +197,130 @@ export default class FlashSaleRepository {
 
   /**
    * ============================================================
+   * FIND ACTIVE FLASH SALE FOR HOMEPAGE
+   * ============================================================
+   *
+   * Read-only query khusus homepage.
+   *
+   * Mengambil satu Flash Sale yang:
+   *
+   * - ACTIVE
+   * - Belum dihapus
+   * - Sudah dimulai
+   * - Belum berakhir
+   * - Memiliki item aktif
+   *
+   * Tidak mengubah:
+   *
+   * - stock
+   * - sold quantity
+   * - pricing
+   * - cart
+   * - checkout
+   */
+
+  static async findActiveForHomepage() {
+    const now =
+      new Date();
+
+    return prisma.flashSale.findFirst({
+      where: {
+        status:
+          FlashSaleStatus.ACTIVE,
+
+        deletedAt:
+          null,
+
+        startAt: {
+          lte:
+            now,
+        },
+
+        endAt: {
+          gt:
+            now,
+        },
+
+        items: {
+          some: {
+            isActive:
+              true,
+
+            stockLimit: {
+              gt:
+                0,
+            },
+          },
+        },
+      },
+
+      orderBy: [
+        {
+          sortOrder:
+            "asc",
+        },
+
+        {
+          startAt:
+            "asc",
+        },
+      ],
+
+      include: {
+        items: {
+          where: {
+            isActive:
+              true,
+
+            stockLimit: {
+              gt:
+                0,
+            },
+          },
+
+          orderBy: [
+            {
+              sortOrder:
+                "asc",
+            },
+
+            {
+              createdAt:
+                "asc",
+            },
+          ],
+
+          include: {
+  product: {
+    include: {
+      images: {
+        orderBy: [
+          {
+            isThumbnail: "desc",
+          },
+          {
+            sortOrder: "asc",
+          },
+        ],
+      },
+    },
+  },
+
+  weightOption: true,
+
+  _count: {
+    select: {
+      purchases: true,
+    },
+  },
+},
+        },
+      },
+    });
+  }
+
+  /**
+   * ============================================================
    * ADMIN - FIND MANY FLASH SALES
    * ============================================================
    */
@@ -207,28 +332,37 @@ export default class FlashSaleRepository {
     search,
   }: FindManyFlashSalesInput) {
     const where: Prisma.FlashSaleWhereInput = {
-      deletedAt: null,
+      deletedAt:
+        null,
     };
 
     if (status) {
-      where.status = status;
+      where.status =
+        status;
     }
 
     if (search?.trim()) {
-      const keyword = search.trim();
+      const keyword =
+        search.trim();
 
       where.OR = [
         {
           name: {
-            contains: keyword,
-            mode: "insensitive",
+            contains:
+              keyword,
+
+            mode:
+              "insensitive",
           },
         },
 
         {
           slug: {
-            contains: keyword,
-            mode: "insensitive",
+            contains:
+              keyword,
+
+            mode:
+              "insensitive",
           },
         },
       ];
@@ -243,18 +377,21 @@ export default class FlashSaleRepository {
 
       orderBy: [
         {
-          startAt: "desc",
+          startAt:
+            "desc",
         },
 
         {
-          createdAt: "desc",
+          createdAt:
+            "desc",
         },
       ],
 
       include: {
         _count: {
           select: {
-            items: true,
+            items:
+              true,
           },
         },
       },
@@ -277,28 +414,37 @@ export default class FlashSaleRepository {
     > = {}
   ) {
     const where: Prisma.FlashSaleWhereInput = {
-      deletedAt: null,
+      deletedAt:
+        null,
     };
 
     if (status) {
-      where.status = status;
+      where.status =
+        status;
     }
 
     if (search?.trim()) {
-      const keyword = search.trim();
+      const keyword =
+        search.trim();
 
       where.OR = [
         {
           name: {
-            contains: keyword,
-            mode: "insensitive",
+            contains:
+              keyword,
+
+            mode:
+              "insensitive",
           },
         },
 
         {
           slug: {
-            contains: keyword,
-            mode: "insensitive",
+            contains:
+              keyword,
+
+            mode:
+              "insensitive",
           },
         },
       ];
@@ -322,29 +468,35 @@ export default class FlashSaleRepository {
       where: {
         id,
 
-        deletedAt: null,
+        deletedAt:
+          null,
       },
 
       include: {
         items: {
           orderBy: [
             {
-              sortOrder: "asc",
+              sortOrder:
+                "asc",
             },
 
             {
-              createdAt: "asc",
+              createdAt:
+                "asc",
             },
           ],
 
           include: {
-            product: true,
+            product:
+              true,
 
-            weightOption: true,
+            weightOption:
+              true,
 
             _count: {
               select: {
-                purchases: true,
+                purchases:
+                  true,
               },
             },
           },
@@ -366,7 +518,8 @@ export default class FlashSaleRepository {
       where: {
         slug,
 
-        deletedAt: null,
+        deletedAt:
+          null,
       },
     });
   }
@@ -419,7 +572,8 @@ export default class FlashSaleRepository {
       },
 
       data: {
-        deletedAt: new Date(),
+        deletedAt:
+          new Date(),
       },
     });
   }
@@ -442,22 +596,27 @@ export default class FlashSaleRepository {
 
       orderBy: [
         {
-          sortOrder: "asc",
+          sortOrder:
+            "asc",
         },
 
         {
-          createdAt: "asc",
+          createdAt:
+            "asc",
         },
       ],
 
       include: {
-        product: true,
+        product:
+          true,
 
-        weightOption: true,
+        weightOption:
+          true,
 
         _count: {
           select: {
-            purchases: true,
+            purchases:
+              true,
           },
         },
       },
@@ -479,21 +638,26 @@ export default class FlashSaleRepository {
   ) {
     return prisma.flashSaleItem.findFirst({
       where: {
-        id: itemId,
+        id:
+          itemId,
 
         flashSaleId,
       },
 
       include: {
-        flashSale: true,
+        flashSale:
+          true,
 
-        product: true,
+        product:
+          true,
 
-        weightOption: true,
+        weightOption:
+          true,
 
         _count: {
           select: {
-            purchases: true,
+            purchases:
+              true,
           },
         },
       },
@@ -535,7 +699,8 @@ export default class FlashSaleRepository {
         ...(excludeItemId
           ? {
               id: {
-                not: excludeItemId,
+                not:
+                  excludeItemId,
               },
             }
           : {}),
@@ -556,9 +721,11 @@ export default class FlashSaleRepository {
       data,
 
       include: {
-        product: true,
+        product:
+          true,
 
-        weightOption: true,
+        weightOption:
+          true,
       },
     });
   }
@@ -576,15 +743,18 @@ export default class FlashSaleRepository {
   ) {
     return prisma.flashSaleItem.update({
       where: {
-        id: itemId,
+        id:
+          itemId,
       },
 
       data,
 
       include: {
-        product: true,
+        product:
+          true,
 
-        weightOption: true,
+        weightOption:
+          true,
       },
     });
   }
@@ -606,7 +776,8 @@ export default class FlashSaleRepository {
   ) {
     return prisma.flashSaleItem.delete({
       where: {
-        id: itemId,
+        id:
+          itemId,
       },
     });
   }

@@ -1,100 +1,54 @@
-import Image from "next/image";
 import Link from "next/link";
 
 import {
   ArrowRight,
   Fish,
   Package,
-  Search,
   ShoppingBag,
   User,
 } from "lucide-react";
 
 import { auth } from "@/auth";
 
-import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
-import DynamicSiteFooter from "@/components/layout/DynamicSiteFooter";
+import DynamicSiteFooter from
+  "@/components/layout/DynamicSiteFooter";
 
-import MobileProductsShowcase from "@/components/products/MobileProductsShowcase";
+import DynamicSiteHeader from
+  "@/components/layout/DynamicSiteHeader";
+
+import HomeProductCard, {
+  type HomeProductCardProduct,
+} from
+  "@/components/customer/home/HomeProductCard";
 
 import { prisma } from "@/lib/prisma";
-
-/**
- * ============================================================
- * HELPERS
- * ============================================================
- */
-
-function formatPrice(
-  value: number
-) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }
-  ).format(value);
-}
-
-/**
- * ============================================================
- * GET PRODUCT IMAGE
- * ============================================================
- *
- * Mendukung struktur lama maupun struktur baru.
- *
- * image:
- * {
- *   image?: string
- *   url?: string
- * }
- *
- * Hal ini membuat halaman tetap kompatibel apabila
- * model ProductImage menggunakan field image atau url.
- */
-
-function getProductImage(
-  images: unknown
-): string | null {
-  if (
-    !Array.isArray(images) ||
-    images.length === 0
-  ) {
-    return null;
-  }
-
-  const firstImage =
-    images[0] as {
-      image?: string | null;
-      url?: string | null;
-    };
-
-  return (
-    firstImage?.url ??
-    firstImage?.image ??
-    null
-  );
-}
 
 /**
  * ============================================================
  * PUBLIC PRODUCTS PAGE
  * ============================================================
  *
- * Halaman ini:
+ * Halaman semua produk.
  *
- * ✓ Bisa dibuka tanpa login
- * ✓ User login tetap terdeteksi
- * ✓ Menggunakan DynamicSiteHeader global
- * ✓ Logo mengikuti Admin Settings
- * ✓ Nama toko mengikuti Admin Settings
- * ✓ Header konsisten dengan Homepage
- * ✓ Mobile showcase tetap berjalan
- * ✓ Produk desktop dan mobile menggunakan gambar produk
- * ✓ Footer menggunakan DynamicSiteFooter
+ * UI menggunakan design system yang sama dengan homepage:
  *
+ * - Deep Ocean
+ * - Fresh Green
+ * - HomeProductCard
+ * - Mobile-first
+ * - Responsive grid
+ *
+ * Grid:
+ *
+ * Mobile        : 3 kolom
+ * Tablet        : 4 kolom
+ * Desktop       : 5 kolom
+ * Large Desktop : 6 kolom
+ */
+
+/**
+ * ============================================================
+ * PRODUCTS PAGE
  * ============================================================
  */
 
@@ -103,13 +57,6 @@ export default async function ProductsPage() {
    * ==========================================================
    * AUTH
    * ==========================================================
-   *
-   * auth() tidak melakukan redirect.
-   *
-   * Jika belum login:
-   * session = null
-   *
-   * Halaman tetap dapat dibuka.
    */
 
   const session =
@@ -128,11 +75,11 @@ export default async function ProductsPage() {
     await prisma.product.findMany({
       where: {
         deletedAt: null,
+
+        isPublished: true,
       },
 
       include: {
-        category: true,
-
         images: {
           orderBy: {
             sortOrder: "asc",
@@ -147,52 +94,58 @@ export default async function ProductsPage() {
 
   /**
    * ==========================================================
-   * MOBILE SHOWCASE PRODUCTS
+   * SERIALIZE PRODUCTS
    * ==========================================================
    *
-   * Ambil maksimal 3 produk pertama.
+   * Menyamakan struktur data dengan HomeProductCard.
    */
 
-  const mobileShowcaseProducts =
-    products
-      .slice(0, 3)
-      .map((product) => {
-        const price =
+  const serializedProducts:
+    HomeProductCardProduct[] =
+    products.map(
+      (product) => ({
+        id:
+          product.id,
+
+        name:
+          product.name,
+
+        slug:
+          product.slug,
+
+        price:
           typeof product.price ===
           "number"
             ? product.price
-            : product.price.toNumber();
+            : product.price.toNumber(),
 
-        return {
-          id: product.id,
+        stock:
+          product.stock ?? 0,
 
-          name: product.name,
+        images:
+          product.images.map(
+            (image) => ({
+              id:
+                image.id,
 
-          slug: product.slug,
+              image:
+                image.image,
 
-          price,
+              sortOrder:
+                image.sortOrder,
 
-          stock:
-            product.stock ?? 0,
-
-          image:
-            getProductImage(
-              product.images
-            ),
-        };
-      });
-
-  /**
-   * ==========================================================
-   * PAGE
-   * ==========================================================
-   */
+              isThumbnail:
+                image.isThumbnail,
+            })
+          ),
+      })
+    );
 
   return (
     <main className="min-h-screen bg-slate-50">
 
       {/* ====================================================== */}
-      {/* GLOBAL HEADER */}
+      {/* HEADER */}
       {/* ====================================================== */}
 
       <DynamicSiteHeader
@@ -200,69 +153,323 @@ export default async function ProductsPage() {
       />
 
       {/* ====================================================== */}
-      {/* MOBILE SHOWCASE */}
+      {/* PAGE HERO */}
       {/* ====================================================== */}
 
-      <MobileProductsShowcase
-        products={
-          mobileShowcaseProducts
-        }
-      />
+      <section
+        className="
+          relative
+          overflow-hidden
 
-      {/* ====================================================== */}
-      {/* DESKTOP HERO */}
-      {/* ====================================================== */}
+          border-b
+          border-[var(--ice-200)]
 
-      <section className="hidden border-b border-slate-200 bg-white lg:block">
+          bg-gradient-to-br
+          from-[var(--ocean-950)]
+          via-[var(--ocean-900)]
+          to-[var(--ocean-700)]
+        "
+      >
 
-        <div className="mx-auto max-w-7xl px-8 py-16">
+        {/* ================================================== */}
+        {/* BACKGROUND DECORATION */}
+        {/* ================================================== */}
 
-          <div className="max-w-3xl">
+        <div className="pointer-events-none absolute inset-0">
 
-            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-4 py-2 text-xs font-semibold text-cyan-700">
+          <div
+            className="
+              absolute
 
-              <Fish className="h-4 w-4" />
+              -right-24
+              -top-28
 
-              PRODUK SEAFOOD
+              h-64
+              w-64
+
+              rounded-full
+
+              border
+              border-white/[0.06]
+
+              sm:-right-16
+              sm:-top-20
+              sm:h-80
+              sm:w-80
+
+              lg:h-[420px]
+              lg:w-[420px]
+            "
+          />
+
+          <div
+            className="
+              absolute
+
+              right-[8%]
+              top-1/2
+
+              h-40
+              w-40
+
+              -translate-y-1/2
+
+              rounded-full
+
+              border
+              border-white/[0.05]
+
+              sm:h-52
+              sm:w-52
+
+              lg:h-72
+              lg:w-72
+            "
+          />
+
+          <div
+            className="
+              absolute
+
+              -bottom-28
+              left-[20%]
+
+              h-56
+              w-56
+
+              rounded-full
+
+              bg-[var(--fresh-500)]/[0.10]
+
+              blur-3xl
+
+              sm:h-72
+              sm:w-72
+            "
+          />
+
+        </div>
+
+        {/* ================================================== */}
+        {/* HERO CONTENT */}
+        {/* ================================================== */}
+
+        <div
+          className="
+            relative
+
+            mx-auto
+            w-full
+            max-w-7xl
+
+            px-4
+            py-10
+
+            sm:px-6
+            sm:py-14
+
+            lg:px-8
+            lg:py-20
+          "
+        >
+
+          <div
+            className="
+              max-w-3xl
+            "
+          >
+
+            {/* EYEBROW */}
+
+            <div
+              className="
+                inline-flex
+                items-center
+                gap-2
+
+                rounded-full
+
+                border
+                border-white/10
+
+                bg-white/[0.08]
+
+                px-3
+                py-1.5
+
+                text-[9px]
+                font-black
+                tracking-[0.16em]
+
+                text-[var(--fresh-300)]
+
+                backdrop-blur
+
+                sm:px-4
+                sm:py-2
+                sm:text-xs
+              "
+            >
+
+              <Fish
+                className="
+                  h-3.5
+                  w-3.5
+
+                  sm:h-4
+                  sm:w-4
+                "
+              />
+
+              SEMUA PRODUK
 
             </div>
 
-            <h1 className="mt-5 text-5xl font-bold tracking-tight text-slate-950">
+            {/* TITLE */}
 
-              Temukan seafood
+            <h1
+              className="
+                mt-4
 
-              <span className="block text-cyan-600">
-                favorit Anda.
+                text-3xl
+                font-black
+                leading-tight
+                tracking-tight
+
+                text-white
+
+                sm:mt-5
+                sm:text-5xl
+
+                lg:text-6xl
+              "
+            >
+
+              Seafood segar untuk
+
+              <span
+                className="
+                  block
+
+                  text-[var(--fresh-300)]
+                "
+              >
+                kebutuhan Anda.
               </span>
 
             </h1>
 
-            <p className="mt-5 max-w-2xl text-lg leading-7 text-slate-500">
+            {/* DESCRIPTION */}
 
-              Pilih berbagai produk seafood segar
-              yang tersedia untuk kebutuhan rumah,
-              restoran, maupun bisnis Anda.
+            <p
+              className="
+                mt-4
+
+                max-w-2xl
+
+                text-sm
+                leading-6
+
+                text-white/70
+
+                sm:mt-5
+                sm:text-base
+                sm:leading-7
+
+                lg:text-lg
+                lg:leading-8
+              "
+            >
+
+              Temukan berbagai pilihan ikan dan
+              seafood berkualitas yang tersedia
+              untuk kebutuhan rumah, usaha, dan
+              keluarga Anda.
 
             </p>
 
             {/* PRODUCT COUNT */}
 
-            <div className="mt-7 inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div
+              className="
+                mt-6
 
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-cyan-600 shadow-sm">
+                inline-flex
+                items-center
+                gap-3
 
-                <Package className="h-5 w-5" />
+                rounded-2xl
+
+                border
+                border-white/10
+
+                bg-white/[0.08]
+
+                px-3
+                py-2.5
+
+                backdrop-blur
+
+                sm:mt-8
+                sm:px-4
+                sm:py-3
+              "
+            >
+
+              <div
+                className="
+                  flex
+                  h-10
+                  w-10
+
+                  items-center
+                  justify-center
+
+                  rounded-xl
+
+                  bg-[var(--fresh-500)]
+
+                  text-white
+
+                  sm:h-11
+                  sm:w-11
+                "
+              >
+
+                <Package
+                  className="
+                    h-5
+                    w-5
+                  "
+                />
 
               </div>
 
               <div>
 
-                <p className="text-sm font-bold text-slate-900">
-                  {products.length} Produk
+                <p
+                  className="
+                    text-sm
+                    font-black
+                    text-white
+                  "
+                >
+
+                  {serializedProducts.length} Produk
+
                 </p>
 
-                <p className="text-xs text-slate-500">
-                  tersedia untuk dilihat
+                <p
+                  className="
+                    text-[10px]
+                    text-white/60
+
+                    sm:text-xs
+                  "
+                >
+
+                  siap untuk Anda pilih
+
                 </p>
 
               </div>
@@ -276,333 +483,333 @@ export default async function ProductsPage() {
       </section>
 
       {/* ====================================================== */}
-      {/* MOBILE PRODUCTS */}
+      {/* PRODUCTS SECTION */}
       {/* ====================================================== */}
 
-      <section className="lg:hidden">
+      <section
+        className="
+          w-full
 
-        <div className="mx-auto max-w-7xl px-3 py-5">
+          py-6
 
+          sm:py-8
+
+          lg:py-10
+        "
+      >
+
+        <div
+          className="
+            mx-auto
+            w-full
+            max-w-7xl
+
+            px-4
+
+            sm:px-6
+
+            lg:px-8
+          "
+        >
+
+          {/* ================================================== */}
           {/* SECTION HEADER */}
+          {/* ================================================== */}
 
-          <div className="flex items-center justify-between">
+          <div
+            className="
+              mb-4
 
-            <div>
+              flex
+              items-end
+              justify-between
+              gap-4
 
-              <h2 className="text-lg font-bold text-slate-950">
+              sm:mb-5
+            "
+          >
+
+            <div className="min-w-0">
+
+              <p
+                className="
+                  text-[9px]
+                  font-black
+                  tracking-[0.2em]
+
+                  text-[var(--ocean-700)]
+
+                  sm:text-xs
+                "
+              >
+
+                KOLEKSI SEAFOOD
+
+              </p>
+
+              <h2
+                className="
+                  mt-1
+
+                  text-xl
+                  font-black
+                  tracking-tight
+
+                  text-[var(--ocean-950)]
+
+                  sm:text-2xl
+
+                  lg:text-[28px]
+                "
+              >
+
                 Semua Produk
+
               </h2>
 
-              <p className="mt-1 text-xs text-slate-500">
-                Jelajahi seafood segar pilihan kami
+              <p
+                className="
+                  mt-1
+
+                  text-xs
+                  leading-5
+
+                  text-slate-500
+
+                  sm:text-sm
+                "
+              >
+
+                Jelajahi pilihan seafood segar
+                yang tersedia hari ini.
+
               </p>
 
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-slate-500">
+            {/* PRODUCT COUNT */}
 
-              <Search className="h-4 w-4" />
+            <div
+              className="
+                flex
+                shrink-0
+                items-center
+                gap-1.5
+
+                rounded-xl
+
+                border
+                border-[var(--ice-200)]
+
+                bg-white
+
+                px-2.5
+                py-2
+
+                text-xs
+                font-bold
+
+                text-[var(--ocean-800)]
+
+                shadow-sm
+
+                sm:gap-2
+                sm:px-3
+              "
+            >
+
+              <Package
+                className="
+                  h-3.5
+                  w-3.5
+
+                  text-[var(--fresh-500)]
+
+                  sm:h-4
+                  sm:w-4
+                "
+              />
 
               <span>
-                {products.length}
+
+                {serializedProducts.length}
+
               </span>
 
             </div>
 
           </div>
 
+          {/* ================================================== */}
           {/* PRODUCT GRID */}
+          {/* ================================================== */}
 
-          {products.length > 0 ? (
+          {serializedProducts.length > 0 ? (
 
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div
+              className="
+                grid
 
-              {products.map(
-                (product) => {
-                  const productImage =
-                    getProductImage(
-                      product.images
-                    );
+                grid-cols-3
+                gap-2
 
-                  const price =
-                    typeof product.price ===
-                    "number"
-                      ? product.price
-                      : product.price.toNumber();
+                sm:grid-cols-4
+                sm:gap-3
 
-                  return (
-                    <Link
-                      key={product.id}
-                      href={`/products/${product.slug}`}
-                      className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition active:scale-[0.98]"
-                    >
+                lg:grid-cols-5
+                lg:gap-4
 
-                      {/* IMAGE */}
+                2xl:grid-cols-6
+              "
+            >
 
-                      <div className="relative aspect-square overflow-hidden bg-slate-100">
+              {serializedProducts.map(
+                (product) => (
 
-                        {productImage ? (
+                  <HomeProductCard
+                    key={
+                      product.id
+                    }
+                    product={
+                      product
+                    }
+                    productsHref="/products"
+                  />
 
-                          <Image
-                            src={productImage}
-                            alt={product.name}
-                            fill
-                            sizes="50vw"
-                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-
-                        ) : (
-
-                          <div className="flex h-full w-full items-center justify-center">
-
-                            <Fish className="h-9 w-9 text-slate-300" />
-
-                          </div>
-
-                        )}
-
-                        {/* STOCK BADGE */}
-
-                        {product.stock > 0 ? (
-
-                          <div className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white">
-                            Tersedia
-                          </div>
-
-                        ) : (
-
-                          <div className="absolute left-1.5 top-1.5 rounded bg-slate-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white">
-                            Habis
-                          </div>
-
-                        )}
-
-                      </div>
-
-                      {/* INFO */}
-
-                      <div className="p-2.5">
-
-                        <h3 className="line-clamp-2 min-h-8 text-[11px] font-medium leading-4 text-slate-800">
-                          {product.name}
-                        </h3>
-
-                        <p className="mt-2 text-sm font-bold leading-none text-cyan-600">
-                          {formatPrice(price)}
-                        </p>
-
-                        <p className="mt-2 text-[10px] text-slate-400">
-                          Stok {product.stock}
-                        </p>
-
-                      </div>
-
-                    </Link>
-                  );
-                }
+                )
               )}
 
             </div>
 
           ) : (
 
-            <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-14 text-center">
+            <div
+              className="
+                rounded-2xl
 
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                border
+                border-dashed
+                border-[var(--ice-300)]
 
-                <ShoppingBag className="h-8 w-8" />
+                bg-white
 
-              </div>
+                px-5
+                py-14
 
-              <h2 className="mt-5 text-lg font-bold text-slate-900">
-                Belum ada produk tersedia
-              </h2>
+                text-center
 
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+                sm:px-8
+                sm:py-20
+              "
+            >
 
-                Produk yang telah dipublikasikan admin
-                akan muncul di sini.
+              <div
+                className="
+                  mx-auto
 
-              </p>
+                  flex
+                  h-16
+                  w-16
 
-            </div>
+                  items-center
+                  justify-center
 
-          )}
+                  rounded-2xl
 
-        </div>
+                  bg-[var(--fresh-50)]
 
-      </section>
+                  text-[var(--fresh-600)]
 
-      {/* ====================================================== */}
-      {/* DESKTOP PRODUCTS */}
-      {/* ====================================================== */}
+                  sm:h-20
+                  sm:w-20
+                "
+              >
 
-      <section className="hidden lg:block">
+                <ShoppingBag
+                  className="
+                    h-8
+                    w-8
 
-        <div className="mx-auto max-w-7xl px-8 py-12">
-
-          {/* SECTION HEADER */}
-
-          <div className="flex items-center justify-between border-b border-slate-200 pb-6">
-
-            <div>
-
-              <h2 className="text-xl font-bold text-slate-950">
-                Semua Produk
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Jelajahi produk seafood yang tersedia.
-              </p>
-
-            </div>
-
-            <div className="inline-flex items-center gap-2 text-sm text-slate-500">
-
-              <Search className="h-4 w-4" />
-
-              <span>
-                Klik produk untuk melihat detail
-              </span>
-
-            </div>
-
-          </div>
-
-          {/* PRODUCT GRID */}
-
-          {products.length > 0 ? (
-
-            <div className="mt-8 grid grid-cols-3 gap-4 xl:grid-cols-6">
-
-              {products.map(
-                (product) => {
-                  const productImage =
-                    getProductImage(
-                      product.images
-                    );
-
-                  const price =
-                    typeof product.price ===
-                    "number"
-                      ? product.price
-                      : product.price.toNumber();
-
-                  return (
-                    <Link
-                      key={product.id}
-                      href={`/products/${product.slug}`}
-                      className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-1 hover:border-cyan-300 hover:shadow-lg"
-                    >
-
-                      {/* IMAGE */}
-
-                      <div className="relative aspect-square overflow-hidden bg-slate-100">
-
-                        {productImage ? (
-
-                          <Image
-                            src={productImage}
-                            alt={product.name}
-                            fill
-                            sizes="
-                              (max-width: 1280px) 33vw,
-                              25vw
-                            "
-                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-
-                        ) : (
-
-                          <div className="flex h-full w-full items-center justify-center">
-
-                            <Fish className="h-10 w-10 text-slate-300" />
-
-                          </div>
-
-                        )}
-
-                        {product.stock > 0 ? (
-
-                          <div className="absolute left-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                            Tersedia
-                          </div>
-
-                        ) : (
-
-                          <div className="absolute left-3 top-3 rounded-full bg-slate-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                            Habis
-                          </div>
-
-                        )}
-
-                      </div>
-
-                      {/* PRODUCT INFO */}
-
-                      <div className="p-4">
-
-                        <h3 className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-slate-800 transition group-hover:text-cyan-600">
-                          {product.name}
-                        </h3>
-
-                        <div className="mt-4 flex items-end justify-between gap-3">
-
-                          <div>
-
-                            <p className="text-base font-bold text-cyan-600">
-                              {formatPrice(price)}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400">
-                              Stok {product.stock}
-                            </p>
-
-                          </div>
-
-                          <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-1 group-hover:text-cyan-600" />
-
-                        </div>
-
-                      </div>
-
-                    </Link>
-                  );
-                }
-              )}
-
-            </div>
-
-          ) : (
-
-            <div className="mt-10 rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center">
-
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-cyan-50 text-cyan-600">
-
-                <ShoppingBag className="h-10 w-10" />
+                    sm:h-10
+                    sm:w-10
+                  "
+                />
 
               </div>
 
-              <h2 className="mt-6 text-xl font-bold text-slate-900">
+              <h2
+                className="
+                  mt-5
+
+                  text-lg
+                  font-black
+
+                  text-[var(--ocean-950)]
+
+                  sm:mt-6
+                  sm:text-xl
+                "
+              >
+
                 Belum ada produk tersedia
+
               </h2>
 
-              <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-500">
+              <p
+                className="
+                  mx-auto
+                  mt-2
+                  max-w-md
 
-                Produk yang telah ditambahkan dan
-                dipublikasikan oleh admin akan muncul
-                secara otomatis di halaman ini.
+                  text-sm
+                  leading-6
+
+                  text-slate-500
+                "
+              >
+
+                Produk yang telah dipublikasikan
+                akan muncul secara otomatis
+                di halaman ini.
 
               </p>
 
               <Link
                 href="/"
-                className="mt-7 inline-flex h-11 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="
+                  mt-6
+
+                  inline-flex
+                  h-11
+
+                  items-center
+                  justify-center
+
+                  rounded-xl
+
+                  bg-[var(--ocean-900)]
+
+                  px-5
+
+                  text-sm
+                  font-bold
+                  text-white
+
+                  transition
+
+                  hover:bg-[var(--ocean-800)]
+                "
               >
 
                 Kembali ke Beranda
 
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight
+                  className="
+                    ml-2
+                    h-4
+                    w-4
+                  "
+                />
 
               </Link>
 
@@ -615,87 +822,237 @@ export default async function ProductsPage() {
       </section>
 
       {/* ====================================================== */}
-      {/* CTA */}
+      {/* BOTTOM CTA */}
       {/* ====================================================== */}
 
-      <section className="border-t border-slate-200 bg-white">
+      <section
+        className="
+          border-t
+          border-[var(--ice-200)]
 
-        <div className="mx-auto max-w-7xl px-4 py-14 text-center sm:px-6 lg:px-8">
+          bg-white
+        "
+      >
+
+        <div
+          className="
+            mx-auto
+            w-full
+            max-w-7xl
+
+            px-4
+            py-12
+
+            text-center
+
+            sm:px-6
+            sm:py-14
+
+            lg:px-8
+            lg:py-16
+          "
+        >
 
           <div className="mx-auto max-w-2xl">
 
+            <div
+              className="
+                mx-auto
+
+                flex
+                h-12
+                w-12
+
+                items-center
+                justify-center
+
+                rounded-2xl
+
+                bg-[var(--fresh-50)]
+
+                text-[var(--fresh-600)]
+              "
+            >
+
+              {user ? (
+
+                <User className="h-6 w-6" />
+
+              ) : (
+
+                <ShoppingBag className="h-6 w-6" />
+
+              )}
+
+            </div>
+
+            <h2
+              className="
+                mt-5
+
+                text-2xl
+                font-black
+                tracking-tight
+
+                text-[var(--ocean-950)]
+
+                sm:text-3xl
+              "
+            >
+
+              {user
+                ? "Siap mulai berbelanja?"
+                : "Siap memesan produk pilihan Anda?"}
+
+            </h2>
+
+            <p
+              className="
+                mt-3
+
+                text-sm
+                leading-6
+
+                text-slate-500
+
+                sm:text-base
+              "
+            >
+
+              {user
+                ? "Lanjutkan belanja dan pilih produk seafood favorit Anda."
+                : "Masuk atau buat akun untuk melanjutkan pembelian dan mengelola pesanan Anda."}
+
+            </p>
+
             {user ? (
 
-              <>
+              <Link
+                href="/customer"
+                className="
+                  mt-7
 
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                  inline-flex
+                  h-12
 
-                  <User className="h-6 w-6" />
+                  items-center
+                  justify-center
 
-                </div>
+                  rounded-xl
 
-                <h2 className="mt-5 text-2xl font-bold text-slate-950 sm:text-3xl">
-                  Siap mulai berbelanja?
-                </h2>
+                  bg-[var(--ocean-900)]
 
-                <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">
+                  px-6
 
-                  Lanjutkan ke halaman belanja untuk
-                  melihat produk dan melakukan pemesanan.
+                  text-sm
+                  font-bold
+                  text-white
 
-                </p>
+                  transition
 
-                <Link
-                  href="/customer"
-                  className="mt-7 inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
+                  hover:bg-[var(--ocean-800)]
+                "
+              >
 
-                  Mulai Belanja
+                Mulai Belanja
 
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight
+                  className="
+                    ml-2
+                    h-4
+                    w-4
+                  "
+                />
 
-                </Link>
-
-              </>
+              </Link>
 
             ) : (
 
-              <>
+              <div
+                className="
+                  mt-7
 
-                <h2 className="text-2xl font-bold text-slate-950 sm:text-3xl">
-                  Siap memesan produk pilihan Anda?
-                </h2>
+                  flex
+                  flex-col
+                  justify-center
+                  gap-3
 
-                <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">
+                  sm:flex-row
+                "
+              >
 
-                  Masuk atau buat akun untuk melanjutkan
-                  pembelian dan mengelola pesanan Anda.
+                <Link
+                  href="/login"
+                  className="
+                    inline-flex
+                    h-12
 
-                </p>
+                    items-center
+                    justify-center
 
-                <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+                    rounded-xl
 
-                  <Link
-                    href="/login"
-                    className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-semibold text-white transition hover:bg-slate-800"
-                  >
+                    bg-[var(--ocean-900)]
 
-                    Masuk untuk Belanja
+                    px-6
 
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    text-sm
+                    font-bold
+                    text-white
 
-                  </Link>
+                    transition
 
-                  <Link
-                    href="/register"
-                    className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-200 px-6 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50"
-                  >
-                    Buat Akun
-                  </Link>
+                    hover:bg-[var(--ocean-800)]
+                  "
+                >
 
-                </div>
+                  Masuk untuk Belanja
 
-              </>
+                  <ArrowRight
+                    className="
+                      ml-2
+                      h-4
+                      w-4
+                    "
+                  />
+
+                </Link>
+
+                <Link
+                  href="/register"
+                  className="
+                    inline-flex
+                    h-12
+
+                    items-center
+                    justify-center
+
+                    rounded-xl
+
+                    border
+                    border-[var(--ice-200)]
+
+                    bg-white
+
+                    px-6
+
+                    text-sm
+                    font-bold
+
+                    text-[var(--ocean-900)]
+
+                    transition
+
+                    hover:border-[var(--fresh-300)]
+                    hover:bg-[var(--fresh-50)]
+                  "
+                >
+
+                  Buat Akun
+
+                </Link>
+
+              </div>
 
             )}
 
