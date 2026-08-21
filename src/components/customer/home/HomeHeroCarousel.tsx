@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -39,6 +40,12 @@ import {
 
 type HomeHeroCarouselProps = {
   productsHref: string;
+
+  heroImages?: {
+    slide1?: string | null;
+    slide2?: string | null;
+    slide3?: string | null;
+  };
 };
 
 type SlideTone =
@@ -59,47 +66,10 @@ type HeroSlide = {
 
   icon: typeof Fish;
 
+  image?: string | null;
+
   tone: SlideTone;
 };
-
-/**
- * ============================================================
- * SLIDES
- * ============================================================
- */
-
-const slides: HeroSlide[] = [
-  {
-    eyebrow: "PUSAT IKAN SEGAR",
-    title: "Ikan Segar,",
-    highlight: "Langsung untuk Keluarga.",
-    description:
-      "Belanja ikan dan seafood pilihan dengan lebih mudah dari satu tempat.",
-    button: "Belanja Sekarang",
-    icon: Fish,
-    tone: "ocean",
-  },
-  {
-    eyebrow: "PROMO PILIHAN",
-    title: "Seafood Favorit,",
-    highlight: "Harga Lebih Menarik.",
-    description:
-      "Temukan berbagai pilihan produk dan promo terbaik yang tersedia hari ini.",
-    button: "Lihat Promo",
-    icon: Zap,
-    tone: "promo",
-  },
-  {
-    eyebrow: "BELANJA LEBIH MUDAH",
-    title: "Pilih Produk,",
-    highlight: "Kami Siapkan Pesanan Anda.",
-    description:
-      "Nikmati pengalaman belanja seafood yang praktis, segar, dan nyaman.",
-    button: "Lihat Produk",
-    icon: Package,
-    tone: "fresh",
-  },
-];
 
 /**
  * ============================================================
@@ -111,7 +81,7 @@ function getHeroTheme(
   tone: SlideTone
 ) {
   switch (
-    tone
+  tone
   ) {
     case "promo":
       return {
@@ -178,7 +148,79 @@ function getHeroTheme(
 
 export default function HomeHeroCarousel({
   productsHref,
+  heroImages,
 }: HomeHeroCarouselProps) {
+  const slides: HeroSlide[] = [
+    {
+      eyebrow: "PUSAT IKAN SEGAR",
+
+      title: "Ikan Segar,",
+
+      highlight:
+        "Langsung untuk Keluarga.",
+
+      description:
+        "Belanja ikan dan seafood pilihan dengan lebih mudah dari satu tempat.",
+
+      button:
+        "Belanja Sekarang",
+
+      icon: Fish,
+
+      image:
+        heroImages?.slide1 ?? null,
+
+      tone: "ocean",
+    },
+
+    {
+      eyebrow:
+        "PROMO PILIHAN",
+
+      title:
+        "Seafood Favorit,",
+
+      highlight:
+        "Harga Lebih Menarik.",
+
+      description:
+        "Temukan berbagai pilihan produk dan promo terbaik yang tersedia hari ini.",
+
+      button:
+        "Lihat Promo",
+
+      icon: Zap,
+
+      image:
+        heroImages?.slide2 ?? null,
+
+      tone: "promo",
+    },
+
+    {
+      eyebrow:
+        "BELANJA LEBIH MUDAH",
+
+      title:
+        "Pilih Produk,",
+
+      highlight:
+        "Kami Siapkan Pesanan Anda.",
+
+      description:
+        "Nikmati pengalaman belanja seafood yang praktis, segar, dan nyaman.",
+
+      button:
+        "Lihat Produk",
+
+      icon: Package,
+
+      image:
+        heroImages?.slide3 ?? null,
+
+      tone: "fresh",
+    },
+  ];
   const [
     activeIndex,
     setActiveIndex,
@@ -186,7 +228,7 @@ export default function HomeHeroCarousel({
 
   const activeSlide =
     slides[
-      activeIndex
+    activeIndex
     ];
 
   const theme =
@@ -207,7 +249,7 @@ export default function HomeHeroCarousel({
           setActiveIndex(
             (current) =>
               current ===
-              slides.length - 1
+                slides.length - 1
                 ? 0
                 : current + 1
           );
@@ -220,7 +262,7 @@ export default function HomeHeroCarousel({
         interval
       );
     };
-  }, []);
+  }, [slides.length]);
 
   /**
    * ==========================================================
@@ -247,7 +289,7 @@ export default function HomeHeroCarousel({
     setActiveIndex(
       (current) =>
         current ===
-        slides.length - 1
+          slides.length - 1
           ? 0
           : current + 1
     );
@@ -257,12 +299,12 @@ export default function HomeHeroCarousel({
     activeSlide.icon;
 
   return (
-    <section className="w-full bg-[var(--ice-100)] px-3 pt-3 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6">
+    <section className="w-full bg-(--ice-100) px-3 pt-3 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6">
       <div className="mx-auto max-w-7xl">
 
         <div
           className={[
-            "relative overflow-hidden rounded-2xl bg-gradient-to-br text-white",
+            "relative overflow-hidden rounded-2xl bg-linear-to-br text-white",
             "shadow-[0_14px_45px_rgba(11,36,61,0.16)]",
             "sm:rounded-3xl",
             theme.background,
@@ -292,7 +334,7 @@ export default function HomeHeroCarousel({
 
             <div className="absolute right-[9%] top-1/2 h-56 w-56 -translate-y-1/2 rounded-full border border-white/[0.07]" />
 
-            <div className="absolute right-[4%] top-1/2 h-80 w-80 -translate-y-1/2 rounded-full border border-white/[0.04]" />
+            <div className="absolute right-[4%] top-1/2 h-80 w-80 -translate-y-1/2 rounded-full border border-white/4" />
 
           </div>
 
@@ -300,33 +342,208 @@ export default function HomeHeroCarousel({
           {/* CONTENT */}
           {/* ================================================= */}
 
-          <div className="relative grid min-h-[285px] items-center gap-6 px-5 py-7 sm:min-h-[340px] sm:px-10 sm:py-10 lg:min-h-[400px] lg:grid-cols-[1.15fr_0.85fr] lg:px-14 lg:py-12">
+          <div
+            className="
+    relative
 
-            {/* =============================================== */}
+    grid
+    min-h-71.25
+
+    items-center
+    gap-6
+
+    overflow-hidden
+
+    px-5
+    py-7
+
+    sm:min-h-85
+    sm:px-10
+    sm:py-10
+
+    lg:min-h-100
+    lg:grid-cols-[1.15fr_0.85fr]
+    lg:px-14
+    lg:py-12
+  "
+          >
+            {/* ================================================= */}
+            {/* MOBILE HERO IMAGE BACKGROUND */}
+            {/* ================================================= */}
+
+            {activeSlide.image ? (
+              <div
+                className="
+        pointer-events-none
+
+        absolute
+        inset-0
+
+        z-0
+
+        overflow-hidden
+
+        lg:hidden
+      "
+                aria-hidden="true"
+              >
+                {/* Soft glow */}
+
+                <div
+                  className="
+          absolute
+
+          -right-20
+          -bottom-20
+
+          h-64
+          w-64
+
+          rounded-full
+
+          bg-(--fresh-400)/10
+
+          blur-3xl
+        "
+                />
+
+                {/* Floating image */}
+
+                <div
+                  className="
+    absolute
+
+    -right-10
+    -bottom-10
+
+    flex
+    h-77.5
+    w-77.5
+
+    items-center
+    justify-center
+
+    opacity-[0.38]
+
+    animate-[heroFloat_6s_ease-in-out_infinite]
+
+    will-change-transform
+
+    motion-reduce:animate-none
+
+    xs:h-[340px]
+    xs:w-[340px]
+
+    sm:h-97.5
+    sm:w-97.5
+  "
+                >
+                  <Image
+                    key={`mobile-${activeSlide.image}`}
+                    src={activeSlide.image}
+                    alt=""
+                    aria-hidden="true"
+                    fill
+                    sizes="(max-width: 640px) 340px, 260px"
+                    unoptimized
+                    className="
+      h-full
+      w-full
+
+      max-w-none
+
+      object-contain
+
+      drop-shadow-2xl
+
+      animate-in
+      fade-in
+      zoom-in-95
+      duration-700
+    "
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {/* ================================================= */}
             {/* LEFT CONTENT */}
-            {/* =============================================== */}
+            {/* ================================================= */}
 
             <div
-              key={
-                activeIndex
-              }
-              className="animate-in fade-in slide-in-from-left-2 duration-500"
-            >
+              key={activeIndex}
+              className="
+      relative
+      z-20
 
+      animate-in
+      fade-in
+      slide-in-from-left-2
+      duration-500
+    "
+            >
               {/* EYEBROW */}
 
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-black tracking-[0.18em] text-white/90 backdrop-blur sm:text-xs">
+              <div
+                className="
+        inline-flex
+        items-center
+        gap-2
 
-                <Sparkles className="h-3.5 w-3.5 text-[var(--fresh-400)]" />
+        rounded-full
+
+        border
+        border-white/15
+
+        bg-white/10
+
+        px-3
+        py-1.5
+
+        text-[10px]
+        font-black
+        tracking-[0.18em]
+
+        text-white/90
+
+        backdrop-blur
+
+        sm:text-xs
+      "
+              >
+                <Sparkles
+                  className="
+          h-3.5
+          w-3.5
+
+          text-(--fresh-400)
+        "
+                />
 
                 {activeSlide.eyebrow}
-
               </div>
 
               {/* TITLE */}
 
-              <h1 className="mt-4 max-w-xl text-[28px] font-black leading-[1.08] tracking-tight sm:text-4xl lg:text-5xl xl:text-[54px]">
+              <h1
+                className="
+        mt-4
 
+        max-w-xl
+
+        text-[28px]
+        font-black
+
+        leading-[1.08]
+        tracking-tight
+
+        sm:text-4xl
+
+        lg:text-5xl
+
+        xl:text-[54px]
+      "
+              >
                 {activeSlide.title}
 
                 <span
@@ -339,89 +556,275 @@ export default function HomeHeroCarousel({
                 >
                   {activeSlide.highlight}
                 </span>
-
               </h1>
 
               {/* DESCRIPTION */}
 
-              <p className="mt-4 max-w-lg text-sm leading-6 text-white/75 sm:mt-5 sm:text-base sm:leading-7">
+              <p
+                className="
+        mt-4
 
+        max-w-lg
+
+        text-sm
+        leading-6
+
+        text-white/80
+
+        sm:mt-5
+        sm:text-base
+        sm:leading-7
+      "
+              >
                 {activeSlide.description}
-
               </p>
 
+              {/* ================================================= */}
               {/* CTA */}
+              {/* ================================================= */}
 
               <Link
-                href={
-                  productsHref
-                }
-                className={[
-                  "mt-5 inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-bold",
-                  "shadow-lg transition duration-200 active:scale-[0.98]",
-                  "sm:mt-7 sm:h-12 sm:px-6 sm:hover:scale-[1.02]",
-                  theme.button,
-                ].join(
-                  " "
-                )}
-              >
+                href={productsHref}
+                className={`
+    mt-5
+    inline-flex
+    h-11
+    items-center
+    gap-2
+    rounded-full
+    px-5
+    text-sm
+    font-bold
+    shadow-lg
+    transition
+    duration-200
+    active:scale-[0.98]
 
+    sm:mt-7
+    sm:h-12
+    sm:px-6
+    sm:hover:scale-[1.02]
+
+    ${theme.button}
+  `}
+              >
                 {activeSlide.button}
 
-                <ArrowRight className="h-4 w-4" />
-
+                <ArrowRight
+                  className="
+      h-4
+      w-4
+    "
+                />
               </Link>
-
             </div>
 
-            {/* =============================================== */}
-            {/* RIGHT VISUAL */}
-            {/* =============================================== */}
+            {/* ================================================= */}
+            {/* DESKTOP RIGHT VISUAL */}
+            {/* ================================================= */}
 
-            <div className="relative hidden min-h-[280px] items-center justify-center lg:flex">
+            <div
+              className="
+      relative
 
-              <div className="absolute h-72 w-72 rounded-full bg-white/[0.04]" />
+      hidden
 
-              <div className="absolute h-56 w-56 rounded-full border border-white/[0.08]" />
+      min-h-70
 
-              <div className="absolute h-40 w-40 rounded-full border border-white/[0.12]" />
+      items-center
+      justify-center
+
+      lg:flex
+    "
+            >
+              {/* Decorative circles */}
 
               <div
-                key={`icon-${activeIndex}`}
-                className="relative flex h-44 w-44 items-center justify-center rounded-[2.75rem] border border-white/15 bg-white/[0.08] shadow-2xl backdrop-blur animate-in zoom-in-95 duration-500"
+                className="
+        absolute
+
+        h-72
+        w-72
+
+        rounded-full
+
+        bg-white/4
+      "
+              />
+
+              <div
+                className="
+        absolute
+
+        h-56
+        w-56
+
+        rounded-full
+
+        border
+        border-white/8
+      "
+              />
+
+              <div
+                className="
+        absolute
+
+        h-40
+        w-40
+
+        rounded-full
+
+        border
+        border-white/12
+      "
+              />
+
+              {/* =============================================== */}
+              {/* HERO IMAGE */}
+              {/* =============================================== */}
+
+              {activeSlide.image ? (
+                <div
+                  key={`desktop-${activeSlide.image}`}
+                  className="
+          relative
+          z-10
+
+          flex
+          items-center
+          justify-center
+
+          animate-[heroFloat_6s_ease-in-out_infinite]
+
+          will-change-transform
+
+          motion-reduce:animate-none
+        "
+                >
+                  <Image
+                    src={activeSlide.image}
+                    alt={activeSlide.title}
+                    width={400}
+                    height={400}
+                    unoptimized
+                    className="
+            h-auto
+
+            w-[88%]
+            max-w-100
+
+            object-contain
+
+            drop-shadow-2xl
+
+            animate-in
+            fade-in
+            zoom-in-95
+            duration-700
+
+            xl:max-w-120
+          "
+                  />
+                </div>
+              ) : (
+                <div
+                  key={`icon-${activeIndex}`}
+                  className="
+          relative
+          z-10
+
+          flex
+
+          h-44
+          w-44
+
+          items-center
+          justify-center
+
+          rounded-[2.75rem]
+
+          border
+          border-white/15
+
+          bg-white/8
+
+          shadow-2xl
+
+          backdrop-blur
+
+          animate-in
+          zoom-in-95
+          duration-500
+        "
+                >
+                  <Icon
+                    className={[
+                      "h-24 w-24",
+                      theme.icon,
+                    ].join(
+                      " "
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Floating info */}
+
+              <div
+                className="
+        absolute
+
+        bottom-3
+        right-5
+
+        z-20
+
+        rounded-2xl
+
+        border
+        border-white/10
+
+        bg-slate-950/20
+
+        px-4
+        py-3
+
+        text-xs
+        font-medium
+
+        text-white/80
+
+        backdrop-blur
+      "
               >
-
-                <Icon
-                  className={[
-                    "h-24 w-24",
-                    theme.icon,
-                  ].join(
-                    " "
-                  )}
-                />
-
-              </div>
-
-              <div className="absolute bottom-3 right-5 rounded-2xl border border-white/10 bg-slate-950/20 px-4 py-3 text-xs font-medium text-white/80 backdrop-blur">
-
                 Segar
 
-                <span className="mx-1.5 text-[var(--fresh-400)]">
+                <span
+                  className="
+          mx-1.5
+
+          text-(--fresh-400)
+        "
+                >
                   •
                 </span>
 
                 Praktis
 
-                <span className="mx-1.5 text-[var(--fresh-400)]">
+                <span
+                  className="
+          mx-1.5
+
+          text-(--fresh-400)
+        "
+                >
                   •
                 </span>
 
                 Terpercaya
-
               </div>
-
             </div>
-
           </div>
 
           {/* ================================================= */}
@@ -479,14 +882,13 @@ export default function HomeHeroCarousel({
                       index
                     )
                   }
-                  aria-label={`Tampilkan banner ${
-                    index + 1
-                  }`}
+                  aria-label={`Tampilkan banner ${index + 1
+                    }`}
                   className={[
                     "h-1.5 rounded-full transition-all duration-300",
                     activeIndex ===
-                    index
-                      ? "w-7 bg-[var(--fresh-400)]"
+                      index
+                      ? "w-7 bg-(--fresh-400)"
                       : "w-1.5 bg-white/35 hover:bg-white/70",
                   ].join(
                     " "

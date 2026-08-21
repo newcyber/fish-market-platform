@@ -92,6 +92,7 @@ export default async function CustomerProductsPage({
   const [
     products,
     categories,
+    storeSettings,
   ] = await Promise.all([
     ProductService.getProducts({
       search,
@@ -102,7 +103,21 @@ export default async function CustomerProductsPage({
     CategoryService.getCategories({
       active: true,
     }),
+
+    prisma.storeSettings.findFirst(),
   ]);
+
+  /**
+   * ==========================================================
+   * HERO IMAGE
+   * ==========================================================
+   *
+   * Menggunakan sumber yang sama dengan Homepage Slider Slide 1.
+   */
+
+  const heroImage =
+    storeSettings?.heroSlide1Image ??
+    null;
 
   /**
    * ==========================================================
@@ -335,20 +350,18 @@ export default async function CustomerProductsPage({
       <section
         className="
           relative
+          isolate
           overflow-hidden
 
           border-b
           border-white/10
 
-          bg-linear-to-br
-          from-(--ocean-950)
-          via-(--ocean-900)
-          to-(--ocean-700)
+          bg-gradient-to-br
+          from-[var(--ocean-950)]
+          via-[var(--ocean-900)]
+          to-[var(--ocean-700)]
         "
       >
-
-        {/* BACKGROUND */}
-
         <div
           className="
             pointer-events-none
@@ -357,267 +370,425 @@ export default async function CustomerProductsPage({
             overflow-hidden
           "
         >
-
           <div
             className="
               absolute
-
-              -right-24
+              -right-20
               -top-24
-
               h-64
               w-64
-
               rounded-full
-
               border
-              border-white/6
-
+              border-white/[0.06]
+              sm:-right-10
+              sm:-top-16
               sm:h-80
               sm:w-80
-
-              lg:h-105
-              lg:w-105
+              lg:right-[6%]
+              lg:top-1/2
+              lg:h-[460px]
+              lg:w-[460px]
+              lg:-translate-y-1/2
             "
           />
 
           <div
             className="
               absolute
-
-              -bottom-32
-              left-[15%]
-
-              h-64
-              w-64
-
+              right-[10%]
+              top-1/2
+              h-40
+              w-40
+              -translate-y-1/2
               rounded-full
-
-              bg-(--fresh-500)/12
-
-              blur-3xl
+              border
+              border-white/[0.06]
+              sm:h-52
+              sm:w-52
+              lg:h-[320px]
+              lg:w-[320px]
             "
           />
 
+          <div
+            className="
+              absolute
+              right-[5%]
+              top-1/2
+              h-64
+              w-64
+              -translate-y-1/2
+              rounded-full
+              bg-[var(--fresh-500)]/[0.12]
+              blur-3xl
+              sm:h-80
+              sm:w-80
+              lg:h-[520px]
+              lg:w-[520px]
+            "
+          />
+
+          <div
+            className="
+              absolute
+              -bottom-28
+              left-[10%]
+              h-56
+              w-56
+              rounded-full
+              bg-[var(--fresh-500)]/[0.10]
+              blur-3xl
+              sm:h-72
+              sm:w-72
+            "
+          />
         </div>
 
         <div
           className="
             relative
-
+            z-10
             mx-auto
             w-full
             max-w-7xl
-
             px-4
             py-10
-
             sm:px-6
             sm:py-14
-
             lg:px-8
             lg:py-16
+            xl:py-20
           "
         >
-
           <div
             className="
-              flex
-              flex-col
+              relative
+              grid
+              items-center
               gap-6
-
-              lg:flex-row
-              lg:items-end
-              lg:justify-between
+              lg:grid-cols-[1.05fr_0.95fr]
+              lg:gap-10
+              xl:gap-16
             "
           >
-
             <div
               className="
+                relative
+                z-20
                 max-w-3xl
+                lg:max-w-2xl
               "
             >
-
-              {/* EYEBROW */}
-
               <div
                 className="
                   inline-flex
                   items-center
                   gap-2
-
                   rounded-full
-
                   border
                   border-white/10
-
-                  bg-white/8
-
+                  bg-white/[0.08]
                   px-3
                   py-1.5
-
                   text-[9px]
                   font-black
-                  tracking-[0.18em]
-
-                  text-(--fresh-300)
-
+                  tracking-[0.16em]
+                  text-[var(--fresh-300)]
                   backdrop-blur
-
                   sm:px-4
                   sm:py-2
                   sm:text-xs
                 "
               >
-
-                <Fish
-                  className="
-                    h-3.5
-                    w-3.5
-                  "
-                />
-
-                SEAFOOD SEGAR
-
+                <Fish className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                SEMUA PRODUK
               </div>
 
               <h1
                 className="
                   mt-4
-
+                  max-w-xl
                   text-3xl
                   font-black
-                  leading-tight
+                  leading-[1.08]
                   tracking-tight
-
                   text-white
-
+                  sm:mt-5
                   sm:text-5xl
+                  lg:text-6xl
                 "
               >
-
-                Semua Produk
-
-                <span
-                  className="
-                    block
-
-                    text-(--fresh-300)
-                  "
-                >
-
-                  Seafood Pilihan.
-
+                Seafood segar untuk
+                <span className="block text-[var(--fresh-300)]">
+                  kebutuhan Anda.
                 </span>
-
               </h1>
 
               <p
                 className="
                   mt-4
-
-                  max-w-2xl
-
+                  max-w-xl
                   text-sm
                   leading-6
-
                   text-white/70
-
+                  sm:mt-5
                   sm:text-base
                   sm:leading-7
+                  lg:text-lg
+                  lg:leading-8
                 "
               >
-
-                Temukan berbagai pilihan
-                seafood segar dan berkualitas
-                untuk kebutuhan Anda.
-
+                Temukan berbagai pilihan ikan dan seafood berkualitas
+                yang tersedia untuk kebutuhan rumah, usaha, dan keluarga Anda.
               </p>
-
-            </div>
-
-            {/* PRODUCT COUNT */}
-
-            <div
-              className="
-                inline-flex
-                w-fit
-                items-center
-                gap-3
-
-                rounded-2xl
-
-                border
-                border-white/10
-
-                bg-white/8
-
-                px-3
-                py-2.5
-
-                backdrop-blur
-              "
-            >
 
               <div
                 className="
+                  mt-5
                   flex
-                  h-10
-                  w-10
-
+                  flex-wrap
                   items-center
-                  justify-center
-
-                  rounded-xl
-
-                  bg-(--fresh-500)
-
-                  text-white
+                  gap-3
+                  sm:mt-6
                 "
               >
-
-                <Package
+                <Link
+                  href="#produk"
                   className="
-                    h-5
-                    w-5
-                  "
-                />
-
-              </div>
-
-              <div>
-
-                <p
-                  className="
+                    inline-flex
+                    h-11
+                    shrink-0
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-full
+                    bg-white
+                    px-5
                     text-sm
                     font-black
-                    text-white
+                    text-[var(--ocean-900)]
+                    shadow-lg
+                    transition
+                    duration-200
+                    hover:-translate-y-0.5
+                    hover:shadow-xl
+                    active:scale-[0.98]
+                    sm:h-12
+                    sm:px-6
                   "
                 >
+                  Lihat Produk
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
 
-                  {products.length} Produk
-
-                </p>
-
-                <p
+                <div
                   className="
-                    text-[10px]
-                    text-white/60
+                    inline-flex
+                    min-h-11
+                    shrink-0
+                    items-center
+                    gap-3
+                    rounded-2xl
+                    border
+                    border-white/10
+                    bg-white/[0.08]
+                    px-3
+                    py-2.5
+                    backdrop-blur
+                    sm:min-h-12
+                    sm:px-4
+                    sm:py-3
                   "
                 >
+                  <div
+                    className="
+                      flex
+                      h-9
+                      w-9
+                      items-center
+                      justify-center
+                      rounded-xl
+                      bg-[var(--fresh-500)]
+                      text-white
+                      sm:h-11
+                      sm:w-11
+                    "
+                  >
+                    <Package className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
 
-                  tersedia untuk Anda
-
-                </p>
-
+                  <div className="min-w-0">
+                    <p className="whitespace-nowrap text-sm font-black text-white">
+                      {products.length} Produk
+                    </p>
+                    <p className="whitespace-nowrap text-[10px] text-white/60 sm:text-xs">
+                      siap untuk Anda pilih
+                    </p>
+                  </div>
+                </div>
               </div>
-
             </div>
 
-          </div>
+            <div
+              className="
+                pointer-events-none
+                absolute
+                inset-y-0
+                right-0
+                z-0
+                flex
+                w-full
+                items-center
+                justify-center
+                overflow-hidden
+                opacity-60
+                sm:opacity-70
+                md:w-[48%]
+                lg:relative
+                lg:inset-auto
+                lg:z-10
+                lg:w-full
+                lg:opacity-100
+              "
+            >
+              <div
+                className="
+                  absolute
+                  h-[260px]
+                  w-[260px]
+                  rounded-full
+                  bg-[var(--fresh-500)]/[0.14]
+                  blur-3xl
+                  sm:h-[340px]
+                  sm:w-[340px]
+                  lg:h-[420px]
+                  lg:w-[420px]
+                  xl:h-[480px]
+                  xl:w-[480px]
+                "
+              />
 
+              <div
+                className="
+                  absolute
+                  h-[210px]
+                  w-[210px]
+                  rounded-full
+                  border
+                  border-white/10
+                  sm:h-[280px]
+                  sm:w-[280px]
+                  lg:h-[360px]
+                  lg:w-[360px]
+                "
+              />
+
+              <div
+                className="
+                  absolute
+                  h-[310px]
+                  w-[310px]
+                  rounded-full
+                  border
+                  border-white/[0.06]
+                  sm:h-[400px]
+                  sm:w-[400px]
+                  lg:h-[500px]
+                  lg:w-[500px]
+                "
+              />
+
+              {heroImage ? (
+                <div
+                  className="
+                    relative
+                    z-10
+                    flex
+                    h-full
+                    w-full
+                    items-center
+                    justify-center
+                    animate-[heroProductFloat_6s_ease-in-out_infinite]
+                    will-change-transform
+                    motion-reduce:animate-none
+                  "
+                >
+                  <img
+                    src={heroImage}
+                    alt="Seafood segar"
+                    className="
+                      relative
+                      h-auto
+                      w-[64%]
+                      max-h-[230px]
+                      max-w-[280px]
+                      object-contain
+                      drop-shadow-2xl
+                      sm:w-[66%]
+                      sm:max-h-[280px]
+                      sm:max-w-[350px]
+                      md:w-[72%]
+                      md:max-h-[330px]
+                      md:max-w-[420px]
+                      lg:w-[78%]
+                      lg:max-h-[390px]
+                      lg:max-w-[500px]
+                      xl:w-[82%]
+                      xl:max-h-[440px]
+                      xl:max-w-[560px]
+                    "
+                  />
+                </div>
+              ) : (
+                <div
+                  className="
+                    relative
+                    z-10
+                    flex
+                    h-28
+                    w-28
+                    items-center
+                    justify-center
+                    rounded-[1.75rem]
+                    border
+                    border-white/10
+                    bg-white/10
+                    shadow-2xl
+                    backdrop-blur-md
+                    sm:h-36
+                    sm:w-36
+                    lg:h-44
+                    lg:w-44
+                  "
+                >
+                  <Fish
+                    className="
+                      h-12
+                      w-12
+                      text-[var(--fresh-400)]
+                      sm:h-16
+                      sm:w-16
+                      lg:h-20
+                      lg:w-20
+                    "
+                    strokeWidth={1.7}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
+        <style>{`
+          @keyframes heroProductFloat {
+            0%, 100% {
+              transform: translate3d(0, 0, 0);
+            }
+            50% {
+              transform: translate3d(0, -12px, 0);
+            }
+          }
+        `}</style>
       </section>
 
       {/* ==================================================== */}
@@ -967,7 +1138,9 @@ export default async function CustomerProductsPage({
       {/* PRODUCTS */}
       {/* ==================================================== */}
 
-      <section>
+      <section
+        id="produk"
+      >
 
         <div
           className="

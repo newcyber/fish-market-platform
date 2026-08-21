@@ -1887,6 +1887,24 @@ model StoreSettings {
    */
   siteLogo String?
 
+  /**
+   * ============================================================
+   * HERO SLIDER IMAGES
+   * ============================================================
+   * Gambar visual untuk masing-masing slide Hero.
+   * Jika null, homepage akan menggunakan icon default.
+   * Mendukung:
+   * - PNG
+   * - WEBP
+   * - GIF
+   */
+
+  heroSlide1Image String?
+
+  heroSlide2Image String?
+
+  heroSlide3Image String?
+
   email    String?
   whatsapp String?
 

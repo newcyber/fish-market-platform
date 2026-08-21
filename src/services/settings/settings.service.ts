@@ -40,6 +40,20 @@ export interface UpdateStoreSettingsPayload {
    */
   siteLogo?: string | null;
 
+    /**
+   * ==========================================================
+   * HERO SLIDER IMAGES
+   * ==========================================================
+   *
+   * Gambar visual untuk setiap slide homepage.
+   */
+
+  heroSlide1Image?: string | null;
+
+  heroSlide2Image?: string | null;
+
+  heroSlide3Image?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -424,6 +438,27 @@ class SettingsService {
           payload.siteLogo
         ),
 
+              /**
+       * ======================================================
+       * HERO SLIDER IMAGES
+       * ======================================================
+       */
+
+      heroSlide1Image:
+        normalize(
+          payload.heroSlide1Image
+        ),
+
+      heroSlide2Image:
+        normalize(
+          payload.heroSlide2Image
+        ),
+
+      heroSlide3Image:
+        normalize(
+          payload.heroSlide3Image
+        ),
+        
       email,
 
       whatsapp:

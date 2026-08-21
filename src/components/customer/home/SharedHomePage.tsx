@@ -308,6 +308,9 @@ export default async function SharedHomePage({
       }),
     ]);
 
+    const storeSettings =
+    await prisma.storeSettings.findFirst();
+
   /**
    * ==========================================================
    * SERIALIZE FLASH SALE
@@ -536,7 +539,7 @@ export default async function SharedHomePage({
       className="
         min-h-screen
         overflow-x-hidden
-        bg-[var(--ice-50)]
+        bg-(--ice-50)
       "
     >
 
@@ -545,10 +548,21 @@ export default async function SharedHomePage({
       {/* ====================================================== */}
 
       <HomeHeroCarousel
-        productsHref={
-          productsHref
-        }
-      />
+  productsHref={productsHref}
+  heroImages={{
+    slide1:
+      storeSettings?.heroSlide1Image ??
+      null,
+
+    slide2:
+      storeSettings?.heroSlide2Image ??
+      null,
+
+    slide3:
+      storeSettings?.heroSlide3Image ??
+      null,
+  }}
+/>
 
       {/* ====================================================== */}
       {/* CATEGORY */}
@@ -598,7 +612,7 @@ export default async function SharedHomePage({
       <div
         className="
           relative
-          bg-[var(--ice-50)]
+          bg-(--ice-50)
           pb-10
           sm:pb-14
           lg:pb-16

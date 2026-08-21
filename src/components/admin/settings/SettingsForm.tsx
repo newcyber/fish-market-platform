@@ -65,6 +65,14 @@ interface SettingsFormProps {
      */
     siteLogo: string | null;
 
+    /**
+    * HERO SLIDER IMAGES
+    */
+
+    heroSlide1Image: string | null;
+    heroSlide2Image: string | null;
+    heroSlide3Image: string | null;
+
     email: string | null;
     whatsapp: string | null;
 
@@ -117,6 +125,26 @@ const ALLOWED_LOGO_TYPES = [
 
 /**
  * ============================================================
+ * HERO IMAGE CONFIGURATION
+ * ============================================================
+ */
+
+const MAX_HERO_IMAGE_SIZE =
+  5 * 1024 * 1024;
+
+const ALLOWED_HERO_IMAGE_TYPES = [
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
+type HeroSlideKey =
+  | "slide1"
+  | "slide2"
+  | "slide3";
+
+/**
+ * ============================================================
  * COMPONENT
  * ============================================================
  */
@@ -153,6 +181,55 @@ export default function SettingsForm({
     useRef<HTMLInputElement | null>(
       null
     );
+
+    /**
+ * ==========================================================
+ * HERO SLIDER IMAGE STATE
+ * ==========================================================
+ */
+
+const [
+  heroSlide1Image,
+  setHeroSlide1Image,
+] = useState<string | null>(
+  settings.heroSlide1Image
+);
+
+const [
+  heroSlide2Image,
+  setHeroSlide2Image,
+] = useState<string | null>(
+  settings.heroSlide2Image
+);
+
+const [
+  heroSlide3Image,
+  setHeroSlide3Image,
+] = useState<string | null>(
+  settings.heroSlide3Image
+);
+
+const [
+  uploadingHeroSlide,
+  setUploadingHeroSlide,
+] = useState<HeroSlideKey | null>(
+  null
+);
+
+const heroSlide1InputRef =
+  useRef<HTMLInputElement | null>(
+    null
+  );
+
+const heroSlide2InputRef =
+  useRef<HTMLInputElement | null>(
+    null
+  );
+
+const heroSlide3InputRef =
+  useRef<HTMLInputElement | null>(
+    null
+  );
 
   /**
    * ==========================================================
@@ -373,6 +450,349 @@ export default function SettingsForm({
   }
 
   /**
+ * ==========================================================
+ * SET HERO SLIDE IMAGE
+ * ==========================================================
+ */
+
+function setHeroSlideImage(
+  slide: HeroSlideKey,
+  value: string | null
+) {
+  switch (slide) {
+    case "slide1":
+      setHeroSlide1Image(value);
+      break;
+
+    case "slide2":
+      setHeroSlide2Image(value);
+      break;
+
+    case "slide3":
+      setHeroSlide3Image(value);
+      break;
+  }
+}
+
+/**
+ * ==========================================================
+ * UPLOAD HERO IMAGE
+ * ==========================================================
+ */
+
+async function handleHeroImageChange(
+  slide: HeroSlideKey,
+  event: React.ChangeEvent<HTMLInputElement>
+) {
+  const file =
+    event.target.files?.[0];
+
+  /**
+   * Reset input agar file yang sama
+   * tetap dapat dipilih kembali.
+   */
+
+  event.target.value = "";
+
+  if (!file) {
+    return;
+  }
+
+  setMessage(null);
+  setIsSuccess(null);
+
+  /**
+   * --------------------------------------------------------
+   * VALIDATE MIME TYPE
+   * --------------------------------------------------------
+   */
+
+  if (
+    !ALLOWED_HERO_IMAGE_TYPES.includes(
+      file.type as
+        | "image/png"
+        | "image/webp"
+        | "image/gif"
+    )
+  ) {
+    setMessage(
+      "Format gambar Hero harus PNG, WEBP, atau GIF."
+    );
+
+    setIsSuccess(false);
+
+    return;
+  }
+
+  /**
+   * --------------------------------------------------------
+   * VALIDATE FILE SIZE
+   * --------------------------------------------------------
+   */
+
+  if (
+    file.size <= 0 ||
+    file.size > MAX_HERO_IMAGE_SIZE
+  ) {
+    setMessage(
+      "Ukuran gambar Hero maksimal 5 MB."
+    );
+
+    setIsSuccess(false);
+
+    return;
+  }
+
+  try {
+    /**
+     * ------------------------------------------------------
+     * SET UPLOADING STATE
+     * ------------------------------------------------------
+     */
+
+    setUploadingHeroSlide(slide);
+
+    /**
+     * ------------------------------------------------------
+     * PREPARE FORM DATA
+     * ------------------------------------------------------
+     */
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    /**
+     * Kirim informasi slide ke API.
+     *
+     * Contoh:
+     * - slide1
+     * - slide2
+     * - slide3
+     */
+
+    formData.append(
+      "slide",
+      slide
+    );
+
+    /**
+     * ------------------------------------------------------
+     * UPLOAD HERO IMAGE
+     * ------------------------------------------------------
+     */
+
+    const response =
+      await fetch(
+        "/api/settings/hero-image",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    /**
+     * ------------------------------------------------------
+     * PARSE RESPONSE SAFELY
+     * ------------------------------------------------------
+     *
+     * Menghindari error jika API
+     * tidak mengembalikan JSON valid.
+     */
+
+    const result =
+      await response
+        .json()
+        .catch(() => null);
+
+    /**
+     * Debug response.
+     *
+     * Bisa dilihat di browser console
+     * apabila masih terjadi masalah.
+     */
+
+    console.log(
+      "[HERO_IMAGE_UPLOAD_RESPONSE]",
+      {
+        status: response.status,
+        ok: response.ok,
+        result,
+      }
+    );
+
+    /**
+     * ------------------------------------------------------
+     * HANDLE HTTP ERROR
+     * ------------------------------------------------------
+     */
+
+    if (!response.ok) {
+      throw new Error(
+        result?.message ||
+          "Gagal mengupload gambar Hero."
+      );
+    }
+
+    /**
+     * ------------------------------------------------------
+     * RESOLVE IMAGE URL
+     * ------------------------------------------------------
+     *
+     * Mendukung beberapa struktur response API:
+     *
+     * {
+     *   success: true,
+     *   url: "..."
+     * }
+     *
+     * atau:
+     *
+     * {
+     *   success: true,
+     *   data: {
+     *     url: "..."
+     *   }
+     * }
+     *
+     * atau:
+     *
+     * {
+     *   url: "..."
+     * }
+     *
+     * atau:
+     *
+     * {
+     *   data: {
+     *     imageUrl: "..."
+     *   }
+     * }
+     */
+
+    const uploadedUrl =
+      result?.url ||
+      result?.data?.url ||
+      result?.imageUrl ||
+      result?.data?.imageUrl ||
+      result?.path ||
+      result?.data?.path ||
+      null;
+
+    /**
+     * ------------------------------------------------------
+     * VALIDATE UPLOAD URL
+     * ------------------------------------------------------
+     */
+
+    if (
+      typeof uploadedUrl !==
+        "string" ||
+      uploadedUrl.trim() === ""
+    ) {
+      console.error(
+        "[HERO_IMAGE_UPLOAD_INVALID_RESPONSE]",
+        result
+      );
+
+      throw new Error(
+        "Upload gambar berhasil, tetapi URL gambar tidak ditemukan pada response server."
+      );
+    }
+
+    /**
+     * ------------------------------------------------------
+     * UPDATE HERO IMAGE STATE
+     * ------------------------------------------------------
+     *
+     * URL hanya masuk state terlebih dahulu.
+     *
+     * Database baru diperbarui setelah admin
+     * menekan tombol Simpan Pengaturan.
+     */
+
+    setHeroSlideImage(
+      slide,
+      uploadedUrl
+    );
+
+    /**
+     * ------------------------------------------------------
+     * SUCCESS MESSAGE
+     * ------------------------------------------------------
+     */
+
+    setMessage(
+      "Gambar Hero berhasil diupload. Jangan lupa klik Simpan Pengaturan."
+    );
+
+    setIsSuccess(true);
+  } catch (error) {
+    /**
+     * ------------------------------------------------------
+     * ERROR HANDLER
+     * ------------------------------------------------------
+     */
+
+    console.error(
+      "[HERO_IMAGE_UPLOAD_ERROR]",
+      error
+    );
+
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan saat mengupload gambar Hero."
+    );
+
+    setIsSuccess(false);
+  } finally {
+    /**
+     * ------------------------------------------------------
+     * RESET UPLOADING STATE
+     * ------------------------------------------------------
+     */
+
+    setUploadingHeroSlide(
+      null
+    );
+  }
+}
+
+/**
+ * ==========================================================
+ * REMOVE HERO IMAGE
+ * ==========================================================
+ */
+
+function handleRemoveHeroImage(
+  slide: HeroSlideKey
+) {
+  /**
+   * Hapus gambar dari local state.
+   *
+   * Database belum langsung diubah.
+   * Perubahan akan disimpan ketika admin
+   * menekan tombol Simpan Pengaturan.
+   */
+
+  setHeroSlideImage(
+    slide,
+    null
+  );
+
+  setMessage(
+    "Gambar Hero akan dihapus setelah Anda menyimpan pengaturan."
+  );
+
+  setIsSuccess(true);
+}
+
+  /**
    * ==========================================================
    * GET CURRENT LOCATION
    * ==========================================================
@@ -549,14 +969,24 @@ export default function SettingsForm({
     setIsSuccess(null);
 
     if (isUploadingLogo) {
-      setMessage(
-        "Tunggu hingga proses upload logo selesai."
-      );
+  setMessage(
+    "Tunggu hingga proses upload logo selesai."
+  );
 
-      setIsSuccess(false);
+  setIsSuccess(false);
 
-      return;
-    }
+  return;
+}
+
+if (uploadingHeroSlide) {
+  setMessage(
+    "Tunggu hingga proses upload gambar Hero selesai."
+  );
+
+  setIsSuccess(false);
+
+  return;
+}
 
     const input = {
       /**
@@ -580,6 +1010,16 @@ export default function SettingsForm({
        */
 
       siteLogo,
+
+      /**
+ * HERO SLIDER IMAGES
+ */
+
+heroSlide1Image,
+
+heroSlide2Image,
+
+heroSlide3Image,
 
       email: String(
         formData.get("email") ?? ""
@@ -923,9 +1363,192 @@ export default function SettingsForm({
         </div>
       </section>
 
-      {/* ====================================================== */}
-      {/* KONTAK */}
-      {/* ====================================================== */}
+{/* ====================================================== */}
+{/* HERO SLIDER IMAGES */}
+{/* ====================================================== */}
+
+<section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  <div className="mb-6 flex items-start gap-3">
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+      <ImagePlus className="h-5 w-5" />
+    </div>
+
+    <div>
+      <h2 className="text-base font-bold text-slate-900">
+        Gambar Hero Slider
+      </h2>
+
+      <p className="mt-1 text-sm text-slate-500">
+        Atur gambar visual pada sisi kanan setiap slide homepage.
+      </p>
+    </div>
+  </div>
+
+  <div className="grid gap-5 xl:grid-cols-3">
+    {(
+      [
+        {
+          key: "slide1" as const,
+          title: "Hero Slide 1",
+          description:
+            "Menggantikan icon ikan pada slide pertama.",
+          image: heroSlide1Image,
+          inputRef: heroSlide1InputRef,
+        },
+        {
+          key: "slide2" as const,
+          title: "Hero Slide 2",
+          description:
+            "Menggantikan icon promo pada slide kedua.",
+          image: heroSlide2Image,
+          inputRef: heroSlide2InputRef,
+        },
+        {
+          key: "slide3" as const,
+          title: "Hero Slide 3",
+          description:
+            "Menggantikan icon produk pada slide ketiga.",
+          image: heroSlide3Image,
+          inputRef: heroSlide3InputRef,
+        },
+      ] as const
+    ).map((slide) => {
+      const isUploading =
+        uploadingHeroSlide ===
+        slide.key;
+
+      return (
+        <div
+          key={slide.key}
+          className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+        >
+          {/* PREVIEW */}
+
+          <div className="relative flex aspect-16/10 items-center justify-center overflow-hidden border-b border-slate-200 bg-white">
+            {slide.image ? (
+              <Image
+                src={slide.image}
+                alt={slide.title}
+                fill
+                sizes="(max-width: 1280px) 100vw, 33vw"
+                className="object-contain p-5"
+                unoptimized
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-slate-400">
+                <ImagePlus className="h-10 w-10" />
+
+                <span className="text-xs font-medium">
+                  Belum ada gambar
+                </span>
+              </div>
+            )}
+
+            {isUploading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm">
+                <Loader2 className="h-7 w-7 animate-spin text-slate-900" />
+
+                <span className="text-xs font-semibold text-slate-700">
+                  Mengupload gambar...
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* CONTENT */}
+
+          <div className="p-4">
+            <h3 className="text-sm font-bold text-slate-900">
+              {slide.title}
+            </h3>
+
+            <p className="mt-1 min-h-10 text-xs leading-5 text-slate-500">
+              {slide.description}
+            </p>
+
+            <p className="mt-3 text-[11px] leading-5 text-slate-400">
+              PNG, WEBP, atau GIF. Maksimal 5 MB.
+            </p>
+
+            <input
+              ref={slide.inputRef}
+              type="file"
+              accept=".png,.webp,.gif,image/png,image/webp,image/gif"
+              onChange={(event) =>
+                handleHeroImageChange(
+                  slide.key,
+                  event
+                )
+              }
+              className="hidden"
+            />
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  slide.inputRef.current?.click()
+                }
+                disabled={
+                  isPending ||
+                  uploadingHeroSlide !== null
+                }
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <ImagePlus className="h-4 w-4" />
+
+                    {slide.image
+                      ? "Ganti Gambar"
+                      : "Upload Gambar"}
+                  </>
+                )}
+              </button>
+
+              {slide.image && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleRemoveHeroImage(
+                      slide.key
+                    )
+                  }
+                  disabled={
+                    isPending ||
+                    uploadingHeroSlide !== null
+                  }
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-3 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={`Hapus ${slide.title}`}
+                  title="Hapus gambar"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+    <p className="text-xs leading-5 text-blue-700">
+      Jika gambar tidak diatur, homepage akan tetap menggunakan icon default.
+      Gambar hanya digunakan sebagai visual pada sisi kanan Hero Slider dan
+      tidak menggantikan background atau isi slide.
+    </p>
+  </div>
+</section>
+
+{/* ====================================================== */}
+{/* KONTAK */}
+{/* ====================================================== */}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="mb-6 flex items-start gap-3">
@@ -1564,28 +2187,34 @@ export default function SettingsForm({
         <button
           type="submit"
           disabled={
-            isPending ||
-            isLocating ||
-            isUploadingLogo
-          }
+  isPending ||
+  isLocating ||
+  isUploadingLogo ||
+  uploadingHeroSlide !== null
+}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Menyimpan...
-            </>
-          ) : isUploadingLogo ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Mengupload Logo...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              Simpan Pengaturan
-            </>
-          )}
+  <>
+    <Loader2 className="h-4 w-4 animate-spin" />
+    Menyimpan...
+  </>
+) : isUploadingLogo ? (
+  <>
+    <Loader2 className="h-4 w-4 animate-spin" />
+    Mengupload Logo...
+  </>
+) : uploadingHeroSlide ? (
+  <>
+    <Loader2 className="h-4 w-4 animate-spin" />
+    Mengupload Gambar Hero...
+  </>
+) : (
+  <>
+    <Save className="h-4 w-4" />
+    Simpan Pengaturan
+  </>
+)}
         </button>
       </div>
     </form>

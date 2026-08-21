@@ -55,6 +55,12 @@ export interface UpdateSettingsActionInput {
    */
   siteLogo?: string | null;
 
+  heroSlide1Image?: string | null;
+
+  heroSlide2Image?: string | null;
+
+  heroSlide3Image?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -200,6 +206,21 @@ export async function updateSettingsAction(
       siteLogo:
         input.siteLogo,
 
+        /**
+       * ======================================================
+       * HERO SLIDER IMAGES
+       * ======================================================
+       */
+
+      heroSlide1Image:
+        input.heroSlide1Image,
+
+      heroSlide2Image:
+        input.heroSlide2Image,
+
+      heroSlide3Image:
+        input.heroSlide3Image,
+
       email:
         input.email,
 
@@ -291,9 +312,8 @@ export async function updateSettingsAction(
      * Customer layout menggunakan data StoreSettings.
      */
 
-    revalidatePath(
-      "/customer"
-    );
+    revalidatePath("/");
+    revalidatePath("/customer");
 
     revalidatePath(
       "/customer/products"

@@ -32,12 +32,25 @@ export interface UpdateSettingsPayload {
 
   footerDescription?: string | null;
 
-  /**
-   * URL atau path logo situs.
-   *
-   * null berarti menggunakan fallback logo default.
+    /**
+   * ==========================================================
+   * BRANDING
+   * ==========================================================
    */
+
   siteLogo?: string | null;
+
+  /**
+   * ==========================================================
+   * HERO SLIDER IMAGES
+   * ==========================================================
+   */
+
+  heroSlide1Image?: string | null;
+
+  heroSlide2Image?: string | null;
+
+  heroSlide3Image?: string | null;
 
   email?: string | null;
 
@@ -143,6 +156,10 @@ class SettingsRepository {
 
         siteLogo: null,
 
+        heroSlide1Image: null,
+        heroSlide2Image: null,
+        heroSlide3Image: null,
+
         email: null,
 
         whatsapp: null,
@@ -238,8 +255,29 @@ class SettingsRepository {
         footerDescription:
           data.footerDescription ?? null,
 
+                /**
+         * ====================================================
+         * BRANDING
+         * ====================================================
+         */
+
         siteLogo:
           data.siteLogo ?? null,
+
+        /**
+         * ====================================================
+         * HERO SLIDER IMAGES
+         * ====================================================
+         */
+
+        heroSlide1Image:
+          data.heroSlide1Image ?? null,
+
+        heroSlide2Image:
+          data.heroSlide2Image ?? null,
+
+        heroSlide3Image:
+          data.heroSlide3Image ?? null,
 
         email:
           data.email ?? null,
