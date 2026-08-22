@@ -191,7 +191,7 @@ export default class CartService {
     } catch (error) {
       if (
         error instanceof
-          Prisma.PrismaClientKnownRequestError &&
+        Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
         const cart =
@@ -430,19 +430,16 @@ export default class CartService {
       );
     }
 
-    return prisma.$transaction(
+        return prisma.$transaction(
       async (tx) => {
         const currentProduct =
           await tx.product.findFirst({
             where: {
-              id:
-                productId,
+              id: productId,
 
-              deletedAt:
-                null,
+              deletedAt: null,
 
-              isPublished:
-                true,
+              isPublished: true,
             },
 
             select: {
@@ -463,251 +460,259 @@ export default class CartService {
         }
 
         if (
-  currentProduct.stock <= 0
-) {
-  throw new Error(
-    `Stok ${currentProduct.name} sedang habis.`
-  );
-}
+          currentProduct.stock <= 0
+        ) {
+          throw new Error(
+            `Stok ${currentProduct.name} sedang habis.`
+          );
+        }
 
+        /**
+         * ==========================================================
+         * FLASH SALE SERVER-SIDE PROTECTION
+         * ==========================================================
+         *
+         * Priority:
+         *
+         * 1. Flash Sale khusus weight yang dipilih
+         * 2. Flash Sale product-wide
+         *
+         * Backend wajib melakukan validasi ulang agar request dari
+         * client tidak dapat melewati quota Flash Sale.
+         */
 
-/**
- * ==========================================================
- * FLASH SALE SERVER-SIDE PROTECTION
- * ==========================================================
- *
- * Priority:
- *
- * 1. Flash Sale khusus weight yang dipilih
- * 2. Flash Sale product-wide
- *
- * Backend wajib melakukan validasi ulang
- * agar request dari client tidak dapat
- * melewati quota Flash Sale.
- */
+        /**
+         * ==========================================================
+         * GET SELECTED WEIGHT OPTION
+         * ==========================================================
+         */
 
+        const selectedWeightOption =
+          normalizedWeight
+            ? await tx.productWeightOption.findFirst({
+                where: {
+                  productId:
+                    currentProduct.id,
 
-/**
- * ==========================================================
- * GET SELECTED WEIGHT OPTION
- * ==========================================================
- */
+                  label:
+                    normalizedWeight,
 
-const selectedWeightOption =
-  normalizedWeight
-    ? await tx.productWeightOption.findFirst({
-        where: {
-          productId:
-            currentProduct.id,
+                  isActive:
+                    true,
+                },
 
-          label:
-            normalizedWeight,
+                select: {
+                  id: true,
+                },
+              })
+            : null;
 
-          isActive:
-            true,
-        },
+        /**
+         * ==========================================================
+         * CURRENT TIME
+         * ==========================================================
+         */
 
-        select: {
-          id: true,
-        },
-      })
-    : null;
+        const now =
+          new Date();
 
+        /**
+         * ==========================================================
+         * FIND WEIGHT-SPECIFIC FLASH SALE
+         * ==========================================================
+         */
 
-/**
- * ==========================================================
- * CURRENT TIME
- * ==========================================================
- */
+        const weightFlashSaleItem =
+          selectedWeightOption
+            ? await tx.flashSaleItem.findFirst({
+                where: {
+                  productId:
+                    currentProduct.id,
 
-const now =
-  new Date();
+                  weightOptionId:
+                    selectedWeightOption.id,
 
+                  isActive:
+                    true,
 
-/**
- * ==========================================================
- * FIND WEIGHT-SPECIFIC FLASH SALE
- * ==========================================================
- */
+                  stockLimit: {
+                    gt:
+                      0,
+                  },
 
-const weightFlashSaleItem =
-  selectedWeightOption
-    ? await tx.flashSaleItem.findFirst({
-        where: {
-          productId:
-            currentProduct.id,
+                  flashSale: {
+                    status:
+                      "ACTIVE",
 
-          weightOptionId:
-            selectedWeightOption.id,
+                    startAt: {
+                      lte:
+                        now,
+                    },
 
-          isActive:
-            true,
+                    endAt: {
+                      gt:
+                        now,
+                    },
+                  },
+                },
 
-          stockLimit: {
-            gt:
+                select: {
+                  id: true,
+
+                  stockLimit: true,
+
+                  soldQuantity: true,
+
+                  perUserLimit: true,
+                },
+
+                orderBy: {
+                  sortOrder:
+                    "asc",
+                },
+              })
+            : null;
+
+        /**
+         * ==========================================================
+         * FIND PRODUCT-WIDE FLASH SALE
+         * ==========================================================
+         */
+
+        const productFlashSaleItem =
+          await tx.flashSaleItem.findFirst({
+            where: {
+              productId:
+                currentProduct.id,
+
+              weightOptionId:
+                null,
+
+              isActive:
+                true,
+
+              stockLimit: {
+                gt:
+                  0,
+              },
+
+              flashSale: {
+                status:
+                  "ACTIVE",
+
+                startAt: {
+                  lte:
+                    now,
+                },
+
+                endAt: {
+                  gt:
+                    now,
+                },
+              },
+            },
+
+            select: {
+              id: true,
+
+              stockLimit: true,
+
+              soldQuantity: true,
+
+              perUserLimit: true,
+            },
+
+            orderBy: {
+              sortOrder:
+                "asc",
+            },
+          });
+
+        /**
+         * ==========================================================
+         * RESOLVE ACTIVE FLASH SALE
+         * ==========================================================
+         *
+         * Weight-specific memiliki prioritas dibanding
+         * product-wide.
+         */
+
+        const activeFlashSaleItem =
+          weightFlashSaleItem ??
+          productFlashSaleItem;
+
+        /**
+         * ==========================================================
+         * VALIDATE FLASH SALE QUOTA
+         * ==========================================================
+         */
+
+        if (activeFlashSaleItem) {
+          const remainingQuota =
+            Math.max(
               0,
-          },
+              activeFlashSaleItem.stockLimit -
+                activeFlashSaleItem.soldQuantity
+            );
 
-          flashSale: {
-            status:
-              "ACTIVE",
+          if (
+            remainingQuota <= 0
+          ) {
+            throw new Error(
+              "Maaf, kuota Flash Sale untuk produk ini sudah habis."
+            );
+          }
 
-            startAt: {
-              lte:
-                now,
-            },
+          if (
+            quantity >
+            remainingQuota
+          ) {
+            throw new Error(
+              `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
+            );
+          }
 
-            endAt: {
-              gt:
-                now,
-            },
-          },
-        },
+          /**
+           * ========================================================
+           * VALIDATE PER USER LIMIT
+           * ========================================================
+           */
 
-        select: {
-          id: true,
-
-          stockLimit: true,
-
-          soldQuantity: true,
-
-          perUserLimit: true,
-        },
-
-        orderBy: {
-          sortOrder:
-            "asc",
-        },
-      })
-    : null;
-
-
-/**
- * ==========================================================
- * FIND PRODUCT-WIDE FLASH SALE
- * ==========================================================
- */
-
-const productFlashSaleItem =
-  await tx.flashSaleItem.findFirst({
-    where: {
-      productId:
-        currentProduct.id,
-
-      weightOptionId:
-        null,
-
-      isActive:
-        true,
-
-      stockLimit: {
-        gt:
-          0,
-      },
-
-      flashSale: {
-        status:
-          "ACTIVE",
-
-        startAt: {
-          lte:
-            now,
-        },
-
-        endAt: {
-          gt:
-            now,
-        },
-      },
-    },
-
-    select: {
-      id: true,
-
-      stockLimit: true,
-
-      soldQuantity: true,
-
-      perUserLimit: true,
-    },
-
-    orderBy: {
-      sortOrder:
-        "asc",
-    },
-  });
+          if (
+            activeFlashSaleItem.perUserLimit !== null &&
+            quantity >
+              activeFlashSaleItem.perUserLimit
+          ) {
+            throw new Error(
+              `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
+            );
+          }
+        }
 
 
-/**
- * ==========================================================
- * RESOLVE ACTIVE FLASH SALE
- * ==========================================================
- *
- * Weight-specific memiliki prioritas
- * dibanding product-wide.
- */
+        /**
+         * ==========================================================
+         * PRODUCT PRICING
+         * ==========================================================
+         */
 
-const activeFlashSaleItem =
-  weightFlashSaleItem ??
-  productFlashSaleItem;
+        const pricing =
+          await ProductPricingService.resolve(
+            tx,
+            {
+              productId:
+                currentProduct.id,
 
+              productVariant:
+                normalizedVariant,
 
-/**
- * ==========================================================
- * VALIDATE FLASH SALE QUOTA
- * ==========================================================
- */
+              productWeight:
+                normalizedWeight,
 
-if (activeFlashSaleItem) {
-  const remainingQuota =
-    Math.max(
-      0,
-      activeFlashSaleItem.stockLimit -
-        activeFlashSaleItem.soldQuantity
-    );
-
-  if (
-    remainingQuota <= 0
-  ) {
-    throw new Error(
-      "Maaf, kuota Flash Sale untuk produk ini sudah habis."
-    );
-  }
-
-  if (
-    quantity >
-    remainingQuota
-  ) {
-    throw new Error(
-      `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
-    );
-  }
-}
-
-
-/**
- * ==========================================================
- * PRODUCT PRICING
- * ==========================================================
- */
-
-const pricing =
-  await ProductPricingService.resolve(
-    tx,
-    {
-      productId:
-        currentProduct.id,
-
-      productVariant:
-        normalizedVariant,
-
-      productWeight:
-        normalizedWeight,
-
-      fallbackPrice:
-        currentProduct.price,
-    }
-  );
+              fallbackPrice:
+                currentProduct.price,
+            }
+          );
 
         let cart =
           await tx.cart.findUnique({
@@ -727,7 +732,7 @@ const pricing =
           } catch (error) {
             if (
               error instanceof
-                Prisma.PrismaClientKnownRequestError &&
+              Prisma.PrismaClientKnownRequestError &&
               error.code === "P2002"
             ) {
               cart =
@@ -745,149 +750,127 @@ const pricing =
         }
 
         const existingItem =
-  await tx.cartItem.findFirst({
-    where: {
-      cartId:
-        cart.id,
+          await tx.cartItem.findFirst({
+            where: {
+              cartId:
+                cart.id,
 
-      productId:
-        currentProduct.id,
+              productId:
+                currentProduct.id,
 
-      productVariant:
-        normalizedVariant,
+              productVariant:
+                normalizedVariant,
 
-      productWeight:
-        normalizedWeight,
+              productWeight:
+                normalizedWeight,
 
-      customerNote:
-        normalizedCustomerNote,
-    },
-  });
+              customerNote:
+                normalizedCustomerNote,
+            },
+          });
 
         if (existingItem) {
-  /**
-   * ========================================================
-   * CALCULATE NEW QUANTITY
-   * ========================================================
-   */
+          /**
+           * ========================================================
+           * CALCULATE NEW QUANTITY
+           * ========================================================
+           */
 
-  const newQuantity =
-    existingItem.quantity +
-    quantity;
-
-
-  /**
-   * ========================================================
-   * VALIDATE PRODUCT STOCK
-   * ========================================================
-   */
-
-  if (
-    newQuantity >
-    currentProduct.stock
-  ) {
-    throw new Error(
-      `Jumlah di keranjang melebihi stok tersedia. Stok ${currentProduct.name} hanya ${currentProduct.stock}.`
-    );
-  }
+          const newQuantity =
+            existingItem.quantity +
+            quantity;
 
 
-  /**
-   * ========================================================
-   * VALIDATE FLASH SALE QUOTA
-   * ========================================================
-   *
-   * Quantity existing item +
-   * quantity baru
-   * tidak boleh melebihi
-   * sisa quota Flash Sale.
-   */
+          /**
+           * ========================================================
+           * VALIDATE PRODUCT STOCK
+           * ========================================================
+           */
 
-  if (activeFlashSaleItem) {
-    const remainingQuota =
-      Math.max(
-        0,
-        activeFlashSaleItem.stockLimit -
-          activeFlashSaleItem.soldQuantity
-      );
-
-    if (
-      newQuantity >
-      remainingQuota
-    ) {
-      throw new Error(
-        `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
-      );
-    }
+          if (
+            newQuantity >
+            currentProduct.stock
+          ) {
+            throw new Error(
+              `Jumlah di keranjang melebihi stok tersedia. Stok ${currentProduct.name} hanya ${currentProduct.stock}.`
+            );
+          }
 
 
-    /**
-     * ======================================================
-     * PER USER LIMIT
-     * ======================================================
-     */
+          /**
+           * ========================================================
+           * VALIDATE FLASH SALE QUOTA
+           * ========================================================
+           *
+           * Quantity existing item +
+           * quantity baru
+           * tidak boleh melebihi
+           * sisa quota Flash Sale.
+           */
 
-    if (
-      activeFlashSaleItem.perUserLimit !== null &&
-      newQuantity >
-        activeFlashSaleItem.perUserLimit
-    ) {
-      throw new Error(
-        `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
-      );
-    }
-  }
+          if (activeFlashSaleItem) {
+            const remainingQuota =
+              Math.max(
+                0,
+                activeFlashSaleItem.stockLimit -
+                activeFlashSaleItem.soldQuantity
+              );
 
-
-  /**
-   * ========================================================
-   * UPDATE CART ITEM
-   * ========================================================
-   */
-
-  await tx.cartItem.update({
-  where: {
-    id:
-      existingItem.id,
-  },
-
-  data: {
-    /**
-     * ======================================================
-     * QUANTITY
-     * ======================================================
-     */
-
-    quantity:
-      newQuantity,
+            if (
+              newQuantity >
+              remainingQuota
+            ) {
+              throw new Error(
+                `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
+              );
+            }
 
 
-    /**
-     * ======================================================
-     * PRICE SNAPSHOT
-     * ======================================================
-     */
+            /**
+             * ======================================================
+             * PER USER LIMIT
+             * ======================================================
+             */
 
-    price:
-      pricing.finalPrice,
+            if (
+              activeFlashSaleItem.perUserLimit !== null &&
+              newQuantity >
+              activeFlashSaleItem.perUserLimit
+            ) {
+              throw new Error(
+                `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
+              );
+            }
+          }
 
 
-    /**
-     * ======================================================
-     * FLASH SALE SNAPSHOT
-     * ======================================================
-     */
+          /**
+         * ========================================================
+         * UPDATE CART ITEM
+         * ========================================================
+         */
 
-    isFlashSaleApplied:
-      pricing.isFlashSaleApplied,
+          await tx.cartItem.update({
+            where: {
+              id: existingItem.id,
+            },
 
-    flashSaleId:
-      pricing.flashSaleId,
+            data: {
+              quantity: newQuantity,
 
-    flashSaleItemId:
-      pricing.flashSaleItemId,
-  },
-});
+              price:
+                pricing.finalPrice,
+
+              isFlashSaleApplied:
+                pricing.isFlashSaleApplied,
+
+              flashSaleId:
+                pricing.flashSaleId,
+
+              flashSaleItemId:
+                pricing.flashSaleItemId,
+            },
+          });
         } else {
 
           /**
@@ -896,23 +879,23 @@ const pricing =
  * ========================================================
  */
 
-if (
-  activeFlashSaleItem &&
-  activeFlashSaleItem.perUserLimit !== null &&
-  quantity >
-    activeFlashSaleItem.perUserLimit
-) {
-  throw new Error(
-    `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
-  );
-}
+          if (
+            activeFlashSaleItem &&
+            activeFlashSaleItem.perUserLimit !== null &&
+            quantity >
+            activeFlashSaleItem.perUserLimit
+          ) {
+            throw new Error(
+              `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
+            );
+          }
 
- /**
-   * ========================================================
-   * CREATE CART ITEM
-   * ========================================================
-   */
-  
+          /**
+            * ========================================================
+            * CREATE CART ITEM
+            * ========================================================
+            */
+
           await tx.cartItem.create({
             data: {
               cartId:
@@ -935,20 +918,20 @@ if (
               price:
                 pricing.finalPrice,
 
-                /**
- * ========================================================
- * FLASH SALE SNAPSHOT
- * ========================================================
- */
+              /**
+* ========================================================
+* FLASH SALE SNAPSHOT
+* ========================================================
+*/
 
-isFlashSaleApplied:
-  pricing.isFlashSaleApplied,
+              isFlashSaleApplied:
+                pricing.isFlashSaleApplied,
 
-flashSaleId:
-  pricing.flashSaleId,
+              flashSaleId:
+                pricing.flashSaleId,
 
-flashSaleItemId:
-  pricing.flashSaleItemId,
+              flashSaleItemId:
+                pricing.flashSaleItemId,
             },
           });
         }
@@ -988,164 +971,452 @@ flashSaleItemId:
     );
   }
 
-  /**
-   * ============================================================
-   * UPDATE ITEM
-   * ============================================================
-   */
+ /**
+ * ============================================================
+ * UPDATE ITEM
+ * ============================================================
+ */
 
-  static async updateItem({
-    userId,
-    cartItemId,
-    quantity,
-  }: UpdateCartItemInput) {
-    this.validateUserId(
-      userId
-    );
+static async updateItem({
+  userId,
+  cartItemId,
+  quantity,
+}: UpdateCartItemInput) {
+  this.validateUserId(
+    userId
+  );
 
-    this.validateCartItemId(
+  this.validateCartItemId(
+    cartItemId
+  );
+
+  this.validateQuantity(
+    quantity
+  );
+
+  const cartItem =
+    await CartRepository.findItemById(
       cartItemId
     );
 
-    this.validateQuantity(
-      quantity
+  if (!cartItem) {
+    throw new Error(
+      "Item keranjang tidak ditemukan."
     );
+  }
 
-    const cartItem =
-      await CartRepository.findItemById(
-        cartItemId
-      );
+  if (
+    cartItem.cart.userId !==
+    userId
+  ) {
+    throw new Error(
+      "Anda tidak memiliki akses ke item keranjang ini."
+    );
+  }
 
-    if (!cartItem) {
-      throw new Error(
-        "Item keranjang tidak ditemukan."
-      );
-    }
+  if (
+    cartItem.product.deletedAt ||
+    !cartItem.product.isPublished
+  ) {
+    throw new Error(
+      "Produk sudah tidak tersedia."
+    );
+  }
 
-    if (
-      cartItem.cart.userId !==
-      userId
-    ) {
-      throw new Error(
-        "Anda tidak memiliki akses ke item keranjang ini."
-      );
-    }
+  if (
+    cartItem.product.stock <= 0
+  ) {
+    throw new Error(
+      `Stok ${cartItem.product.name} sedang habis.`
+    );
+  }
 
-    if (
-      cartItem.product.deletedAt ||
-      !cartItem.product.isPublished
-    ) {
-      throw new Error(
-        "Produk sudah tidak tersedia."
-      );
-    }
+  if (
+    quantity >
+    cartItem.product.stock
+  ) {
+    throw new Error(
+      `Jumlah melebihi stok tersedia. Stok ${cartItem.product.name} hanya ${cartItem.product.stock}.`
+    );
+  }
 
-    if (
-      cartItem.product.stock <= 0
-    ) {
-      throw new Error(
-        `Stok ${cartItem.product.name} sedang habis.`
-      );
-    }
+  await prisma.$transaction(
+    async (tx) => {
+      /**
+       * ========================================================
+       * NORMALIZE PRODUCT OPTIONS
+       * ========================================================
+       */
 
-    if (
-      quantity >
-      cartItem.product.stock
-    ) {
-      throw new Error(
-        `Jumlah melebihi stok tersedia. Stok ${cartItem.product.name} hanya ${cartItem.product.stock}.`
-      );
-    }
+      const normalizedVariant =
+        this.normalizeOption(
+          cartItem.productVariant
+        );
 
-    await prisma.$transaction(
-      async (tx) => {
-        const normalizedVariant =
-          this.normalizeOption(
-            cartItem.productVariant
-          );
+      const normalizedWeight =
+        this.normalizeOption(
+          cartItem.productWeight
+        );
 
-        const normalizedWeight =
-          this.normalizeOption(
-            cartItem.productWeight
-          );
+      /**
+       * ========================================================
+       * GET CURRENT PRODUCT
+       * ========================================================
+       */
 
-        const currentProduct =
-          await tx.product.findUnique({
-            where: {
-              id:
-                cartItem.productId,
+      const currentProduct =
+        await tx.product.findUnique({
+          where: {
+            id:
+              cartItem.productId,
+          },
+
+          select: {
+            id: true,
+
+            name: true,
+
+            price: true,
+
+            stock: true,
+
+            deletedAt: true,
+
+            isPublished: true,
+          },
+        });
+
+      if (
+        !currentProduct ||
+        currentProduct.deletedAt ||
+        !currentProduct.isPublished
+      ) {
+        throw new Error(
+          "Produk sudah tidak tersedia."
+        );
+      }
+
+      /**
+       * ========================================================
+       * VALIDATE CURRENT STOCK
+       * ========================================================
+       */
+
+      if (
+        currentProduct.stock <= 0
+      ) {
+        throw new Error(
+          `Stok ${currentProduct.name} sedang habis.`
+        );
+      }
+
+      if (
+        quantity >
+        currentProduct.stock
+      ) {
+        throw new Error(
+          `Jumlah melebihi stok tersedia. Stok ${currentProduct.name} hanya ${currentProduct.stock}.`
+        );
+      }
+
+      /**
+       * ========================================================
+       * GET SELECTED WEIGHT OPTION
+       * ========================================================
+       */
+
+      const selectedWeightOption =
+        normalizedWeight
+          ? await tx.productWeightOption.findFirst({
+              where: {
+                productId:
+                  currentProduct.id,
+
+                label:
+                  normalizedWeight,
+
+                isActive:
+                  true,
+              },
+
+              select: {
+                id: true,
+              },
+            })
+          : null;
+
+      /**
+       * ========================================================
+       * CURRENT TIME
+       * ========================================================
+       */
+
+      const now =
+        new Date();
+
+      /**
+       * ========================================================
+       * FIND WEIGHT-SPECIFIC FLASH SALE
+       * ========================================================
+       */
+
+      const weightFlashSaleItem =
+        selectedWeightOption
+          ? await tx.flashSaleItem.findFirst({
+              where: {
+                productId:
+                  currentProduct.id,
+
+                weightOptionId:
+                  selectedWeightOption.id,
+
+                isActive:
+                  true,
+
+                stockLimit: {
+                  gt:
+                    0,
+                },
+
+                flashSale: {
+                  status:
+                    "ACTIVE",
+
+                  startAt: {
+                    lte:
+                      now,
+                  },
+
+                  endAt: {
+                    gt:
+                      now,
+                  },
+                },
+              },
+
+              select: {
+                id: true,
+
+                stockLimit: true,
+
+                soldQuantity: true,
+
+                perUserLimit: true,
+              },
+
+              orderBy: {
+                sortOrder:
+                  "asc",
+              },
+            })
+          : null;
+
+      /**
+       * ========================================================
+       * FIND PRODUCT-WIDE FLASH SALE
+       * ========================================================
+       */
+
+      const productFlashSaleItem =
+        await tx.flashSaleItem.findFirst({
+          where: {
+            productId:
+              currentProduct.id,
+
+            weightOptionId:
+              null,
+
+            isActive:
+              true,
+
+            stockLimit: {
+              gt:
+                0,
             },
 
-            select: {
-              id: true,
+            flashSale: {
+              status:
+                "ACTIVE",
 
-              price: true,
+              startAt: {
+                lte:
+                  now,
+              },
 
-              stock: true,
-
-              deletedAt: true,
-
-              isPublished: true,
+              endAt: {
+                gt:
+                  now,
+              },
             },
-          });
+          },
+
+          select: {
+            id: true,
+
+            stockLimit: true,
+
+            soldQuantity: true,
+
+            perUserLimit: true,
+          },
+
+          orderBy: {
+            sortOrder:
+              "asc",
+          },
+        });
+
+      /**
+       * ========================================================
+       * RESOLVE ACTIVE FLASH SALE
+       * ========================================================
+       *
+       * Weight-specific memiliki prioritas
+       * dibanding product-wide.
+       */
+
+      const activeFlashSaleItem =
+        weightFlashSaleItem ??
+        productFlashSaleItem;
+
+      /**
+       * ========================================================
+       * VALIDATE FLASH SALE QUOTA
+       * ========================================================
+       *
+       * IMPORTANT:
+       *
+       * `quantity` di updateItem() adalah
+       * FINAL QUANTITY.
+       *
+       * Jangan menggunakan:
+       *
+       * existingItem.quantity + quantity
+       *
+       * karena UI mengirim quantity akhir.
+       */
+
+      if (activeFlashSaleItem) {
+        const remainingQuota =
+          Math.max(
+            0,
+            activeFlashSaleItem.stockLimit -
+              activeFlashSaleItem.soldQuantity
+          );
 
         if (
-          !currentProduct ||
-          currentProduct.deletedAt ||
-          !currentProduct.isPublished
+          remainingQuota <= 0
         ) {
           throw new Error(
-            "Produk sudah tidak tersedia."
+            "Maaf, kuota Flash Sale untuk produk ini sudah habis."
           );
         }
 
         if (
           quantity >
-          currentProduct.stock
+          remainingQuota
         ) {
           throw new Error(
-            "Jumlah melebihi stok yang tersedia."
+            `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
           );
         }
 
-        const pricing =
-  await ProductPricingService.resolve(
-    tx,
-    {
-      productId:
-        currentProduct.id,
+        /**
+         * ======================================================
+         * VALIDATE PER USER LIMIT
+         * ======================================================
+         */
 
-      productVariant:
-        normalizedVariant,
+        if (
+          activeFlashSaleItem.perUserLimit !== null &&
+          quantity >
+            activeFlashSaleItem.perUserLimit
+        ) {
+          throw new Error(
+            `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
+          );
+        }
+      }
 
-      productWeight:
-        normalizedWeight,
+      /**
+       * ========================================================
+       * PRODUCT PRICING
+       * ========================================================
+       *
+       * Harga tetap dihitung ulang oleh pricing engine.
+       */
 
-      fallbackPrice:
-        currentProduct.price,
+      const pricing =
+        await ProductPricingService.resolve(
+          tx,
+          {
+            productId:
+              currentProduct.id,
+
+            productVariant:
+              normalizedVariant,
+
+            productWeight:
+              normalizedWeight,
+
+            fallbackPrice:
+              currentProduct.price,
+          }
+        );
+
+      /**
+       * ========================================================
+       * UPDATE CART ITEM
+       * ========================================================
+       */
+
+      await tx.cartItem.update({
+        where: {
+          id:
+            cartItemId,
+        },
+
+        data: {
+          /**
+           * ======================================================
+           * QUANTITY
+           * ======================================================
+           */
+
+          quantity,
+
+          /**
+           * ======================================================
+           * PRICE SNAPSHOT
+           * ======================================================
+           */
+
+          price:
+            pricing.finalPrice,
+
+          /**
+           * ======================================================
+           * FLASH SALE SNAPSHOT
+           * ======================================================
+           */
+
+          isFlashSaleApplied:
+            pricing.isFlashSaleApplied,
+
+          flashSaleId:
+            pricing.flashSaleId,
+
+          flashSaleItemId:
+            pricing.flashSaleItemId,
+        },
+      });
     }
   );
 
-        await tx.cartItem.update({
-          where: {
-            id:
-              cartItemId,
-          },
-
-          data: {
-            quantity,
-
-            price:
-              pricing.finalPrice,
-          },
-        });
-      }
-    );
-
-    return this.getCart(
-      userId
-    );
-  }
+  return this.getCart(
+    userId
+  );
+}
 
   /**
    * ============================================================
@@ -1314,13 +1585,13 @@ flashSaleItemId:
   static calculateTotal(
     cart:
       | {
-          items: Array<{
-            quantity: number;
+        items: Array<{
+          quantity: number;
 
-            price:
-              Prisma.Decimal;
-          }>;
-        }
+          price:
+          Prisma.Decimal;
+        }>;
+      }
       | null
   ) {
     if (!cart) {

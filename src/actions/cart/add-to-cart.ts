@@ -51,18 +51,24 @@ export async function addToCartAction(
     }
 
     /**
-     * ==========================================================
-     * PRODUCT VALIDATION
-     * ==========================================================
-     */
+ * ==========================================================
+ * PRODUCT VALIDATION
+ * ==========================================================
+ */
 
-    if (!input.productId) {
-      return {
-        success: false,
-        message:
-          "Produk tidak valid.",
-      };
-    }
+const productId =
+  typeof input.productId ===
+  "string"
+    ? input.productId.trim()
+    : "";
+
+if (!productId) {
+  return {
+    success: false,
+    message:
+      "Produk tidak valid.",
+  };
+}
 
     /**
      * ==========================================================
@@ -111,8 +117,7 @@ export async function addToCartAction(
       userId:
         session.user.id,
 
-      productId:
-        input.productId,
+      productId,
 
       quantity:
         input.quantity,

@@ -762,7 +762,7 @@ export default function CheckoutForm({
       {/* HEADER */}
 
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-3 py-5 sm:px-5 sm:py-7 lg:px-8 lg:py-8">
           <Link
             href="/customer/cart"
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
@@ -772,13 +772,13 @@ export default function CheckoutForm({
             Kembali ke Keranjang
           </Link>
 
-          <div className="mt-6 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-3 sm:mt-6">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-600 text-white">
               <ShoppingCart className="h-5 w-5" />
             </div>
 
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-950">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
                 Checkout
               </h1>
 
@@ -790,8 +790,8 @@ export default function CheckoutForm({
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="mx-auto max-w-7xl px-3 py-5 sm:px-5 sm:py-6 lg:px-8 lg:py-8">
+  <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8">
           <div className="space-y-6">
 
             {/* ================================================= */}
@@ -814,7 +814,7 @@ export default function CheckoutForm({
     backdrop-blur-sm
   "
 >
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 sm:px-5 sm:py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                     <MapPin className="h-5 w-5" />
@@ -883,7 +883,7 @@ export default function CheckoutForm({
   : "bg-white/50 transition-all duration-300 hover:bg-slate-50/80"
                           }
                         >
-                          <div className="flex gap-4 px-5 py-5">
+                          <div className="flex gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5">
                             <button
                               type="button"
                               onClick={() => {
@@ -898,7 +898,7 @@ export default function CheckoutForm({
                               disabled={
                                 isSubmitting
                               }
-                              className="flex min-w-0 flex-1 gap-4 text-left disabled:cursor-not-allowed"
+                              className="flex min-w-0 flex-1 gap-3 text-left sm:gap-4 disabled:cursor-not-allowed"
                             >
                               <div
                                 className={
@@ -1062,7 +1062,7 @@ export default function CheckoutForm({
 
                             <Link
                               href={`/customer/addresses/${address.id}/edit`}
-                              className="shrink-0 text-sm font-medium text-cyan-600 hover:text-cyan-700"
+                              className="shrink-0 self-start rounded-lg px-2 py-1 text-xs font-semibold text-cyan-600 hover:bg-cyan-50 hover:text-cyan-700 sm:text-sm"
                             >
                               Edit
                             </Link>
@@ -1095,7 +1095,7 @@ export default function CheckoutForm({
     backdrop-blur-sm
   "
 >
-              <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5 sm:py-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                   <Navigation className="h-5 w-5" />
                 </div>
@@ -1152,7 +1152,7 @@ export default function CheckoutForm({
 >
                       {internalShippingResult.available ? (
                         <>
-                          <div className="flex items-start justify-between gap-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="text-sm font-semibold text-slate-900">
                                 {
@@ -1262,7 +1262,7 @@ export default function CheckoutForm({
     backdrop-blur-sm
   "
 >
-              <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5 sm:py-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                   <CreditCard className="h-5 w-5" />
                 </div>
@@ -1300,6 +1300,14 @@ export default function CheckoutForm({
                       const isSelected =
                         channel.id ===
                         selectedPaymentChannelId;
+                      const isBankTransfer =
+                        channel.type ===
+                        "BANK_TRANSFER";
+                      const hasPaymentDetails = Boolean(
+                        channel.bankName ||
+                          channel.accountNumber ||
+                          channel.accountHolder
+                      );
 
                       return (
                         <button
@@ -1319,7 +1327,7 @@ export default function CheckoutForm({
                           disabled={
                             isSubmitting
                           }
-                          className={`flex w-full items-start gap-4 px-5 py-5 text-left transition ${isSelected
+                          className={`flex w-full min-w-0 items-start gap-3 px-4 py-4 text-left transition sm:gap-4 sm:px-5 sm:py-5 ${isSelected
                               ? "relative bg-linear-to-r from-cyan-50/90 via-white to-transparent"
                             : "bg-white/50 transition-all duration-300 hover:bg-slate-50/80"
                             }`}
@@ -1337,8 +1345,7 @@ export default function CheckoutForm({
                           </div>
 
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                            {channel.type ===
-                              "BANK_TRANSFER" ? (
+                            {isBankTransfer ? (
                               <Landmark className="h-5 w-5" />
                             ) : (
                               <CreditCard className="h-5 w-5" />
@@ -1353,12 +1360,11 @@ export default function CheckoutForm({
                                 }
                               </h3>
 
-                              {channel.type ===
-                                "BANK_TRANSFER" && (
-                                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                                    Transfer Bank
-                                  </span>
-                                )}
+                              {isBankTransfer && (
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                                  Transfer Bank
+                                </span>
+                              )}
                             </div>
 
                             {channel.description && (
@@ -1369,36 +1375,34 @@ export default function CheckoutForm({
                               </p>
                             )}
 
-                            {(channel.bankName ||
-                              channel.accountNumber ||
-                              channel.accountHolder) && (
-                                <div className="mt-4 rounded-xl bg-slate-50 p-4">
-                                  {channel.bankName && (
-                                    <p className="font-semibold text-slate-900">
-                                      {
-                                        channel.bankName
-                                      }
-                                    </p>
-                                  )}
+                            {hasPaymentDetails && (
+                              <div className="mt-4 rounded-xl bg-slate-50 p-4">
+                                {channel.bankName && (
+                                  <p className="font-semibold text-slate-900">
+                                    {
+                                      channel.bankName
+                                    }
+                                  </p>
+                                )}
 
-                                  {channel.accountNumber && (
-                                    <p className="mt-1 font-mono text-sm text-slate-600">
-                                      {
-                                        channel.accountNumber
-                                      }
-                                    </p>
-                                  )}
+                                {channel.accountNumber && (
+                                  <p className="mt-1 font-mono text-sm text-slate-600">
+                                    {
+                                      channel.accountNumber
+                                    }
+                                  </p>
+                                )}
 
-                                  {channel.accountHolder && (
-                                    <p className="mt-1 text-sm text-slate-500">
-                                      a.n.{" "}
-                                      {
-                                        channel.accountHolder
-                                      }
-                                    </p>
-                                  )}
-                                </div>
-                              )}
+                                {channel.accountHolder && (
+                                  <p className="mt-1 text-sm text-slate-500">
+                                    a.n.{" "}
+                                    {
+                                      channel.accountHolder
+                                    }
+                                  </p>
+                                )}
+                              </div>
+                            )}
 
                             {channel.instructions && (
                               <div className="mt-4 rounded-xl border border-cyan-100 bg-cyan-50/50 p-4">
@@ -1492,7 +1496,7 @@ export default function CheckoutForm({
     backdrop-blur-sm
   "
 >
-              <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 sm:px-5 sm:py-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
                   <Package className="h-5 w-5" />
                 </div>
@@ -1531,7 +1535,7 @@ export default function CheckoutForm({
   "
 >
                       <div className="min-w-0">
-                        <h3 className="truncate font-medium text-slate-900">
+                        <h3 className="line-clamp-2 min-w-0 font-medium text-sm leading-5 text-slate-900 sm:text-base">
                           {
                             item.product.name
                           }
@@ -1568,7 +1572,7 @@ export default function CheckoutForm({
 
     bg-white/90
 
-    p-6
+    p-4 sm:p-6
 
     shadow-[0_12px_36px_rgba(23,50,77,0.10)]
 
@@ -1658,27 +1662,33 @@ export default function CheckoutForm({
                         )}
                       </div>
 
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                         <input
-                          type="text"
-                          value={
-                            voucherCode
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            handleVoucherCodeChange(
-                              event.target.value
-                            )
-                          }
-                          placeholder="Contoh: HEMAT10"
-                          maxLength={50}
-                          disabled={
-                            isSubmitting ||
-                            isApplyingVoucher
-                          }
-                          className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold uppercase tracking-wide text-slate-900 outline-none transition placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 disabled:cursor-not-allowed disabled:bg-slate-100"
-                        />
+  type="text"
+  value={voucherCode}
+  onChange={(event) =>
+    setVoucherCode(event.target.value)
+  }
+  placeholder="Contoh: HEMAT10"
+  className="
+    h-11
+    w-full
+    min-w-0
+    rounded-xl
+    border
+    border-slate-200
+    bg-white
+    px-3
+    text-sm
+    text-slate-900
+    outline-none
+    transition
+    placeholder:text-slate-400
+    focus:border-cyan-500
+    focus:ring-2
+    focus:ring-cyan-100
+  "
+/>
 
                         <button
                           type="button"
@@ -1693,34 +1703,27 @@ export default function CheckoutForm({
                           className="
   inline-flex
   h-11
+  w-full
   shrink-0
   items-center
   justify-center
   gap-2
-
   rounded-xl
-
   bg-cyan-600
-
   px-4
-
   text-sm
   font-semibold
   text-white
-
   shadow-[0_4px_12px_rgba(8,145,178,0.20)]
-
   transition-all
   duration-200
-
   active:scale-[0.97]
-
   hover:bg-cyan-700
   hover:shadow-[0_6px_16px_rgba(8,145,178,0.28)]
-
   disabled:cursor-not-allowed
   disabled:bg-slate-300
   disabled:shadow-none
+  sm:w-auto
 "
                         >
                           {isApplyingVoucher ? (
@@ -1786,7 +1789,7 @@ export default function CheckoutForm({
                 {/* ================================================= */}
 
                 <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  <div className="flex items-center justify-between gap-4 text-sm">
+                  <div className="flex items-center justify-between gap-3 text-sm">
                     <div>
                       <p className="font-medium text-slate-700">
                         Ongkos Kirim
@@ -1900,7 +1903,7 @@ export default function CheckoutForm({
     className="
       whitespace-nowrap
 
-      text-xl
+      text-lg sm:text-xl
       font-bold
 
       text-slate-950

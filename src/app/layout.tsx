@@ -22,6 +22,12 @@ import MobileBottomNavigation from
 import SessionProvider from
   "@/components/providers/SessionProvider";
 
+import FloatingCustomerService from
+  "@/components/customer/FloatingCustomerService";
+
+import settingsService from
+  "@/services/settings/settings.service";
+
 /**
  * ==========================================================
  * FONT
@@ -64,12 +70,15 @@ export const metadata:
  * ==========================================================
  */
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children:
     React.ReactNode;
 }>) {
+  const settings =
+    await settingsService.getSettings();
+
   return (
     <html
       lang="id"
@@ -79,11 +88,13 @@ export default function RootLayout({
       )}
       suppressHydrationWarning
     >
-      <body
-        suppressHydrationWarning
-      >
+      <body suppressHydrationWarning>
         <SessionProvider>
           {children}
+
+          <FloatingCustomerService
+            whatsapp={settings.whatsapp}
+          />
 
           <MobileBottomNavigation />
 

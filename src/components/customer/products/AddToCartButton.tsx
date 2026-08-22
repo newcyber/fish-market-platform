@@ -765,18 +765,25 @@ function selectWeight(
     nextWeightOption?.id ??
     null;
 
-  const nextFlashSaleItem =
-    flashSaleItems.find(
-      (item) =>
-        item.weightOptionId ===
-        nextWeightOptionId
-    ) ??
-    flashSaleItems.find(
-      (item) =>
-        item.weightOptionId ===
-        null
-    ) ??
-    null;
+  const availableFlashSaleItems =
+  flashSaleItems.filter(
+    (item) =>
+      item.stockLimit >
+      item.soldQuantity
+  );
+
+const nextFlashSaleItem =
+  availableFlashSaleItems.find(
+    (item) =>
+      item.weightOptionId ===
+      nextWeightOptionId
+  ) ??
+  availableFlashSaleItems.find(
+    (item) =>
+      item.weightOptionId ===
+      null
+  ) ??
+  null;
 
 
   /**
@@ -1004,88 +1011,73 @@ function validateSelection() {
    */
 
   function submitProduct(
-    buyNow = false
-  ) {
-    if (
-      !validateSelection()
-    ) {
-      return;
-    }
-
-    resetMessage();
-
-    startTransition(
-      async () => {
-        const result =
-          await addToCartAction({
-            productId,
-
-            quantity,
-
-            productVariant:
-              selectedVariant,
-
-            productWeight:
-              selectedWeight,
-
-            customerNote,
-          });
-
-        if (
-          !result.success
-        ) {
-          setSuccess(false);
-
-          setMessage(
-            result.message ??
-              "Gagal menambahkan produk ke keranjang."
-          );
-
-          return;
-        }
-
-        setSuccess(true);
-
-setMessage(
-  result.message ??
-    "Produk berhasil ditambahkan ke keranjang."
-);
-
-/**
- * ==========================================================
- * NOTIFY CART UPDATE
- * ==========================================================
- *
- * Memberi tahu seluruh component yang membutuhkan
- * informasi cart terbaru.
- *
- * Saat ini digunakan oleh:
- *
- * - MobileBottomNavigation
- *
- * Tidak perlu pindah halaman atau refresh page.
- */
-
-window.dispatchEvent(
-  new Event(
-    "cart-updated"
-  )
-);
-
-        /**
-         * BUY NOW
-         */
-
-        if (buyNow) {
-          router.push(
-            "/customer/cart"
-          );
-
-          router.refresh();
-        }
-      }
-    );
+  buyNow = false
+) {
+  if (isPending) {
+    return;
   }
+
+  if (
+    !validateSelection()
+  ) {
+    return;
+  }
+
+  resetMessage();
+
+  startTransition(
+    async () => {
+      const result =
+        await addToCartAction({
+          productId,
+
+          quantity,
+
+          productVariant:
+            selectedVariant,
+
+          productWeight:
+            selectedWeight,
+
+          customerNote,
+        });
+
+      if (
+        !result.success
+      ) {
+        setSuccess(false);
+
+        setMessage(
+          result.message ??
+            "Gagal menambahkan produk ke keranjang."
+        );
+
+        return;
+      }
+
+      setSuccess(true);
+
+      setMessage(
+        result.message ??
+          "Produk berhasil ditambahkan ke keranjang."
+      );
+
+      window.dispatchEvent(
+        new Event(
+          "cart-updated"
+        )
+      );
+
+      if (buyNow) {
+        router.push(
+          "/customer/cart"
+        );
+
+        router.refresh();
+      }
+    }
+  );
+}
 
   /**
    * ==========================================================

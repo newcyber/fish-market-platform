@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   Star,
   Truck,
+  Tag,
+  X,
 } from "lucide-react";
 
 import ProductService from "@/services/product/product.service";
@@ -875,195 +877,309 @@ endsAt:
                   {product.name}
                 </h1>
 
-                {/* PRODUCT STATS */}
+                {/* PRODUCT AVAILABILITY */}
 
-                <div className="mt-4 flex flex-wrap items-center gap-y-3 text-sm">
-                  <div className="flex items-center gap-1 border-r border-slate-200 pr-5">
-                    <span className="font-medium text-slate-900">
-                      5.0
-                    </span>
+<div className="mt-4 flex flex-wrap items-center gap-2">
+  {outOfStock ? (
+    <span
+      className="
+        inline-flex
+        items-center
+        rounded-full
+        bg-red-50
+        px-3
+        py-1.5
+        text-xs
+        font-semibold
+        text-red-600
+      "
+    >
+      Stok sedang habis
+    </span>
+  ) : (
+    <span
+      className="
+        inline-flex
+        items-center
+        rounded-full
+        bg-emerald-50
+        px-3
+        py-1.5
+        text-xs
+        font-semibold
+        text-emerald-700
+      "
+    >
+      Stok tersedia
+    </span>
+  )}
 
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  </div>
-
-                  <div className="border-r border-slate-200 px-5">
-                    <span className="font-medium text-slate-900">
-                      512
-                    </span>
-
-                    <span className="ml-2 text-slate-500">
-                      Penilaian
-                    </span>
-                  </div>
-
-                  <div className="px-5">
-                    <span className="font-medium text-slate-900">
-                      1025
-                    </span>
-
-                    <span className="ml-2 text-slate-500">
-                      Terjual
-                    </span>
-                  </div>
-                </div>
+  <span
+    className="
+      inline-flex
+      items-center
+      rounded-full
+      bg-slate-100
+      px-3
+      py-1.5
+      text-xs
+      font-medium
+      text-slate-600
+    "
+  >
+    Kategori: {product.category.name}
+  </span>
+</div>
 
                 {/* ====================================================== */}
 {/* PRODUCT PRICE */}
 {/* ====================================================== */}
 
 <div className="mt-5">
-  {isFlashSaleDisplay &&
-  productWideFlashSale ? (
-    <div className="overflow-hidden bg-[#fff4f1]">
+  {isFlashSaleDisplay ? (
+  <div
+    className="
+      overflow-hidden
+      rounded-2xl
+      border
+      border-orange-200
+      bg-white
+      shadow-sm
+    "
+  >
+    {/* ================================================== */}
+    {/* FLASH SALE HEADER */}
+    {/* ================================================== */}
 
-      {/* ================================================== */}
-      {/* FLASH SALE HEADER */}
-      {/* ================================================== */}
+    <div
+      className="
+        flex
+        flex-col
+        gap-3
+        bg-linear-to-r
+        from-[#2d81ee]
+        to-[#45f9ff]
+        px-4
+        py-3.5
+        sm:flex-row
+        sm:items-center
+        sm:justify-between
+      "
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className="
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-xl
+            bg-white/15
+            text-lg
+          "
+        >
+          ⚡
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2">
+            <span
+              className="
+                text-base
+                font-black
+                tracking-wide
+                text-white
+                sm:text-lg
+              "
+            >
+              FLASH SALE
+            </span>
+
+            {displayDiscountPercentage > 0 && (
+              <span
+                className="
+                  rounded-md
+                  bg-white/20
+                  px-2
+                  py-0.5
+                  text-[11px]
+                  font-bold
+                  text-white
+                "
+              >
+                -{displayDiscountPercentage}%
+              </span>
+            )}
+          </div>
+
+          <p className="mt-0.5 text-xs text-white/75">
+            Promo terbatas untuk waktu tertentu
+          </p>
+        </div>
+      </div>
+
+      {/* COUNTDOWN */}
 
       <div
         className="
           flex
-          flex-col
-          gap-3
-          bg-gradient-to-r
-          from-[#ff4d2d]
-          to-[#ff6a3d]
-          px-4
-          py-3
-          sm:flex-row
-          sm:items-center
-          sm:justify-between
+          items-center
+          gap-2
+          rounded-lg
+          bg-black/10
+          px-3
+          py-2
+          sm:justify-end
         "
       >
-        {/* FLASH SALE LABEL */}
-
-        <div
+        <span
           className="
-            flex
-            items-center
-            gap-2
+            text-[11px]
+            font-semibold
+            uppercase
+            tracking-wide
+            text-white/80
           "
         >
-          <span
-            className="
-              text-lg
-              font-black
-              italic
-              tracking-wide
-              text-white
-              sm:text-xl
-            "
-          >
-            ⚡ FLASH SALE
-          </span>
+          Berakhir dalam
+        </span>
 
-          {displayDiscountPercentage > 0 && (
-            <span
-              className="
-                rounded
-                bg-white/20
-                px-2
-                py-1
-                text-xs
-                font-bold
-                text-white
-              "
-            >
-              -{displayDiscountPercentage}%
-            </span>
-          )}
-        </div>
-
-        {/* COUNTDOWN */}
-
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-            gap-3
-            sm:justify-end
-          "
-        >
-          <span
-            className="
-              text-xs
-              font-semibold
-              uppercase
-              tracking-wide
-              text-white
-              sm:text-sm
-            "
-          >
-            Berakhir Dalam
-          </span>
-
-          <FlashSaleCountdown
-            endsAt={
-              productWideFlashSale.endsAt
-            }
-          />
-        </div>
+        <FlashSaleCountdown
+          endsAt={productWideFlashSale.endsAt}
+        />
       </div>
+    </div>
 
-      {/* ================================================== */}
-      {/* FLASH SALE PRICE */}
-      {/* ================================================== */}
+    {/* ================================================== */}
+    {/* FLASH SALE PRICE */}
+    {/* ================================================== */}
+
+    <div
+      className="
+        px-4
+        py-5
+        sm:px-5
+        sm:py-6
+      "
+    >
+      {/* CAMPAIGN */}
+
+      <p
+        className="
+          mb-3
+          text-xs
+          font-medium
+          uppercase
+          tracking-wide
+          text-slate-400
+        "
+      >
+        {productWideFlashSale.campaignName}
+      </p>
+
+      {/* PRICE */}
 
       <div
         className="
-          px-4
-          py-5
-          sm:px-5
+          flex
+          flex-wrap
+          items-end
+          gap-x-3
+          gap-y-2
         "
       >
-        {/* CAMPAIGN NAME */}
-
-        <p
+        <div
           className="
-            mb-3
-            text-xs
-            font-medium
-            text-slate-500
+            text-3xl
+            font-bold
+            tracking-tight
+            text-[#ff2a00]
+            sm:text-4xl
           "
         >
-          {productWideFlashSale.campaignName}
-        </p>
+          {formatRupiah(displayFinalPrice)}
+        </div>
 
         <div
           className="
-            flex
-            flex-wrap
-            items-end
-            gap-x-3
-            gap-y-2
+            pb-1
+            text-sm
+            text-slate-400
+            line-through
           "
         >
-          {/* FLASH PRICE */}
+          {formatRupiah(displayOriginalPrice)}
+        </div>
+      </div>
 
+      {/* SAVING */}
+
+      {displaySaving > 0 && (
+        <div className="mt-4">
+          <span
+            className="
+              inline-flex
+              items-center
+              rounded-lg
+              bg-orange-50
+              px-3
+              py-1.5
+              text-xs
+              font-semibold
+              text-[#ff2a00]
+            "
+          >
+            Hemat {formatRupiah(displaySaving)}
+          </span>
+        </div>
+      )}
+    </div>
+  </div>
+) : (
+  <div
+    className="
+      rounded-2xl
+      border
+      border-slate-200
+      bg-slate-50
+      px-4
+      py-5
+      sm:px-5
+    "
+  >
+    {/* ================================================ */}
+    {/* PRODUCT DISCOUNT */}
+    {/* ================================================ */}
+
+    {isProductDiscountActive &&
+    displaySaving > 0 ? (
+      <div>
+        <p
+          className="
+            mb-2
+            text-xs
+            font-medium
+            uppercase
+            tracking-wide
+            text-slate-400
+          "
+        >
+          Harga Produk
+        </p>
+
+        <div className="flex flex-wrap items-end gap-3">
           <div
             className="
               text-3xl
               font-bold
               tracking-tight
-              text-[#ee4d2d]
+              text-slate-950
               sm:text-4xl
             "
           >
-            {formatRupiah(
-              displayFinalPrice
-            )}
+            {formatRupiah(displayFinalPrice)}
           </div>
-
-          {/* ORIGINAL PRICE */}
 
           <div
             className="
@@ -1073,178 +1189,287 @@ endsAt:
               line-through
             "
           >
-            {formatRupiah(
-              displayOriginalPrice
-            )}
+            {formatRupiah(displayOriginalPrice)}
           </div>
         </div>
 
-        {/* SAVING */}
-
-        {displaySaving > 0 && (
-          <div
+        <div className="mt-4">
+          <span
             className="
-              mt-3
               inline-flex
               items-center
-              rounded
-              bg-red-100
-              px-2.5
-              py-1
+              rounded-lg
+              bg-emerald-50
+              px-3
+              py-1.5
               text-xs
               font-semibold
-              text-red-600
+              text-emerald-700
             "
           >
-            Hemat{" "}
-            {formatRupiah(
-              displaySaving
-            )}
-          </div>
-        )}
+            Hemat {formatRupiah(displaySaving)}
+          </span>
+        </div>
       </div>
-    </div>
-  ) : (
-    <div>
-      {/* ================================================ */}
-      {/* PRODUCT DISCOUNT */}
-      {/* ================================================ */}
+    ) : (
+      /* ============================================== */
+      /* NORMAL PRICE */
+      /* ============================================== */
 
-      {isProductDiscountActive &&
-      displaySaving > 0 ? (
-        <div className="space-y-1">
-          <div className="text-sm text-slate-400 line-through">
-            {formatRupiah(
-              displayOriginalPrice
-            )}
-          </div>
+      <div>
+        <p
+          className="
+            mb-2
+            text-xs
+            font-medium
+            uppercase
+            tracking-wide
+            text-slate-400
+          "
+        >
+          Harga Produk
+        </p>
 
-          <div className="text-2xl font-bold text-slate-950 sm:text-3xl">
-            {formatRupiah(
-              displayFinalPrice
-            )}
-          </div>
-
-          <div className="text-sm font-medium text-emerald-600">
-            Hemat{" "}
-            {formatRupiah(
-              displaySaving
-            )}
-          </div>
+        <div
+          className="
+            text-3xl
+            font-bold
+            tracking-tight
+            text-slate-950
+            sm:text-4xl
+          "
+        >
+          {formatRupiah(displayFinalPrice)}
         </div>
-      ) : (
-        /* ============================================== */
-        /* NORMAL PRICE */
-        /* ============================================== */
+      </div>
+    )}
+  </div>
+)}
 
-        <div className="text-2xl font-bold text-slate-950 sm:text-3xl">
-          {formatRupiah(
-            displayFinalPrice
-          )}
-        </div>
-      )}
-    </div>
-  )}
+{/* ==================================================== */}
+{/* WEIGHT SPECIFIC FLASH SALE */}
+{/* ==================================================== */}
 
-  {/* ==================================================== */}
-  {/* WEIGHT SPECIFIC FLASH SALE */}
-  {/* ==================================================== */}
-
-  {hasWeightSpecificFlashSale &&
-  !isFlashSaleDisplay && (
-    <div
+{hasWeightSpecificFlashSale &&
+!isFlashSaleDisplay && (
+  <div
+    className="
+      mt-3
+      rounded-xl
+      border
+      border-orange-100
+      border-l-4
+      border-l-[#fc3e18]
+      bg-[#fff8f5]
+      px-4
+      py-3
+    "
+  >
+    <p
       className="
-        mt-3
-        border-l-4
-        border-[#ee4d2d]
-        bg-[#fff4f1]
-        px-3
-        py-2.5
+        text-xs
+        font-medium
+        leading-5
+        text-[#ff2a00]
       "
     >
-      <p
-        className="
-          text-xs
-          font-medium
-          text-[#ee4d2d]
-        "
-      >
-        ⚡ Tersedia harga Flash Sale untuk pilihan berat tertentu.
-      </p>
-    </div>
-  )}
+      ⚡ Tersedia harga Flash Sale untuk pilihan berat tertentu.
+    </p>
+  </div>
+)}
 </div>
 
-                {/* PRODUCT META */}
+                {/* ==================================================== */}
+{/* PRODUCT META */}
+{/* ==================================================== */}
 
-                <div className="mt-6 space-y-6">
-                  {/* SHIPPING */}
+<div
+  className="
+    mt-6
+    overflow-hidden
+    rounded-2xl
+    border
+    border-slate-200
+    bg-white
+  "
+>
+  {/* ================================================== */}
+  {/* SHIPPING */}
+  {/* ================================================== */}
 
-                  <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
-                    <div className="text-sm text-slate-500">
-                      Pengiriman
-                    </div>
+  <div
+    className="
+      flex
+      gap-4
+      px-4
+      py-4
+      sm:px-5
+    "
+  >
+    <div
+      className="
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        bg-cyan-50
+      "
+    >
+      <Truck className="h-5 w-5 text-cyan-600" />
+    </div>
 
-                    <div className="flex gap-3">
-                      <Truck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-600" />
+    <div className="min-w-0">
+      <p
+        className="
+          text-sm
+          font-semibold
+          text-slate-900
+        "
+      >
+        Pengiriman
+      </p>
 
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">
-                          Pengiriman tersedia
-                        </p>
+      <p
+        className="
+          mt-1
+          text-sm
+          leading-6
+          text-slate-500
+        "
+      >
+        Pilih alamat dan metode pengiriman
+        saat checkout.
+      </p>
+    </div>
+  </div>
 
-                        <p className="mt-1 text-sm leading-6 text-slate-500">
-                          Pilih alamat dan metode
-                          pengiriman saat checkout.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
 
-                  {/* STOCK */}
+  {/* ================================================== */}
+  {/* STOCK */}
+  {/* ================================================== */}
 
-                  <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
-                    <div className="text-sm text-slate-500">
-                      Ketersediaan
-                    </div>
+  <div
+    className="
+      flex
+      gap-4
+      px-4
+      py-4
+      sm:px-5
+    "
+  >
+    <div
+      className={`
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        ${
+          outOfStock
+            ? "bg-red-50"
+            : "bg-emerald-50"
+        }
+      `}
+    >
+      {outOfStock ? (
+        <X className="h-5 w-5 text-red-600" />
+      ) : (
+        <Check className="h-5 w-5 text-emerald-600" />
+      )}
+    </div>
 
-                    <div>
-                      {outOfStock ? (
-                        <span className="inline-flex items-center gap-2 text-sm font-medium text-red-600">
-                          Stok habis
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-900">
-                          <Check className="h-4 w-4 text-emerald-600" />
+    <div className="min-w-0">
+      <p
+        className="
+          text-sm
+          font-semibold
+          text-slate-900
+        "
+      >
+        Ketersediaan
+      </p>
 
-                          Stok tersedia
+      {outOfStock ? (
+        <p className="mt-1 text-sm text-red-600">
+          Stok sedang habis
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-slate-500">
+          Stok tersedia
 
-                          <span className="text-slate-500">
-                            {stock} tersedia
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
+          <span className="ml-1 font-medium text-slate-900">
+            ({stock} tersedia)
+          </span>
+        </p>
+      )}
+    </div>
+  </div>
 
-                  {/* CATEGORY */}
+  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
 
-                  <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
-                    <div className="text-sm text-slate-500">
-                      Kategori
-                    </div>
+  {/* ================================================== */}
+  {/* CATEGORY */}
+  {/* ================================================== */}
 
-                    <Link
-                      href="/customer/products"
-                      className="text-sm text-cyan-700 hover:underline"
-                    >
-                      {
-                        product.category
-                          .name
-                      }
-                    </Link>
-                  </div>
-                </div>
+  <div
+    className="
+      flex
+      gap-4
+      px-4
+      py-4
+      sm:px-5
+    "
+  >
+    <div
+      className="
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        bg-slate-100
+      "
+    >
+      <Tag className="h-5 w-5 text-slate-600" />
+    </div>
+
+    <div className="min-w-0">
+      <p
+        className="
+          text-sm
+          font-semibold
+          text-slate-900
+        "
+      >
+        Kategori
+      </p>
+
+      <Link
+        href="/customer/products"
+        className="
+          mt-1
+          inline-flex
+          text-sm
+          font-medium
+          text-cyan-700
+          transition
+          hover:text-cyan-800
+          hover:underline
+        "
+      >
+        {product.category.name}
+      </Link>
+    </div>
+  </div>
+</div>
 
                 {/* ================================================= */}
                 {/* CART ACTION */}
@@ -1296,117 +1521,254 @@ endsAt:
           </div>
 
           {/* ==================================================== */}
-          {/* PRODUCT INFORMATION */}
+{/* PRODUCT INFORMATION */}
+{/* ==================================================== */}
+
+<section
+  className="
+    mt-3
+    bg-white
+    px-5
+    py-5
+    lg:px-8
+    lg:py-6
+  "
+>
+  <div className="max-w-4xl">
+    <h2
+      className="
+        border-b
+        border-slate-100
+        pb-4
+        text-lg
+        font-semibold
+        text-slate-900
+      "
+    >
+      Informasi Produk
+    </h2>
+
+    <div
+      className="
+        mt-5
+        overflow-hidden
+        rounded-xl
+        border
+        border-slate-200
+      "
+    >
+      {/* CATEGORY */}
+
+      <div
+        className="
+          grid
+          grid-cols-[110px_minmax(0,1fr)]
+          items-center
+          gap-4
+          border-b
+          border-slate-100
+          px-4
+          py-3.5
+          text-sm
+          sm:grid-cols-[160px_minmax(0,1fr)]
+          sm:px-5
+        "
+      >
+        <div className="text-slate-500">
+          Kategori
+        </div>
+
+        <div className="font-medium text-slate-900">
+          {product.category.name}
+        </div>
+      </div>
+
+      {/* SKU */}
+
+      <div
+        className="
+          grid
+          grid-cols-[110px_minmax(0,1fr)]
+          items-center
+          gap-4
+          px-4
+          py-3.5
+          text-sm
+          sm:grid-cols-[160px_minmax(0,1fr)]
+          sm:px-5
+        "
+      >
+        <div className="text-slate-500">
+          SKU
+        </div>
+
+        <div
+          className="
+            inline-flex
+            w-fit
+            rounded-md
+            bg-slate-100
+            px-2.5
+            py-1
+            font-mono
+            text-xs
+            font-medium
+            text-slate-700
+          "
+        >
+          {product.sku ?? "-"}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{/* ==================================================== */}
+{/* DESCRIPTION */}
+{/* ==================================================== */}
+
+<section
+  className="
+    mt-3
+    bg-white
+    px-5
+    py-5
+    lg:px-8
+    lg:py-6
+  "
+>
+  <div className="max-w-4xl">
+    <h2
+      className="
+        border-b
+        border-slate-100
+        pb-4
+        text-lg
+        font-semibold
+        text-slate-900
+      "
+    >
+      Deskripsi Produk
+    </h2>
+
+    <div
+      className="
+        mt-5
+        rounded-xl
+        border
+        border-slate-100
+        bg-slate-50/60
+        px-4
+        py-4
+        sm:px-5
+        sm:py-5
+      "
+    >
+      {product.description ? (
+        <div
+          className="
+            whitespace-pre-line
+            text-sm
+            leading-7
+            text-slate-700
+          "
+        >
+          {product.description}
+        </div>
+      ) : (
+        <div
+          className="
+            flex
+            items-center
+            justify-center
+            py-4
+            text-sm
+            text-slate-400
+          "
+        >
+          Belum ada deskripsi produk.
+        </div>
+      )}
+    </div>
+  </div>
+</section>
           {/* ==================================================== */}
+{/* TRUST SECTION */}
+{/* ==================================================== */}
 
-          <section className="mt-3 bg-white px-5 py-5 lg:px-8 lg:py-6">
-            <h2 className="border-b border-slate-100 pb-4 text-lg font-medium text-slate-900">
-              Informasi Produk
-            </h2>
+<section
+  className="
+    mt-5
+    overflow-hidden
+    rounded-2xl
+    border
+    border-slate-200
+    bg-white
+  "
+>
+  <div
+    className="
+      border-b
+      border-slate-100
+      px-5
+      py-5
+      lg:px-8
+    "
+  >
+    <h2
+      className="
+        text-lg
+        font-semibold
+        text-slate-900
+      "
+    >
+      Kenapa Belanja di Sini?
+    </h2>
 
-            <div className="mt-5 max-w-4xl">
+    <p
+      className="
+        mt-1
+        text-sm
+        text-slate-500
+      "
+    >
+      Kami berusaha memberikan pengalaman belanja seafood
+      yang mudah dan nyaman.
+    </p>
+  </div>
 
-              <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-y-4 text-sm sm:grid-cols-[180px_minmax(0,1fr)]">
+  <div className="grid sm:grid-cols-3">
+    <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
+      <TrustItem
+        icon={
+          <Fish className="h-6 w-6" />
+        }
+        title="Produk Segar"
+        description="Pilihan seafood untuk kebutuhan Anda."
+      />
+    </div>
 
-                <div className="text-slate-500">
-                  Kategori
-                </div>
+    <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
+      <TrustItem
+        icon={
+          <ShieldCheck className="h-6 w-6" />
+        }
+        title="Kualitas Terjaga"
+        description="Informasi produk dan stok ditampilkan secara transparan."
+      />
+    </div>
 
-                <div className="text-slate-900">
-                  {product.category.name}
-                </div>
-
-                <div className="text-slate-500">
-                  SKU
-                </div>
-
-                <div className="font-mono text-slate-900">
-                  {product.sku ?? "-"}
-                </div>
-
-                <div className="text-slate-500">
-                  Stok
-                </div>
-
-                <div className="text-slate-900">
-                  {stock} tersedia
-                </div>
-
-                <div className="text-slate-500">
-                  Status
-                </div>
-
-                <div>
-                  {outOfStock ? (
-                    <span className="text-red-600">
-                      Stok habis
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-emerald-600">
-                      <Check className="h-4 w-4" />
-
-                      Tersedia
-                    </span>
-                  )}
-                </div>
-
-              </div>
-            </div>
-          </section>
-
-          {/* ==================================================== */}
-          {/* DESCRIPTION */}
-          {/* ==================================================== */}
-
-          <section className="mt-3 bg-white px-5 py-5 lg:px-8 lg:py-6">
-            <h2 className="border-b border-slate-100 pb-4 text-lg font-medium text-slate-900">
-              Deskripsi Produk
-            </h2>
-
-            <div className="mt-5 max-w-212.5">
-
-              {product.description ? (
-                <div className="whitespace-pre-line text-sm leading-7 text-slate-700">
-                  {product.description}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-400">
-                  Belum ada deskripsi produk.
-                </p>
-              )}
-
-            </div>
-          </section>
-
-          {/* ==================================================== */}
-          {/* TRUST SECTION */}
-          {/* ==================================================== */}
-
-          <section className="mt-5 grid bg-white sm:grid-cols-3">
-            <TrustItem
-              icon={
-                <Fish className="h-6 w-6" />
-              }
-              title="Produk Segar"
-              description="Pilihan seafood untuk kebutuhan Anda."
-            />
-
-            <TrustItem
-              icon={
-                <ShieldCheck className="h-6 w-6" />
-              }
-              title="Kualitas Terjaga"
-              description="Informasi produk dan stok ditampilkan secara transparan."
-            />
-
-            <TrustItem
-              icon={
-                <Package className="h-6 w-6" />
-              }
-              title="Checkout Mudah"
-              description="Proses pembelian dirancang cepat dan praktis."
-            />
-          </section>
+    <div>
+      <TrustItem
+        icon={
+          <Package className="h-6 w-6" />
+        }
+        title="Checkout Mudah"
+        description="Proses pembelian dirancang cepat dan praktis."
+      />
+    </div>
+  </div>
+</section>
         </div>
       </section>
     </main>
@@ -1429,17 +1791,56 @@ function TrustItem({
   description: string;
 }) {
   return (
-    <div className="flex gap-4 border-b border-slate-100 px-6 py-6 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-cyan-50 text-cyan-700">
+    <div
+      className="
+        flex
+        h-full
+        gap-4
+        px-5
+        py-5
+        lg:px-6
+        lg:py-6
+      "
+    >
+      {/* ICON */}
+
+      <div
+        className="
+          flex
+          h-11
+          w-11
+          shrink-0
+          items-center
+          justify-center
+          rounded-xl
+          bg-cyan-50
+          text-cyan-700
+        "
+      >
         {icon}
       </div>
 
-      <div>
-        <h3 className="text-sm font-medium text-slate-900">
+      {/* CONTENT */}
+
+      <div className="min-w-0">
+        <h3
+          className="
+            text-sm
+            font-semibold
+            text-slate-900
+          "
+        >
           {title}
         </h3>
 
-        <p className="mt-1 text-xs leading-5 text-slate-500">
+        <p
+          className="
+            mt-1
+            text-xs
+            leading-5
+            text-slate-500
+          "
+        >
           {description}
         </p>
       </div>

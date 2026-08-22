@@ -212,6 +212,73 @@ export default async function DynamicSiteFooter() {
             <p className="mt-4 max-w-md text-sm leading-6 text-slate-500">
               {footerDescription}
             </p>
+
+            {/* DOWNLOAD APP - DESKTOP ONLY */}
+
+<div className="mt-6 hidden lg:block">
+  <a
+    href="#"
+    className="
+      group
+      inline-flex
+      items-center
+      gap-3
+      rounded-xl
+      border
+      border-slate-200
+      bg-slate-50
+      px-4
+      py-3
+      transition
+      hover:border-slate-300
+      hover:bg-slate-100
+    "
+    aria-label="Download aplikasi di Google Play"
+  >
+    {/* GOOGLE PLAY ICON */}
+
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+      <svg
+        viewBox="0 0 512 512"
+        className="h-10 w-10"
+        aria-hidden="true"
+      >
+        <path
+          fill="#00A0FF"
+          d="M30.4 30.8c-6.5 7.1-10.4 17.1-10.4 29.4v391.6c0 12.3 3.9 22.3 10.4 29.4L270.2 256 30.4 30.8z"
+        />
+
+        <path
+          fill="#00D084"
+          d="M300.5 286.3 86.1 500.7l.7.4c10.8 6 24.3 6.7 36.6-.2l270.7-152.4-93.6-62.2z"
+        />
+
+        <path
+          fill="#FF3D71"
+          d="M394.1 163.5 123.4 11.1C111.1 4.2 97.6 4.9 86.8 10.9l-.7.4 214.4 214.4 93.6-62.2z"
+        />
+
+        <path
+          fill="#FFD600"
+          d="M481.6 212.8 394.1 163.5 300.5 225.7 270.2 256l30.3 30.3 93.6 62.2 87.5-49.3c25.9-14.6 25.9-71.8 0-86.4z"
+        />
+      </svg>
+    </div>
+
+    {/* TEXT */}
+
+    <div className="text-left">
+      <p className="text-xs font-medium text-slate-500">
+        Download aplikasi kami
+      </p>
+
+      <p className="text-sm font-semibold text-slate-900">
+        Dapatkan di Google Play
+      </p>
+    </div>
+  </a>
+</div>
+
           </div>
 
           {/* ================================================= */}
