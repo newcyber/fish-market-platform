@@ -274,40 +274,27 @@ export function CategoryTable({
 
                           {/* HAPUS */}
 
-                          <DropdownMenuItem
-                            disabled={
-                              isPending
-                            }
-                            onSelect={(
-                              event
-                            ) => {
-                              /**
-                               * Mencegah DropdownMenu
-                               * menutup sebelum
-                               * proses click selesai.
-                               */
+<DropdownMenuItem
+  disabled={
+    isPending ||
+    isDeleting
+  }
+  onClick={() => {
+    handleDelete(category);
+  }}
+  className="
+    cursor-pointer
+    text-destructive
+    focus:text-destructive
+    focus:bg-destructive/10
+  "
+>
+  <Trash2 className="mr-2 h-4 w-4" />
 
-                              event.preventDefault();
-
-                              if (
-                                !isDeleting
-                              ) {
-                                handleDelete(
-                                  category
-                                );
-                              }
-                            }}
-                            className="
-                              text-destructive
-                              focus:text-destructive
-                            "
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-
-                            {isDeleting
-                              ? "Menghapus..."
-                              : "Hapus"}
-                          </DropdownMenuItem>
+  {isDeleting
+    ? "Menghapus..."
+    : "Hapus"}
+</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
