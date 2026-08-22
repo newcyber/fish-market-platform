@@ -422,23 +422,78 @@ static async updateStatus(
 });
 }
 
+ /**
+ * ============================================================
+ * UPDATE PAYMENT STATUS
+ * ============================================================
+ *
+ * Mendukung conditional update menggunakan expectedPaymentStatus
+ * untuk mencegah race condition.
+ *
+ * Jika expectedPaymentStatus diberikan, update hanya akan berhasil
+ * apabila status pembayaran di database masih sesuai dengan
+ * expectedPaymentStatus.
+ */
+static async updatePaymentStatus(
+  id: string,
+  paymentStatus: PaymentStatus,
+  expectedPaymentStatus?: PaymentStatus
+) {
   /**
-   * Update status pembayaran.
+   * ============================================================
+   * CONDITIONAL UPDATE
+   * ============================================================
    */
-  static async updatePaymentStatus(
-    id: string,
-    paymentStatus: PaymentStatus
-  ) {
-    return prisma.order.update({
+  if (expectedPaymentStatus !== undefined) {
+    const result =
+      await prisma.order.updateMany({
+        where: {
+          id,
+          paymentStatus: expectedPaymentStatus,
+          deletedAt: null,
+        },
+
+        data: {
+          paymentStatus,
+        },
+      });
+
+    /**
+     * Update gagal karena status pembayaran kemungkinan
+     * sudah berubah oleh proses lain.
+     */
+    if (result.count === 0) {
+      return null;
+    }
+
+    /**
+     * Ambil data order terbaru setelah update berhasil.
+     */
+    return prisma.order.findUnique({
       where: {
         id,
       },
-
-      data: {
-        paymentStatus,
-      },
     });
   }
+
+  /**
+   * ============================================================
+   * NORMAL UPDATE
+   * ============================================================
+   *
+   * Dipertahankan untuk backward compatibility apabila method
+   * ini dipanggil dari tempat lain tanpa expectedPaymentStatus.
+   */
+  return prisma.order.update({
+    where: {
+      id,
+    },
+
+    data: {
+      paymentStatus,
+    },
+  });
+}
 
   /**
    * Menandai order telah dibayar.

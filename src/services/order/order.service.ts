@@ -2502,31 +2502,51 @@ static async updateStatus(
     }
 
     /**
-      * ========================================================
-      * NORMAL STATUS UPDATE
-      * ========================================================
-    */
+ * ========================================================
+ * NORMAL STATUS UPDATE
+ * ========================================================
+ *
+ * Gunakan status order saat ini sebagai expectedStatus.
+ *
+ * Ini mencegah race condition ketika status berubah setelah
+ * order dibaca tetapi sebelum proses update dijalankan.
+ */
+const updatedOrder =
+  await OrderRepository.updateStatus(
+    id,
+    status,
+    order.status
+  );
 
-    const updatedOrder =
-    await OrderRepository.updateStatus(
-      id,
-      status
-    );
+/**
+ * ========================================================
+ * CONCURRENT STATUS CHANGE
+ * ========================================================
+ *
+ * Jika conditional update gagal, kemungkinan status order
+ * sudah berubah oleh request atau proses lain.
+ */
+if (!updatedOrder) {
+  return {
+    success: false,
+    message:
+      "Status pesanan telah berubah oleh proses lain. Silakan refresh data dan coba lagi.",
+  };
+}
 
-    if (!updatedOrder) {
-      return {
-        success: false,
-        message:
-        "Gagal memperbarui status pesanan.",
-      };
-    }
+/**
+ * ========================================================
+ * SUCCESS RESPONSE
+ * ========================================================
+ */
+return {
+  success: true,
+  message:
+    "Status pesanan berhasil diperbarui.",
+  data: updatedOrder,
+};
 
-    return {
-      success: true,
-      message:
-      "Status pesanan berhasil diperbarui.",
-      data: updatedOrder,
-    };
+
   } catch (error) {
     console.error(
       "[ORDER_SERVICE_UPDATE_STATUS_ERROR]",
@@ -2858,14 +2878,24 @@ await VoucherLifecycleService.releaseForCancelledOrder(
 }
 
 /**
-  * Update status pembayaran.
-*/
+ * ============================================================
+ * UPDATE PAYMENT STATUS
+ * ============================================================
+ *
+ * Memperbarui status pembayaran order dengan conditional update
+ * untuk mencegah race condition.
+ */
 static async updatePaymentStatus(
   id: string,
   paymentStatus: PaymentStatus
 ) {
+  /**
+   * ============================================================
+   * FIND ORDER
+   * ============================================================
+   */
   const order =
-  await OrderRepository.findById(id);
+    await OrderRepository.findById(id);
 
   if (!order) {
     throw new Error(
@@ -2873,12 +2903,22 @@ static async updatePaymentStatus(
     );
   }
 
+  /**
+   * ============================================================
+   * PREVENT UPDATE DELETED ORDER
+   * ============================================================
+   */
   if (order.deletedAt) {
     throw new Error(
       "Order yang sudah dihapus tidak dapat diubah."
     );
   }
 
+  /**
+   * ============================================================
+   * PREVENT UPDATE CANCELLED ORDER
+   * ============================================================
+   */
   if (
     order.status ===
     OrderStatus.CANCELLED
@@ -2888,31 +2928,120 @@ static async updatePaymentStatus(
     );
   }
 
-  if (
-    order.paymentStatus ===
-    PaymentStatus.VERIFIED &&
-    paymentStatus !==
-    PaymentStatus.VERIFIED
-  ) {
-    throw new Error(
-      "Pembayaran yang sudah terverifikasi tidak dapat diturunkan kembali."
-    );
-  }
+  /**
+ * ============================================================
+ * PAYMENT STATUS TRANSITION
+ * ============================================================
+ *
+ * Lifecycle pembayaran:
+ *
+ * PENDING
+ *   ├── VERIFIED
+ *   └── REJECTED
+ *
+ * REJECTED
+ *   └── VERIFIED
+ *
+ * VERIFIED
+ *   └── FINAL / LOCKED
+ */
+const allowedTransitions: Record<
+  PaymentStatus,
+  PaymentStatus[]
+> = {
+  [PaymentStatus.PENDING]: [
+    PaymentStatus.VERIFIED,
+    PaymentStatus.REJECTED,
+  ],
 
-  return OrderRepository.updatePaymentStatus(
-    id,
-    paymentStatus
-  );
+  [PaymentStatus.REJECTED]: [
+    PaymentStatus.VERIFIED,
+  ],
+
+  [PaymentStatus.VERIFIED]: [],
+};
+
+/**
+ * Jika status tujuan sama dengan status saat ini,
+ * tidak perlu melakukan update.
+ */
+if (
+  order.paymentStatus ===
+  paymentStatus
+) {
+  return order;
 }
 
 /**
-  * Menandai pembayaran sebagai VERIFIED.
-*/
+ * Validasi perubahan status pembayaran.
+ */
+const allowedNextStatuses =
+  allowedTransitions[
+    order.paymentStatus
+  ];
+
+if (
+  !allowedNextStatuses.includes(
+    paymentStatus
+  )
+) {
+  throw new Error(
+    `Perubahan status pembayaran dari ${order.paymentStatus} ke ${paymentStatus} tidak diizinkan.`
+  );
+}
+
+  /**
+   * ============================================================
+   * CONDITIONAL PAYMENT UPDATE
+   * ============================================================
+   *
+   * Gunakan payment status yang baru saja dibaca sebagai
+   * expectedPaymentStatus.
+   *
+   * Update hanya berhasil jika status di database belum berubah.
+   */
+  const updatedOrder =
+    await OrderRepository.updatePaymentStatus(
+      id,
+      paymentStatus,
+      order.paymentStatus
+    );
+
+  /**
+   * ============================================================
+   * CONCURRENT UPDATE DETECTION
+   * ============================================================
+   */
+  if (!updatedOrder) {
+    throw new Error(
+      "Status pembayaran telah berubah oleh proses lain. Silakan refresh data dan coba lagi."
+    );
+  }
+
+  return updatedOrder;
+}
+
+/**
+ * ============================================================
+ * MARK ORDER AS PAID
+ * ============================================================
+ *
+ * Menandai pembayaran order sebagai VERIFIED.
+ *
+ * Method ini menggunakan updatePaymentStatus() agar seluruh
+ * aturan lifecycle pembayaran dan concurrency protection tetap
+ * digunakan dari satu jalur.
+ */
 static async markAsPaid(
   id: string
 ) {
+  /**
+   * ============================================================
+   * FIND ORDER
+   * ============================================================
+   */
   const order =
-  await OrderRepository.findById(id);
+    await OrderRepository.findById(id);
 
   if (!order) {
     throw new Error(
@@ -2920,12 +3049,22 @@ static async markAsPaid(
     );
   }
 
+  /**
+   * ============================================================
+   * PREVENT UPDATE DELETED ORDER
+   * ============================================================
+   */
   if (order.deletedAt) {
     throw new Error(
       "Order yang sudah dihapus tidak dapat diproses."
     );
   }
 
+  /**
+   * ============================================================
+   * PREVENT PAYMENT FOR CANCELLED ORDER
+   * ============================================================
+   */
   if (
     order.status ===
     OrderStatus.CANCELLED
@@ -2935,6 +3074,11 @@ static async markAsPaid(
     );
   }
 
+  /**
+   * ============================================================
+   * PREVENT DUPLICATE VERIFICATION
+   * ============================================================
+   */
   if (
     order.paymentStatus ===
     PaymentStatus.VERIFIED
@@ -2944,9 +3088,31 @@ static async markAsPaid(
     );
   }
 
-  return OrderRepository.markAsPaid(
-    id
-  );
+  /**
+   * ============================================================
+   * CONDITIONAL PAYMENT VERIFICATION
+   * ============================================================
+   *
+   * Update hanya berhasil apabila paymentStatus di database
+   * masih sama dengan status yang baru saja dibaca.
+   *
+   * Ini mencegah request paralel menimpa perubahan payment
+   * yang sudah dilakukan oleh proses lain.
+   */
+  const updatedOrder =
+    await OrderRepository.updatePaymentStatus(
+      id,
+      PaymentStatus.VERIFIED,
+      order.paymentStatus
+    );
+
+  if (!updatedOrder) {
+    throw new Error(
+      "Status pembayaran telah berubah oleh proses lain. Silakan refresh data dan coba lagi."
+    );
+  }
+
+  return updatedOrder;
 }
 
 /**
@@ -3118,13 +3284,46 @@ static async deleteOrder(
 }
 
 /**
-  * Restore order dari Trash.
-*/
+ * ============================================================
+ * RESTORE ORDER
+ * ============================================================
+ *
+ * Restore hanya mengembalikan order dari Trash.
+ *
+ * Operasi ini TIDAK boleh:
+ *
+ * - mengubah stock
+ * - membuat StockLedger baru
+ * - menghitung ulang pricing
+ * - menghitung ulang voucher
+ * - mengubah payment status
+ * - mengubah order status
+ *
+ * Data transaksi harus tetap menggunakan snapshot asli.
+ */
 static async restoreOrder(
   id: string
 ) {
+  /**
+   * ============================================================
+   * VALIDATE ID
+   * ============================================================
+   */
+  if (!id) {
+    throw new Error(
+      "Order ID wajib diisi."
+    );
+  }
+
+  /**
+   * ============================================================
+   * FIND ORDER
+   * ============================================================
+   */
   const order =
-  await OrderRepository.findById(id);
+    await OrderRepository.findById(
+      id
+    );
 
   if (!order) {
     throw new Error(
@@ -3132,28 +3331,100 @@ static async restoreOrder(
     );
   }
 
+  /**
+   * ============================================================
+   * REQUIRE TRASH STATE
+   * ============================================================
+   *
+   * Restore hanya valid untuk order yang memang sedang
+   * berada di Trash.
+   */
   if (!order.deletedAt) {
     throw new Error(
       "Order tidak berada di Trash."
     );
   }
 
+  /**
+   * ============================================================
+   * REQUIRE FINAL STATUS
+   * ============================================================
+   *
+   * Sebagai defensive validation, restore hanya berlaku
+   * untuk order dengan lifecycle final.
+   */
+  const isFinalStatus =
+    order.status === OrderStatus.COMPLETED ||
+    order.status === OrderStatus.CANCELLED;
+
+  if (!isFinalStatus) {
+    throw new Error(
+      "Hanya order COMPLETED atau CANCELLED yang dapat dipulihkan."
+    );
+  }
+
+  /**
+   * ============================================================
+   * RESTORE ORDER
+   * ============================================================
+   *
+   * Repository hanya menghapus deletedAt dan tidak boleh
+   * mengubah data transaksi lainnya.
+   */
   return OrderRepository.restore(
     id
   );
 }
 
 /**
-  * ============================================================
-  * FORCE DELETE ORDER
-  * ============================================================
-*/
-
+ * ============================================================
+ * FORCE DELETE ORDER
+ * ============================================================
+ *
+ * Penghapusan permanen hanya diperbolehkan untuk order yang:
+ *
+ * 1. Sudah berada di Trash
+ * 2. Memiliki status final:
+ *    - COMPLETED
+ *    - CANCELLED
+ *
+ * Order aktif tidak boleh langsung dihapus permanen untuk
+ * menjaga integritas operasional, stok, pembayaran, voucher,
+ * dan histori transaksi.
+ *
+ * Relasi database:
+ *
+ * - OrderItem          → Cascade
+ * - PaymentProof       → Cascade
+ * - VoucherUsage       → Cascade
+ * - FlashSalePurchase  → Cascade
+ * - StockLedger        → SetNull
+ *
+ * StockLedger sengaja dipertahankan sebagai histori audit stok.
+ */
 static async forceDeleteOrder(
   id: string
 ) {
+  /**
+   * ============================================================
+   * VALIDATE ID
+   * ============================================================
+   */
+  if (!id) {
+    throw new Error(
+      "Order ID wajib diisi."
+    );
+  }
+
+  /**
+   * ============================================================
+   * FIND ORDER
+   * ============================================================
+   */
   const order =
-  await OrderRepository.findById(id);
+    await OrderRepository.findById(
+      id
+    );
 
   if (!order) {
     throw new Error(
@@ -3161,12 +3432,54 @@ static async forceDeleteOrder(
     );
   }
 
+  /**
+   * ============================================================
+   * REQUIRE TRASH STATE
+   * ============================================================
+   *
+   * Force delete hanya boleh dilakukan setelah order
+   * dipindahkan ke Trash melalui soft delete.
+   */
   if (!order.deletedAt) {
     throw new Error(
-      "Order harus berada di Trash sebelum dihapus permanen."
+      "Order harus dipindahkan ke Trash terlebih dahulu sebelum dihapus permanen."
     );
   }
 
+  /**
+   * ============================================================
+   * REQUIRE FINAL STATUS
+   * ============================================================
+   *
+   * Sebagai lapisan keamanan tambahan, pastikan hanya order
+   * dengan lifecycle final yang dapat dihapus permanen.
+   */
+  const isFinalStatus =
+    order.status === OrderStatus.COMPLETED ||
+    order.status === OrderStatus.CANCELLED;
+
+  if (!isFinalStatus) {
+    throw new Error(
+      "Hanya order COMPLETED atau CANCELLED yang dapat dihapus permanen."
+    );
+  }
+
+  /**
+   * ============================================================
+   * FORCE DELETE
+   * ============================================================
+   *
+   * Prisma relation policy akan menangani relasi:
+   *
+   * - Cascade:
+   *   OrderItem
+   *   PaymentProof
+   *   VoucherUsage
+   *   FlashSalePurchase
+   *
+   * - SetNull:
+   *   StockLedger.orderId
+   */
   return OrderRepository.forceDelete(
     id
   );
