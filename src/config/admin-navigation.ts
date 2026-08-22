@@ -128,6 +128,38 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         ],
         order: 2,
       },
+
+      /**
+       * ========================================================
+       * FLASH SALE
+       * ========================================================
+       */
+      {
+        id: "flash-sales",
+        title: "Atur Flash Sale",
+        href: "/admin/flash-sales",
+        icon: "orders",
+        roles: [
+          Role.SUPER_ADMIN,
+        ],
+        order: 3,
+      },
+
+      /**
+       * ========================================================
+       * VOUCHER SETTINGS
+       * ========================================================
+       */
+      {
+        id: "voucher-settings",
+        title: "Setting Voucher",
+        href: "/admin/vouchers",
+        icon: "settings",
+        roles: [
+          Role.SUPER_ADMIN,
+        ],
+        order: 4,
+      },
     ],
   },
 ];
