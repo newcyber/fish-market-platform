@@ -8,10 +8,17 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  useForm,
+} from "react-hook-form";
 
-import { toast } from "sonner";
+import {
+  zodResolver,
+} from "@hookform/resolvers/zod";
+
+import {
+  toast,
+} from "sonner";
 
 import {
   login,
@@ -56,19 +63,54 @@ import {
   Label,
 } from "@/components/ui/label";
 
+import {
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+} from "lucide-react";
+
 /**
  * ============================================================
  * LOGIN FORM
+ * ============================================================
+ *
+ * Customer Login
+ *
+ * Features:
+ * - Responsive mobile layout
+ * - Remember Me
+ * - Forgot Password
+ * - Email verification redirect
+ * - Server field errors
+ * - Loading state
+ * - Accessible form controls
+ *
+ * Authentication flow tetap menggunakan:
+ *
+ * login(values)
+ *
  * ============================================================
  */
 
 export function LoginForm() {
   const router = useRouter();
 
+  /**
+   * ==========================================================
+   * TRANSITION
+   * ==========================================================
+   */
+
   const [
     isPending,
     startTransition,
   ] = useTransition();
+
+  /**
+   * ==========================================================
+   * LOCAL STATE
+   * ==========================================================
+   */
 
   const [
     rememberMe,
@@ -79,6 +121,12 @@ export function LoginForm() {
     serverError,
     setServerError,
   ] = useState("");
+
+  /**
+   * ==========================================================
+   * FORM
+   * ==========================================================
+   */
 
   const {
     register,
@@ -112,122 +160,181 @@ export function LoginForm() {
     setServerError("");
 
     startTransition(async () => {
-      const result =
-        await login(values);
+      try {
+        const result =
+          await login(values);
 
-      if (!result.success) {
         /**
-         * ====================================================
-         * EMAIL NOT VERIFIED
-         * ====================================================
+         * ======================================================
+         * LOGIN FAILED
+         * ======================================================
          */
 
-        if (
-          result.code ===
-          "EMAIL_NOT_VERIFIED"
-        ) {
-          toast.error(
-            result.message ??
-              "Email Anda belum diverifikasi."
-          );
+        if (!result.success) {
+          /**
+           * ====================================================
+           * EMAIL NOT VERIFIED
+           * ====================================================
+           *
+           * User diarahkan ke halaman:
+           *
+           * /verify-email?email=...
+           *
+           * Jangan mengubah flow ini.
+           */
 
-          router.push(
-            `/verify-email?email=${encodeURIComponent(
-              values.email
-                .trim()
-                .toLowerCase()
-            )}`
-          );
+          if (
+            result.code ===
+            "EMAIL_NOT_VERIFIED"
+          ) {
+            toast.error(
+              result.message ??
+                "Email Anda belum diverifikasi."
+            );
+
+            router.push(
+              `/verify-email?email=${encodeURIComponent(
+                values.email
+                  .trim()
+                  .toLowerCase()
+              )}`
+            );
+
+            return;
+          }
+
+          /**
+           * ====================================================
+           * FIELD ERRORS
+           * ====================================================
+           */
+
+          if (result.fieldErrors) {
+            for (
+              const [
+                field,
+                message,
+              ] of Object.entries(
+                result.fieldErrors
+              )
+            ) {
+              if (!message) {
+                continue;
+              }
+
+              setError(
+                field as keyof LoginInput,
+                {
+                  type: "server",
+                  message,
+                }
+              );
+            }
+          }
+
+          /**
+           * ====================================================
+           * SERVER ERROR
+           * ====================================================
+           */
+
+          const message =
+            result.message ??
+            "Login gagal. Silakan periksa kembali data Anda.";
+
+          setServerError(message);
+
+          toast.error(message);
 
           return;
         }
 
         /**
-         * ====================================================
-         * FIELD ERRORS
-         * ====================================================
+         * ======================================================
+         * LOGIN SUCCESS
+         * ======================================================
          */
 
-        if (result.fieldErrors) {
-          for (
-            const [
-              field,
-              message,
-            ] of Object.entries(
-              result.fieldErrors
-            )
-          ) {
-            if (!message) {
-              continue;
-            }
-
-            setError(
-              field as keyof LoginInput,
-              {
-                type: "server",
-                message,
-              }
-            );
-          }
-        }
-
-        setServerError(
-          result.message ?? ""
-        );
-
-        toast.error(
+        toast.success(
           result.message ??
-            "Login gagal."
+            "Login berhasil."
         );
 
-        return;
+        /**
+         * Middleware menentukan
+         * tujuan berdasarkan role.
+         */
+
+        router.replace("/");
+
+        router.refresh();
+      } catch (error) {
+        /**
+         * ======================================================
+         * CLIENT / NETWORK ERROR
+         * ======================================================
+         */
+
+        console.error(
+          "[LOGIN_FORM_ERROR]",
+          error
+        );
+
+        const message =
+          "Terjadi kesalahan saat login. Silakan coba lagi.";
+
+        setServerError(message);
+
+        toast.error(message);
       }
-
-      /**
-       * ======================================================
-       * LOGIN SUCCESS
-       * ======================================================
-       */
-
-      toast.success(
-        result.message ??
-          "Login berhasil."
-      );
-
-      /**
-       * Middleware menentukan
-       * tujuan berdasarkan role.
-       */
-
-      router.replace("/");
-
-      router.refresh();
     });
   };
 
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
+
   return (
     <AuthCard>
+
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
       <AuthHeader
         title="Masuk"
         description="Masuk ke akun Anda untuk melanjutkan."
       />
 
+      {/* ======================================================
+          FORM
+      ====================================================== */}
+
       <form
-        onSubmit={
-          handleSubmit(onSubmit)
-        }
-        className="space-y-6"
+        onSubmit={handleSubmit(onSubmit)}
+        className="
+          space-y-5
+          sm:space-y-6
+        "
         noValidate
       >
 
-        {/* ==================================================== */}
-        {/* EMAIL */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            EMAIL
+        ==================================================== */}
 
         <div className="space-y-2">
 
-          <Label htmlFor="email">
+          <Label
+            htmlFor="email"
+            className="
+              text-sm
+              font-medium
+              text-slate-800
+            "
+          >
             Email
           </Label>
 
@@ -236,24 +343,70 @@ export function LoginForm() {
             type="email"
             placeholder="nama@email.com"
             autoComplete="email"
+            inputMode="email"
             aria-invalid={
               !!errors.email
             }
+            aria-describedby={
+              errors.email
+                ? "email-error"
+                : undefined
+            }
             disabled={isPending}
             {...register("email")}
+            className="
+              h-12
+              rounded-xl
+              border-slate-200
+              bg-white
+              px-4
+              text-base
+              shadow-sm
+              transition-all
+              duration-200
+              placeholder:text-slate-400
+              focus:border-sky-500
+              focus:ring-2
+              focus:ring-sky-500/20
+              disabled:cursor-not-allowed
+              disabled:opacity-60
+              sm:text-sm
+            "
           />
 
           {errors.email && (
-            <p className="text-sm text-destructive">
-              {errors.email.message}
+            <p
+              id="email-error"
+              role="alert"
+              className="
+                flex
+                items-start
+                gap-1.5
+                text-sm
+                leading-5
+                text-destructive
+              "
+            >
+              <AlertCircle
+                className="
+                  mt-0.5
+                  h-4
+                  w-4
+                  shrink-0
+                "
+              />
+
+              <span>
+                {errors.email.message}
+              </span>
             </p>
           )}
 
         </div>
 
-        {/* ==================================================== */}
-        {/* PASSWORD */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            PASSWORD
+        ==================================================== */}
 
         <PasswordField
           label="Password"
@@ -266,88 +419,305 @@ export function LoginForm() {
           {...register("password")}
         />
 
-        {/* ==================================================== */}
-        {/* REMEMBER ME */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            REMEMBER ME + FORGOT PASSWORD
+        ==================================================== */}
 
-        <div className="flex items-center justify-between gap-4">
+        <div
+          className="
+            flex
+            flex-col
+            gap-3
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+          "
+        >
 
-          <div className="flex items-center gap-2">
+          {/* REMEMBER ME */}
 
-            <Checkbox
-              id="rememberMe"
-              checked={rememberMe}
-              onCheckedChange={(
-                checked
-              ) =>
-                setRememberMe(
-                  Boolean(checked)
-                )
-              }
-            />
+          <div
+            className="
+              flex
+              min-h-11
+              items-center
+            "
+          >
 
-            <Label
-              htmlFor="rememberMe"
-              className="cursor-pointer select-none"
+            <div
+              className="
+                flex
+                items-center
+                gap-2.5
+              "
             >
-              Ingat saya
-            </Label>
+
+              <Checkbox
+                id="rememberMe"
+                checked={rememberMe}
+                disabled={isPending}
+                onCheckedChange={(
+                  checked
+                ) =>
+                  setRememberMe(
+                    Boolean(checked)
+                  )
+                }
+                className="
+                  h-5
+                  w-5
+                  rounded-md
+                  border-slate-300
+                  data-[state=checked]:border-sky-600
+                  data-[state=checked]:bg-sky-600
+                "
+              />
+
+              <Label
+                htmlFor="rememberMe"
+                className="
+                  cursor-pointer
+                  select-none
+                  text-sm
+                  font-medium
+                  text-slate-600
+                "
+              >
+                Ingat saya
+              </Label>
+
+            </div>
 
           </div>
 
+          {/* FORGOT PASSWORD */}
+
           <Link
             href="/forgot-password"
-            className="text-sm font-medium text-primary transition hover:underline"
+            tabIndex={
+              isPending
+                ? -1
+                : undefined
+            }
+            className="
+              inline-flex
+              min-h-11
+              w-fit
+              items-center
+              font-medium
+              text-sky-700
+              transition-colors
+              duration-200
+              hover:text-sky-800
+              hover:underline
+              focus:outline-none
+              focus-visible:rounded-md
+              focus-visible:ring-2
+              focus-visible:ring-sky-500
+              focus-visible:ring-offset-2
+              disabled:pointer-events-none
+              sm:min-h-0
+              sm:text-sm
+            "
           >
             Lupa password?
           </Link>
 
         </div>
 
-        {/* ==================================================== */}
-        {/* SERVER ERROR */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            SERVER ERROR
+        ==================================================== */}
 
         {serverError && (
-          <Alert variant="destructive">
+          <Alert
+            variant="destructive"
+            className="
+              rounded-xl
+              border-red-200
+              bg-red-50
+              text-red-900
+            "
+          >
+
+            <AlertCircle
+              className="h-4 w-4"
+            />
 
             <AlertTitle>
               Login gagal
             </AlertTitle>
 
-            <AlertDescription>
+            <AlertDescription
+              className="
+                leading-5
+              "
+            >
               {serverError}
             </AlertDescription>
 
           </Alert>
         )}
 
-        {/* ==================================================== */}
-        {/* LOGIN BUTTON */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            LOGIN BUTTON
+        ==================================================== */}
 
         <SubmitButton
           loading={isPending}
           text="Masuk"
           loadingText="Memproses..."
-          className="h-11 bg-sky-700 hover:bg-sky-800"
+          className="
+            h-12
+            w-full
+            rounded-xl
+            bg-sky-700
+            px-5
+            text-sm
+            font-semibold
+            text-white
+            shadow-md
+            shadow-sky-700/15
+            transition-all
+            duration-200
+            hover:bg-sky-800
+            hover:shadow-lg
+            hover:shadow-sky-700/20
+            active:scale-[0.99]
+            focus-visible:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-sky-500
+            focus-visible:ring-offset-2
+            disabled:cursor-not-allowed
+            disabled:opacity-60
+            sm:h-12
+          "
         />
 
       </form>
 
-      {/* ====================================================== */}
-      {/* REGISTER LINK */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          SECURITY INFORMATION
+      ====================================================== */}
 
-      <div className="mt-6 text-center text-sm text-muted-foreground">
+      <div
+        className="
+          mt-5
+          flex
+          items-center
+          justify-center
+          gap-2
+          text-center
+          text-xs
+          text-slate-400
+        "
+      >
 
-        Belum punya akun?{" "}
+        <ShieldCheck
+          className="
+            h-4
+            w-4
+            shrink-0
+          "
+        />
+
+        <span>
+          Login Anda aman dan terenkripsi.
+        </span>
+
+      </div>
+
+      {/* ======================================================
+          DIVIDER
+      ====================================================== */}
+
+      <div
+        className="
+          my-6
+          flex
+          items-center
+          gap-3
+        "
+      >
+
+        <div
+          className="
+            h-px
+            flex-1
+            bg-slate-200
+          "
+        />
+
+        <span
+          className="
+            text-xs
+            font-medium
+            uppercase
+            tracking-wider
+            text-slate-400
+          "
+        >
+          atau
+        </span>
+
+        <div
+          className="
+            h-px
+            flex-1
+            bg-slate-200
+          "
+        />
+
+      </div>
+
+      {/* ======================================================
+          REGISTER LINK
+      ====================================================== */}
+
+      <div
+        className="
+          text-center
+          text-sm
+          text-muted-foreground
+        "
+      >
+
+        <span>
+          Belum punya akun?
+        </span>{" "}
 
         <Link
           href="/register"
-          className="font-semibold text-sky-700 transition hover:text-sky-800 hover:underline"
+          className="
+            inline-flex
+            min-h-11
+            items-center
+            gap-1
+            font-semibold
+            text-sky-700
+            transition-colors
+            duration-200
+            hover:text-sky-800
+            hover:underline
+            focus:outline-none
+            focus-visible:rounded-md
+            focus-visible:ring-2
+            focus-visible:ring-sky-500
+            focus-visible:ring-offset-2
+            sm:min-h-0
+          "
         >
           Daftar sekarang
+
+          <ArrowRight
+            className="
+              h-4
+              w-4
+              transition-transform
+              duration-200
+              group-hover:translate-x-0.5
+            "
+          />
         </Link>
 
       </div>

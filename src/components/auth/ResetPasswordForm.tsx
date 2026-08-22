@@ -1,28 +1,53 @@
 "use client";
 
 import {
-  useEffect,
   useState,
   useTransition,
 } from "react";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  useForm,
+} from "react-hook-form";
 
-import { toast } from "sonner";
+import {
+  zodResolver,
+} from "@hookform/resolvers/zod";
+
+import {
+  toast,
+} from "sonner";
+
+import {
+  AlertCircle,
+  CheckCircle2,
+  KeyRound,
+  ArrowLeft,
+} from "lucide-react";
 
 import {
   ResetPasswordSchema,
   type ResetPasswordInput,
 } from "@/validations/auth/reset-password.schema";
 
-import { AuthCard } from "@/components/auth/AuthCard";
-import { AuthHeader } from "@/components/auth/AuthHeader";
-import { PasswordField } from "@/components/auth/PasswordField";
-import { SubmitButton } from "@/components/auth/SubmitButton";
+import {
+  AuthCard,
+} from "@/components/auth/AuthCard";
+
+import {
+  AuthHeader,
+} from "@/components/auth/AuthHeader";
+
+import {
+  PasswordField,
+} from "@/components/auth/PasswordField";
+
+import {
+  SubmitButton,
+} from "@/components/auth/SubmitButton";
 
 import {
   Alert,
@@ -42,37 +67,72 @@ import {
  * Mengirim password baru ke:
  *
  * POST /api/auth/reset-password
+ *
+ * ============================================================
  */
 
 export function ResetPasswordForm() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const searchParams =
     useSearchParams();
 
+  /**
+   * ==========================================================
+   * TOKEN
+   * ==========================================================
+   */
+
   const token =
     searchParams.get("token");
 
-  const [isPending, startTransition] =
-    useTransition();
+  /**
+   * ==========================================================
+   * TRANSITION
+   * ==========================================================
+   */
 
-  const [serverError, setServerError] =
-    useState("");
+  const [
+    isPending,
+    startTransition,
+  ] = useTransition();
 
-  const [isSuccess, setIsSuccess] =
-    useState(false);
+  /**
+   * ==========================================================
+   * LOCAL STATE
+   * ==========================================================
+   */
+
+  const [
+    serverError,
+    setServerError,
+  ] = useState("");
+
+  const [
+    isSuccess,
+    setIsSuccess,
+  ] = useState(false);
+
+  /**
+   * ==========================================================
+   * FORM
+   * ==========================================================
+   */
 
   const {
     register,
     handleSubmit,
     setError,
+
     formState: {
       errors,
     },
   } = useForm<ResetPasswordInput>({
-    resolver: zodResolver(
-      ResetPasswordSchema
-    ),
+    resolver:
+      zodResolver(
+        ResetPasswordSchema
+      ),
 
     defaultValues: {
       token: token ?? "",
@@ -85,18 +145,6 @@ export function ResetPasswordForm() {
 
   /**
    * ==========================================================
-   * KEEP TOKEN IN FORM STATE
-   * ==========================================================
-   */
-
-  useEffect(() => {
-    if (!token) {
-      return;
-    }
-  }, [token]);
-
-  /**
-   * ==========================================================
    * INVALID TOKEN
    * ==========================================================
    */
@@ -104,30 +152,97 @@ export function ResetPasswordForm() {
   if (!token) {
     return (
       <AuthCard>
+
+        {/* ====================================================
+            HEADER
+        ==================================================== */}
+
         <AuthHeader
-          title="Invalid Reset Link"
-          description="Link untuk mengatur ulang password tidak valid atau token tidak ditemukan."
+          title="Link Tidak Valid"
+          description="Link untuk mengatur ulang password tidak valid atau sudah tidak tersedia."
         />
 
-        <Alert variant="destructive">
+        {/* ====================================================
+            ERROR STATE
+        ==================================================== */}
+
+        <Alert
+          variant="destructive"
+          className="
+            rounded-xl
+            border-red-200
+            bg-red-50
+            text-red-900
+          "
+        >
+          <AlertCircle
+            className="h-4 w-4"
+          />
+
           <AlertTitle>
-            Link tidak valid
+            Link reset tidak valid
           </AlertTitle>
 
-          <AlertDescription>
-            Silakan buat permintaan reset password
-            baru.
+          <AlertDescription
+            className="
+              leading-5
+            "
+          >
+            Silakan buat permintaan
+            reset password baru untuk
+            mendapatkan link yang valid.
           </AlertDescription>
         </Alert>
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
+        {/* ====================================================
+            ACTION
+        ==================================================== */}
+
+        <div
+          className="
+            mt-5
+            flex
+            justify-center
+            sm:mt-6
+          "
+        >
           <Link
             href="/forgot-password"
-            className="font-medium text-primary transition hover:underline"
+            className="
+              inline-flex
+              min-h-11
+              items-center
+              gap-2
+              rounded-xl
+              px-3
+              text-sm
+              font-semibold
+              text-sky-700
+              transition-all
+              duration-200
+
+              hover:bg-sky-50
+              hover:text-sky-800
+
+              focus:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-sky-500
+              focus-visible:ring-offset-2
+
+              sm:min-h-0
+            "
           >
+            <ArrowLeft
+              className="
+                h-4
+                w-4
+              "
+            />
+
             Request Reset Password
           </Link>
         </div>
+
       </AuthCard>
     );
   }
@@ -145,25 +260,38 @@ export function ResetPasswordForm() {
 
     startTransition(async () => {
       try {
-        const response = await fetch(
-          "/api/auth/reset-password",
-          {
-            method: "POST",
+        /**
+         * ====================================================
+         * API REQUEST
+         * ====================================================
+         */
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+        const response =
+          await fetch(
+            "/api/auth/reset-password",
+            {
+              method: "POST",
 
-            body: JSON.stringify({
-              ...values,
-              token,
-            }),
-          }
-        );
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                ...values,
+                token,
+              }),
+            }
+          );
 
         const result =
           await response.json();
+
+        /**
+         * ====================================================
+         * ERROR RESPONSE
+         * ====================================================
+         */
 
         if (!response.ok) {
           /**
@@ -174,8 +302,10 @@ export function ResetPasswordForm() {
 
           if (result.errors) {
             for (
-              const [field, messages]
-              of Object.entries(
+              const [
+                field,
+                messages,
+              ] of Object.entries(
                 result.errors
               )
             ) {
@@ -185,7 +315,8 @@ export function ResetPasswordForm() {
                   : messages;
 
               if (
-                typeof message !== "string"
+                typeof message !==
+                "string"
               ) {
                 continue;
               }
@@ -200,21 +331,31 @@ export function ResetPasswordForm() {
             }
           }
 
+          /**
+           * ==================================================
+           * SERVER MESSAGE
+           * ==================================================
+           */
+
           const message =
             result.message ??
             "Gagal mengatur ulang password.";
 
-          setServerError(message);
+          setServerError(
+            message
+          );
 
-          toast.error(message);
+          toast.error(
+            message
+          );
 
           return;
         }
 
         /**
-         * ==================================================
+         * ====================================================
          * SUCCESS
-         * ==================================================
+         * ====================================================
          */
 
         setIsSuccess(true);
@@ -225,13 +366,26 @@ export function ResetPasswordForm() {
         );
 
         /**
-         * Redirect setelah user sempat melihat success state.
+         * ====================================================
+         * REDIRECT
+         * ====================================================
+         *
+         * Berikan waktu agar user
+         * dapat melihat success state.
          */
 
         window.setTimeout(() => {
-          router.replace("/login");
+          router.replace(
+            "/login"
+          );
         }, 2500);
       } catch (error) {
+        /**
+         * ====================================================
+         * CLIENT / NETWORK ERROR
+         * ====================================================
+         */
+
         console.error(
           "[RESET_PASSWORD_CLIENT_ERROR]",
           error
@@ -240,9 +394,13 @@ export function ResetPasswordForm() {
         const message =
           "Terjadi kesalahan. Silakan coba lagi.";
 
-        setServerError(message);
+        setServerError(
+          message
+        );
 
-        toast.error(message);
+        toast.error(
+          message
+        );
       }
     });
   };
@@ -256,30 +414,139 @@ export function ResetPasswordForm() {
   if (isSuccess) {
     return (
       <AuthCard>
+
+        {/* ====================================================
+            SUCCESS ICON
+        ==================================================== */}
+
+        <div
+          className="
+            mb-5
+            flex
+            justify-center
+            sm:mb-6
+          "
+        >
+          <div
+            className="
+              flex
+              h-14
+              w-14
+              items-center
+              justify-center
+              rounded-2xl
+              bg-emerald-50
+              text-emerald-600
+              ring-4
+              ring-emerald-50
+              sm:h-16
+              sm:w-16
+            "
+          >
+            <CheckCircle2
+              className="
+                h-8
+                w-8
+                sm:h-9
+                sm:w-9
+              "
+            />
+          </div>
+        </div>
+
+        {/* ====================================================
+            HEADER
+        ==================================================== */}
+
         <AuthHeader
-          title="Password Updated"
-          description="Password Anda berhasil diperbarui."
+          title="Password Berhasil"
+          description="Password Anda berhasil diperbarui dan akun Anda sudah siap digunakan."
         />
 
-        <Alert>
+        {/* ====================================================
+            SUCCESS ALERT
+        ==================================================== */}
+
+        <Alert
+          className="
+            rounded-xl
+            border-emerald-200
+            bg-emerald-50
+            text-emerald-900
+          "
+        >
+          <CheckCircle2
+            className="
+              h-4
+              w-4
+              text-emerald-600
+            "
+          />
+
           <AlertTitle>
             Berhasil
           </AlertTitle>
 
-          <AlertDescription>
-            Anda akan diarahkan ke halaman login
-            dalam beberapa detik.
+          <AlertDescription
+            className="
+              leading-5
+              text-emerald-800
+            "
+          >
+            Anda akan diarahkan ke
+            halaman login dalam
+            beberapa detik.
           </AlertDescription>
         </Alert>
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
+        {/* ====================================================
+            LOGIN ACTION
+        ==================================================== */}
+
+        <div
+          className="
+            mt-5
+            flex
+            justify-center
+            sm:mt-6
+          "
+        >
           <Link
             href="/login"
-            className="font-medium text-primary transition hover:underline"
+            className="
+              inline-flex
+              min-h-11
+              items-center
+              gap-2
+              rounded-xl
+              bg-sky-700
+              px-5
+              text-sm
+              font-semibold
+              text-white
+              shadow-md
+              shadow-sky-700/15
+              transition-all
+              duration-200
+
+              hover:bg-sky-800
+              hover:shadow-lg
+              hover:shadow-sky-700/20
+
+              active:scale-[0.99]
+
+              focus:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-sky-500
+              focus-visible:ring-offset-2
+
+              sm:min-h-0
+            "
           >
             Login Sekarang
           </Link>
         </div>
+
       </AuthCard>
     );
   }
@@ -292,16 +559,77 @@ export function ResetPasswordForm() {
 
   return (
     <AuthCard>
+
+      {/* ======================================================
+          HEADER ICON
+      ====================================================== */}
+
+      <div
+        className="
+          mb-5
+          flex
+          justify-center
+          sm:mb-6
+        "
+      >
+        <div
+          className="
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-2xl
+            bg-sky-700
+            text-white
+            shadow-lg
+            shadow-sky-700/20
+            ring-4
+            ring-sky-50
+            transition-transform
+            duration-300
+            hover:scale-105
+            sm:h-16
+            sm:w-16
+          "
+        >
+          <KeyRound
+            className="
+              h-7
+              w-7
+              sm:h-8
+              sm:w-8
+            "
+          />
+        </div>
+      </div>
+
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
       <AuthHeader
         title="Reset Password"
-        description="Masukkan password baru untuk akun Anda."
+        description="Masukkan password baru untuk mengamankan akun Anda."
       />
 
+      {/* ======================================================
+          FORM
+      ====================================================== */}
+
       <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="space-y-6"
+        onSubmit={
+          handleSubmit(
+            onSubmit
+          )
+        }
+        className="
+          space-y-5
+          sm:space-y-6
+        "
         noValidate
       >
+
         {/* ====================================================
             PASSWORD
         ==================================================== */}
@@ -312,8 +640,14 @@ export function ResetPasswordForm() {
           placeholder="Masukkan password baru"
           autoComplete="new-password"
           disabled={isPending}
-          error={errors.password?.message}
-          {...register("password")}
+          required
+          error={
+            errors.password
+              ?.message
+          }
+          {...register(
+            "password"
+          )}
         />
 
         {/* ====================================================
@@ -326,21 +660,68 @@ export function ResetPasswordForm() {
           placeholder="Masukkan ulang password"
           autoComplete="new-password"
           disabled={isPending}
-          error={errors.confirmPassword?.message}
-          {...register("confirmPassword")}
+          required
+          error={
+            errors
+              .confirmPassword
+              ?.message
+          }
+          {...register(
+            "confirmPassword"
+          )}
         />
+
+        {/* ====================================================
+            PASSWORD SECURITY INFO
+        ==================================================== */}
+
+        <div
+          className="
+            rounded-xl
+            border
+            border-sky-100
+            bg-sky-50
+            px-3.5
+            py-3
+            text-xs
+            leading-5
+            text-sky-800
+          "
+        >
+          <p>
+            Gunakan password yang kuat
+            dan jangan gunakan password
+            yang sama dengan akun lain.
+          </p>
+        </div>
 
         {/* ====================================================
             SERVER ERROR
         ==================================================== */}
 
         {serverError && (
-          <Alert variant="destructive">
+          <Alert
+            variant="destructive"
+            className="
+              rounded-xl
+              border-red-200
+              bg-red-50
+              text-red-900
+            "
+          >
+            <AlertCircle
+              className="h-4 w-4"
+            />
+
             <AlertTitle>
               Reset Password Gagal
             </AlertTitle>
 
-            <AlertDescription>
+            <AlertDescription
+              className="
+                leading-5
+              "
+            >
               {serverError}
             </AlertDescription>
           </Alert>
@@ -353,20 +734,71 @@ export function ResetPasswordForm() {
         <SubmitButton
           loading={isPending}
           text="Reset Password"
-          loadingText="Resetting..."
+          loadingText="Memproses..."
+          className="
+            bg-sky-700
+            hover:bg-sky-800
+            shadow-md
+            shadow-sky-700/15
+            hover:shadow-lg
+            hover:shadow-sky-700/20
+          "
         />
+
       </form>
 
-      <div className="mt-6 text-center text-sm text-muted-foreground">
-        Ingat password Anda?{" "}
+      {/* ======================================================
+          LOGIN LINK
+      ====================================================== */}
+
+      <div
+        className="
+          mt-5
+          text-center
+          text-sm
+          text-slate-500
+          sm:mt-6
+        "
+      >
+        <span>
+          Ingat password Anda?
+        </span>{" "}
 
         <Link
           href="/login"
-          className="font-medium text-primary transition hover:underline"
+          className="
+            inline-flex
+            min-h-11
+            items-center
+            gap-1.5
+            font-semibold
+            text-sky-700
+            transition-colors
+            duration-200
+
+            hover:text-sky-800
+            hover:underline
+
+            focus:outline-none
+            focus-visible:rounded-md
+            focus-visible:ring-2
+            focus-visible:ring-sky-500
+            focus-visible:ring-offset-2
+
+            sm:min-h-0
+          "
         >
+          <ArrowLeft
+            className="
+              h-4
+              w-4
+            "
+          />
+
           Kembali ke Login
         </Link>
       </div>
+
     </AuthCard>
   );
 }

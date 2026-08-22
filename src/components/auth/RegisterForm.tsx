@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 
 import {
   useForm,
@@ -14,23 +12,34 @@ import {
 } from "@hookform/resolvers/zod";
 
 import {
-  Eye,
-  EyeOff,
-  Loader2,
-  UserPlus,
-} from "lucide-react";
-
-import {
   toast,
 } from "sonner";
+
+import {
+  AlertCircle,
+  Fish,
+  ShieldCheck,
+} from "lucide-react";
 
 import {
   registerCustomerAction,
 } from "@/actions/auth/register";
 
 import {
-  useAuthBranding,
-} from "@/components/auth/AuthBrandingProvider";
+  AuthCard,
+} from "@/components/auth/AuthCard";
+
+import {
+  AuthHeader,
+} from "@/components/auth/AuthHeader";
+
+import {
+  PasswordField,
+} from "@/components/auth/PasswordField";
+
+import {
+  SubmitButton,
+} from "@/components/auth/SubmitButton";
 
 import {
   RegisterSchema,
@@ -44,22 +53,6 @@ import {
  */
 
 export default function RegisterForm() {
-  const {
-    storeName,
-    siteLogo,
-    storeInitial,
-  } = useAuthBranding();
-
-  const [
-    showPassword,
-    setShowPassword,
-  ] = useState(false);
-
-  const [
-    showConfirmPassword,
-    setShowConfirmPassword,
-  ] = useState(false);
-
   /**
    * ==========================================================
    * FORM
@@ -69,7 +62,9 @@ export default function RegisterForm() {
   const form =
     useForm<RegisterInput>({
       resolver:
-        zodResolver(RegisterSchema),
+        zodResolver(
+          RegisterSchema
+        ),
 
       defaultValues: {
         name: "",
@@ -77,6 +72,8 @@ export default function RegisterForm() {
         password: "",
         confirmPassword: "",
       },
+
+      mode: "onSubmit",
     });
 
   /**
@@ -131,7 +128,7 @@ export default function RegisterForm() {
 
       /**
        * ========================================================
-       * REDIRECT TO EMAIL VERIFICATION
+       * REDIRECT TO VERIFY EMAIL
        * ========================================================
        */
 
@@ -177,51 +174,42 @@ export default function RegisterForm() {
     }
   };
 
+  /**
+   * ==========================================================
+   * STATE
+   * ==========================================================
+   */
+
   const isSubmitting =
     form.formState.isSubmitting;
 
+  const {
+    errors,
+  } = form.formState;
+
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
+
   return (
-    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl shadow-slate-950/10 sm:p-8">
+    <AuthCard>
 
-      {/* ====================================================== */}
-      {/* BRAND LOGO */}
-      {/* ====================================================== */}
+      
 
-      <div className="mb-8 flex flex-col items-center text-center">
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
-        <div className="relative mb-5 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-slate-200">
+      <AuthHeader
+        title="Buat Akun"
+        description="Daftar untuk mulai berbelanja."
+      />
 
-          {siteLogo ? (
-            <Image
-              src={siteLogo}
-              alt={`${storeName} Logo`}
-              fill
-              sizes="64px"
-              className="object-contain p-1.5"
-              priority
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-sky-700 text-lg font-bold text-white">
-              {storeInitial}
-            </div>
-          )}
-
-        </div>
-
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Buat Akun
-        </h1>
-
-        <p className="mt-2 text-sm text-slate-500">
-          Daftar untuk mulai berbelanja
-          di {storeName}.
-        </p>
-
-      </div>
-
-      {/* ====================================================== */}
-      {/* FORM */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          FORM
+      ====================================================== */}
 
       <form
         onSubmit={
@@ -229,16 +217,26 @@ export default function RegisterForm() {
             onSubmit
           )
         }
-        className="space-y-5"
+        className="
+          space-y-5
+          sm:space-y-6
+        "
+        noValidate
       >
 
-        {/* NAME */}
+        {/* ====================================================
+            NAME
+        ==================================================== */}
 
         <div className="space-y-2">
 
           <label
             htmlFor="name"
-            className="text-sm font-medium text-slate-700"
+            className="
+              text-sm
+              font-medium
+              text-slate-800
+            "
           >
             Nama Lengkap
           </label>
@@ -249,30 +247,92 @@ export default function RegisterForm() {
             autoComplete="name"
             placeholder="Masukkan nama lengkap"
             disabled={isSubmitting}
+            aria-invalid={
+              !!errors.name
+            }
+            aria-describedby={
+              errors.name
+                ? "register-name-error"
+                : undefined
+            }
             {...form.register("name")}
-            className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="
+              h-12
+              w-full
+              rounded-xl
+              border
+              border-slate-200
+              bg-white
+              px-4
+              text-base
+              text-slate-900
+              shadow-sm
+              outline-none
+              transition-all
+              duration-200
+
+              placeholder:text-slate-400
+
+              hover:border-slate-300
+
+              focus:border-sky-500
+              focus:bg-white
+              focus:ring-4
+              focus:ring-sky-500/10
+              focus:shadow-[0_0_0_1px_rgba(14,165,233,0.12)]
+
+              disabled:cursor-not-allowed
+              disabled:bg-slate-50
+              disabled:opacity-60
+
+              sm:text-sm
+            "
           />
 
-          {form.formState.errors.name && (
-            <p className="text-sm text-destructive">
-              {
-                form.formState
-                  .errors
-                  .name
-                  .message
-              }
+          {errors.name && (
+            <p
+              id="register-name-error"
+              role="alert"
+              className="
+                flex
+                items-start
+                gap-1.5
+                text-sm
+                leading-5
+                text-destructive
+              "
+            >
+              <AlertCircle
+                className="
+                  mt-0.5
+                  h-4
+                  w-4
+                  shrink-0
+                "
+                aria-hidden="true"
+              />
+
+              <span>
+                {errors.name.message}
+              </span>
             </p>
           )}
 
         </div>
 
-        {/* EMAIL */}
+        {/* ====================================================
+            EMAIL
+        ==================================================== */}
 
         <div className="space-y-2">
 
           <label
             htmlFor="email"
-            className="text-sm font-medium text-slate-700"
+            className="
+              text-sm
+              font-medium
+              text-slate-800
+            "
           >
             Email
           </label>
@@ -281,202 +341,218 @@ export default function RegisterForm() {
             id="email"
             type="email"
             autoComplete="email"
+            inputMode="email"
             placeholder="nama@email.com"
             disabled={isSubmitting}
+            aria-invalid={
+              !!errors.email
+            }
+            aria-describedby={
+              errors.email
+                ? "register-email-error"
+                : undefined
+            }
             {...form.register("email")}
-            className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="
+              h-12
+              w-full
+              rounded-xl
+              border
+              border-slate-200
+              bg-white
+              px-4
+              text-base
+              text-slate-900
+              shadow-sm
+              outline-none
+              transition-all
+              duration-200
+
+              placeholder:text-slate-400
+
+              hover:border-slate-300
+
+              focus:border-sky-500
+              focus:bg-white
+              focus:ring-4
+              focus:ring-sky-500/10
+              focus:shadow-[0_0_0_1px_rgba(14,165,233,0.12)]
+
+              disabled:cursor-not-allowed
+              disabled:bg-slate-50
+              disabled:opacity-60
+
+              sm:text-sm
+            "
           />
 
-          {form.formState.errors.email && (
-            <p className="text-sm text-destructive">
-              {
-                form.formState
-                  .errors
-                  .email
-                  .message
-              }
-            </p>
-          )}
-
-        </div>
-
-        {/* PASSWORD */}
-
-        <div className="space-y-2">
-
-          <label
-            htmlFor="password"
-            className="text-sm font-medium text-slate-700"
-          >
-            Password
-          </label>
-
-          <div className="relative">
-
-            <input
-              id="password"
-              type={
-                showPassword
-                  ? "text"
-                  : "password"
-              }
-              autoComplete="new-password"
-              placeholder="Minimal 6 karakter"
-              disabled={isSubmitting}
-              {...form.register(
-                "password"
-              )}
-              className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 pr-11 text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-
-            <button
-              type="button"
-              onClick={() =>
-                setShowPassword(
-                  (value) => !value
-                )
-              }
-              disabled={isSubmitting}
-              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={
-                showPassword
-                  ? "Sembunyikan password"
-                  : "Tampilkan password"
-              }
+          {errors.email && (
+            <p
+              id="register-email-error"
+              role="alert"
+              className="
+                flex
+                items-start
+                gap-1.5
+                text-sm
+                leading-5
+                text-destructive
+              "
             >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
+              <AlertCircle
+                className="
+                  mt-0.5
+                  h-4
+                  w-4
+                  shrink-0
+                "
+                aria-hidden="true"
+              />
 
-          </div>
-
-          {form.formState
-            .errors
-            .password && (
-            <p className="text-sm text-destructive">
-              {
-                form.formState
-                  .errors
-                  .password
-                  .message
-              }
+              <span>
+                {errors.email.message}
+              </span>
             </p>
           )}
 
         </div>
 
-        {/* CONFIRM PASSWORD */}
+        {/* ====================================================
+            PASSWORD
+        ==================================================== */}
 
-        <div className="space-y-2">
-
-          <label
-            htmlFor="confirmPassword"
-            className="text-sm font-medium text-slate-700"
-          >
-            Konfirmasi Password
-          </label>
-
-          <div className="relative">
-
-            <input
-              id="confirmPassword"
-              type={
-                showConfirmPassword
-                  ? "text"
-                  : "password"
-              }
-              autoComplete="new-password"
-              placeholder="Ulangi password"
-              disabled={isSubmitting}
-              {...form.register(
-                "confirmPassword"
-              )}
-              className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 pr-11 text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-600 focus:ring-2 focus:ring-sky-600/20 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-
-            <button
-              type="button"
-              onClick={() =>
-                setShowConfirmPassword(
-                  (value) => !value
-                )
-              }
-              disabled={isSubmitting}
-              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={
-                showConfirmPassword
-                  ? "Sembunyikan konfirmasi password"
-                  : "Tampilkan konfirmasi password"
-              }
-            >
-              {showConfirmPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-
-          </div>
-
-          {form.formState
-            .errors
-            .confirmPassword && (
-            <p className="text-sm text-destructive">
-              {
-                form.formState
-                  .errors
-                  .confirmPassword
-                  .message
-              }
-            </p>
-          )}
-
-        </div>
-
-        {/* SUBMIT */}
-
-        <button
-          type="submit"
+        <PasswordField
+          label="Password"
+          placeholder="Minimal 6 karakter"
+          autoComplete="new-password"
           disabled={isSubmitting}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-
-              Memproses...
-            </>
-          ) : (
-            <>
-              <UserPlus className="h-4 w-4" />
-
-              Daftar Sekarang
-            </>
+          required
+          error={
+            errors.password?.message
+          }
+          {...form.register(
+            "password"
           )}
-        </button>
+        />
+
+        {/* ====================================================
+            CONFIRM PASSWORD
+        ==================================================== */}
+
+        <PasswordField
+          label="Konfirmasi Password"
+          placeholder="Ulangi password"
+          autoComplete="new-password"
+          disabled={isSubmitting}
+          required
+          error={
+            errors.confirmPassword
+              ?.message
+          }
+          {...form.register(
+            "confirmPassword"
+          )}
+        />
+
+        {/* ====================================================
+            SECURITY INFORMATION
+        ==================================================== */}
+
+        <div
+          className="
+            flex
+            items-start
+            gap-2.5
+            rounded-xl
+            border
+            border-sky-100
+            bg-sky-50
+            px-3.5
+            py-3
+            text-xs
+            leading-5
+            text-sky-800
+          "
+        >
+          <ShieldCheck
+            className="
+              mt-0.5
+              h-4
+              w-4
+              shrink-0
+              text-sky-600
+            "
+            aria-hidden="true"
+          />
+
+          <p>
+            Gunakan password yang kuat
+            dan mudah Anda ingat untuk
+            menjaga keamanan akun.
+          </p>
+        </div>
+
+        {/* ====================================================
+            SUBMIT
+        ==================================================== */}
+
+        <SubmitButton
+          loading={isSubmitting}
+          text="Daftar Sekarang"
+          loadingText="Mendaftarkan..."
+          className="
+            bg-sky-700
+            hover:bg-sky-800
+            shadow-md
+            shadow-sky-700/15
+            hover:shadow-lg
+            hover:shadow-sky-700/20
+          "
+        />
 
       </form>
 
-      {/* ====================================================== */}
-      {/* LOGIN LINK */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          LOGIN LINK
+      ====================================================== */}
 
-      <div className="mt-6 text-center text-sm text-slate-500">
-
-        Sudah punya akun?{" "}
+      <div
+        className="
+          mt-5
+          text-center
+          text-sm
+          text-slate-500
+          sm:mt-6
+        "
+      >
+        <span>
+          Sudah punya akun?
+        </span>{" "}
 
         <Link
           href="/login"
-          className="font-semibold text-sky-700 transition hover:text-sky-800 hover:underline"
+          className="
+            inline-flex
+            min-h-11
+            items-center
+            font-semibold
+            text-sky-700
+            transition-colors
+            duration-200
+            hover:text-sky-800
+            hover:underline
+            focus:outline-none
+            focus-visible:rounded-md
+            focus-visible:ring-2
+            focus-visible:ring-sky-500
+            focus-visible:ring-offset-2
+            sm:min-h-0
+          "
         >
           Login di sini
         </Link>
-
       </div>
 
-    </div>
+    </AuthCard>
   );
 }

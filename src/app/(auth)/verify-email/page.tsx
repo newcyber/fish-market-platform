@@ -12,22 +12,55 @@ import {
 } from "react";
 
 import Link from "next/link";
+
 import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
 
-import { verifyEmailVerificationAction } from "@/actions/auth/verify-email-verification";
-import { resendEmailVerificationAction } from "@/actions/auth/resend-email-verification";
+import {
+  MailCheck,
+  RefreshCw,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+
+import {
+  verifyEmailVerificationAction,
+} from "@/actions/auth/verify-email-verification";
+
+import {
+  resendEmailVerificationAction,
+} from "@/actions/auth/resend-email-verification";
+
+import {
+  AuthCard,
+} from "@/components/auth/AuthCard";
+
+import {
+  AuthHeader,
+} from "@/components/auth/AuthHeader";
+
+import {
+  SubmitButton,
+} from "@/components/auth/SubmitButton";
 
 /**
  * ============================================================
- * VERIFY EMAIL PAGE
+ * CONSTANTS
  * ============================================================
  */
 
 const OTP_LENGTH = 6;
+
 const INITIAL_COOLDOWN = 60;
+
+/**
+ * ============================================================
+ * VERIFY EMAIL CONTENT
+ * ============================================================
+ */
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -35,33 +68,83 @@ function VerifyEmailContent() {
   const searchParams =
     useSearchParams();
 
+  /**
+   * ==========================================================
+   * EMAIL
+   * ==========================================================
+   */
+
   const email =
     searchParams.get("email") ?? "";
+
+  /**
+   * ==========================================================
+   * OTP REFERENCES
+   * ==========================================================
+   */
 
   const inputRefs =
     useRef<
       Array<HTMLInputElement | null>
     >([]);
 
-  const [otp, setOtp] =
-    useState<string[]>(
-      Array(OTP_LENGTH).fill("")
-    );
+  /**
+   * ==========================================================
+   * OTP STATE
+   * ==========================================================
+   */
 
-  const [isLoading, setIsLoading] =
-    useState(false);
+  const [
+    otp,
+    setOtp,
+  ] = useState<string[]>(
+    Array(OTP_LENGTH).fill("")
+  );
 
-  const [isResending, setIsResending] =
-    useState(false);
+  /**
+   * ==========================================================
+   * LOADING STATE
+   * ==========================================================
+   */
 
-  const [message, setMessage] =
-    useState("");
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(false);
 
-  const [isSuccess, setIsSuccess] =
-    useState(false);
+  const [
+    isResending,
+    setIsResending,
+  ] = useState(false);
 
-  const [cooldown, setCooldown] =
-    useState(INITIAL_COOLDOWN);
+  /**
+   * ==========================================================
+   * MESSAGE STATE
+   * ==========================================================
+   */
+
+  const [
+    message,
+    setMessage,
+  ] = useState("");
+
+  const [
+    isSuccess,
+    setIsSuccess,
+  ] = useState(false);
+
+  /**
+   * ==========================================================
+   * COOLDOWN
+   * ==========================================================
+   */
+
+  const [
+    cooldown,
+    setCooldown,
+  ] = useState(
+    INITIAL_COOLDOWN
+  );
 
   /**
    * ==========================================================
@@ -71,9 +154,14 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     if (!email) {
-      router.replace("/register");
+      router.replace(
+        "/register"
+      );
     }
-  }, [email, router]);
+  }, [
+    email,
+    router,
+  ]);
 
   /**
    * ==========================================================
@@ -82,8 +170,21 @@ function VerifyEmailContent() {
    */
 
   useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
+    if (!email) {
+      return;
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        inputRefs.current[0]?.focus();
+      }, 100);
+
+    return () => {
+      window.clearTimeout(
+        timer
+      );
+    };
+  }, [email]);
 
   /**
    * ==========================================================
@@ -98,19 +199,25 @@ function VerifyEmailContent() {
 
     const timer =
       window.setInterval(() => {
-        setCooldown((current) => {
-          if (current <= 1) {
-            window.clearInterval(timer);
+        setCooldown(
+          (current) => {
+            if (current <= 1) {
+              window.clearInterval(
+                timer
+              );
 
-            return 0;
+              return 0;
+            }
+
+            return current - 1;
           }
-
-          return current - 1;
-        });
+        );
       }, 1000);
 
     return () => {
-      window.clearInterval(timer);
+      window.clearInterval(
+        timer
+      );
     };
   }, [cooldown]);
 
@@ -125,10 +232,21 @@ function VerifyEmailContent() {
     event: ChangeEvent<HTMLInputElement>
   ) => {
     const value =
-      event.target.value.replace(/\D/g, "");
+      event.target.value.replace(
+        /\D/g,
+        ""
+      );
+
+    /**
+     * --------------------------------------------------------
+     * CLEAR CURRENT DIGIT
+     * --------------------------------------------------------
+     */
 
     if (!value) {
-      const nextOtp = [...otp];
+      const nextOtp = [
+        ...otp,
+      ];
 
       nextOtp[index] = "";
 
@@ -137,14 +255,31 @@ function VerifyEmailContent() {
       return;
     }
 
-    const nextOtp = [...otp];
+    /**
+     * --------------------------------------------------------
+     * USE LAST DIGIT
+     * --------------------------------------------------------
+     */
+
+    const nextOtp = [
+      ...otp,
+    ];
 
     nextOtp[index] =
       value[value.length - 1];
 
     setOtp(nextOtp);
 
-    if (index < OTP_LENGTH - 1) {
+    /**
+     * --------------------------------------------------------
+     * MOVE TO NEXT INPUT
+     * --------------------------------------------------------
+     */
+
+    if (
+      index <
+      OTP_LENGTH - 1
+    ) {
       inputRefs.current[
         index + 1
       ]?.focus();
@@ -161,14 +296,23 @@ function VerifyEmailContent() {
     index: number,
     event: KeyboardEvent<HTMLInputElement>
   ) => {
+    /**
+     * --------------------------------------------------------
+     * BACKSPACE
+     * --------------------------------------------------------
+     */
+
     if (
-      event.key === "Backspace" &&
+      event.key ===
+        "Backspace" &&
       !otp[index] &&
       index > 0
     ) {
       event.preventDefault();
 
-      const nextOtp = [...otp];
+      const nextOtp = [
+        ...otp,
+      ];
 
       nextOtp[index - 1] = "";
 
@@ -177,10 +321,19 @@ function VerifyEmailContent() {
       inputRefs.current[
         index - 1
       ]?.focus();
+
+      return;
     }
 
+    /**
+     * --------------------------------------------------------
+     * ARROW LEFT
+     * --------------------------------------------------------
+     */
+
     if (
-      event.key === "ArrowLeft" &&
+      event.key ===
+        "ArrowLeft" &&
       index > 0
     ) {
       event.preventDefault();
@@ -188,11 +341,21 @@ function VerifyEmailContent() {
       inputRefs.current[
         index - 1
       ]?.focus();
+
+      return;
     }
 
+    /**
+     * --------------------------------------------------------
+     * ARROW RIGHT
+     * --------------------------------------------------------
+     */
+
     if (
-      event.key === "ArrowRight" &&
-      index < OTP_LENGTH - 1
+      event.key ===
+        "ArrowRight" &&
+      index <
+        OTP_LENGTH - 1
     ) {
       event.preventDefault();
 
@@ -217,24 +380,39 @@ function VerifyEmailContent() {
       event.clipboardData
         .getData("text")
         .replace(/\D/g, "")
-        .slice(0, OTP_LENGTH);
+        .slice(
+          0,
+          OTP_LENGTH
+        );
 
     if (!pastedCode) {
       return;
     }
 
     const nextOtp =
-      Array(OTP_LENGTH).fill("");
+      Array(
+        OTP_LENGTH
+      ).fill("");
 
     pastedCode
       .split("")
       .forEach(
-        (digit, index) => {
-          nextOtp[index] = digit;
+        (
+          digit,
+          index
+        ) => {
+          nextOtp[index] =
+            digit;
         }
       );
 
     setOtp(nextOtp);
+
+    /**
+     * --------------------------------------------------------
+     * FOCUS LAST FILLED / NEXT POSITION
+     * --------------------------------------------------------
+     */
 
     const focusIndex =
       Math.min(
@@ -253,92 +431,160 @@ function VerifyEmailContent() {
    * ==========================================================
    */
 
-  const handleVerify = async () => {
-    const code =
-      otp.join("");
+  const handleVerify =
+    async () => {
+      const code =
+        otp.join("");
 
-    if (code.length !== OTP_LENGTH) {
-      setIsSuccess(false);
+      /**
+       * --------------------------------------------------------
+       * VALIDATE LENGTH
+       * --------------------------------------------------------
+       */
 
-      setMessage(
-        "Masukkan 6 digit kode verifikasi."
-      );
-
-      return;
-    }
-
-    if (!email) {
-      setIsSuccess(false);
-
-      setMessage(
-        "Email tidak ditemukan. Silakan daftar kembali."
-      );
-
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      setMessage("");
-
-      const result =
-        await verifyEmailVerificationAction(
-          email,
-          code
+      if (
+        code.length !==
+        OTP_LENGTH
+      ) {
+        setIsSuccess(
+          false
         );
 
-      if (!result.success) {
-        setIsSuccess(false);
+        setMessage(
+          "Masukkan 6 digit kode verifikasi."
+        );
+
+        inputRefs.current[0]?.focus();
+
+        return;
+      }
+
+      /**
+       * --------------------------------------------------------
+       * VALIDATE EMAIL
+       * --------------------------------------------------------
+       */
+
+      if (!email) {
+        setIsSuccess(
+          false
+        );
+
+        setMessage(
+          "Email tidak ditemukan. Silakan daftar kembali."
+        );
+
+        return;
+      }
+
+      try {
+        setIsLoading(
+          true
+        );
+
+        setMessage("");
+
+        /**
+         * ------------------------------------------------------
+         * ACTION
+         * ------------------------------------------------------
+         */
+
+        const result =
+          await verifyEmailVerificationAction(
+            email,
+            code
+          );
+
+        /**
+         * ------------------------------------------------------
+         * ERROR
+         * ------------------------------------------------------
+         */
+
+        if (!result.success) {
+          setIsSuccess(
+            false
+          );
+
+          setMessage(
+            result.message
+          );
+
+          if (
+            result.code ===
+              "INVALID_OTP" ||
+            result.code ===
+              "OTP_MAX_ATTEMPTS_EXCEEDED"
+          ) {
+            setOtp(
+              Array(
+                OTP_LENGTH
+              ).fill("")
+            );
+
+            window.setTimeout(
+              () => {
+                inputRefs.current[
+                  0
+                ]?.focus();
+              },
+              50
+            );
+          }
+
+          return;
+        }
+
+        /**
+         * ------------------------------------------------------
+         * SUCCESS
+         * ------------------------------------------------------
+         */
+
+        setIsSuccess(
+          true
+        );
 
         setMessage(
           result.message
         );
 
-        if (
-          result.code ===
-            "INVALID_OTP" ||
-          result.code ===
-            "OTP_MAX_ATTEMPTS_EXCEEDED"
-        ) {
-          setOtp(
-            Array(OTP_LENGTH).fill("")
-          );
+        /**
+         * ------------------------------------------------------
+         * REDIRECT
+         * ------------------------------------------------------
+         */
 
-          inputRefs.current[0]?.focus();
-        }
-
-        return;
-      }
-
-      setIsSuccess(true);
-
-      setMessage(
-        result.message
-      );
-
-      window.setTimeout(() => {
-        router.push(
-          `/login?email=${encodeURIComponent(
-            email
-          )}`
+        window.setTimeout(
+          () => {
+            router.push(
+              `/login?email=${encodeURIComponent(
+                email
+              )}`
+            );
+          },
+          1500
         );
-      }, 1500);
-    } catch (error) {
-      console.error(
-        "[VERIFY_EMAIL_PAGE_ERROR]",
-        error
-      );
+      } catch (error) {
+        console.error(
+          "[VERIFY_EMAIL_PAGE_ERROR]",
+          error
+        );
 
-      setIsSuccess(false);
+        setIsSuccess(
+          false
+        );
 
-      setMessage(
-        "Terjadi kesalahan saat memverifikasi email."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        setMessage(
+          "Terjadi kesalahan saat memverifikasi email."
+        );
+      } finally {
+        setIsLoading(
+          false
+        );
+      }
+    };
 
   /**
    * ==========================================================
@@ -346,82 +592,126 @@ function VerifyEmailContent() {
    * ==========================================================
    */
 
-  const handleResend = async () => {
-    if (
-      !email ||
-      cooldown > 0 ||
-      isResending
-    ) {
-      return;
-    }
+  const handleResend =
+    async () => {
+      if (
+        !email ||
+        cooldown > 0 ||
+        isResending
+      ) {
+        return;
+      }
 
-    try {
-      setIsResending(true);
-
-      setMessage("");
-
-      const result =
-        await resendEmailVerificationAction(
-          email
+      try {
+        setIsResending(
+          true
         );
 
-      if (!result.success) {
-        setIsSuccess(false);
+        setMessage("");
+
+        setIsSuccess(
+          false
+        );
+
+        /**
+         * ------------------------------------------------------
+         * RESEND ACTION
+         * ------------------------------------------------------
+         */
+
+        const result =
+          await resendEmailVerificationAction(
+            email
+          );
+
+        /**
+         * ------------------------------------------------------
+         * ERROR
+         * ------------------------------------------------------
+         */
+
+        if (!result.success) {
+          setIsSuccess(
+            false
+          );
+
+          setMessage(
+            result.message
+          );
+
+          if (
+            result.data &&
+            "retryAfterSeconds" in
+              result.data
+          ) {
+            const retryAfterSeconds =
+              result.data
+                .retryAfterSeconds;
+
+            if (
+              typeof retryAfterSeconds ===
+              "number"
+            ) {
+              setCooldown(
+                retryAfterSeconds
+              );
+            }
+          }
+
+          return;
+        }
+
+        /**
+         * ------------------------------------------------------
+         * SUCCESS
+         * ------------------------------------------------------
+         */
+
+        setOtp(
+          Array(
+            OTP_LENGTH
+          ).fill("")
+        );
+
+        setCooldown(
+          INITIAL_COOLDOWN
+        );
+
+        setIsSuccess(
+          true
+        );
 
         setMessage(
           result.message
         );
 
-        if (
-          result.data &&
-          "retryAfterSeconds" in result.data
-        ) {
-          const retryAfterSeconds =
-            result.data.retryAfterSeconds;
+        window.setTimeout(
+          () => {
+            inputRefs.current[
+              0
+            ]?.focus();
+          },
+          50
+        );
+      } catch (error) {
+        console.error(
+          "[RESEND_EMAIL_PAGE_ERROR]",
+          error
+        );
 
-          if (
-            typeof retryAfterSeconds ===
-            "number"
-          ) {
-            setCooldown(
-              retryAfterSeconds
-            );
-          }
-        }
+        setIsSuccess(
+          false
+        );
 
-        return;
+        setMessage(
+          "Gagal mengirim ulang kode verifikasi."
+        );
+      } finally {
+        setIsResending(
+          false
+        );
       }
-
-      setOtp(
-        Array(OTP_LENGTH).fill("")
-      );
-
-      setCooldown(
-        INITIAL_COOLDOWN
-      );
-
-      setIsSuccess(true);
-
-      setMessage(
-        result.message
-      );
-
-      inputRefs.current[0]?.focus();
-    } catch (error) {
-      console.error(
-        "[RESEND_EMAIL_PAGE_ERROR]",
-        error
-      );
-
-      setIsSuccess(false);
-
-      setMessage(
-        "Gagal mengirim ulang kode verifikasi."
-      );
-    } finally {
-      setIsResending(false);
-    }
-  };
+    };
 
   /**
    * ==========================================================
@@ -434,171 +724,559 @@ function VerifyEmailContent() {
   ) => {
     event.preventDefault();
 
+    if (
+      isLoading ||
+      isResending
+    ) {
+      return;
+    }
+
     void handleVerify();
   };
 
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <section className="w-full max-w-md">
-        <div className="rounded-xl border bg-card p-6 shadow-sm sm:p-8">
-          {/* ==================================================
-              HEADER
-          ================================================== */}
+    <AuthCard>
 
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold tracking-tight">
-              Verifikasi Email
-            </h1>
+      {/* ======================================================
+          HEADER ICON
+      ====================================================== */}
 
-            <p className="mt-2 text-sm text-muted-foreground">
-              Kami telah mengirimkan kode verifikasi
-              6 digit ke alamat email Anda.
-            </p>
-
-            <p className="mt-3 break-all text-sm font-medium">
-              {email}
-            </p>
-          </div>
-
-          {/* ==================================================
-              OTP FORM
-          ================================================== */}
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-6"
-          >
-            <div className="flex justify-center gap-2 sm:gap-3">
-              {otp.map(
-                (digit, index) => (
-                  <input
-                    key={index}
-                    ref={(element) => {
-                      inputRefs.current[
-                        index
-                      ] = element;
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete={
-                      index === 0
-                        ? "one-time-code"
-                        : "off"
-                    }
-                    maxLength={1}
-                    value={digit}
-                    disabled={isLoading}
-                    onChange={(event) =>
-                      handleChange(
-                        index,
-                        event
-                      )
-                    }
-                    onKeyDown={(event) =>
-                      handleKeyDown(
-                        index,
-                        event
-                      )
-                    }
-                    onPaste={handlePaste}
-                    className="h-12 w-10 rounded-lg border bg-background text-center text-xl font-semibold outline-none transition focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 sm:h-14 sm:w-12"
-                  />
-                )
-              )}
-            </div>
-
-            {/* ================================================
-                MESSAGE
-            ================================================= */}
-
-            {message && (
-              <div
-                className={[
-                  "rounded-lg border px-4 py-3 text-sm",
-                  isSuccess
-                    ? "border-green-200 bg-green-50 text-green-700"
-                    : "border-destructive/30 bg-destructive/10 text-destructive",
-                ].join(" ")}
-              >
-                {message}
-              </div>
-            )}
-
-            {/* ================================================
-                VERIFY BUTTON
-            ================================================= */}
-
-            <button
-              type="submit"
-              disabled={
-                isLoading ||
-                otp.join("").length !==
-                  OTP_LENGTH
-              }
-              className="flex h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isLoading
-                ? "Memverifikasi..."
-                : "Verifikasi Email"}
-            </button>
-          </form>
-
-          {/* ==================================================
-              RESEND
-          ================================================== */}
-
-          <div className="mt-6 text-center">
-            {cooldown > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Kirim ulang kode dalam{" "}
-                <span className="font-medium text-foreground">
-                  {cooldown} detik
-                </span>
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={isResending}
-                className="text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isResending
-                  ? "Mengirim..."
-                  : "Kirim ulang kode"}
-              </button>
-            )}
-          </div>
-
-          {/* ==================================================
-              LOGIN LINK
-          ================================================== */}
-
-          <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
-            Sudah punya akun?{" "}
-
-            <Link
-              href="/login"
-              className="font-medium text-primary transition hover:underline"
-            >
-              Login di sini
-            </Link>
-          </div>
+      <div
+        className="
+          mb-5
+          flex
+          justify-center
+          sm:mb-6
+        "
+      >
+        <div
+          className="
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-2xl
+            bg-sky-700
+            text-white
+            shadow-lg
+            shadow-sky-700/20
+            ring-4
+            ring-sky-50
+            transition-transform
+            duration-300
+            hover:scale-105
+            sm:h-16
+            sm:w-16
+          "
+        >
+          <MailCheck
+            className="
+              h-7
+              w-7
+              sm:h-8
+              sm:w-8
+            "
+          />
         </div>
-      </section>
-    </main>
+      </div>
+
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
+      <AuthHeader
+        title="Verifikasi Email"
+        description="Masukkan kode verifikasi yang kami kirim ke alamat email Anda."
+      />
+
+      {/* ======================================================
+          EMAIL
+      ====================================================== */}
+
+      <div
+        className="
+          mt-5
+          rounded-xl
+          border
+          border-slate-200
+          bg-slate-50
+          px-4
+          py-3
+          text-center
+          sm:mt-6
+        "
+      >
+        <p
+          className="
+            text-xs
+            font-medium
+            text-slate-500
+          "
+        >
+          Kode dikirim ke
+        </p>
+
+        <p
+          className="
+            mt-1
+            break-all
+            text-sm
+            font-semibold
+            text-slate-900
+          "
+        >
+          {email}
+        </p>
+      </div>
+
+      {/* ======================================================
+          OTP FORM
+      ====================================================== */}
+
+      <form
+        onSubmit={
+          handleSubmit
+        }
+        className="
+          mt-5
+          space-y-5
+          sm:mt-6
+          sm:space-y-6
+        "
+        noValidate
+      >
+
+        {/* ====================================================
+            OTP INPUT
+        ==================================================== */}
+
+        <div
+          className="
+            flex
+            w-full
+            justify-center
+            gap-1.5
+            xs:gap-2
+            sm:gap-3
+          "
+        >
+          {otp.map(
+            (
+              digit,
+              index
+            ) => (
+              <input
+                key={index}
+                ref={(
+                  element
+                ) => {
+                  inputRefs.current[
+                    index
+                  ] = element;
+                }}
+                type="text"
+                inputMode="numeric"
+                autoComplete={
+                  index === 0
+                    ? "one-time-code"
+                    : "off"
+                }
+                maxLength={1}
+                value={digit}
+                disabled={
+                  isLoading ||
+                  isResending
+                }
+                aria-label={`Digit ${index + 1}`}
+                onChange={(
+                  event
+                ) =>
+                  handleChange(
+                    index,
+                    event
+                  )
+                }
+                onKeyDown={(
+                  event
+                ) =>
+                  handleKeyDown(
+                    index,
+                    event
+                  )
+                }
+                onPaste={
+                  handlePaste
+                }
+                className="
+                  h-12
+                  min-w-0
+                  flex-1
+                  max-w-12
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  text-center
+                  text-xl
+                  font-bold
+                  tracking-tight
+                  text-slate-900
+                  shadow-sm
+                  outline-none
+                  transition-all
+                  duration-200
+
+                  placeholder:text-slate-400
+
+                  hover:border-slate-300
+
+                  focus:border-sky-500
+                  focus:bg-white
+                  focus:ring-4
+                  focus:ring-sky-500/10
+                  focus:shadow-[0_0_0_1px_rgba(14,165,233,0.15)]
+
+                  disabled:cursor-not-allowed
+                  disabled:bg-slate-50
+                  disabled:opacity-60
+
+                  sm:h-14
+                  sm:max-w-12
+                  sm:rounded-xl
+                  sm:text-2xl
+                "
+              />
+            )
+          )}
+        </div>
+
+        {/* ====================================================
+            HELPER TEXT
+        ==================================================== */}
+
+        <p
+          className="
+            text-center
+            text-xs
+            leading-5
+            text-slate-500
+          "
+        >
+          Masukkan 6 digit kode yang
+          Anda terima melalui email.
+        </p>
+
+        {/* ====================================================
+            MESSAGE
+        ==================================================== */}
+
+        {message && (
+          <div
+            role={
+              isSuccess
+                ? "status"
+                : "alert"
+            }
+            className={[
+              `
+                flex
+                items-start
+                gap-2.5
+                rounded-xl
+                border
+                px-3.5
+                py-3
+                text-sm
+                leading-5
+              `,
+              isSuccess
+                ? `
+                  border-emerald-200
+                  bg-emerald-50
+                  text-emerald-800
+                `
+                : `
+                  border-red-200
+                  bg-red-50
+                  text-red-800
+                `,
+            ].join(" ")}
+          >
+            {isSuccess ? (
+              <CheckCircle2
+                className="
+                  mt-0.5
+                  h-4
+                  w-4
+                  shrink-0
+                  text-emerald-600
+                "
+              />
+            ) : (
+              <AlertCircle
+                className="
+                  mt-0.5
+                  h-4
+                  w-4
+                  shrink-0
+                  text-red-600
+                "
+              />
+            )}
+
+            <span>
+              {message}
+            </span>
+          </div>
+        )}
+
+        {/* ====================================================
+            VERIFY BUTTON
+        ==================================================== */}
+
+        <SubmitButton
+          loading={
+            isLoading
+          }
+          disabled={
+            otp.join("").length !==
+              OTP_LENGTH ||
+            isResending
+          }
+          text="Verifikasi Email"
+          loadingText="Memverifikasi..."
+          className="
+            h-12
+            rounded-xl
+            bg-sky-700
+            shadow-md
+            shadow-sky-700/15
+            transition-all
+            duration-200
+
+            hover:bg-sky-800
+            hover:shadow-lg
+            hover:shadow-sky-700/20
+
+            disabled:bg-slate-300
+            disabled:text-white
+            disabled:shadow-none
+
+            sm:h-12
+          "
+        />
+
+      </form>
+
+      {/* ======================================================
+          RESEND
+      ====================================================== */}
+
+      <div
+        className="
+          mt-5
+          text-center
+          sm:mt-6
+        "
+      >
+        {cooldown > 0 ? (
+          <div
+            className="
+              rounded-xl
+              bg-slate-50
+              px-3
+              py-3
+            "
+          >
+            <p
+              className="
+                text-xs
+                text-slate-500
+                sm:text-sm
+              "
+            >
+              Belum menerima kode?
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-xs
+                text-slate-500
+                sm:text-sm
+              "
+            >
+              Kirim ulang dalam{" "}
+              <span
+                className="
+                  font-semibold
+                  text-sky-700
+                "
+              >
+                {cooldown} detik
+              </span>
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={
+              handleResend
+            }
+            disabled={
+              isResending
+            }
+            className="
+              inline-flex
+              min-h-11
+              items-center
+              justify-center
+              gap-2
+              rounded-xl
+              px-4
+              text-sm
+              font-semibold
+              text-sky-700
+              transition-all
+              duration-200
+
+              hover:bg-sky-50
+              hover:text-sky-800
+
+              focus:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-sky-500
+              focus-visible:ring-offset-2
+
+              disabled:cursor-not-allowed
+              disabled:opacity-50
+
+              sm:min-h-0
+            "
+          >
+            <RefreshCw
+              className={[
+                `
+                  h-4
+                  w-4
+                `,
+                isResending
+                  ? "animate-spin"
+                  : "",
+              ].join(" ")}
+            />
+
+            {isResending
+              ? "Mengirim kode..."
+              : "Kirim ulang kode"}
+          </button>
+        )}
+      </div>
+
+      {/* ======================================================
+          LOGIN LINK
+      ====================================================== */}
+
+      <div
+        className="
+          mt-5
+          border-t
+          border-slate-100
+          pt-5
+          text-center
+          text-sm
+          text-slate-500
+          sm:mt-6
+          sm:pt-6
+        "
+      >
+        <span>
+          Sudah punya akun?
+        </span>{" "}
+
+        <Link
+          href="/login"
+          className="
+            inline-flex
+            min-h-11
+            items-center
+            gap-1.5
+            font-semibold
+            text-sky-700
+            transition-colors
+            duration-200
+
+            hover:text-sky-800
+            hover:underline
+
+            focus:outline-none
+            focus-visible:rounded-md
+            focus-visible:ring-2
+            focus-visible:ring-sky-500
+            focus-visible:ring-offset-2
+
+            sm:min-h-0
+          "
+        >
+          <ArrowLeft
+            className="
+              h-4
+              w-4
+            "
+          />
+
+          Login di sini
+        </Link>
+      </div>
+
+    </AuthCard>
   );
 }
+
+/**
+ * ============================================================
+ * VERIFY EMAIL PAGE
+ * ============================================================
+ */
+
 export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Memuat halaman verifikasi...
-            </p>
+        <AuthCard>
+          <AuthHeader
+            title="Verifikasi Email"
+            description="Memuat halaman verifikasi email..."
+          />
+
+          <div
+            className="
+              flex
+              items-center
+              justify-center
+              py-8
+            "
+          >
+            <div
+              className="
+                h-8
+                w-8
+                animate-spin
+                rounded-full
+                border-2
+                border-slate-200
+                border-t-sky-700
+              "
+            />
           </div>
-        </main>
+        </AuthCard>
       }
     >
       <VerifyEmailContent />
