@@ -1290,11 +1290,16 @@ static async updateOrder(
     ).trim();
 
     const quantity =
-    Math.floor(
-      Number(
-        item.quantity
-      )
-    );
+  Number(item.quantity);
+
+if (
+  !Number.isInteger(quantity) ||
+  quantity <= 0
+) {
+  throw new Error(
+    "Quantity produk harus berupa angka bulat lebih dari 0."
+  );
+}
 
     if (!productId) {
       throw new Error(
@@ -1838,10 +1843,58 @@ static async updateOrder(
       * + shipping
     */
 
-    const total =
-    subtotal.plus(
-      shipping
-    );
+    /**
+ * ============================================================
+ * VOUCHER DISCOUNT SNAPSHOT
+ * ============================================================
+ *
+ * Voucher pada order merupakan snapshot transaksi.
+ *
+ * Jangan melakukan validasi ulang voucher di sini karena:
+ *
+ * - voucher mungkin sudah expired
+ * - usage limit mungkin sudah penuh
+ * - voucher sudah tercatat pada VoucherUsage
+ * - order menyimpan snapshot voucherDiscount
+ *
+ * Ketika item order diubah, kita tetap menggunakan nominal
+ * voucher discount yang tersimpan pada order.
+ */
+const voucherDiscount =
+  new Prisma.Decimal(
+    order.voucherDiscount ?? 0
+  );
+
+/**
+ * ============================================================
+ * CALCULATE FINAL SUBTOTAL
+ * ============================================================
+ *
+ * subtotal
+ * - voucherDiscount
+ *
+ * Nilai tidak boleh negatif.
+ */
+const subtotalAfterVoucher =
+  Prisma.Decimal.max(
+    subtotal.minus(
+      voucherDiscount
+    ),
+    new Prisma.Decimal(0)
+  );
+
+/**
+ * ============================================================
+ * CALCULATE GRAND TOTAL
+ * ============================================================
+ *
+ * subtotal setelah voucher
+ * + shipping
+ */
+const total =
+  subtotalAfterVoucher.plus(
+    shipping
+  );
 
     /**
       * ========================================================
@@ -2734,30 +2787,33 @@ static async cancelOrder(
       }
 
       /**
-        * ============================================================
-        * RELEASE VOUCHER
-        * ============================================================
-        *
-        * Voucher hanya dikembalikan jika pembayaran belum VERIFIED.
-        *
-        * Jika pembayaran sudah VERIFIED, voucher tetap dianggap
-        * consumed meskipun order kemudian dibatalkan.
-        *
-        * Proses dijalankan dalam transaction yang sama dengan:
-        *
-        * - stock restoration
-        * - StockLedger
-        * - VoucherUsage
-        * - usageCount
-        * - Order cancellation
-        * ============================================================
-      */
+ * ============================================================
+ * RELEASE VOUCHER
+ * ============================================================
+ *
+ * Voucher hanya dikembalikan jika pembayaran belum VERIFIED.
+ *
+ * Jika pembayaran sudah VERIFIED, voucher tetap dianggap
+ * consumed meskipun order kemudian dibatalkan.
+ *
+ * Gunakan currentOrder yang dibaca ulang di dalam transaction
+ * agar keputusan lifecycle voucher menggunakan state terbaru.
+ *
+ * Proses dijalankan dalam transaction yang sama dengan:
+ *
+ * - stock restoration
+ * - StockLedger
+ * - VoucherUsage
+ * - usageCount
+ * - Order cancellation
+ * ============================================================
+ */
 
-      await VoucherLifecycleService.releaseForCancelledOrder(
-        order.id,
-        order.paymentStatus,
-        tx
-      );
+await VoucherLifecycleService.releaseForCancelledOrder(
+  currentOrder.id,
+  currentOrder.paymentStatus,
+  tx
+);
 
       /**
         * ========================================================
@@ -2972,19 +3028,49 @@ static async markAsCompleted(
   * Stock sudah ditangani oleh lifecycle
   * order, terutama ketika order dibatalkan.
 */
+/**
+ * ============================================================
+ * SOFT DELETE ORDER
+ * ============================================================
+ *
+ * Order hanya boleh dipindahkan ke Trash apabila sudah berada
+ * pada lifecycle final:
+ *
+ * - COMPLETED
+ * - CANCELLED
+ *
+ * Order aktif tidak boleh langsung dihapus karena dapat
+ * menyebabkan data operasional menghilang dari dashboard
+ * meskipun proses pesanan belum selesai.
+ *
+ * Soft delete tidak mengubah stock.
+ *
+ * Stock harus ditangani melalui lifecycle order, terutama
+ * ketika order dibatalkan melalui cancelOrder().
+ */
 static async deleteOrder(
   id: string
 ) {
+  /**
+   * ============================================================
+   * VALIDATE ID
+   * ============================================================
+   */
   if (!id) {
     throw new Error(
       "Order ID wajib diisi."
     );
   }
 
+  /**
+   * ============================================================
+   * FIND ORDER
+   * ============================================================
+   */
   const order =
-  await OrderRepository.findById(
-    id
-  );
+    await OrderRepository.findById(
+      id
+    );
 
   if (!order) {
     throw new Error(
@@ -2992,12 +3078,40 @@ static async deleteOrder(
     );
   }
 
+  /**
+   * ============================================================
+   * PREVENT DUPLICATE TRASH
+   * ============================================================
+   */
   if (order.deletedAt) {
     throw new Error(
       "Order sudah berada di Trash."
     );
   }
 
+  /**
+   * ============================================================
+   * PROTECT ACTIVE ORDERS
+   * ============================================================
+   *
+   * Hanya order dengan status final yang dapat dipindahkan
+   * ke Trash.
+   */
+  const isFinalStatus =
+    order.status === OrderStatus.COMPLETED ||
+    order.status === OrderStatus.CANCELLED;
+
+  if (!isFinalStatus) {
+    throw new Error(
+      "Order yang masih aktif tidak dapat dipindahkan ke Trash. Selesaikan atau batalkan order terlebih dahulu."
+    );
+  }
+
+  /**
+   * ============================================================
+   * SOFT DELETE
+   * ============================================================
+   */
   return OrderRepository.softDelete(
     id
   );
