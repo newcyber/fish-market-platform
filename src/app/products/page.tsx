@@ -24,6 +24,12 @@ import HomeProductCard, {
 
 import { prisma } from "@/lib/prisma";
 
+import CategoryService from
+  "@/services/category/category.service";
+
+import ProductCategoryNavigation from
+  "@/components/customer/products/ProductCategoryNavigation";
+
 /**
  * ============================================================
  * PUBLIC PRODUCTS PAGE
@@ -53,7 +59,29 @@ import { prisma } from "@/lib/prisma";
  * ============================================================
  */
 
-export default async function ProductsPage() {
+interface ProductsPageProps {
+  searchParams?: Promise<{
+    category?: string;
+  }>;
+}
+
+export default async function ProductsPage({
+  searchParams,
+}: ProductsPageProps) {
+  /**
+   * ==========================================================
+   * SEARCH PARAMS
+   * ==========================================================
+   */
+
+  const params =
+    (await searchParams) ?? {};
+
+  const categoryId =
+    params.category &&
+    params.category !== "all"
+      ? params.category
+      : undefined;
   /**
    * ==========================================================
    * AUTH
@@ -83,6 +111,7 @@ export default async function ProductsPage() {
 
   const [
     products,
+    categories,
     storeSettings,
   ] = await Promise.all([
     prisma.product.findMany({
@@ -90,6 +119,12 @@ export default async function ProductsPage() {
         deletedAt: null,
 
         isPublished: true,
+
+        ...(categoryId
+          ? {
+              categoryId,
+            }
+          : {}),
       },
 
       include: {
@@ -103,6 +138,10 @@ export default async function ProductsPage() {
       orderBy: {
         createdAt: "desc",
       },
+    }),
+
+    CategoryService.getCategories({
+      active: true,
     }),
 
     prisma.storeSettings.findFirst(),
@@ -176,6 +215,24 @@ export default async function ProductsPage() {
   const heroImage =
     storeSettings?.heroSlide1Image ??
     null;
+
+  /**
+   * ==========================================================
+   * CATEGORY URL
+   * ==========================================================
+   */
+
+  const categoryUrl = (
+    nextCategoryId?: string
+  ) => {
+    if (!nextCategoryId) {
+      return "/products?category=all#categories";
+    }
+
+    return `/products?category=${encodeURIComponent(
+      nextCategoryId
+    )}#categories`;
+  };
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -951,6 +1008,109 @@ export default async function ProductsPage() {
           "
         >
           {/* ================================================== */}
+          {/* CATEGORY CONTAINER */}
+          {/* ================================================== */}
+
+          <div
+  id="categories"
+  className="
+    scroll-mt-24
+
+    mb-5
+
+    rounded-2xl
+    border
+    border-(--ice-200)
+
+    bg-white/90
+
+    p-3
+
+    shadow-sm
+    backdrop-blur
+
+    sm:mb-6
+    sm:p-4
+  "
+>
+  <div
+    className="
+      mb-3
+
+      flex
+      items-center
+      justify-between
+      gap-3
+    "
+  >
+    <div className="min-w-0">
+      <p
+        className="
+          text-[9px]
+          font-black
+          tracking-[0.2em]
+
+          text-(--ocean-700)
+
+          sm:text-[10px]
+        "
+      >
+        BELANJA BERDASARKAN
+      </p>
+
+      <h2
+        className="
+          mt-0.5
+
+          text-base
+          font-black
+          tracking-tight
+
+          text-(--ocean-950)
+
+          sm:text-lg
+        "
+      >
+        Kategori Produk
+      </h2>
+    </div>
+
+    <span
+      className="
+        shrink-0
+
+        rounded-full
+        bg-(--fresh-50)
+
+        px-2.5
+        py-1
+
+        text-[10px]
+        font-bold
+
+        text-(--fresh-700)
+
+        sm:px-3
+        sm:text-xs
+      "
+    >
+      {categories.length} Kategori
+    </span>
+  </div>
+
+  <ProductCategoryNavigation
+  categories={categories.map(
+    (category) => ({
+      id: category.id,
+      name: category.name,
+    })
+  )}
+  activeCategoryId={categoryId}
+  basePath="/customer/products"
+/>
+</div>
+
+          {/* ================================================== */}
           {/* SECTION HEADER */}
           {/* ================================================== */}
 
@@ -1038,7 +1198,7 @@ export default async function ProductsPage() {
                 text-xs
                 font-bold
 
-                text-[var(--ocean-800)]
+                text-(--ocean-800)
 
                 shadow-sm
 
@@ -1051,7 +1211,7 @@ export default async function ProductsPage() {
                   h-3.5
                   w-3.5
 
-                  text-[var(--fresh-500)]
+                  text-(--fresh-500)
 
                   sm:h-4
                   sm:w-4
@@ -1326,7 +1486,7 @@ export default async function ProductsPage() {
 
                   rounded-xl
 
-                  bg-[var(--ocean-900)]
+                  bg-(--ocean-900)
 
                   px-6
 
@@ -1336,7 +1496,7 @@ export default async function ProductsPage() {
 
                   transition
 
-                  hover:bg-[var(--ocean-800)]
+                  hover:bg-(--ocean-800)
                 "
               >
                 Mulai Belanja
@@ -1373,7 +1533,7 @@ export default async function ProductsPage() {
 
                     rounded-xl
 
-                    bg-[var(--ocean-900)]
+                    bg-(--ocean-900)
 
                     px-6
 
@@ -1383,7 +1543,7 @@ export default async function ProductsPage() {
 
                     transition
 
-                    hover:bg-[var(--ocean-800)]
+                    hover:bg-(--ocean-800)
                   "
                 >
                   Masuk untuk Belanja
@@ -1418,12 +1578,12 @@ export default async function ProductsPage() {
                     text-sm
                     font-bold
 
-                    text-[var(--ocean-900)]
+                    text-(--ocean-900)
 
                     transition
 
-                    hover:border-[var(--fresh-300)]
-                    hover:bg-[var(--fresh-50)]
+                    hover:border-(--fresh-300)
+                    hover:bg-(--fresh-50)
                   "
                 >
                   Buat Akun

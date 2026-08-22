@@ -28,6 +28,12 @@ import WishlistService from "@/services/wishlist/wishlist.service";
 
 import ToggleWishlistButton from "@/components/customer/wishlist/ToggleWishlistButton";
 
+import ProductGridTransition from
+  "@/components/customer/products/ProductGridTransition";
+
+  import ProductCategoryNavigation from
+  "@/components/customer/products/ProductCategoryNavigation";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -356,10 +362,10 @@ export default async function CustomerProductsPage({
           border-b
           border-white/10
 
-          bg-gradient-to-br
-          from-[var(--ocean-950)]
-          via-[var(--ocean-900)]
-          to-[var(--ocean-700)]
+          bg-linear-to-br
+          from-(--ocean-950)
+          via-(--ocean-900)
+          to-(--ocean-700)
         "
       >
         <div
@@ -379,15 +385,15 @@ export default async function CustomerProductsPage({
               w-64
               rounded-full
               border
-              border-white/[0.06]
+              border-white/6
               sm:-right-10
               sm:-top-16
               sm:h-80
               sm:w-80
               lg:right-[6%]
               lg:top-1/2
-              lg:h-[460px]
-              lg:w-[460px]
+              lg:h-115
+              lg:w-115
               lg:-translate-y-1/2
             "
           />
@@ -402,10 +408,10 @@ export default async function CustomerProductsPage({
               -translate-y-1/2
               rounded-full
               border
-              border-white/[0.06]
+              border-white/6
               sm:h-52
               sm:w-52
-              lg:h-[320px]
+              lg:h-80
               lg:w-[320px]
             "
           />
@@ -419,12 +425,12 @@ export default async function CustomerProductsPage({
               w-64
               -translate-y-1/2
               rounded-full
-              bg-[var(--fresh-500)]/[0.12]
+              bg-(--fresh-500)/12
               blur-3xl
               sm:h-80
               sm:w-80
-              lg:h-[520px]
-              lg:w-[520px]
+              lg:h-130
+              lg:w-130
             "
           />
 
@@ -436,7 +442,7 @@ export default async function CustomerProductsPage({
               h-56
               w-56
               rounded-full
-              bg-[var(--fresh-500)]/[0.10]
+              bg-(--fresh-500)/10
               blur-3xl
               sm:h-72
               sm:w-72
@@ -487,13 +493,13 @@ export default async function CustomerProductsPage({
                   rounded-full
                   border
                   border-white/10
-                  bg-white/[0.08]
+                  bg-white/8
                   px-3
                   py-1.5
                   text-[9px]
                   font-black
                   tracking-[0.16em]
-                  text-[var(--fresh-300)]
+                  text-(--fresh-300)
                   backdrop-blur
                   sm:px-4
                   sm:py-2
@@ -519,7 +525,7 @@ export default async function CustomerProductsPage({
                 "
               >
                 Seafood segar untuk
-                <span className="block text-[var(--fresh-300)]">
+                <span className="block text-(--fresh-300)">
                   kebutuhan Anda.
                 </span>
               </h1>
@@ -566,7 +572,7 @@ export default async function CustomerProductsPage({
                     px-5
                     text-sm
                     font-black
-                    text-[var(--ocean-900)]
+                    text-(--ocean-900)
                     shadow-lg
                     transition
                     duration-200
@@ -591,7 +597,7 @@ export default async function CustomerProductsPage({
                     rounded-2xl
                     border
                     border-white/10
-                    bg-white/[0.08]
+                    bg-white/8
                     px-3
                     py-2.5
                     backdrop-blur
@@ -608,7 +614,7 @@ export default async function CustomerProductsPage({
                       items-center
                       justify-center
                       rounded-xl
-                      bg-[var(--fresh-500)]
+                      bg-(--fresh-500)
                       text-white
                       sm:h-11
                       sm:w-11
@@ -654,47 +660,47 @@ export default async function CustomerProductsPage({
               <div
                 className="
                   absolute
-                  h-[260px]
-                  w-[260px]
+                  h-65
+                  w-65
                   rounded-full
-                  bg-[var(--fresh-500)]/[0.14]
+                  bg-(--fresh-500)/[0.14]
                   blur-3xl
-                  sm:h-[340px]
-                  sm:w-[340px]
-                  lg:h-[420px]
-                  lg:w-[420px]
-                  xl:h-[480px]
-                  xl:w-[480px]
+                  sm:h-85
+                  sm:w-85
+                  lg:h-105
+                  lg:w-105
+                  xl:h-120
+                  xl:w-120
                 "
               />
 
               <div
                 className="
                   absolute
-                  h-[210px]
-                  w-[210px]
+                  h-52.5
+                  w-52.5
                   rounded-full
                   border
                   border-white/10
-                  sm:h-[280px]
-                  sm:w-[280px]
-                  lg:h-[360px]
-                  lg:w-[360px]
+                  sm:h-70
+                  sm:w-70
+                  lg:h-90
+                  lg:w-90
                 "
               />
 
               <div
                 className="
                   absolute
-                  h-[310px]
-                  w-[310px]
+                  h-77.5
+                  w-77.5
                   rounded-full
                   border
-                  border-white/[0.06]
-                  sm:h-[400px]
-                  sm:w-[400px]
-                  lg:h-[500px]
-                  lg:w-[500px]
+                  border-white/6
+                  sm:h-100
+                  sm:w-100
+                  lg:h-125
+                  lg:w-125
                 "
               />
 
@@ -713,29 +719,33 @@ export default async function CustomerProductsPage({
                     motion-reduce:animate-none
                   "
                 >
-                  <img
+                  <Image
                     src={heroImage}
-                    alt="Seafood segar"
+                    alt="Fresh seafood"
+                    width={560}
+                    height={440}
+                    priority
+                    unoptimized
                     className="
                       relative
                       h-auto
                       w-[64%]
-                      max-h-[230px]
-                      max-w-[280px]
+                      max-h-57.5
+                      max-w-70
                       object-contain
                       drop-shadow-2xl
                       sm:w-[66%]
-                      sm:max-h-[280px]
-                      sm:max-w-[350px]
+                      sm:max-h-70
+                      sm:max-w-87.5
                       md:w-[72%]
-                      md:max-h-[330px]
-                      md:max-w-[420px]
+                      md:max-h-82.5
+                      md:max-w-105
                       lg:w-[78%]
-                      lg:max-h-[390px]
-                      lg:max-w-[500px]
+                      lg:max-h-97.5
+                      lg:max-w-125
                       xl:w-[82%]
-                      xl:max-h-[440px]
-                      xl:max-w-[560px]
+                      xl:max-h-110
+                      xl:max-w-140
                     "
                   />
                 </div>
@@ -765,7 +775,7 @@ export default async function CustomerProductsPage({
                     className="
                       h-12
                       w-12
-                      text-[var(--fresh-400)]
+                      text-(--fresh-400)
                       sm:h-16
                       sm:w-16
                       lg:h-20
@@ -1012,123 +1022,109 @@ export default async function CustomerProductsPage({
 
           </form>
 
-          {/* CATEGORY PILLS */}
+          {/* ====================================================== */}
+{/* CATEGORY NAVIGATION */}
+{/* ====================================================== */}
 
-          <div
-            className="
-              mt-4
+<div
+  id="categories"
+  className="
+    scroll-mt-24
 
-              flex
-              gap-2
+    mt-4
 
-              overflow-x-auto
-              pb-1
+    rounded-2xl
+    border
+    border-(--ice-200)
 
-              [-ms-overflow-style:none]
-              scrollbar-none
+    bg-white/90
 
-              [&::-webkit-scrollbar]:hidden
-            "
-          >
+    p-3
 
-            <Link
-              href={
-                categoryUrl()
-              }
-              className={[
-                `
-                  shrink-0
+    shadow-sm
+    backdrop-blur
 
-                  rounded-full
+    sm:mt-5
+    sm:p-4
+  "
+>
+  <div
+    className="
+      mb-3
 
-                  border
+      flex
+      items-center
+      justify-between
+      gap-3
+    "
+  >
+    <div className="min-w-0">
+      <p
+        className="
+          text-[9px]
+          font-black
+          tracking-[0.2em]
 
-                  px-4
-                  py-2
+          text-(--ocean-700)
 
-                  text-xs
-                  font-bold
+          sm:text-[10px]
+        "
+      >
+        BELANJA BERDASARKAN
+      </p>
 
-                  transition
-                `,
-                !categoryId
-                  ? `
-                    border-(--ocean-900)
-                    bg-(--ocean-900)
-                    text-white
-                  `
-                  : `
-                    border-(--ice-200)
-                    bg-white
-                    text-slate-600
+      <h2
+        className="
+          mt-0.5
 
-                    hover:border-(--fresh-300)
-                    hover:text-(--fresh-700)
-                  `,
-              ].join(" ")}
-            >
+          text-base
+          font-black
+          tracking-tight
 
-              Semua
+          text-(--ocean-950)
 
-            </Link>
+          sm:text-lg
+        "
+      >
+        Kategori Produk
+      </h2>
+    </div>
 
-            {categories.map(
-              (category) => {
-                const active =
-                  categoryId ===
-                  category.id;
+    <span
+      className="
+        shrink-0
 
-                return (
-                  <Link
-                    key={
-                      category.id
-                    }
-                    href={
-                      categoryUrl(
-                        category.id
-                      )
-                    }
-                    className={[
-                      `
-                        shrink-0
+        rounded-full
 
-                        rounded-full
+        bg-(--fresh-50)
 
-                        border
+        px-2.5
+        py-1
 
-                        px-4
-                        py-2
+        text-[10px]
+        font-bold
 
-                        text-xs
-                        font-bold
+        text-(--fresh-700)
 
-                        transition
-                      `,
-                      active
-                        ? `
-                          border-(--fresh-500)
-                          bg-(--fresh-500)
-                          text-white
-                        `
-                        : `
-                          border-(--ice-200)
-                          bg-white
-                          text-slate-600
+        sm:px-3
+        sm:text-xs
+      "
+    >
+      {categories.length} Kategori
+    </span>
+  </div>
 
-                          hover:border-(--fresh-300)
-                          hover:text-(--fresh-700)
-                        `,
-                    ].join(" ")}
-                  >
-
-                    {category.name}
-
-                  </Link>
-                );
-              }
-            )}
-
-          </div>
+  <ProductCategoryNavigation
+    categories={categories.map(
+      (category) => ({
+        id: category.id,
+        name: category.name,
+      })
+    )}
+    activeCategoryId={categoryId}
+    basePath="/customer/products"
+  />
+</div>
 
         </div>
 
@@ -1278,6 +1274,7 @@ export default async function CustomerProductsPage({
 
           ) : (
 
+      <ProductGridTransition>
             <div
               className="
                 grid
@@ -1296,7 +1293,10 @@ export default async function CustomerProductsPage({
             >
 
               {products.map(
-                (product) => {
+                (
+                  product,
+                index
+                  ) => {
                   /**
                    * ============================================
                    * IMAGE
@@ -1404,39 +1404,55 @@ export default async function CustomerProductsPage({
                     );
 
                   return (
-                    <article
-                      key={
-                        product.id
-                      }
-                      className="
-                        group
-                        relative
+  <div
+    key={
+      product.id
+    }
+    className="product-card-stagger"
+    style={{
+      animationDelay:
+        `${Math.min(
+          index * 45,
+          360
+        )}ms`,
+    }}
+  >
+    <article
+      className="
+        group
+        relative
 
-                        flex
-                        min-w-0
-                        flex-col
+        flex
+        min-w-0
+        flex-col
 
-                        overflow-hidden
+        overflow-hidden
 
-                        rounded-xl
+        rounded-2xl
 
-                        border
-                          border-(--ice-200)
+        border
+        border-white/80
 
-                        bg-white
+        bg-white/90
 
-                        shadow-[0_2px_10px_rgba(15,23,42,0.04)]
+        shadow-[0_3px_14px_rgba(23,50,77,0.05)]
 
-                        transition
-                        duration-200
+        backdrop-blur-sm
 
-                        active:scale-[0.98]
+        transform-gpu
 
-                        sm:hover:-translate-y-0.5
-                        sm:hover:border-(--fresh-200)
-                        sm:hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]
-                      "
-                    >
+        transition-all
+        duration-300
+        ease-out
+
+        active:scale-[0.985]
+
+        sm:hover:-translate-y-1
+        sm:hover:border-(--fresh-200)
+        sm:hover:bg-white
+        sm:hover:shadow-[0_14px_34px_rgba(23,50,77,0.10)]
+      "
+    >
 
                       {/* ====================================== */}
                       {/* WISHLIST */}
@@ -1497,15 +1513,24 @@ export default async function CustomerProductsPage({
                       >
 
                         <div
-                          className="
-                            relative
+  className="
+    relative
 
-                            aspect-square
-                            overflow-hidden
+    aspect-square
+    overflow-hidden
 
-                            bg-(--ice-100)
-                          "
-                        >
+    bg-linear-to-br
+    from-(--ice-100)
+    via-white
+    to-(--fresh-100)
+
+    transition-colors
+    duration-500
+
+    sm:group-hover:from-(--ice-50)
+    sm:group-hover:to-(--fresh-100)
+  "
+>
 
                           {image ? (
 
@@ -1525,13 +1550,14 @@ export default async function CustomerProductsPage({
                                 16vw
                               "
                               className="
-                                object-cover
+  object-cover
 
-                                transition
-                                duration-300
+  transition-transform
+  duration-500
+  ease-out
 
-                                sm:group-hover:scale-105
-                              "
+  sm:group-hover:scale-[1.035]
+"
                             />
 
                           ) : (
@@ -2083,13 +2109,14 @@ export default async function CustomerProductsPage({
 
                       </div>
 
-                    </article>
-                  );
+                        </article>
+</div>
+);
                 }
               )}
 
             </div>
-
+</ProductGridTransition>
           )}
 
         </div>

@@ -1,30 +1,74 @@
 import "./globals.css";
 
-import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import type {
+  Metadata,
+} from "next";
 
-import { Toaster } from "sonner";
+import {
+  Geist,
+} from "next/font/google";
 
-import { cn } from "@/lib/utils";
+import {
+  Toaster,
+} from "sonner";
 
-const geist = Geist({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
+import {
+  cn,
+} from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Pisjo Market Platform",
-    template: "%s | Pisjo Market Platform",
-  },
+import MobileBottomNavigation from
+  "@/components/layout/MobileBottomNavigation";
 
-  description: "Modern Pisjo Marketplace",
-};
+import SessionProvider from
+  "@/components/providers/SessionProvider";
+
+/**
+ * ==========================================================
+ * FONT
+ * ==========================================================
+ */
+
+const geist =
+  Geist({
+    subsets: [
+      "latin",
+    ],
+
+    variable:
+      "--font-sans",
+  });
+
+/**
+ * ==========================================================
+ * METADATA
+ * ==========================================================
+ */
+
+export const metadata:
+  Metadata = {
+    title: {
+      default:
+        "Pisjo Market Platform",
+
+      template:
+        "%s | Pisjo Market Platform",
+    },
+
+    description:
+      "Modern Pisjo Marketplace",
+  };
+
+/**
+ * ==========================================================
+ * ROOT LAYOUT
+ * ==========================================================
+ */
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children:
+    React.ReactNode;
 }>) {
   return (
     <html
@@ -35,17 +79,23 @@ export default function RootLayout({
       )}
       suppressHydrationWarning
     >
-      <body suppressHydrationWarning>
-        {children}
+      <body
+        suppressHydrationWarning
+      >
+        <SessionProvider>
+          {children}
 
-        <Toaster
-          position="top-right"
-          richColors
-          expand
-          closeButton
-          duration={3000}
-          visibleToasts={5}
-        />
+          <MobileBottomNavigation />
+
+          <Toaster
+            position="top-right"
+            richColors
+            expand
+            closeButton
+            duration={3000}
+            visibleToasts={5}
+          />
+        </SessionProvider>
       </body>
     </html>
   );

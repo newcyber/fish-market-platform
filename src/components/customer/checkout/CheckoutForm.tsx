@@ -749,7 +749,16 @@ export default function CheckoutForm({
    */
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main
+  className="
+    min-h-screen
+
+    bg-[radial-gradient(circle_at_top,_rgba(240,253,250,0.9),_transparent_38%),linear-gradient(to_bottom,_#f8fafc,_#ffffff)]
+
+    pb-28
+    lg:pb-0
+  "
+>
       {/* HEADER */}
 
       <section className="border-b border-slate-200 bg-white">
@@ -789,7 +798,22 @@ export default function CheckoutForm({
             {/* ADDRESS */}
             {/* ================================================= */}
 
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <section
+  className="
+    overflow-hidden
+
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    shadow-[0_6px_24px_rgba(23,50,77,0.06)]
+
+    backdrop-blur-sm
+  "
+>
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
@@ -855,8 +879,8 @@ export default function CheckoutForm({
                           key={address.id}
                           className={
                             isSelected
-                              ? "bg-cyan-50/50"
-                              : "bg-white transition hover:bg-slate-50"
+  ? "relative bg-linear-to-r from-cyan-50/80 via-white to-transparent"
+  : "bg-white/50 transition-all duration-300 hover:bg-slate-50/80"
                           }
                         >
                           <div className="flex gap-4 px-5 py-5">
@@ -879,8 +903,8 @@ export default function CheckoutForm({
                               <div
                                 className={
                                   isSelected
-                                    ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-white"
-                                    : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300"
+                                    ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-white shadow-[0_0_0_4px_rgba(8,145,178,0.10)]"
+                                    : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white"
                                 }
                               >
                                 {isSelected && (
@@ -1055,7 +1079,22 @@ export default function CheckoutForm({
             {/* SHIPPING METHOD */}
             {/* ================================================= */}
 
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <section
+  className="
+    overflow-hidden
+
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    shadow-[0_6px_24px_rgba(23,50,77,0.06)]
+
+    backdrop-blur-sm
+  "
+>
               <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                   <Navigation className="h-5 w-5" />
@@ -1092,7 +1131,25 @@ export default function CheckoutForm({
                 {selectedShippingProvider ===
                   "INTERNAL" &&
                   selectedAddress && (
-                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div
+  className="
+    mt-4
+
+    rounded-2xl
+
+    border
+    border-slate-100
+
+    bg-linear-to-br
+    from-slate-50
+    via-white
+    to-cyan-50/40
+
+    p-4
+
+    shadow-[0_3px_12px_rgba(23,50,77,0.04)]
+  "
+>
                       {internalShippingResult.available ? (
                         <>
                           <div className="flex items-start justify-between gap-4">
@@ -1109,7 +1166,26 @@ export default function CheckoutForm({
                             </div>
 
                             {internalShippingResult.isFreeShipping ? (
-                              <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                              <span
+  className="
+    shrink-0
+
+    rounded-full
+
+    border
+    border-emerald-100
+
+    bg-emerald-50
+
+    px-3
+    py-1
+
+    text-xs
+    font-bold
+
+    text-emerald-700
+  "
+>
                                 GRATIS
                               </span>
                             ) : (
@@ -1170,7 +1246,22 @@ export default function CheckoutForm({
             {/* PAYMENT METHOD */}
             {/* ================================================= */}
 
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <section
+  className="
+    overflow-hidden
+
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    shadow-[0_6px_24px_rgba(23,50,77,0.06)]
+
+    backdrop-blur-sm
+  "
+>
               <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                   <CreditCard className="h-5 w-5" />
@@ -1229,14 +1320,14 @@ export default function CheckoutForm({
                             isSubmitting
                           }
                           className={`flex w-full items-start gap-4 px-5 py-5 text-left transition ${isSelected
-                              ? "bg-cyan-50/60"
-                              : "bg-white hover:bg-slate-50"
+                              ? "relative bg-linear-to-r from-cyan-50/90 via-white to-transparent"
+                            : "bg-white/50 transition-all duration-300 hover:bg-slate-50/80"
                             }`}
                         >
                           <div
                             className={
                               isSelected
-                                ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-white"
+                                ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-white shadow-[0_0_0_4px_rgba(8,145,178,0.10)]"
                                 : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300"
                             }
                           >
@@ -1335,7 +1426,22 @@ export default function CheckoutForm({
             {/* ORDER NOTES */}
             {/* ================================================= */}
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            <section
+  className="
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    p-5
+
+    shadow-[0_6px_24px_rgba(23,50,77,0.06)]
+
+    backdrop-blur-sm
+  "
+>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
                   <Package className="h-5 w-5" />
@@ -1370,7 +1476,22 @@ export default function CheckoutForm({
             {/* ORDER ITEMS */}
             {/* ================================================= */}
 
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <section
+  className="
+    overflow-hidden
+
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    shadow-[0_6px_24px_rgba(23,50,77,0.06)]
+
+    backdrop-blur-sm
+  "
+>
               <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
                   <Package className="h-5 w-5" />
@@ -1391,11 +1512,24 @@ export default function CheckoutForm({
                 {items.map(
                   (item) => (
                     <div
-                      key={
-                        item.id
-                      }
-                      className="flex items-center justify-between gap-4 px-5 py-4"
-                    >
+  key={item.id}
+  className="
+    group
+
+    flex
+    items-center
+    justify-between
+    gap-4
+
+    px-5
+    py-4
+
+    transition-colors
+    duration-200
+
+    hover:bg-slate-50/70
+  "
+>
                       <div className="min-w-0">
                         <h3 className="truncate font-medium text-slate-900">
                           {
@@ -1423,7 +1557,24 @@ export default function CheckoutForm({
           {/* ================================================= */}
 
           <aside className="lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div
+  className="
+    overflow-hidden
+
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    p-6
+
+    shadow-[0_12px_36px_rgba(23,50,77,0.10)]
+
+    backdrop-blur-md
+  "
+>
               <h2 className="text-lg font-bold text-slate-950">
                 Ringkasan Pesanan
               </h2>
@@ -1455,7 +1606,23 @@ export default function CheckoutForm({
                 {/* VOUCHER */}
                 {/* ================================================= */}
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div
+  className="
+    rounded-2xl
+
+    border
+    border-slate-100
+
+    bg-linear-to-br
+    from-slate-50
+    via-white
+    to-cyan-50/30
+
+    p-4
+
+    shadow-[0_3px_12px_rgba(23,50,77,0.04)]
+  "
+>
                   <div className="flex items-start gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600">
                       <Tag className="h-4 w-4" />
@@ -1523,7 +1690,38 @@ export default function CheckoutForm({
                             isSubmitting ||
                             isApplyingVoucher
                           }
-                          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          className="
+  inline-flex
+  h-11
+  shrink-0
+  items-center
+  justify-center
+  gap-2
+
+  rounded-xl
+
+  bg-cyan-600
+
+  px-4
+
+  text-sm
+  font-semibold
+  text-white
+
+  shadow-[0_4px_12px_rgba(8,145,178,0.20)]
+
+  transition-all
+  duration-200
+
+  active:scale-[0.97]
+
+  hover:bg-cyan-700
+  hover:shadow-[0_6px_16px_rgba(8,145,178,0.28)]
+
+  disabled:cursor-not-allowed
+  disabled:bg-slate-300
+  disabled:shadow-none
+"
                         >
                           {isApplyingVoucher ? (
                             <>
@@ -1655,17 +1853,64 @@ export default function CheckoutForm({
 
               <div className="my-6 border-t border-slate-200" />
 
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-900">
-                  Total Pembayaran
-                </span>
+              <div
+  className="
+    flex
+    items-center
+    justify-between
+    gap-4
 
-                <span className="text-xl font-bold text-slate-950">
-                  {formatRupiah(
-                    orderTotal
-                  )}
-                </span>
-              </div>
+    rounded-2xl
+
+    border
+    border-cyan-100
+
+    bg-linear-to-r
+    from-cyan-50/80
+    via-white
+    to-slate-50
+
+    px-4
+    py-4
+  "
+>
+  <div>
+    <p
+      className="
+        text-sm
+        font-semibold
+        text-slate-900
+      "
+    >
+      Total Pembayaran
+    </p>
+
+    <p
+      className="
+        mt-1
+        text-xs
+        text-slate-500
+      "
+    >
+      Total akhir pesanan Anda
+    </p>
+  </div>
+
+  <span
+    className="
+      whitespace-nowrap
+
+      text-xl
+      font-bold
+
+      text-slate-950
+    "
+  >
+    {formatRupiah(
+      orderTotal
+    )}
+  </span>
+</div>
 
               {errorMessage && (
                 <div className="mt-5 flex gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
@@ -1695,7 +1940,54 @@ export default function CheckoutForm({
                     "INTERNAL" &&
                     !internalShippingResult.available)
                 }
-                className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                className="
+  group
+
+  mt-6
+
+  flex
+  h-13
+  w-full
+  items-center
+  justify-center
+  gap-2
+
+  rounded-2xl
+
+  bg-linear-to-r
+  from-cyan-600
+  via-sky-600
+  to-cyan-600
+
+  bg-size-[200%_100%]
+  bg-position-left
+
+  px-5
+
+  text-sm
+  font-semibold
+  text-white
+
+  shadow-[0_8px_22px_rgba(8,145,178,0.26)]
+
+  transition-all
+  duration-300
+  ease-out
+
+  active:scale-[0.98]
+
+  hover:-translate-y-0.5
+  hover:bg-position-right
+  hover:shadow-[0_12px_30px_rgba(8,145,178,0.34)]
+
+  disabled:cursor-not-allowed
+  disabled:translate-y-0
+  disabled:bg-slate-200
+  disabled:bg-none
+  disabled:text-slate-400
+  disabled:shadow-none
+  disabled:active:scale-100
+"
               >
                 {isSubmitting ? (
                   <>
@@ -1707,7 +1999,17 @@ export default function CheckoutForm({
                   <>
                     Buat Pesanan
 
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight
+  className="
+    h-4
+    w-4
+
+    transition-transform
+    duration-300
+
+    group-hover:translate-x-1
+  "
+/>
                   </>
                 )}
               </button>

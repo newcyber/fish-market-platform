@@ -1046,10 +1046,31 @@ function validateSelection() {
 
         setSuccess(true);
 
-        setMessage(
-          result.message ??
-            "Produk berhasil ditambahkan ke keranjang."
-        );
+setMessage(
+  result.message ??
+    "Produk berhasil ditambahkan ke keranjang."
+);
+
+/**
+ * ==========================================================
+ * NOTIFY CART UPDATE
+ * ==========================================================
+ *
+ * Memberi tahu seluruh component yang membutuhkan
+ * informasi cart terbaru.
+ *
+ * Saat ini digunakan oleh:
+ *
+ * - MobileBottomNavigation
+ *
+ * Tidak perlu pindah halaman atau refresh page.
+ */
+
+window.dispatchEvent(
+  new Event(
+    "cart-updated"
+  )
+);
 
         /**
          * BUY NOW

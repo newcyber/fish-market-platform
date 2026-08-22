@@ -45,10 +45,14 @@
 
   --color-destructive: var(--destructive);
 
-  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-foreground: var(
+    --accent-foreground
+  );
   --color-accent: var(--accent);
 
-  --color-muted-foreground: var(--muted-foreground);
+  --color-muted-foreground: var(
+    --muted-foreground
+  );
   --color-muted: var(--muted);
 
   --color-secondary-foreground: var(
@@ -81,7 +85,7 @@
 }
 
 /* ============================================================
-   PISJO MARKET - LIGHT THEME
+   PISJO MARKET - BRIGHT LIGHT THEME
 ============================================================ */
 
 :root {
@@ -89,69 +93,69 @@
      CORE
   ---------------------------------------------------------- */
 
-  --background: #f5f8fc;
-  --foreground: #1d2b3a;
+  --background: #f8fcff;
+  --foreground: #17324d;
 
   --card: #ffffff;
-  --card-foreground: #1d2b3a;
+  --card-foreground: #17324d;
 
   --popover: #ffffff;
-  --popover-foreground: #1d2b3a;
+  --popover-foreground: #17324d;
 
   /* ----------------------------------------------------------
      BRAND PRIMARY
-     Deep Ocean Navy
+     Bright Ocean Blue
   ---------------------------------------------------------- */
 
-  --primary: #123a63;
+  --primary: #1677c8;
   --primary-foreground: #ffffff;
 
   /* ----------------------------------------------------------
      SECONDARY
-     Soft Ocean Surface
+     Bright Sky Surface
   ---------------------------------------------------------- */
 
-  --secondary: #eaf2f8;
-  --secondary-foreground: #123a63;
+  --secondary: #eaf7ff;
+  --secondary-foreground: #125b91;
 
   /* ----------------------------------------------------------
      MUTED
   ---------------------------------------------------------- */
 
-  --muted: #eef4f8;
+  --muted: #f0f8fc;
   --muted-foreground: #64748b;
 
   /* ----------------------------------------------------------
      ACCENT
-     Fresh Ocean Blue
+     Fresh Aqua
   ---------------------------------------------------------- */
 
-  --accent: #dcecf7;
-  --accent-foreground: #164e7a;
+  --accent: #ddf4ff;
+  --accent-foreground: #075985;
 
   /* ----------------------------------------------------------
      DANGER
   ---------------------------------------------------------- */
 
-  --destructive: #dc2626;
+  --destructive: #ef4444;
 
   /* ----------------------------------------------------------
      BORDER / INPUT / FOCUS
   ---------------------------------------------------------- */
 
-  --border: #dbe5ee;
-  --input: #dbe5ee;
-  --ring: #2f6fae;
+  --border: #d9eaf5;
+  --input: #d9eaf5;
+  --ring: #38a4e8;
 
   /* ----------------------------------------------------------
      CHART
   ---------------------------------------------------------- */
 
-  --chart-1: #123a63;
-  --chart-2: #2f6fae;
-  --chart-3: #6fae45;
-  --chart-4: #f59e0b;
-  --chart-5: #dc2626;
+  --chart-1: #1677c8;
+  --chart-2: #38a4e8;
+  --chart-3: #72b84a;
+  --chart-4: #fbbf24;
+  --chart-5: #ef4444;
 
   /* ----------------------------------------------------------
      RADIUS
@@ -164,42 +168,61 @@
   ---------------------------------------------------------- */
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #1d2b3a;
+  --sidebar-foreground: #17324d;
 
-  --sidebar-primary: #123a63;
+  --sidebar-primary: #1677c8;
   --sidebar-primary-foreground: #ffffff;
 
-  --sidebar-accent: #eaf2f8;
-  --sidebar-accent-foreground: #123a63;
+  --sidebar-accent: #eaf7ff;
+  --sidebar-accent-foreground: #125b91;
 
-  --sidebar-border: #dbe5ee;
-  --sidebar-ring: #2f6fae;
+  --sidebar-border: #d9eaf5;
+  --sidebar-ring: #38a4e8;
 
   /* ==========================================================
      CUSTOM PISJO MARKET TOKENS
   ========================================================== */
 
-  --ocean-950: #0b243d;
-  --ocean-900: #123a63;
-  --ocean-800: #164e7a;
-  --ocean-700: #1e6091;
-  --ocean-600: #2f6fae;
-  --ocean-500: #4b89c6;
+  /*
+   * OCEAN
+   * Bright, clean, modern blue palette
+   */
 
-  --fresh-700: #4f8a35;
-  --fresh-600: #639b42;
-  --fresh-500: #6fae45;
-  --fresh-400: #8cc968;
-  --fresh-100: #edf7e8;
+  --ocean-950: #12304a;
+  --ocean-900: #164f78;
+  --ocean-800: #1b6699;
+  --ocean-700: #237db8;
+  --ocean-600: #3296d5;
+  --ocean-500: #55ace6;
 
-  --ice-50: #f8fbfd;
-  --ice-100: #f5f8fc;
-  --ice-200: #eef4f8;
+  /*
+   * FRESH
+   * More vibrant but still natural
+   */
 
-  --ink-900: #1d2b3a;
-  --ink-700: #334155;
-  --ink-600: #475569;
-  --ink-500: #64748b;
+  --fresh-700: #3f7d2b;
+  --fresh-600: #559b38;
+  --fresh-500: #72b84a;
+  --fresh-400: #91d468;
+  --fresh-100: #effae9;
+
+  /*
+   * ICE
+   * Brighter surfaces
+   */
+
+  --ice-50: #ffffff;
+  --ice-100: #f8fcff;
+  --ice-200: #eaf4fa;
+
+  /*
+   * INK
+   */
+
+  --ink-900: #17324d;
+  --ink-700: #36516b;
+  --ink-600: #526b82;
+  --ink-500: #73869a;
 }
 
 /* ============================================================
@@ -207,54 +230,54 @@
 ============================================================ */
 
 .dark {
-  --background: #0b1622;
-  --foreground: #eef6fc;
+  --background: #091827;
+  --foreground: #f0f8ff;
 
-  --card: #112234;
-  --card-foreground: #eef6fc;
+  --card: #10253a;
+  --card-foreground: #f0f8ff;
 
-  --popover: #112234;
-  --popover-foreground: #eef6fc;
+  --popover: #10253a;
+  --popover-foreground: #f0f8ff;
 
-  --primary: #78add9;
-  --primary-foreground: #0b243d;
+  --primary: #63b9ef;
+  --primary-foreground: #082137;
 
-  --secondary: #183149;
-  --secondary-foreground: #eef6fc;
+  --secondary: #15334c;
+  --secondary-foreground: #e7f4ff;
 
-  --muted: #183149;
-  --muted-foreground: #9db1c4;
+  --muted: #15334c;
+  --muted-foreground: #9fb6c8;
 
-  --accent: #1d3c58;
-  --accent-foreground: #d9ecfb;
+  --accent: #174562;
+  --accent-foreground: #e1f4ff;
 
-  --destructive: #f87171;
+  --destructive: #fb7185;
 
-  --border: rgb(180 210 235 / 14%);
-  --input: rgb(180 210 235 / 18%);
-  --ring: #78add9;
+  --border: rgb(175 220 245 / 15%);
+  --input: rgb(175 220 245 / 18%);
+  --ring: #63b9ef;
 
-  --chart-1: #78add9;
-  --chart-2: #5f96c5;
-  --chart-3: #8cc968;
-  --chart-4: #fbbf24;
-  --chart-5: #f87171;
+  --chart-1: #63b9ef;
+  --chart-2: #3fa8e8;
+  --chart-3: #91d468;
+  --chart-4: #facc15;
+  --chart-5: #fb7185;
 
-  --sidebar: #0e1d2c;
-  --sidebar-foreground: #eef6fc;
+  --sidebar: #0c1f31;
+  --sidebar-foreground: #f0f8ff;
 
-  --sidebar-primary: #78add9;
-  --sidebar-primary-foreground: #0b243d;
+  --sidebar-primary: #63b9ef;
+  --sidebar-primary-foreground: #082137;
 
-  --sidebar-accent: #183149;
-  --sidebar-accent-foreground: #eef6fc;
+  --sidebar-accent: #15334c;
+  --sidebar-accent-foreground: #f0f8ff;
 
-  --sidebar-border: rgb(180 210 235 / 14%);
-  --sidebar-ring: #78add9;
+  --sidebar-border: rgb(175 220 245 / 15%);
+  --sidebar-ring: #63b9ef;
 }
 
 /* ============================================================
-   BASE
+   BASE + GLOBAL AMBIENT BACKGROUND
 ============================================================ */
 
 @layer base {
@@ -264,12 +287,154 @@
 
   html {
     @apply font-sans;
-    background: var(--background);
+
+    min-height: 100%;
+
+    background:
+      radial-gradient(
+        circle at top left,
+        rgb(85 172 230 / 0.12),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 90% 15%,
+        rgb(114 184 74 / 0.10),
+        transparent 28%
+      ),
+      linear-gradient(
+        180deg,
+        #ffffff 0%,
+        var(--background) 48%,
+        #f4fbff 100%
+      );
+
+    background-attachment: fixed;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+
+    position: relative;
+
     min-height: 100vh;
+
+    background:
+      linear-gradient(
+        180deg,
+        rgb(255 255 255 / 0.72),
+        rgb(248 252 255 / 0.88)
+      );
+
+    isolation: isolate;
+  }
+}
+
+/* ============================================================
+   GLOBAL AMBIENT GLOW
+============================================================ */
+
+body::before,
+body::after {
+  content: "";
+
+  position: fixed;
+
+  pointer-events: none;
+
+  z-index: -1;
+
+  border-radius: 9999px;
+
+  filter: blur(90px);
+
+  opacity: 0.45;
+
+  transform: translateZ(0);
+
+  will-change: transform;
+}
+
+/*
+ * OCEAN GLOW
+ */
+
+body::before {
+  width: 42rem;
+  height: 42rem;
+
+  top: -18rem;
+  left: -16rem;
+
+  background:
+    rgb(85 172 230 / 0.20);
+}
+
+/*
+ * FRESH GLOW
+ */
+
+body::after {
+  width: 36rem;
+  height: 36rem;
+
+  top: 28vh;
+  right: -18rem;
+
+  background:
+    rgb(114 184 74 / 0.14);
+}
+
+/* ============================================================
+   MOBILE OPTIMIZATION
+============================================================ */
+
+@media (max-width: 640px) {
+  html {
+    background:
+      radial-gradient(
+        circle at top left,
+        rgb(85 172 230 / 0.09),
+        transparent 38%
+      ),
+      linear-gradient(
+        180deg,
+        #ffffff 0%,
+        var(--background) 100%
+      );
+
+    background-attachment: scroll;
+  }
+
+  body::before,
+  body::after {
+    filter: blur(70px);
+    opacity: 0.32;
+  }
+
+  body::before {
+    width: 24rem;
+    height: 24rem;
+
+    top: -10rem;
+    left: -12rem;
+  }
+
+  body::after {
+    width: 22rem;
+    height: 22rem;
+
+    top: 38vh;
+    right: -14rem;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION / PERFORMANCE
+============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    background-attachment: scroll;
   }
 }
 
@@ -280,22 +445,37 @@
 @keyframes heroFloat {
   0%,
   100% {
-    transform: translate3d(0, 0, 0) rotate(0deg);
+    transform: translate3d(
+      0,
+      0,
+      0
+    ) rotate(0deg);
   }
 
   25% {
-    transform: translate3d(4px, -8px, 0) rotate(0.4deg);
+    transform: translate3d(
+      4px,
+      -8px,
+      0
+    ) rotate(0.4deg);
   }
 
   50% {
-    transform: translate3d(0, -14px, 0) rotate(0deg);
+    transform: translate3d(
+      0,
+      -14px,
+      0
+    ) rotate(0deg);
   }
 
   75% {
-    transform: translate3d(-4px, -7px, 0) rotate(-0.4deg);
+    transform: translate3d(
+      -4px,
+      -7px,
+      0
+    ) rotate(-0.4deg);
   }
 }
-
 
 /* =========================================================
    HERO FLOATING GLOW
@@ -304,12 +484,164 @@
 @keyframes heroGlow {
   0%,
   100% {
-    transform: translate(-50%, -50%) scale(0.9);
+    transform:
+      translate(-50%, -50%)
+      scale(0.9);
+
     opacity: 0.3;
   }
 
   50% {
-    transform: translate(-50%, -50%) scale(1.12);
+    transform:
+      translate(-50%, -50%)
+      scale(1.12);
+
     opacity: 0.6;
+  }
+}
+
+/* =========================================================
+   MOBILE CART BADGE ANIMATION
+========================================================= */
+
+@keyframes cart-badge-pop {
+  0% {
+    transform: scale(0.65);
+    opacity: 0;
+  }
+
+  45% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+
+  70% {
+    transform: scale(0.92);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-cart-badge-pop {
+  animation:
+    cart-badge-pop
+    420ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-cart-badge-pop {
+    animation: none;
+  }
+}
+
+/* =========================================================
+   PRODUCT GRID TRANSITION
+========================================================= */
+
+@keyframes product-grid-enter {
+  0% {
+    opacity: 0;
+    transform:
+      translateY(10px)
+      scale(0.99);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+.product-grid-transition {
+  will-change:
+    transform,
+    opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-grid-transition {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* =========================================================
+   PRODUCT CARD STAGGER ANIMATION
+========================================================= */
+
+@keyframes product-card-enter {
+  from {
+    opacity: 0;
+    transform:
+      translateY(14px)
+      scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+.product-card-stagger {
+  opacity: 0;
+
+  will-change:
+    transform,
+    opacity;
+
+  animation:
+    product-card-enter
+    480ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card-stagger {
+    opacity: 1;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* =========================================================
+   QUANTITY STEPPER ANIMATION
+========================================================= */
+
+.quantity-value-pop {
+  display: inline-block;
+  animation: quantity-value-pop 220ms ease-out;
+}
+
+@keyframes quantity-value-pop {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+
+  65% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quantity-value-pop {
+    animation: none;
   }
 }

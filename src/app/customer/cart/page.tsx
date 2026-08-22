@@ -288,9 +288,36 @@ export default async function CartPage() {
 
                 return (
                   <div
-                    key={item.id}
-                    className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-                  >
+  key={item.id}
+  className="
+    group
+    relative
+
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    p-5
+
+    shadow-[0_4px_18px_rgba(23,50,77,0.06)]
+
+    backdrop-blur-sm
+
+    transition-all
+    duration-300
+    ease-out
+
+    active:scale-[0.99]
+
+    sm:hover:-translate-y-0.5
+    sm:hover:border-(--fresh-200)
+    sm:hover:bg-white
+    sm:hover:shadow-[0_14px_34px_rgba(23,50,77,0.10)]
+  "
+>
 
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
 
@@ -298,17 +325,56 @@ export default async function CartPage() {
                       {/* PRODUCT IMAGE */}
                       {/* ================================== */}
 
-                      <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+                      <div
+  className="
+    relative
+
+    flex
+    h-28
+    w-28
+    shrink-0
+    items-center
+    justify-center
+
+    overflow-hidden
+
+    rounded-2xl
+
+    bg-linear-to-br
+    from-(--ice-100)
+    via-white
+    to-(--fresh-100)
+
+    ring-1
+    ring-white/80
+
+    transition-all
+    duration-300
+
+    sm:group-hover:shadow-[0_8px_20px_rgba(23,50,77,0.10)]
+  "
+>
 
                         {image ? (
 
                           <img
-                            src={image}
-                            alt={
-                              item.product.name
-                            }
-                            className="h-full w-full object-cover"
-                          />
+  src={image}
+  alt={
+    item.product.name
+  }
+  className="
+    h-full
+    w-full
+
+    object-cover
+
+    transition-transform
+    duration-500
+    ease-out
+
+    sm:group-hover:scale-[1.035]
+  "
+/>
 
                         ) : (
 
@@ -344,7 +410,26 @@ export default async function CartPage() {
 
                             {item.productVariant && (
 
-                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                              <span className="
+  rounded-full
+
+  border
+  border-slate-100
+
+  bg-slate-50/80
+
+  px-3
+  py-1
+
+  text-xs
+  font-medium
+  text-slate-600
+
+  transition-colors
+  duration-200
+
+  sm:group-hover:bg-white
+">
                                 Varian:{" "}
                                 {item.productVariant}
                               </span>
@@ -353,7 +438,26 @@ export default async function CartPage() {
 
                             {item.productWeight && (
 
-                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                              <span className="
+  rounded-full
+
+  border
+  border-slate-100
+
+  bg-slate-50/80
+
+  px-3
+  py-1
+
+  text-xs
+  font-medium
+  text-slate-600
+
+  transition-colors
+  duration-200
+
+  sm:group-hover:bg-white
+">
                                 Berat:{" "}
                                 {item.productWeight}
                               </span>
@@ -370,7 +474,24 @@ export default async function CartPage() {
 
                         {customerNote && (
 
-                          <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 p-3">
+                          <div
+  className="
+    mt-4
+
+    rounded-2xl
+
+    border
+    border-cyan-100/80
+
+    bg-linear-to-br
+    from-cyan-50/80
+    to-white
+
+    p-3
+
+    shadow-[0_2px_8px_rgba(8,145,178,0.05)]
+  "
+>
 
                             <div className="flex items-start gap-2">
 
@@ -424,7 +545,25 @@ export default async function CartPage() {
                           }
                         />
 
-                        <p className="text-lg font-bold text-slate-950">
+                        <p
+  className="
+    whitespace-nowrap
+
+    rounded-xl
+
+    bg-slate-50/80
+
+    px-3
+    py-2
+
+    text-lg
+    font-bold
+    text-slate-950
+
+    ring-1
+    ring-slate-100
+  "
+>
                           {formatRupiah(
                             itemSubtotal
                           )}
@@ -446,7 +585,24 @@ export default async function CartPage() {
 
             <aside className="lg:sticky lg:top-24 lg:self-start">
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div
+  className="
+    overflow-hidden
+
+    rounded-3xl
+
+    border
+    border-white/80
+
+    bg-white/90
+
+    p-6
+
+    shadow-[0_8px_28px_rgba(23,50,77,0.08)]
+
+    backdrop-blur-md
+  "
+>
 
                 <h2 className="text-lg font-bold text-slate-950">
                   Ringkasan Pesanan
@@ -466,19 +622,52 @@ export default async function CartPage() {
 
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div
+  className="
+    flex
+    items-center
+    justify-between
+    gap-4
 
-                    <span className="text-slate-500">
-                      Subtotal
-                    </span>
+    rounded-2xl
 
-                    <span className="font-semibold text-slate-900">
-                      {formatRupiah(
-                        subtotal
-                      )}
-                    </span>
+    border
+    border-(--fresh-100)
 
-                  </div>
+    bg-linear-to-r
+    from-(--fresh-50)
+    via-white
+    to-(--ice-50)
+
+    px-4
+    py-4
+  "
+>
+  <div>
+    <span className="text-sm font-medium text-slate-600">
+      Total Pesanan
+    </span>
+
+    <p className="mt-1 text-xs text-slate-400">
+      Belum termasuk ongkos kirim
+    </p>
+  </div>
+
+  <span
+    className="
+      whitespace-nowrap
+
+      text-xl
+      font-bold
+
+      text-slate-950
+    "
+  >
+    {formatRupiah(
+      subtotal
+    )}
+  </span>
+</div>
 
                 </div>
 
@@ -499,12 +688,60 @@ export default async function CartPage() {
                 </div>
 
                 <Link
-                  href="/customer/checkout"
-                  className="mt-6 flex h-12 items-center justify-center gap-2 rounded-full bg-cyan-600 px-6 text-sm font-semibold text-white transition hover:bg-cyan-700"
-                >
+  href="/customer/checkout"
+  className="
+    group
+
+    mt-6
+
+    flex
+    h-13
+    items-center
+    justify-center
+    gap-2
+
+    rounded-2xl
+
+    bg-linear-to-r
+    from-cyan-600
+    via-sky-600
+    to-cyan-600
+
+    bg-size-[200%_100%]
+    bg-position-left
+
+    px-6
+
+    text-sm
+    font-semibold
+    text-white
+
+    shadow-[0_8px_20px_rgba(8,145,178,0.24)]
+
+    transition-all
+    duration-300
+    ease-out
+
+    active:scale-[0.98]
+
+    sm:hover:-translate-y-0.5
+    sm:hover:bg-position-right
+    sm:hover:shadow-[0_12px_28px_rgba(8,145,178,0.30)]
+  "
+>
                   Lanjut Checkout
 
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight
+  className="
+    h-4
+    w-4
+
+    transition-transform
+    duration-300
+
+    sm:group-hover:translate-x-1
+  "
+/>
                 </Link>
 
                 <p className="mt-4 text-center text-xs leading-5 text-slate-400">
