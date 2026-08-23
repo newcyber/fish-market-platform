@@ -257,6 +257,15 @@ interface ProductFormProps {
 
   submitLabel?: string;
 
+  /**
+   * Tampilkan upload gambar di dalam ProductForm.
+   *
+   * Create Product  -> true (default)
+   * Edit Product    -> false karena gallery ditangani
+   *                    oleh ProductGallery.
+   */
+  showImageUpload?: boolean;
+
   action: (
     state: ActionResult,
     formData: FormData
@@ -526,6 +535,7 @@ export function ProductForm({
   defaultValues,
   submitLabel = "Simpan Produk",
   action,
+  showImageUpload = true,
 }: ProductFormProps) {
   const router =
     useRouter();
@@ -1289,7 +1299,7 @@ export function ProductForm({
   return (
     <form
       action={formAction}
-      className="space-y-6"
+      className="space-y-5 sm:space-y-6"
     >
       {/* ====================================================== */}
       {/* ERROR MESSAGE */}
@@ -1306,7 +1316,7 @@ export function ProductForm({
       {/* INFORMASI PRODUK */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold">
             Informasi Produk
@@ -1487,11 +1497,13 @@ export function ProductForm({
         </div>
       </Card>
 
+      {showImageUpload && (
+        <>
       {/* ====================================================== */}
       {/* GAMBAR PRODUK */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <ImagePlus className="h-5 w-5" />
@@ -1583,11 +1595,14 @@ export function ProductForm({
         )}
       </Card>
 
+        </>
+      )}
+
       {/* ====================================================== */}
       {/* HARGA DAN STOK */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold">
             Harga & Stok
@@ -1683,7 +1698,7 @@ export function ProductForm({
       {/* DISKON PRODUK */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold">
             Diskon Produk
@@ -1971,7 +1986,7 @@ export function ProductForm({
       {/* VARIAN PRODUK */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">
@@ -2106,7 +2121,7 @@ export function ProductForm({
       {/* PILIHAN BERAT DAN HARGA */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold">
@@ -2241,7 +2256,7 @@ export function ProductForm({
       {/* HARGA BERAT × VARIAN */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -2520,7 +2535,7 @@ export function ProductForm({
       {/* STATUS PRODUK */}
       {/* ====================================================== */}
 
-      <Card className="space-y-6 p-6">
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div>
           <h2 className="text-lg font-semibold">
             Status Produk
