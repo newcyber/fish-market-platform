@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "StoreSettings"
+ADD COLUMN IF NOT EXISTS "heroSlide1Image" TEXT,
+ADD COLUMN IF NOT EXISTS "heroSlide2Image" TEXT,
+ADD COLUMN IF NOT EXISTS "heroSlide3Image" TEXT;

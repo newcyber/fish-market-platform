@@ -126,6 +126,17 @@ temp/
 prisma/*.db
 prisma/*.db-journal
 
+# ============================================================
+# PRISMA MIGRATIONS MUST BE TRACKED
+# ============================================================
+
+# Migration SQL files are required by Prisma migrate deploy.
+!prisma/migrations/
+!prisma/migrations/**/
+!prisma/migrations/**/*.sql
+
+
+
 
 # ============================================================
 # USER / PRODUCT UPLOADS
