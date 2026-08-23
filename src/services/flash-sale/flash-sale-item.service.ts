@@ -16,9 +16,11 @@ import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository
  * Responsibilities:
  *
  * - List item
+ * - Get item
  * - Create item
  * - Update item
  * - Delete item
+ * - Validasi Flash Sale
  * - Validasi product
  * - Validasi weight option
  * - Duplicate protection
@@ -26,6 +28,8 @@ import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository
  * - Stock validation
  * - Per-user limit validation
  * - Sold quantity protection
+ * - Campaign lifecycle protection
+ *
  * ============================================================
  */
 
@@ -77,6 +81,12 @@ export interface UpdateFlashSaleItemInput {
   sortOrder?: number;
 }
 
+/**
+ * ============================================================
+ * FLASH SALE ITEM SERVICE
+ * ============================================================
+ */
+
 export default class FlashSaleItemService {
   /**
    * ==========================================================
@@ -119,7 +129,9 @@ export default class FlashSaleItemService {
       );
     }
 
-    if (value < minimum) {
+    if (
+      value < minimum
+    ) {
       throw new Error(
         `${fieldName} tidak boleh kurang dari ${minimum}.`
       );
@@ -137,17 +149,26 @@ export default class FlashSaleItemService {
   private static async ensureFlashSaleExists(
     flashSaleId: string
   ) {
-    return FlashSaleRepository.findById(
-      flashSaleId
-    ).then((flashSale) => {
-      if (!flashSale) {
-        throw new Error(
-          "Flash Sale tidak ditemukan."
-        );
-      }
+    if (
+      !flashSaleId?.trim()
+    ) {
+      throw new Error(
+        "Flash Sale ID wajib diisi."
+      );
+    }
 
-      return flashSale;
-    });
+    const flashSale =
+      await FlashSaleRepository.findById(
+        flashSaleId
+      );
+
+    if (!flashSale) {
+      throw new Error(
+        "Flash Sale tidak ditemukan."
+      );
+    }
+
+    return flashSale;
   }
 
   /**
@@ -160,9 +181,21 @@ export default class FlashSaleItemService {
     productId: string
   ) {
     const product =
-      await prisma.product.findUnique({
+      await prisma.product.findFirst({
         where: {
           id: productId,
+
+          deletedAt: null,
+        },
+
+        select: {
+          id: true,
+
+          name: true,
+
+          price: true,
+
+          isPublished: true,
         },
       });
 
@@ -181,6 +214,8 @@ export default class FlashSaleItemService {
    * ==========================================================
    *
    * Weight option harus benar-benar milik product.
+   *
+   * ==========================================================
    */
 
   private static async ensureWeightOptionExists(
@@ -195,17 +230,106 @@ export default class FlashSaleItemService {
       await prisma.productWeightOption.findFirst({
         where: {
           id: weightOptionId,
+
           productId,
+
+          isActive: true,
+        },
+
+        select: {
+          id: true,
+
+          productId: true,
+
+          label: true,
         },
       });
 
     if (!weightOption) {
       throw new Error(
-        "Weight option tidak ditemukan atau tidak milik produk tersebut."
+        "Weight option tidak ditemukan atau tidak aktif untuk produk tersebut."
       );
     }
 
     return weightOption;
+  }
+
+  /**
+   * ==========================================================
+   * VALIDATE ITEM ACTIVE STATE
+   * ==========================================================
+   *
+   * Item boleh aktif pada:
+   *
+   * - DRAFT
+   * - SCHEDULED
+   * - ACTIVE
+   *
+   * Tetapi tidak boleh diaktifkan kembali pada:
+   *
+   * - ENDED
+   * - CANCELLED
+   *
+   * Untuk campaign ACTIVE, periode harus masih valid.
+   *
+   * ==========================================================
+   */
+
+  private static validateActiveState(
+    flashSale: {
+      status: string;
+
+      startAt: Date;
+
+      endAt: Date;
+    },
+    isActive: boolean
+  ) {
+    if (!isActive) {
+      return;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * TERMINAL CAMPAIGN
+     * --------------------------------------------------------
+     */
+
+    if (
+      flashSale.status ===
+        "ENDED" ||
+      flashSale.status ===
+        "CANCELLED"
+    ) {
+      throw new Error(
+        "Item tidak dapat diaktifkan karena Flash Sale sudah berakhir atau dibatalkan."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * ACTIVE CAMPAIGN
+     * --------------------------------------------------------
+     */
+
+    if (
+      flashSale.status ===
+      "ACTIVE"
+    ) {
+      const now =
+        new Date();
+
+      if (
+        now.getTime() <
+          flashSale.startAt.getTime() ||
+        now.getTime() >=
+          flashSale.endAt.getTime()
+      ) {
+        throw new Error(
+          "Item tidak dapat diaktifkan karena periode Flash Sale sudah tidak valid."
+        );
+      }
+    }
   }
 
   /**
@@ -240,6 +364,14 @@ export default class FlashSaleItemService {
       flashSaleId
     );
 
+    if (
+      !itemId?.trim()
+    ) {
+      throw new Error(
+        "Item Flash Sale ID wajib diisi."
+      );
+    }
+
     const item =
       await FlashSaleRepository.findItemById(
         flashSaleId,
@@ -265,9 +397,10 @@ export default class FlashSaleItemService {
     flashSaleId: string,
     input: CreateFlashSaleItemInput
   ) {
-    await this.ensureFlashSaleExists(
-      flashSaleId
-    );
+    const flashSale =
+      await this.ensureFlashSaleExists(
+        flashSaleId
+      );
 
     /**
      * --------------------------------------------------------
@@ -286,19 +419,20 @@ export default class FlashSaleItemService {
     const productId =
       input.productId.trim();
 
-    await this.ensureProductExists(
-      productId
-    );
+    const product =
+      await this.ensureProductExists(
+        productId
+      );
 
     /**
      * --------------------------------------------------------
-     * VALIDATE WEIGHT OPTION
+     * VALIDATE WEIGHT
      * --------------------------------------------------------
      */
 
     const weightOptionId =
-      input.weightOptionId?.trim() ||
-      null;
+      input.weightOptionId
+        ?.trim() || null;
 
     await this.ensureWeightOptionExists(
       productId,
@@ -309,12 +443,21 @@ export default class FlashSaleItemService {
      * --------------------------------------------------------
      * DUPLICATE PROTECTION
      * --------------------------------------------------------
+     *
+     * Satu produk hanya boleh mempunyai:
+     *
+     * - satu item product-wide
+     * - satu item per weight
+     *
+     * dalam campaign yang sama.
      */
 
     const duplicate =
       await FlashSaleRepository.findDuplicateItem({
         flashSaleId,
+
         productId,
+
         weightOptionId,
       });
 
@@ -342,20 +485,25 @@ export default class FlashSaleItemService {
         "Harga Flash Sale"
       );
 
-    if (originalPrice <= 0) {
+    if (
+      originalPrice <= 0
+    ) {
       throw new Error(
         "Harga normal harus lebih besar dari 0."
       );
     }
 
-    if (flashPrice <= 0) {
+    if (
+      flashPrice <= 0
+    ) {
       throw new Error(
         "Harga Flash Sale harus lebih besar dari 0."
       );
     }
 
     if (
-      flashPrice >= originalPrice
+      flashPrice >=
+      originalPrice
     ) {
       throw new Error(
         "Harga Flash Sale harus lebih kecil dari harga normal."
@@ -379,14 +527,30 @@ export default class FlashSaleItemService {
      * --------------------------------------------------------
      * VALIDATE PER USER LIMIT
      * --------------------------------------------------------
+     *
+     * Schema/database saat ini menggunakan angka.
+     *
+     * 0 = tidak ada batas khusus.
+     *
+     * --------------------------------------------------------
      */
 
     const perUserLimit =
-      this.validateInteger(
-        input.perUserLimit ?? 0,
-        "Per user limit",
-        0
-      );
+  this.validateInteger(
+    input.perUserLimit ?? 0,
+    "Per user limit",
+    0
+  );
+
+if (
+  perUserLimit > 0 &&
+  perUserLimit >
+    stockLimit
+) {
+  throw new Error(
+    "Batas pembelian per user tidak boleh lebih besar dari stock limit."
+  );
+}
 
     /**
      * --------------------------------------------------------
@@ -403,6 +567,21 @@ export default class FlashSaleItemService {
 
     /**
      * --------------------------------------------------------
+     * VALIDATE ACTIVE STATE
+     * --------------------------------------------------------
+     */
+
+    const isActive =
+      input.isActive ??
+      true;
+
+    this.validateActiveState(
+      flashSale,
+      isActive
+    );
+
+    /**
+     * --------------------------------------------------------
      * CREATE ITEM
      * --------------------------------------------------------
      */
@@ -416,7 +595,7 @@ export default class FlashSaleItemService {
 
       product: {
         connect: {
-          id: productId,
+          id: product.id,
         },
       },
 
@@ -440,8 +619,7 @@ export default class FlashSaleItemService {
 
       perUserLimit,
 
-      isActive:
-        input.isActive ?? true,
+      isActive,
 
       sortOrder,
     });
@@ -458,6 +636,11 @@ export default class FlashSaleItemService {
     itemId: string,
     input: UpdateFlashSaleItemInput
   ) {
+    const flashSale =
+      await this.ensureFlashSaleExists(
+        flashSaleId
+      );
+
     const current =
       await this.getById(
         flashSaleId,
@@ -466,7 +649,7 @@ export default class FlashSaleItemService {
 
     /**
      * --------------------------------------------------------
-     * PREPARE PRODUCT
+     * PRODUCT
      * --------------------------------------------------------
      */
 
@@ -482,7 +665,8 @@ export default class FlashSaleItemService {
     }
 
     if (
-      input.productId !== undefined
+      input.productId !==
+      undefined
     ) {
       await this.ensureProductExists(
         productId
@@ -491,13 +675,15 @@ export default class FlashSaleItemService {
 
     /**
      * --------------------------------------------------------
-     * PREPARE WEIGHT OPTION
+     * WEIGHT
      * --------------------------------------------------------
      */
 
     const weightOptionId =
-      input.weightOptionId !== undefined
-        ? input.weightOptionId?.trim() || null
+      input.weightOptionId !==
+      undefined
+        ? input.weightOptionId?.trim() ||
+          null
         : current.weightOptionId;
 
     await this.ensureWeightOptionExists(
@@ -512,15 +698,21 @@ export default class FlashSaleItemService {
      */
 
     if (
-      input.productId !== undefined ||
-      input.weightOptionId !== undefined
+      input.productId !==
+        undefined ||
+      input.weightOptionId !==
+        undefined
     ) {
       const duplicate =
         await FlashSaleRepository.findDuplicateItem({
           flashSaleId,
+
           productId,
+
           weightOptionId,
-          excludeItemId: itemId,
+
+          excludeItemId:
+            itemId,
         });
 
       if (duplicate) {
@@ -532,12 +724,13 @@ export default class FlashSaleItemService {
 
     /**
      * --------------------------------------------------------
-     * PREPARE PRICES
+     * PRICES
      * --------------------------------------------------------
      */
 
     const originalPrice =
-      input.originalPrice !== undefined
+      input.originalPrice !==
+      undefined
         ? this.validateNumber(
             input.originalPrice,
             "Harga normal"
@@ -547,7 +740,8 @@ export default class FlashSaleItemService {
           );
 
     const flashPrice =
-      input.flashPrice !== undefined
+      input.flashPrice !==
+      undefined
         ? this.validateNumber(
             input.flashPrice,
             "Harga Flash Sale"
@@ -556,20 +750,25 @@ export default class FlashSaleItemService {
             current.flashPrice
           );
 
-    if (originalPrice <= 0) {
+    if (
+      originalPrice <= 0
+    ) {
       throw new Error(
         "Harga normal harus lebih besar dari 0."
       );
     }
 
-    if (flashPrice <= 0) {
+    if (
+      flashPrice <= 0
+    ) {
       throw new Error(
         "Harga Flash Sale harus lebih besar dari 0."
       );
     }
 
     if (
-      flashPrice >= originalPrice
+      flashPrice >=
+      originalPrice
     ) {
       throw new Error(
         "Harga Flash Sale harus lebih kecil dari harga normal."
@@ -583,18 +782,14 @@ export default class FlashSaleItemService {
      */
 
     const stockLimit =
-      input.stockLimit !== undefined
+      input.stockLimit !==
+      undefined
         ? this.validateInteger(
             input.stockLimit,
             "Stock limit",
             1
           )
         : current.stockLimit;
-
-    /**
-     * Tidak boleh menurunkan quota di bawah jumlah
-     * yang sudah berhasil terjual.
-     */
 
     if (
       stockLimit <
@@ -612,13 +807,23 @@ export default class FlashSaleItemService {
      */
 
     const perUserLimit =
-      input.perUserLimit !== undefined
-        ? this.validateInteger(
-            input.perUserLimit,
-            "Per user limit",
-            0
-          )
-        : current.perUserLimit;
+  input.perUserLimit !== undefined
+    ? this.validateInteger(
+        input.perUserLimit,
+        "Per user limit",
+        0
+      )
+    : current.perUserLimit ?? 0;
+
+    if (
+      perUserLimit > 0 &&
+      perUserLimit >
+        stockLimit
+    ) {
+      throw new Error(
+        "Batas pembelian per user tidak boleh lebih besar dari stock limit."
+      );
+    }
 
     /**
      * --------------------------------------------------------
@@ -627,7 +832,8 @@ export default class FlashSaleItemService {
      */
 
     const sortOrder =
-      input.sortOrder !== undefined
+      input.sortOrder !==
+      undefined
         ? this.validateInteger(
             input.sortOrder,
             "Sort order",
@@ -637,12 +843,32 @@ export default class FlashSaleItemService {
 
     /**
      * --------------------------------------------------------
+     * ACTIVE STATE
+     * --------------------------------------------------------
+     *
+     * Jika tidak dikirim, pertahankan state sebelumnya.
+     */
+
+    const nextIsActive =
+      input.isActive !==
+      undefined
+        ? input.isActive
+        : current.isActive;
+
+    this.validateActiveState(
+      flashSale,
+      nextIsActive
+    );
+
+    /**
+     * --------------------------------------------------------
      * PREVENT EMPTY UPDATE
      * --------------------------------------------------------
      */
 
     if (
-      Object.keys(input).length === 0
+      Object.keys(input)
+        .length === 0
     ) {
       throw new Error(
         "Tidak ada data yang diperbarui."
@@ -651,71 +877,90 @@ export default class FlashSaleItemService {
 
     /**
      * --------------------------------------------------------
-     * UPDATE DATA
+     * BUILD UPDATE DATA
      * --------------------------------------------------------
      */
 
-    const data: Prisma.FlashSaleItemUpdateInput = {
-      ...(input.productId !== undefined
-        ? {
-            product: {
-              connect: {
-                id: productId,
-              },
-            },
-          }
-        : {}),
-
-      ...(input.weightOptionId !== undefined
-        ? {
-            weightOption: weightOptionId
-              ? {
-                  connect: {
-                    id: weightOptionId,
-                  },
-                }
-              : {
-                  disconnect: true,
+    const data:
+      Prisma.FlashSaleItemUpdateInput =
+      {
+        ...(input.productId !==
+        undefined
+          ? {
+              product: {
+                connect: {
+                  id: productId,
                 },
-          }
-        : {}),
+              },
+            }
+          : {}),
 
-      ...(input.originalPrice !== undefined
-        ? {
-            originalPrice,
-          }
-        : {}),
+        ...(input.weightOptionId !==
+        undefined
+          ? {
+              weightOption:
+                weightOptionId
+                  ? {
+                      connect: {
+                        id: weightOptionId,
+                      },
+                    }
+                  : {
+                      disconnect:
+                        true,
+                    },
+            }
+          : {}),
 
-      ...(input.flashPrice !== undefined
-        ? {
-            flashPrice,
-          }
-        : {}),
+        ...(input.originalPrice !==
+        undefined
+          ? {
+              originalPrice,
+            }
+          : {}),
 
-      ...(input.stockLimit !== undefined
-        ? {
-            stockLimit,
-          }
-        : {}),
+        ...(input.flashPrice !==
+        undefined
+          ? {
+              flashPrice,
+            }
+          : {}),
 
-      ...(input.perUserLimit !== undefined
-        ? {
-            perUserLimit,
-          }
-        : {}),
+        ...(input.stockLimit !==
+        undefined
+          ? {
+              stockLimit,
+            }
+          : {}),
 
-      ...(input.isActive !== undefined
-        ? {
-            isActive: input.isActive,
-          }
-        : {}),
+        ...(input.perUserLimit !==
+        undefined
+          ? {
+              perUserLimit,
+            }
+          : {}),
 
-      ...(input.sortOrder !== undefined
-        ? {
-            sortOrder,
-          }
-        : {}),
-    };
+        ...(input.isActive !==
+        undefined
+          ? {
+              isActive:
+                nextIsActive,
+            }
+          : {}),
+
+        ...(input.sortOrder !==
+        undefined
+          ? {
+              sortOrder,
+            }
+          : {}),
+      };
+
+    /**
+     * --------------------------------------------------------
+     * UPDATE
+     * --------------------------------------------------------
+     */
 
     return FlashSaleRepository.updateItem(
       flashSaleId,
@@ -727,6 +972,16 @@ export default class FlashSaleItemService {
   /**
    * ==========================================================
    * DELETE
+   * ==========================================================
+   *
+   * Hard delete hanya diperbolehkan jika item belum pernah
+   * mempunyai purchase history.
+   *
+   * Jika sudah pernah dibeli:
+   *
+   *     DELETE ❌
+   *     isActive=false ✅
+   *
    * ==========================================================
    */
 
@@ -741,17 +996,26 @@ export default class FlashSaleItemService {
       );
 
     /**
-     * Jika sudah memiliki purchase, jangan hapus item karena
-     * berpotensi merusak relasi histori transaksi.
+     * --------------------------------------------------------
+     * PURCHASE HISTORY PROTECTION
+     * --------------------------------------------------------
      */
 
     if (
       item._count.purchases > 0
     ) {
       throw new Error(
-        "Item Flash Sale yang sudah memiliki riwayat pembelian tidak dapat dihapus."
+        "Item Flash Sale yang sudah memiliki riwayat pembelian tidak dapat dihapus. Nonaktifkan item jika ingin menghentikan Flash Sale."
       );
     }
+
+    /**
+     * --------------------------------------------------------
+     * HARD DELETE
+     * --------------------------------------------------------
+     *
+     * Aman karena belum memiliki purchase history.
+     */
 
     return FlashSaleRepository.deleteItem(
       flashSaleId,

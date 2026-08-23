@@ -8,6 +8,11 @@ export async function cancelOrderAction(
   orderId: string
 ) {
   try {
+    console.log(
+      "[CANCEL_ORDER_ACTION] START",
+      orderId
+    );
+
     if (!orderId) {
       return {
         success: false,
@@ -20,6 +25,14 @@ export async function cancelOrderAction(
       await OrderService.cancelOrder(
         orderId
       );
+
+    console.log(
+      "[CANCEL_ORDER_ACTION] SUCCESS",
+      {
+        orderId,
+        status: order.status,
+      }
+    );
 
     revalidatePath(
       "/admin/orders"
@@ -43,6 +56,14 @@ export async function cancelOrderAction(
       },
     };
   } catch (error) {
+    console.error(
+      "[CANCEL_ORDER_ACTION] ERROR",
+      {
+        orderId,
+        error,
+      }
+    );
+
     return {
       success: false,
 

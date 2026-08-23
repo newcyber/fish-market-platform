@@ -572,6 +572,8 @@ model Product {
 
   weightOptions ProductWeightOption[] @relation("ProductWeightOptions")
 
+  weightVariantPrices ProductWeightVariantPrice[] @relation("ProductWeightVariantPriceProduct")
+
   flashSaleItems FlashSaleItem[]
 
   stockLedgers StockLedger[] @relation("ProductStockLedgers")
@@ -650,6 +652,8 @@ model ProductWeightOption {
    * PRICE
    * ============================================================
    */
+
+  weightVariantPrices ProductWeightVariantPrice[] @relation("ProductWeightVariantPriceWeight")
 
   price Decimal @db.Decimal(12, 2)
 
@@ -1065,6 +1069,7 @@ model ProductVariantOption {
 
   priceAdjustment Decimal @default(0) @db.Decimal(12, 2)
 
+  weightVariantPrices ProductWeightVariantPrice[] @relation("ProductWeightVariantPriceVariant")
   /**
    * ============================================================
    * SORT ORDER
@@ -1106,6 +1111,96 @@ model ProductVariantOption {
   @@index([productId])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+/**
+ * ============================================================
+ * PRODUCT WEIGHT VARIANT PRICE
+ * ============================================================
+ * Menyimpan harga khusus berdasarkan kombinasi:
+ * Product
+ * + Weight
+ * + Variant
+ * Contoh:
+ * 1 KG + Utuh         = 100000
+ * 1 KG + Dibersihkan  = 105000
+ * 2 KG + Utuh         = 200000
+ * 2 KG + Dibersihkan  = 207000
+ * 3 KG + Utuh         = 300000
+ * 3 KG + Dibersihkan  = 210000
+ * Harga di sini adalah HARGA FINAL NORMAL
+ * untuk kombinasi tersebut, bukan adjustment.
+ * ============================================================
+ */
+
+/**
+ * ============================================================
+ * PRODUCT WEIGHT VARIANT PRICE
+ * ============================================================
+ * Harga khusus berdasarkan kombinasi:
+ * Product
+ * + Weight
+ * + Variant
+ * Contoh:
+ * 1 KG + Utuh         = 100000
+ * 1 KG + Dibersihkan  = 105000
+ * 2 KG + Utuh         = 200000
+ * 2 KG + Dibersihkan  = 207000
+ * 3 KG + Utuh         = 300000
+ * 3 KG + Dibersihkan  = 210000
+ * price = harga normal FINAL untuk kombinasi.
+ * Bukan price adjustment.
+ * ============================================================
+ */
+
+model ProductWeightVariantPrice {
+  id String @id @default(cuid())
+
+  /**
+   * PRODUCT
+   */
+  productId String
+
+  product Product @relation("ProductWeightVariantPriceProduct", fields: [productId], references: [id])
+
+  /**
+   * WEIGHT
+   */
+  weightOptionId String
+
+  weightOption ProductWeightOption @relation("ProductWeightVariantPriceWeight", fields: [weightOptionId], references: [id])
+
+  /**
+   * VARIANT
+   */
+  variantOptionId String
+
+  variantOption ProductVariantOption @relation("ProductWeightVariantPriceVariant", fields: [variantOptionId], references: [id])
+
+  /**
+   * PRICE
+   */
+  price Decimal @db.Decimal(15, 2)
+
+  /**
+   * TIMESTAMPS
+   */
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * UNIQUE COMBINATION
+   */
+  @@unique([productId, weightOptionId, variantOptionId])
+  /**
+   * INDEXES
+   */
+  @@index([productId])
+  @@index([weightOptionId])
+  @@index([variantOptionId])
+  @@index([productId, weightOptionId])
+  @@index([productId, variantOptionId])
 }
 
 model StockLedger {

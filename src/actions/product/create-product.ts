@@ -101,6 +101,123 @@ function normalizePrice(
   return numberValue;
 }
 
+
+/**
+ * ============================================================
+ * PARSE WEIGHT × VARIANT PRICES
+ * ============================================================
+ *
+ * ProductForm mengirim satu field JSON:
+ *
+ * weightVariantPrices = [
+ *   {
+ *     weightLabel: "1 KG",
+ *     variantLabel: "Utuh",
+ *     price: 100000,
+ *   },
+ * ]
+ *
+ * Cell matrix yang kosong tidak dikirim sebagai record.
+ * ============================================================
+ */
+function parseWeightVariantPrices(
+  value: FormDataEntryValue | null
+): Array<{
+  weightLabel: string;
+  variantLabel: string;
+  price: number;
+}> {
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return [];
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(
+      String(value)
+    );
+  } catch {
+    throw new Error(
+      "Data harga berat × varian tidak valid."
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      "Data harga berat × varian harus berupa array."
+    );
+  }
+
+  return parsed.map((item, index) => {
+    if (
+      typeof item !== "object" ||
+      item === null ||
+      Array.isArray(item)
+    ) {
+      throw new Error(
+        `Data harga kombinasi pada index ${index} tidak valid.`
+      );
+    }
+
+    const record =
+      item as Record<string, unknown>;
+
+    const weightLabel =
+      String(record.weightLabel ?? "").trim();
+
+    const variantLabel =
+      String(record.variantLabel ?? "").trim();
+
+    const rawPrice =
+      String(record.price ?? "").trim();
+
+    if (!weightLabel) {
+      throw new Error(
+        `Label berat pada kombinasi index ${index} wajib diisi.`
+      );
+    }
+
+    if (!variantLabel) {
+      throw new Error(
+        `Label varian pada kombinasi index ${index} wajib diisi.`
+      );
+    }
+
+    if (!rawPrice) {
+      throw new Error(
+        `Harga pada kombinasi "${weightLabel} × ${variantLabel}" wajib diisi.`
+      );
+    }
+
+    const normalizedPrice =
+      rawPrice.replace(/[^0-9]/g, "");
+
+    const price =
+      normalizedPrice.length > 0
+        ? Number(normalizedPrice)
+        : NaN;
+
+    if (
+      !Number.isFinite(price) ||
+      price < 0
+    ) {
+      throw new Error(
+        `Harga pada kombinasi "${weightLabel} × ${variantLabel}" tidak valid.`
+      );
+    }
+
+    return {
+      weightLabel,
+      variantLabel,
+      price,
+    };
+  });
+}
+
 /**
  * ============================================================
  *
@@ -488,6 +605,13 @@ const variantOptions =
     variantOptions,
 
     weightOptions,
+
+    weightVariantPrices:
+      parseWeightVariantPrices(
+        formData.get(
+          "weightVariantPrices"
+        )
+      ),
 
     /**
      * ========================================================

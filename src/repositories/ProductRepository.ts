@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
+import { Prisma } from "@prisma/client";
+
 export interface ProductFilters {
   search?: string;
 
@@ -64,34 +66,56 @@ export class ProductRepository {
    */
 
   private static readonly productInclude = {
-    category: true,
+  category: true,
 
-    images: {
-      orderBy: {
-        sortOrder: "asc" as const,
+  images: {
+    orderBy: {
+      sortOrder: "asc" as const,
+    },
+  },
+
+  variantOptions: {
+    where: {
+      isActive: true,
+    },
+
+    orderBy: {
+      sortOrder: "asc" as const,
+    },
+  },
+
+  weightOptions: {
+    where: {
+      isActive: true,
+    },
+
+    orderBy: {
+      sortOrder: "asc" as const,
+    },
+  },
+
+  weightVariantPrices: {
+    include: {
+      weightOption: {
+        select: {
+          id: true,
+          label: true,
+        },
+      },
+
+      variantOption: {
+        select: {
+          id: true,
+          label: true,
+        },
       },
     },
 
-    variantOptions: {
-      where: {
-        isActive: true,
-      },
-
-      orderBy: {
-        sortOrder: "asc" as const,
-      },
+    orderBy: {
+      createdAt: "asc" as const,
     },
-
-    weightOptions: {
-      where: {
-        isActive: true,
-      },
-
-      orderBy: {
-        sortOrder: "asc" as const,
-      },
-    },
-  };
+  },
+};
 
   /**
    * ============================================================
@@ -355,6 +379,20 @@ export class ProductRepository {
       include:
         this.productInclude,
     });
+  }
+
+  /**
+   * ============================================================
+   * TRANSACTION
+   * ============================================================
+   */
+
+  static async transaction<T>(
+    callback: (
+      tx: Prisma.TransactionClient
+    ) => Promise<T>
+  ) {
+    return prisma.$transaction(callback);
   }
 
   /**

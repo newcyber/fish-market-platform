@@ -15,13 +15,16 @@ import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository
  *
  * - List campaign
  * - Get campaign detail
+ * - Get active campaign for homepage
  * - Create campaign
  * - Update campaign
  * - Soft delete campaign
  * - Validasi nama
  * - Generate slug
  * - Validasi periode
+ * - Validasi status lifecycle
  * - Cek slug duplicate
+ *
  * ============================================================
  */
 
@@ -92,6 +95,12 @@ export interface GetFlashSalesInput {
   search?: string;
 }
 
+/**
+ * ============================================================
+ * FLASH SALE SERVICE
+ * ============================================================
+ */
+
 export default class FlashSaleService {
   /**
    * ==========================================================
@@ -105,8 +114,13 @@ export default class FlashSaleService {
     return value
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      .replace(
+        /[^a-z0-9]+/g,
+        "-"
+      )
+      .replace(
+        /^-+|-+$/g,
+        "");
   }
 
   /**
@@ -139,6 +153,159 @@ export default class FlashSaleService {
 
   /**
    * ==========================================================
+   * VALIDATE STATUS TRANSITION
+   * ==========================================================
+   *
+   * Lifecycle Flash Sale:
+   *
+   * DRAFT
+   *   ↓
+   * SCHEDULED
+   *   ↓
+   * ACTIVE
+   *   ↓
+   * ENDED
+   *
+   * DRAFT / SCHEDULED / ACTIVE
+   *   ↓
+   * CANCELLED
+   *
+   * ENDED dan CANCELLED bersifat terminal.
+   *
+   * ==========================================================
+   */
+
+  private static validateStatusTransition(
+    currentStatus: FlashSaleStatus,
+    nextStatus: FlashSaleStatus
+  ) {
+    /**
+     * Tidak ada perubahan status.
+     */
+    if (
+      currentStatus ===
+      nextStatus
+    ) {
+      return;
+    }
+
+    const allowedTransitions:
+      Record<
+        FlashSaleStatus,
+        FlashSaleStatus[]
+      > = {
+        /**
+         * ------------------------------------------------------
+         * DRAFT
+         * ------------------------------------------------------
+         */
+
+        [FlashSaleStatus.DRAFT]: [
+          FlashSaleStatus.SCHEDULED,
+          FlashSaleStatus.ACTIVE,
+          FlashSaleStatus.CANCELLED,
+        ],
+
+        /**
+         * ------------------------------------------------------
+         * SCHEDULED
+         * ------------------------------------------------------
+         */
+
+        [FlashSaleStatus.SCHEDULED]: [
+          FlashSaleStatus.ACTIVE,
+          FlashSaleStatus.CANCELLED,
+        ],
+
+        /**
+         * ------------------------------------------------------
+         * ACTIVE
+         * ------------------------------------------------------
+         */
+
+        [FlashSaleStatus.ACTIVE]: [
+          FlashSaleStatus.ENDED,
+          FlashSaleStatus.CANCELLED,
+        ],
+
+        /**
+         * ------------------------------------------------------
+         * ENDED
+         * ------------------------------------------------------
+         *
+         * Terminal state.
+         */
+
+        [FlashSaleStatus.ENDED]: [],
+
+        /**
+         * ------------------------------------------------------
+         * CANCELLED
+         * ------------------------------------------------------
+         *
+         * Terminal state.
+         */
+
+        [FlashSaleStatus.CANCELLED]: [],
+      };
+
+    const allowed =
+      allowedTransitions[
+        currentStatus
+      ];
+
+    if (
+      !allowed.includes(
+        nextStatus
+      )
+    ) {
+      throw new Error(
+        `Status Flash Sale tidak dapat diubah dari ${currentStatus} menjadi ${nextStatus}.`
+      );
+    }
+  }
+
+  /**
+   * ==========================================================
+   * VALIDATE ACTIVE PERIOD
+   * ==========================================================
+   *
+   * ACTIVE hanya boleh digunakan jika sekarang berada
+   * di antara startAt dan endAt.
+   *
+   * startAt <= now < endAt
+   *
+   * ==========================================================
+   */
+
+  private static validateActivePeriod(
+    startAt: Date,
+    endAt: Date
+  ) {
+    const now =
+      new Date();
+
+    if (
+      now.getTime() <
+      startAt.getTime()
+    ) {
+      throw new Error(
+        "Flash Sale belum memasuki periode mulai."
+      );
+    }
+
+    if (
+      now.getTime() >=
+      endAt.getTime()
+    ) {
+      throw new Error(
+        "Periode Flash Sale sudah berakhir."
+      );
+    }
+  }
+
+  /**
+   * ==========================================================
    * GET MANY
    * ==========================================================
    */
@@ -166,7 +333,8 @@ export default class FlashSaleService {
       );
 
     const skip =
-      (page - 1) * limit;
+      (page - 1) *
+      limit;
 
     const [
       data,
@@ -213,7 +381,9 @@ export default class FlashSaleService {
   static async getById(
     id: string
   ) {
-    if (!id?.trim()) {
+    if (
+      !id?.trim()
+    ) {
       throw new Error(
         "Flash Sale ID wajib diisi."
       );
@@ -257,13 +427,17 @@ export default class FlashSaleService {
       );
     }
 
-    if (name.length < 3) {
+    if (
+      name.length < 3
+    ) {
       throw new Error(
         "Nama Flash Sale minimal 3 karakter."
       );
     }
 
-    if (name.length > 150) {
+    if (
+      name.length > 150
+    ) {
       throw new Error(
         "Nama Flash Sale maksimal 150 karakter."
       );
@@ -333,6 +507,80 @@ export default class FlashSaleService {
 
     /**
      * --------------------------------------------------------
+     * VALIDATE STATUS
+     * --------------------------------------------------------
+     */
+
+    const status =
+      input.status ??
+      FlashSaleStatus.DRAFT;
+
+    /**
+     * ACTIVE saat CREATE hanya diperbolehkan
+     * jika periode memang sedang aktif.
+     */
+    if (
+      status ===
+      FlashSaleStatus.ACTIVE
+    ) {
+      this.validateActivePeriod(
+        startAt,
+        endAt
+      );
+    }
+
+    /**
+     * CANCELLED saat CREATE tidak ideal secara bisnis.
+     *
+     * Campaign baru seharusnya dibuat sebagai DRAFT,
+     * SCHEDULED, atau ACTIVE.
+     */
+    if (
+      status ===
+      FlashSaleStatus.CANCELLED
+    ) {
+      throw new Error(
+        "Flash Sale baru tidak dapat dibuat dengan status CANCELLED."
+      );
+    }
+
+    /**
+     * ENDED saat CREATE juga tidak valid.
+     */
+    if (
+      status ===
+      FlashSaleStatus.ENDED
+    ) {
+      throw new Error(
+        "Flash Sale baru tidak dapat dibuat dengan status ENDED."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE SCHEDULED
+     * --------------------------------------------------------
+     */
+
+    if (
+      status ===
+      FlashSaleStatus.SCHEDULED
+    ) {
+      const now =
+        new Date();
+
+      if (
+        startAt.getTime() <=
+        now.getTime()
+      ) {
+        throw new Error(
+          "Flash Sale SCHEDULED harus memiliki tanggal mulai di masa depan."
+        );
+      }
+    }
+
+    /**
+     * --------------------------------------------------------
      * VALIDATE SORT ORDER
      * --------------------------------------------------------
      */
@@ -369,9 +617,7 @@ export default class FlashSaleService {
         input.banner?.trim() ||
         null,
 
-      status:
-        input.status ??
-        FlashSaleStatus.DRAFT,
+      status,
 
       startAt,
 
@@ -387,6 +633,8 @@ export default class FlashSaleService {
    * ==========================================================
    *
    * Partial update untuk campaign Flash Sale.
+   *
+   * ==========================================================
    */
 
   static async update(
@@ -412,12 +660,19 @@ export default class FlashSaleService {
 
     const data: {
       name?: string;
+
       slug?: string;
+
       description?: string | null;
+
       banner?: string | null;
+
       status?: FlashSaleStatus;
+
       startAt?: Date;
+
       endAt?: Date;
+
       sortOrder?: number;
     } = {};
 
@@ -428,7 +683,8 @@ export default class FlashSaleService {
      */
 
     if (
-      input.name !== undefined
+      input.name !==
+      undefined
     ) {
       const name =
         input.name.trim();
@@ -439,19 +695,24 @@ export default class FlashSaleService {
         );
       }
 
-      if (name.length < 3) {
+      if (
+        name.length < 3
+      ) {
         throw new Error(
           "Nama Flash Sale minimal 3 karakter."
         );
       }
 
-      if (name.length > 150) {
+      if (
+        name.length > 150
+      ) {
         throw new Error(
           "Nama Flash Sale maksimal 150 karakter."
         );
       }
 
-      data.name = name;
+      data.name =
+        name;
     }
 
     /**
@@ -461,7 +722,8 @@ export default class FlashSaleService {
      */
 
     if (
-      input.slug !== undefined
+      input.slug !==
+      undefined
     ) {
       const slug =
         this.slugify(
@@ -481,14 +743,16 @@ export default class FlashSaleService {
 
       if (
         existing &&
-        existing.id !== current.id
+        existing.id !==
+          current.id
       ) {
         throw new Error(
           "Slug Flash Sale sudah digunakan."
         );
       }
 
-      data.slug = slug;
+      data.slug =
+        slug;
     }
 
     /**
@@ -498,7 +762,8 @@ export default class FlashSaleService {
      */
 
     if (
-      input.description !== undefined
+      input.description !==
+      undefined
     ) {
       data.description =
         input.description?.trim() ||
@@ -512,7 +777,8 @@ export default class FlashSaleService {
      */
 
     if (
-      input.banner !== undefined
+      input.banner !==
+      undefined
     ) {
       data.banner =
         input.banner?.trim() ||
@@ -521,25 +787,134 @@ export default class FlashSaleService {
 
     /**
      * --------------------------------------------------------
-     * STATUS
+     * DATE VALIDATION
+     * --------------------------------------------------------
+     *
+     * Jika hanya salah satu tanggal diubah,
+     * gunakan nilai campaign yang sekarang untuk
+     * melakukan validasi periode.
+     */
+
+    const startAt =
+      input.startAt !==
+      undefined
+        ? this.parseDate(
+            input.startAt,
+            "Tanggal mulai"
+          )
+        : current.startAt;
+
+    const endAt =
+      input.endAt !==
+      undefined
+        ? this.parseDate(
+            input.endAt,
+            "Tanggal selesai"
+          )
+        : current.endAt;
+
+    if (
+      endAt.getTime() <=
+      startAt.getTime()
+    ) {
+      throw new Error(
+        "Tanggal selesai harus setelah tanggal mulai."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * APPLY DATE UPDATE
      * --------------------------------------------------------
      */
 
     if (
-      input.status !== undefined
+      input.startAt !==
+      undefined
     ) {
+      data.startAt =
+        startAt;
+    }
+
+    if (
+      input.endAt !==
+      undefined
+    ) {
+      data.endAt =
+        endAt;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * STATUS
+     * --------------------------------------------------------
+     *
+     * Status divalidasi SETELAH tanggal final tersedia.
+     *
+     * Ini penting karena ACTIVE membutuhkan startAt/endAt.
+     */
+
+    if (
+      input.status !==
+      undefined
+    ) {
+      this.validateStatusTransition(
+        current.status,
+        input.status
+      );
+
+      /**
+       * ------------------------------------------------------
+       * ACTIVE
+       * ------------------------------------------------------
+       */
+
+      if (
+        input.status ===
+        FlashSaleStatus.ACTIVE
+      ) {
+        this.validateActivePeriod(
+          startAt,
+          endAt
+        );
+      }
+
+      /**
+       * ------------------------------------------------------
+       * SCHEDULED
+       * ------------------------------------------------------
+       */
+
+      if (
+        input.status ===
+        FlashSaleStatus.SCHEDULED
+      ) {
+        const now =
+          new Date();
+
+        if (
+          startAt.getTime() <=
+          now.getTime()
+        ) {
+          throw new Error(
+            "Flash Sale SCHEDULED harus memiliki tanggal mulai di masa depan."
+          );
+        }
+      }
+
       data.status =
         input.status;
     }
 
     /**
      * --------------------------------------------------------
-     * SORT ORDER
+     * VALIDATE SORT ORDER
      * --------------------------------------------------------
      */
 
     if (
-      input.sortOrder !== undefined
+      input.sortOrder !==
+      undefined
     ) {
       if (
         !Number.isInteger(
@@ -557,61 +932,13 @@ export default class FlashSaleService {
 
     /**
      * --------------------------------------------------------
-     * DATE VALIDATION
-     * --------------------------------------------------------
-     *
-     * Jika hanya salah satu tanggal diubah,
-     * gunakan nilai campaign yang sekarang untuk
-     * melakukan validasi periode.
-     */
-
-    const startAt =
-      input.startAt !== undefined
-        ? this.parseDate(
-            input.startAt,
-            "Tanggal mulai"
-          )
-        : current.startAt;
-
-    const endAt =
-      input.endAt !== undefined
-        ? this.parseDate(
-            input.endAt,
-            "Tanggal selesai"
-          )
-        : current.endAt;
-
-    if (
-      endAt.getTime() <=
-      startAt.getTime()
-    ) {
-      throw new Error(
-        "Tanggal selesai harus setelah tanggal mulai."
-      );
-    }
-
-    if (
-      input.startAt !== undefined
-    ) {
-      data.startAt =
-        startAt;
-    }
-
-    if (
-      input.endAt !== undefined
-    ) {
-      data.endAt =
-        endAt;
-    }
-
-    /**
-     * --------------------------------------------------------
      * PREVENT EMPTY UPDATE
      * --------------------------------------------------------
      */
 
     if (
-      Object.keys(data).length === 0
+      Object.keys(data)
+        .length === 0
     ) {
       throw new Error(
         "Tidak ada data yang diperbarui."
@@ -632,14 +959,6 @@ export default class FlashSaleService {
 
   /**
    * ==========================================================
-   * DELETE
-   * ==========================================================
-   *
-   * Soft delete campaign Flash Sale.
-   */
-
-    /**
-   * ==========================================================
    * GET ACTIVE FLASH SALE FOR HOMEPAGE
    * ==========================================================
    *
@@ -656,7 +975,10 @@ export default class FlashSaleService {
    * - pricing
    * - cart
    * - checkout
+   *
+   * ==========================================================
    */
+
   static async getActiveForHomepage() {
     return FlashSaleRepository.findActiveForHomepage();
   }
@@ -667,6 +989,14 @@ export default class FlashSaleService {
    * ==========================================================
    *
    * Soft delete campaign Flash Sale.
+   *
+   * Repository bertanggung jawab untuk:
+   *
+   * - CANCELLED
+   * - deletedAt
+   * - deactivate seluruh FlashSaleItem
+   *
+   * ==========================================================
    */
 
   static async delete(

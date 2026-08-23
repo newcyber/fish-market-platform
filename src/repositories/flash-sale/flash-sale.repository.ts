@@ -557,26 +557,100 @@ export default class FlashSaleRepository {
     });
   }
 
-  /**
-   * ============================================================
-   * ADMIN - SOFT DELETE FLASH SALE
-   * ============================================================
-   */
+ /**
+ * ============================================================
+ * ADMIN - SOFT DELETE FLASH SALE
+ * ============================================================
+ *
+ * Soft delete campaign sekaligus menonaktifkan seluruh item.
+ *
+ * Rules:
+ * - Campaign menjadi CANCELLED
+ * - Campaign diberi deletedAt
+ * - Semua FlashSaleItem menjadi isActive=false
+ *
+ * Menggunakan transaction agar campaign dan item
+ * tidak pernah berada dalam kondisi setengah berubah.
+ */
+static async softDelete(
+  id: string
+) {
+  return prisma.$transaction(
+    async (tx) => {
+      const flashSale =
+        await tx.flashSale.findFirst({
+          where: {
+            id,
+            deletedAt: null,
+          },
 
-  static async softDelete(
-    id: string
-  ) {
-    return prisma.flashSale.update({
-      where: {
-        id,
-      },
+          select: {
+            id: true,
+          },
+        });
 
-      data: {
-        deletedAt:
-          new Date(),
-      },
-    });
-  }
+      if (!flashSale) {
+        throw new Error(
+          "Flash Sale tidak ditemukan."
+        );
+      }
+
+            /**
+       * ========================================================
+       * RELEASE FLASH SALE QUOTA
+       * ========================================================
+       *
+       * Jika order menggunakan Flash Sale:
+       *
+       * - soldQuantity dikembalikan
+       * - FlashSalePurchase dihapus
+       * - perUserLimit otomatis kembali tersedia
+       *
+       * Semuanya masih berada dalam transaction yang sama.
+       */
+
+      await FlashSaleRepository.releasePurchasesByOrderId(
+        tx,
+        id
+      );
+
+      /**
+        * --------------------------------------------------------
+       * DEACTIVATE ALL ITEMS
+       * --------------------------------------------------------
+       */
+      await tx.flashSaleItem.updateMany({
+        where: {
+          flashSaleId: id,
+          isActive: true,
+        },
+
+        data: {
+          isActive: false,
+        },
+      });
+
+      /**
+       * --------------------------------------------------------
+       * CANCEL + SOFT DELETE CAMPAIGN
+       * --------------------------------------------------------
+       */
+
+      return tx.flashSale.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status:
+            FlashSaleStatus.CANCELLED,
+
+          deletedAt: new Date(),
+        },
+      });
+    }
+  );
+}
 
   /**
    * ============================================================
@@ -757,6 +831,160 @@ export default class FlashSaleRepository {
           true,
       },
     });
+  }
+
+    /**
+   * ============================================================
+   * FLASH SALE PURCHASE - RELEASE BY ORDER
+   * ============================================================
+   *
+   * Dipanggil ketika Order dibatalkan.
+   *
+   * Tujuan:
+   *
+   * 1. Mengembalikan quota Flash Sale.
+   * 2. Menghapus reservation FlashSalePurchase.
+   * 3. Membebaskan per-user limit.
+   *
+   * WAJIB menggunakan TransactionClient karena method ini
+   * harus menjadi bagian dari transaction Order cancellation.
+   *
+   * Semua operasi bersifat atomic.
+   */
+
+  static async releasePurchasesByOrderId(
+    tx: Prisma.TransactionClient,
+    orderId: string
+  ) {
+    if (!orderId) {
+      throw new Error(
+        "Order ID wajib diisi."
+      );
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * FIND FLASH SALE PURCHASES
+     * ----------------------------------------------------------
+     */
+
+    const purchases =
+      await tx.flashSalePurchase.findMany({
+        where: {
+          orderId,
+        },
+
+        select: {
+          id: true,
+
+          flashSaleItemId: true,
+
+          quantity: true,
+        },
+      });
+
+    /**
+     * ----------------------------------------------------------
+     * NOTHING TO RELEASE
+     * ----------------------------------------------------------
+     */
+
+    if (
+      purchases.length === 0
+    ) {
+      return {
+        releasedPurchases: 0,
+
+        releasedQuantity: 0,
+      };
+    }
+
+    let releasedQuantity = 0;
+
+    /**
+     * ----------------------------------------------------------
+     * RELEASE EACH FLASH SALE PURCHASE
+     * ----------------------------------------------------------
+     */
+
+    for (
+      const purchase of purchases
+    ) {
+      if (
+        purchase.quantity <= 0
+      ) {
+        throw new Error(
+          "Quantity Flash Sale tidak valid."
+        );
+      }
+
+      /**
+       * --------------------------------------------------------
+       * GUARDED SOLD QUANTITY DECREMENT
+       * --------------------------------------------------------
+       *
+       * Jangan pernah membiarkan soldQuantity menjadi negatif.
+       *
+       * Karena operasi berada di transaction yang sama dengan
+       * cancellation, kegagalan di sini akan menyebabkan seluruh
+       * cancellation rollback.
+       */
+
+      const updated =
+        await tx.flashSaleItem.updateMany({
+          where: {
+            id:
+              purchase.flashSaleItemId,
+
+            soldQuantity: {
+              gte:
+                purchase.quantity,
+            },
+          },
+
+          data: {
+            soldQuantity: {
+              decrement:
+                purchase.quantity,
+            },
+          },
+        });
+
+      if (
+        updated.count !== 1
+      ) {
+        throw new Error(
+          "Quota Flash Sale tidak dapat dikembalikan karena data sold quantity tidak konsisten."
+        );
+      }
+
+      releasedQuantity +=
+        purchase.quantity;
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * DELETE FLASH SALE PURCHASE RESERVATIONS
+     * ----------------------------------------------------------
+     *
+     * Order tetap menjadi histori transaksi.
+     *
+     * Yang dihapus hanya record konsumsi/reservasi Flash Sale
+     * karena order sudah dibatalkan.
+     */
+
+    await tx.flashSalePurchase.deleteMany({
+      where: {
+        orderId,
+      },
+    });
+
+    return {
+      releasedPurchases:
+        purchases.length,
+
+      releasedQuantity,
+    };
   }
 
   /**

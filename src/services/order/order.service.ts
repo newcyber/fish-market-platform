@@ -37,6 +37,8 @@ import shippingService from "@/services/shipping/shipping.service";
 
 import settingsService from "@/services/settings/settings.service";
 
+import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
+
 export interface OrderDashboardSummary {
   totalOrders: number;
   pendingPayments: number;
@@ -2835,10 +2837,31 @@ await VoucherLifecycleService.releaseForCancelledOrder(
   tx
 );
 
-      /**
-        * ========================================================
-        * UBAH STATUS MENJADI CANCELLED
-        * ========================================================
+/**
+ * ============================================================
+ * RELEASE FLASH SALE
+ * ============================================================
+ *
+ * Jika order memiliki item Flash Sale:
+ *
+ * - soldQuantity dikembalikan
+ * - FlashSalePurchase dihapus
+ * - per-user limit kembali tersedia
+ *
+ * Operasi menggunakan transaction client yang sama
+ * sehingga cancellation Order + stock + voucher +
+ * Flash Sale tetap atomic.
+ */
+
+await FlashSaleRepository.releasePurchasesByOrderId(
+  tx,
+  currentOrder.id
+);
+
+/**
+ * ============================================================
+ * UBAH STATUS MENJADI CANCELLED
+ * ============================================================
         *
         * Dilakukan setelah:
         *

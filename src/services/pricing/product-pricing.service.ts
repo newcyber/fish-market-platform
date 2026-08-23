@@ -12,35 +12,22 @@ import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository
  *
  * Single source of truth untuk seluruh perhitungan harga produk.
  *
- * Priority:
+ * PRIORITY:
  *
  * 1. Flash Sale
  * 2. Product Discount
  * 3. Normal Price
  *
- * Formula:
+ * NORMAL PRICE PRIORITY:
  *
- * Base Price
- * =
- * ProductWeightOption.price
- * OR
- * Product.price
+ * 1. ProductWeightVariantPrice
+ *    = harga spesifik kombinasi berat + varian
  *
- * Original Price
- * =
- * Base Price
- * +
- * ProductVariantOption.priceAdjustment
+ * 2. ProductWeightOption.price
+ *    +
+ *    ProductVariantOption.priceAdjustment
  *
- * Final Price
- * =
- *
- * Flash Sale Price
- * OR
- *
- * Original Price
- * -
- * Product Discount
+ * 3. Product.price
  *
  * ============================================================
  */
@@ -63,12 +50,6 @@ export interface ProductPricingResult {
 
   /**
    * Nominal diskon yang diterapkan.
-   *
-   * Jika Flash Sale aktif:
-   * originalPrice - flashPrice
-   *
-   * Jika Product Discount aktif:
-   * nominal discount product.
    */
   discountAmount: Prisma.Decimal;
 
@@ -153,6 +134,12 @@ export default class ProductPricingService {
      * ==========================================================
      * RESOLVE BASE PRICE
      * ==========================================================
+     *
+     * Fallback:
+     *
+     * ProductWeightOption.price
+     * OR
+     * Product.price
      */
 
     let basePrice =
@@ -212,14 +199,19 @@ export default class ProductPricingService {
 
     /**
      * ==========================================================
-     * RESOLVE VARIANT ADJUSTMENT
+     * RESOLVE VARIANT
      * ==========================================================
+     *
+     * Variant adjustment tetap digunakan
+     * sebagai fallback untuk produk lama.
      */
 
     let variantAdjustment =
-      new Prisma.Decimal(
-        0
-      );
+      new Prisma.Decimal(0);
+
+    let variantOptionId:
+      | string
+      | null = null;
 
     if (productVariant) {
       const variantOption =
@@ -249,23 +241,92 @@ export default class ProductPricingService {
         );
       }
 
+      variantOptionId =
+        variantOption.id;
+
       variantAdjustment =
         new Prisma.Decimal(
-          variantOption.priceAdjustment ??
-            0
+          variantOption.priceAdjustment ?? 0
         );
     }
 
     /**
      * ==========================================================
-     * CALCULATE ORIGINAL PRICE
+     * RESOLVE WEIGHT × VARIANT PRICE
      * ==========================================================
+     *
+     * PRIORITY:
+     *
+     * ProductWeightVariantPrice
+     *
+     * Contoh:
+     *
+     * Kakap 1 KG + Utuh
+     * = Rp100.000
+     *
+     * Kakap 1 KG + Dibersihkan
+     * = Rp105.000
+     *
+     * Kakap 2 KG + Utuh
+     * = Rp200.000
+     *
+     * Kakap 2 KG + Dibersihkan
+     * = Rp207.000
      */
 
-    const originalPrice =
+    let originalPrice =
       basePrice.plus(
         variantAdjustment
       );
+
+    let hasSpecificWeightVariantPrice =
+      false;
+
+    if (
+      weightOptionId &&
+      variantOptionId
+    ) {
+      const specificPrice =
+        await tx.productWeightVariantPrice.findUnique({
+          where: {
+            productId_weightOptionId_variantOptionId: {
+              productId,
+
+              weightOptionId,
+
+              variantOptionId,
+            },
+          },
+
+          select: {
+            price: true,
+          },
+        });
+
+      if (specificPrice) {
+        originalPrice =
+          new Prisma.Decimal(
+            specificPrice.price
+          );
+
+        hasSpecificWeightVariantPrice =
+          true;
+      }
+    }
+
+    /**
+     * ==========================================================
+     * VALIDATE ORIGINAL PRICE
+     * ==========================================================
+     */
+
+    if (
+      originalPrice.lessThan(0)
+    ) {
+      throw new Error(
+        "Harga normal produk tidak boleh kurang dari nol."
+      );
+    }
 
     /**
      * ==========================================================
@@ -287,140 +348,145 @@ export default class ProductPricingService {
       );
 
     /**
- * ==========================================================
- * RESOLVE FLASH SALE
- * ==========================================================
- *
- * Flash Sale memiliki prioritas lebih tinggi
- * daripada Product Discount.
- *
- * IMPORTANT:
- *
- * Flash Price adalah harga dasar Flash Sale.
- *
- * Variant adjustment tetap ditambahkan.
- *
- * Contoh:
- *
- * Flash Price       Rp10.000
- * Dibersihkan       +Rp5.000
- *
- * Final Price       Rp15.000
- */
+     * ==========================================================
+     * FLASH SALE
+     * ==========================================================
+     *
+     * Flash Sale Base Price
+     * +
+     * Variant Adjustment
+     *
+     * Untuk produk lama:
+     *
+     * weight price
+     * +
+     * variant adjustment
+     *
+     * Untuk produk dengan harga kombinasi:
+     *
+     * kita tetap gunakan variantAdjustment
+     * untuk menjaga kompatibilitas dengan
+     * mekanisme Flash Sale yang sudah ada.
+     */
 
-if (flashSaleItem) {
-  /**
-   * ========================================================
-   * FLASH SALE BASE PRICE
-   * ========================================================
-   */
-
-  const flashSaleBasePrice =
-    new Prisma.Decimal(
-      flashSaleItem.flashPrice
-    );
-
-
-  /**
-   * ========================================================
-   * VALIDATE FLASH SALE PRICE
-   * ========================================================
-   */
-
-  if (
-    flashSaleBasePrice.lessThan(0)
-  ) {
-    throw new Error(
-      "Harga Flash Sale tidak valid."
-    );
-  }
-
-
-  /**
-   * ========================================================
-   * APPLY VARIANT ADJUSTMENT
-   * ========================================================
-   *
-   * Harga akhir Flash Sale:
-   *
-   * Flash Sale Base Price
-   * +
-   * Variant Adjustment
-   */
-
-  const finalFlashPrice =
-    flashSaleBasePrice.plus(
-      variantAdjustment
-    );
-
-
-  /**
-   * ========================================================
-   * VALIDATE FINAL FLASH PRICE
-   * ========================================================
-   *
-   * Harga Flash Sale tidak boleh lebih besar
-   * dari harga normal kombinasi produk.
-   */
-
-  if (
-    finalFlashPrice.lessThanOrEqualTo(
-      originalPrice
-    )
-  ) {
-    const discountAmount =
-      originalPrice.minus(
-        finalFlashPrice
-      );
-
-    return {
+    if (flashSaleItem) {
       /**
-       * Harga normal:
+       * ========================================================
+       * FLASH SALE BASE PRICE
+       * ========================================================
+       */
+
+      const flashSaleBasePrice =
+        new Prisma.Decimal(
+          flashSaleItem.flashPrice
+        );
+
+      /**
+       * ========================================================
+       * VALIDATE FLASH SALE PRICE
+       * ========================================================
+       */
+
+      if (
+        flashSaleBasePrice.lessThan(0)
+      ) {
+        throw new Error(
+          "Harga Flash Sale tidak valid."
+        );
+      }
+
+      /**
+       * ========================================================
+       * APPLY VARIANT ADJUSTMENT
+       * ========================================================
        *
-       * Weight Price
-       * +
-       * Variant Adjustment
-       */
-
-      originalPrice,
-
-
-      /**
-       * Selisih harga normal dan Flash Sale.
-       */
-
-      discountAmount,
-
-
-      /**
-       * Harga akhir:
+       * Untuk kombinasi harga baru:
        *
-       * Flash Sale Base Price
-       * +
-       * Variant Adjustment
+       * specificPrice
+       * -
+       * basePrice
+       *
+       * digunakan sebagai effective adjustment.
+       *
+       * Contoh:
+       *
+       * Weight 2 KG:
+       * Base       = 200.000
+       * Dibersihkan = 207.000
+       *
+       * Effective adjustment:
+       *
+       * 207.000 - 200.000
+       * = 7.000
+       *
+       * Dengan begitu Flash Sale tetap
+       * mengikuti perbedaan harga varian.
        */
 
-      finalPrice:
-        finalFlashPrice,
+      let effectiveVariantAdjustment =
+        variantAdjustment;
 
+      if (
+        hasSpecificWeightVariantPrice
+      ) {
+        effectiveVariantAdjustment =
+          originalPrice.minus(
+            basePrice
+          );
+      }
 
-      isDiscountApplied:
-        false,
+      /**
+       * ========================================================
+       * FINAL FLASH SALE PRICE
+       * ========================================================
+       */
 
+      const finalFlashPrice =
+        flashSaleBasePrice.plus(
+          effectiveVariantAdjustment
+        );
 
-      isFlashSaleApplied:
-        true,
+      /**
+       * ========================================================
+       * VALIDATE FINAL FLASH PRICE
+       * ========================================================
+       *
+       * Flash Sale tidak boleh lebih mahal
+       * daripada harga normal kombinasi.
+       */
 
+      if (
+        finalFlashPrice.lessThanOrEqualTo(
+          originalPrice
+        )
+      ) {
+        const discountAmount =
+          originalPrice.minus(
+            finalFlashPrice
+          );
 
-      flashSaleItemId:
-        flashSaleItem.id,
+        return {
+          originalPrice,
 
+          discountAmount,
 
-      flashSaleId:
-        flashSaleItem.flashSaleId,
-    };
-  }
-}
+          finalPrice:
+            finalFlashPrice,
+
+          isDiscountApplied:
+            false,
+
+          isFlashSaleApplied:
+            true,
+
+          flashSaleItemId:
+            flashSaleItem.id,
+
+          flashSaleId:
+            flashSaleItem.flashSaleId,
+        };
+      }
+    }
 
     /**
      * ==========================================================
@@ -432,9 +498,7 @@ if (flashSaleItem) {
       new Date();
 
     let discountAmount =
-      new Prisma.Decimal(
-        0
-      );
+      new Prisma.Decimal(0);
 
     let isDiscountApplied =
       false;
@@ -480,8 +544,10 @@ if (flashSaleItem) {
         const percentage =
           Prisma.Decimal.max(
             new Prisma.Decimal(0),
+
             Prisma.Decimal.min(
               discountValue,
+
               new Prisma.Decimal(100)
             )
           );
@@ -505,25 +571,29 @@ if (flashSaleItem) {
         discountAmount =
           Prisma.Decimal.max(
             new Prisma.Decimal(0),
+
             discountValue
           );
       }
 
       /**
+       * --------------------------------------------------------
+       * LIMIT DISCOUNT
+       * --------------------------------------------------------
+       *
        * Discount tidak boleh lebih besar
-       * dari harga asli produk.
+       * dari harga asli kombinasi.
        */
 
       discountAmount =
         Prisma.Decimal.min(
           discountAmount,
+
           originalPrice
         );
 
       isDiscountApplied =
-        discountAmount.greaterThan(
-          0
-        );
+        discountAmount.greaterThan(0);
     }
 
     /**
@@ -544,6 +614,12 @@ if (flashSaleItem) {
         "Harga final produk tidak boleh kurang dari nol."
       );
     }
+
+    /**
+     * ==========================================================
+     * RETURN RESULT
+     * ==========================================================
+     */
 
     return {
       originalPrice,

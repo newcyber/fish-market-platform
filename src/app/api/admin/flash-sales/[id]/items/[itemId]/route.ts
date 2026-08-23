@@ -4,12 +4,14 @@ import {
 } from "next/server";
 
 import {
-  prisma,
-} from "@/lib/prisma";
+  requireAdmin,
+} from "@/lib/auth/admin";
+
+import FlashSaleItemService from "@/services/flash-sale/flash-sale-item.service";
 
 /**
  * ============================================================
- * PARAMS
+ * ROUTE CONTEXT
  * ============================================================
  */
 
@@ -19,6 +21,64 @@ interface RouteContext {
 
     itemId: string;
   }>;
+}
+
+/**
+ * ============================================================
+ * ERROR RESPONSE
+ * ============================================================
+ */
+
+function getErrorResponse(
+  error: unknown
+) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Terjadi kesalahan pada item Flash Sale.";
+
+  /**
+   * ----------------------------------------------------------
+   * NOT FOUND
+   * ----------------------------------------------------------
+   */
+
+  if (
+    message ===
+      "Flash Sale tidak ditemukan." ||
+    message ===
+      "Item Flash Sale tidak ditemukan." ||
+    message ===
+      "Produk tidak ditemukan."
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+
+        message,
+      },
+      {
+        status: 404,
+      }
+    );
+  }
+
+  /**
+   * ----------------------------------------------------------
+   * BUSINESS VALIDATION
+   * ----------------------------------------------------------
+   */
+
+  return NextResponse.json(
+    {
+      success: false,
+
+      message,
+    },
+    {
+      status: 400,
+    }
+  );
 }
 
 /**
@@ -33,274 +93,102 @@ export async function PATCH(
   context: RouteContext
 ) {
   try {
+    /**
+     * --------------------------------------------------------
+     * ADMIN AUTHORIZATION
+     * --------------------------------------------------------
+     */
+
+    await requireAdmin();
+
     const {
       id: flashSaleId,
+
       itemId,
     } = await context.params;
+
+    if (
+      !flashSaleId?.trim() ||
+      !itemId?.trim()
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Flash Sale ID dan Item ID wajib diisi.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * PARSE BODY
+     * --------------------------------------------------------
+     */
 
     const body =
       await request.json();
 
+    if (
+      !body ||
+      typeof body !==
+        "object" ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Request body tidak valid.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     const {
+      productId,
+
+      weightOptionId,
+
+      originalPrice,
+
       flashPrice,
+
       stockLimit,
+
       perUserLimit,
+
       sortOrder,
+
       isActive,
-    } = body;
+    } =
+      body as Record<
+        string,
+        unknown
+      >;
 
     /**
-     * ==========================================================
-     * FIND EXISTING ITEM
-     * ==========================================================
+     * --------------------------------------------------------
+     * NORMALIZE INPUT
+     * --------------------------------------------------------
      */
 
-    const existingItem =
-      await prisma.flashSaleItem.findFirst({
-        where: {
-          id: itemId,
+    const input: {
+      productId?: string;
 
-          flashSaleId,
-        },
+      weightOptionId?:
+        | string
+        | null;
 
-        select: {
-          id: true,
+      originalPrice?: number;
 
-          originalPrice: true,
-
-          flashPrice: true,
-
-          stockLimit: true,
-
-          soldQuantity: true,
-
-          perUserLimit: true,
-
-          sortOrder: true,
-
-          isActive: true,
-        },
-      });
-
-    if (!existingItem) {
-      return NextResponse.json(
-        {
-          message:
-            "Item Flash Sale tidak ditemukan.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * RESOLVE FINAL VALUES
-     * ==========================================================
-     *
-     * Nilai final digunakan untuk validasi relasi
-     * antar-field.
-     *
-     * Jika suatu field tidak dikirim, gunakan
-     * nilai lama dari database.
-     */
-
-    const finalFlashPrice =
-      flashPrice !== undefined
-        ? Number(flashPrice)
-        : Number(
-            existingItem.flashPrice
-          );
-
-    const finalStockLimit =
-      stockLimit !== undefined
-        ? Number(stockLimit)
-        : existingItem.stockLimit;
-
-    const finalPerUserLimit =
-      perUserLimit !== undefined
-        ? Number(perUserLimit)
-        : existingItem.perUserLimit;
-
-    const finalSortOrder =
-      sortOrder !== undefined
-        ? Number(sortOrder)
-        : existingItem.sortOrder;
-
-    /**
-     * ==========================================================
-     * VALIDATE FLASH PRICE
-     * ==========================================================
-     */
-
-    if (
-      !Number.isFinite(
-        finalFlashPrice
-      ) ||
-      finalFlashPrice < 0
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Harga Flash Sale tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
-      finalFlashPrice >=
-      Number(
-        existingItem.originalPrice
-      )
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Harga Flash Sale harus lebih rendah dari harga normal.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * VALIDATE STOCK LIMIT
-     * ==========================================================
-     */
-
-    if (
-      !Number.isInteger(
-        finalStockLimit
-      ) ||
-      finalStockLimit < 1
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Stock limit minimal adalah 1.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * PREVENT STOCK BELOW SOLD QUANTITY
-     * ==========================================================
-     */
-
-    if (
-      finalStockLimit <
-      existingItem.soldQuantity
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            `Stock limit tidak boleh lebih kecil dari jumlah yang sudah terjual (${existingItem.soldQuantity}).`,
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * VALIDATE PER USER LIMIT
-     * ==========================================================
-     */
-
-    if (
-      finalPerUserLimit === null ||
-      finalPerUserLimit === undefined
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Batas pembelian per user tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
-      !Number.isInteger(
-        finalPerUserLimit
-      ) ||
-      finalPerUserLimit < 1
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Batas pembelian per user minimal adalah 1.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * PREVENT PER USER LIMIT ABOVE STOCK
-     * ==========================================================
-     */
-
-    if (
-      finalPerUserLimit >
-      finalStockLimit
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Batas pembelian per user tidak boleh lebih besar dari stock limit.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * VALIDATE SORT ORDER
-     * ==========================================================
-     */
-
-    if (
-      !Number.isInteger(
-        finalSortOrder
-      ) ||
-      finalSortOrder < 0
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Sort order tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * BUILD UPDATE DATA
-     * ==========================================================
-     */
-
-    const data: {
       flashPrice?: number;
 
       stockLimit?: number;
@@ -312,98 +200,291 @@ export async function PATCH(
       isActive?: boolean;
     } = {};
 
-    if (
-      flashPrice !== undefined
-    ) {
-      data.flashPrice =
-        finalFlashPrice;
-    }
+    /**
+     * PRODUCT
+     */
 
     if (
-      stockLimit !== undefined
+      productId !==
+      undefined
     ) {
-      data.stockLimit =
-        finalStockLimit;
+      if (
+        typeof productId !==
+        "string"
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Product ID tidak valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.productId =
+        productId.trim();
     }
 
-    if (
-      perUserLimit !== undefined
-    ) {
-      data.perUserLimit =
-        finalPerUserLimit;
-    }
+    /**
+     * WEIGHT
+     */
 
     if (
-      sortOrder !== undefined
+      weightOptionId !==
+      undefined
     ) {
-      data.sortOrder =
-        finalSortOrder;
+      if (
+        weightOptionId !==
+          null &&
+        typeof weightOptionId !==
+          "string"
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Weight option ID tidak valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.weightOptionId =
+        weightOptionId ===
+          null
+          ? null
+          : weightOptionId.trim() ||
+            null;
     }
 
+    /**
+     * ORIGINAL PRICE
+     */
+
     if (
-      typeof isActive ===
-      "boolean"
+      originalPrice !==
+      undefined
     ) {
-      data.isActive =
+      const value =
+        Number(
+          originalPrice
+        );
+
+      if (
+        !Number.isFinite(
+          value
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Harga normal tidak valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.originalPrice =
+        value;
+    }
+
+    /**
+     * FLASH PRICE
+     */
+
+    if (
+      flashPrice !==
+      undefined
+    ) {
+      const value =
+        Number(
+          flashPrice
+        );
+
+      if (
+        !Number.isFinite(
+          value
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Harga Flash Sale tidak valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.flashPrice =
+        value;
+    }
+
+    /**
+     * STOCK LIMIT
+     */
+
+    if (
+      stockLimit !==
+      undefined
+    ) {
+      const value =
+        Number(
+          stockLimit
+        );
+
+      if (
+        !Number.isInteger(
+          value
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Stock limit harus berupa angka bulat.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.stockLimit =
+        value;
+    }
+
+    /**
+     * PER USER LIMIT
+     */
+
+    if (
+      perUserLimit !==
+      undefined
+    ) {
+      const value =
+        Number(
+          perUserLimit
+        );
+
+      if (
+        !Number.isInteger(
+          value
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Per user limit harus berupa angka bulat.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.perUserLimit =
+        value;
+    }
+
+    /**
+     * SORT ORDER
+     */
+
+    if (
+      sortOrder !==
+      undefined
+    ) {
+      const value =
+        Number(
+          sortOrder
+        );
+
+      if (
+        !Number.isInteger(
+          value
+        )
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Sort order harus berupa angka bulat.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.sortOrder =
+        value;
+    }
+
+    /**
+     * ACTIVE
+     */
+
+    if (
+      isActive !==
+      undefined
+    ) {
+      if (
+        typeof isActive !==
+        "boolean"
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Status aktif item tidak valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.isActive =
         isActive;
     }
 
     /**
-     * ==========================================================
-     * CHECK UPDATE DATA
-     * ==========================================================
-     */
-
-    if (
-      Object.keys(data).length ===
-      0
-    ) {
-      return NextResponse.json(
-        {
-          message:
-            "Tidak ada data yang diperbarui.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * UPDATE ITEM
-     * ==========================================================
+     * --------------------------------------------------------
+     * UPDATE VIA SERVICE
+     * --------------------------------------------------------
      */
 
     const item =
-      await prisma.flashSaleItem.update({
-        where: {
-          id: itemId,
-        },
-
-        data,
-
-        include: {
-          product: {
-            select: {
-              id: true,
-
-              name: true,
-            },
-          },
-
-          weightOption: {
-            select: {
-              id: true,
-
-              label: true,
-            },
-          },
-        },
-      });
+      await FlashSaleItemService.update(
+        flashSaleId,
+        itemId,
+        input
+      );
 
     return NextResponse.json(
       {
+        success: true,
+
         message:
           "Item Flash Sale berhasil diperbarui.",
 
@@ -413,20 +494,16 @@ export async function PATCH(
         status: 200,
       }
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "[FLASH_SALE_ITEM_PATCH]",
       error
     );
 
-    return NextResponse.json(
-      {
-        message:
-          "Terjadi kesalahan saat memperbarui item Flash Sale.",
-      },
-      {
-        status: 500,
-      }
+    return getErrorResponse(
+      error
     );
   }
 }
@@ -443,61 +520,30 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
+    /**
+     * --------------------------------------------------------
+     * ADMIN AUTHORIZATION
+     * --------------------------------------------------------
+     */
+
+    await requireAdmin();
+
     const {
       id: flashSaleId,
+
       itemId,
     } = await context.params;
 
-    /**
-     * ==========================================================
-     * CHECK ITEM
-     * ==========================================================
-     */
-
-    const existingItem =
-      await prisma.flashSaleItem.findFirst({
-        where: {
-          id: itemId,
-
-          flashSaleId,
-        },
-
-        select: {
-          id: true,
-
-          soldQuantity: true,
-        },
-      });
-
-    if (!existingItem) {
-      return NextResponse.json(
-        {
-          message:
-            "Item Flash Sale tidak ditemukan.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    /**
-     * ==========================================================
-     * SAFETY CHECK
-     * ==========================================================
-     *
-     * Item yang sudah memiliki penjualan
-     * tidak boleh dihapus agar histori
-     * Flash Sale tetap konsisten.
-     */
-
     if (
-      existingItem.soldQuantity > 0
+      !flashSaleId?.trim() ||
+      !itemId?.trim()
     ) {
       return NextResponse.json(
         {
+          success: false,
+
           message:
-            "Item yang sudah memiliki penjualan tidak dapat dihapus. Nonaktifkan item jika ingin menghentikan Flash Sale.",
+            "Flash Sale ID dan Item ID wajib diisi.",
         },
         {
           status: 400,
@@ -506,19 +552,27 @@ export async function DELETE(
     }
 
     /**
-     * ==========================================================
-     * DELETE
-     * ==========================================================
+     * --------------------------------------------------------
+     * DELETE VIA SERVICE
+     * --------------------------------------------------------
+     *
+     * Service akan:
+     *
+     * 1. memastikan item milik campaign
+     * 2. mengecek purchase history
+     * 3. menolak hard delete jika sudah pernah dibeli
+     * 4. melakukan delete jika aman
      */
 
-    await prisma.flashSaleItem.delete({
-      where: {
-        id: itemId,
-      },
-    });
+    await FlashSaleItemService.delete(
+      flashSaleId,
+      itemId
+    );
 
     return NextResponse.json(
       {
+        success: true,
+
         message:
           "Item Flash Sale berhasil dihapus.",
       },
@@ -526,20 +580,16 @@ export async function DELETE(
         status: 200,
       }
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "[FLASH_SALE_ITEM_DELETE]",
       error
     );
 
-    return NextResponse.json(
-      {
-        message:
-          "Terjadi kesalahan saat menghapus item Flash Sale.",
-      },
-      {
-        status: 500,
-      }
+    return getErrorResponse(
+      error
     );
   }
 }

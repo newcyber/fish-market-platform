@@ -85,7 +85,10 @@ interface CategoryOption {
  */
 
 export interface ProductVariantOptionValue {
+  id?: string;
+
   label: string;
+
   priceAdjustment: number;
 }
 
@@ -103,7 +106,22 @@ export interface ProductVariantOptionValue {
  */
 
 export interface ProductWeightOptionValue {
+  id?: string;
+
   label: string;
+
+  price: number;
+}
+
+/**
+ * ============================================================
+ * PRODUCT WEIGHT × VARIANT PRICE
+ * ============================================================
+ */
+
+export interface ProductWeightVariantPriceValue {
+  weightLabel: string;
+  variantLabel: string;
   price: number;
 }
 
@@ -165,6 +183,9 @@ export interface ProductFormValues {
   weightOptions:
     ProductWeightOptionValue[];
 
+  weightVariantPrices:
+    ProductWeightVariantPriceValue[];
+
   isPublished: boolean;
 
   featured: boolean;
@@ -184,6 +205,7 @@ interface ProductFormProps {
       ProductFormValues,
       | "variantOptions"
       | "weightOptions"
+      | "weightVariantPrices"
     >
   > & {
     /**
@@ -223,6 +245,14 @@ interface ProductFormProps {
     weightOptions?:
       | ProductWeightOptionValue[]
       | string[];
+
+    weightVariantPrices?:
+      | ProductWeightVariantPriceValue[]
+      | Array<{
+          weightLabel: string;
+          variantLabel: string;
+          price: number;
+        }>;
   };
 
   submitLabel?: string;
@@ -288,6 +318,14 @@ const defaultWeightOptions:
  * ============================================================
  * NORMALIZE VARIANT OPTIONS
  * ============================================================
+ *
+ * Tujuan:
+ *
+ * - Mempertahankan ID option lama dari database.
+ * - Mendukung option baru tanpa ID.
+ * - Mendukung format lama berupa string.
+ * - Membersihkan label.
+ * - Menormalisasi priceAdjustment.
  */
 
 function normalizeVariantOptions(
@@ -309,12 +347,6 @@ function normalizeVariantOptions(
 
   return options.map(
     (option) => {
-      /**
-       * Support format lama:
-       *
-       * "Utuh"
-       */
-
       if (
         typeof option === "string"
       ) {
@@ -324,28 +356,18 @@ function normalizeVariantOptions(
         };
       }
 
-      /**
-       * Format baru.
-       */
-
-      const parsedAdjustment =
-        Number(
-          option.priceAdjustment ?? 0
-        );
-
       return {
+        id: option.id,
+
         label:
-          option.label ?? "",
+          String(
+            option.label ?? ""
+          ).trim(),
 
         priceAdjustment:
-          Number.isFinite(
-            parsedAdjustment
-          )
-            ? Math.max(
-                0,
-                parsedAdjustment
-              )
-            : 0,
+          Number(
+            option.priceAdjustment ?? 0
+          ),
       };
     }
   );
@@ -355,6 +377,14 @@ function normalizeVariantOptions(
  * ============================================================
  * NORMALIZE WEIGHT OPTIONS
  * ============================================================
+ *
+ * Tujuan:
+ *
+ * - Mempertahankan ID weight lama dari database.
+ * - Mendukung weight baru tanpa ID.
+ * - Mendukung format lama berupa string.
+ * - Membersihkan label.
+ * - Menormalisasi harga.
  */
 
 function normalizeWeightOptions(
@@ -376,10 +406,6 @@ function normalizeWeightOptions(
 
   return options.map(
     (option) => {
-      /**
-       * Support format lama.
-       */
-
       if (
         typeof option === "string"
       ) {
@@ -389,27 +415,74 @@ function normalizeWeightOptions(
         };
       }
 
-      const parsedPrice =
-        Number(
-          option.price ?? 0
-        );
-
       return {
+        id: option.id,
+
         label:
-          option.label ?? "",
+          String(
+            option.label ?? ""
+          ).trim(),
 
         price:
-          Number.isFinite(
-            parsedPrice
-          )
-            ? Math.max(
-                0,
-                parsedPrice
-              )
-            : 0,
+          Number(
+            option.price ?? 0
+          ),
       };
     }
   );
+}
+
+/**
+ * ============================================================
+ * NORMALIZE WEIGHT × VARIANT PRICES
+ * ============================================================
+ */
+
+function normalizeWeightVariantPrices(
+  options:
+    | ProductWeightVariantPriceValue[]
+    | undefined
+): ProductWeightVariantPriceValue[] {
+  if (!options || options.length === 0) {
+    return [];
+  }
+
+  return options
+    .map((option) => {
+      const price = Number(option.price ?? 0);
+
+      return {
+        weightLabel: String(
+          option.weightLabel ?? ""
+        ).trim(),
+        variantLabel: String(
+          option.variantLabel ?? ""
+        ).trim(),
+        price:
+          Number.isFinite(price)
+            ? Math.max(0, price)
+            : 0,
+      };
+    })
+    .filter(
+      (option) =>
+        option.weightLabel.length > 0 &&
+        option.variantLabel.length > 0
+    );
+}
+
+/**
+ * ============================================================
+ * PRICE FORMATTER
+ * ============================================================
+ */
+
+function formatRupiah(value: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
 }
 
 /**
@@ -570,6 +643,11 @@ export function ProductForm({
           defaultValues?.weightOptions
         ),
 
+      weightVariantPrices:
+        normalizeWeightVariantPrices(
+          defaultValues?.weightVariantPrices
+        ),
+
       isPublished:
         defaultValues?.isPublished ??
         true,
@@ -719,16 +797,16 @@ export function ProductForm({
     index: number,
     value: string
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
+    setForm((previous) => {
+      const oldLabel =
+        previous.variantOptions[index]
+          ?.label ?? "";
 
+      return {
+        ...previous,
         variantOptions:
           previous.variantOptions.map(
-            (
-              item,
-              itemIndex
-            ) =>
+            (item, itemIndex) =>
               itemIndex === index
                 ? {
                     ...item,
@@ -736,8 +814,18 @@ export function ProductForm({
                   }
                 : item
           ),
-      })
-    );
+        weightVariantPrices:
+          previous.weightVariantPrices.map(
+            (entry) =>
+              entry.variantLabel === oldLabel
+                ? {
+                    ...entry,
+                    variantLabel: value,
+                  }
+                : entry
+          ),
+      };
+    });
   };
 
   const updateVariantPriceAdjustment = (
@@ -789,20 +877,26 @@ export function ProductForm({
   const removeVariant = (
     index: number
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
+    setForm((previous) => {
+      const removedLabel =
+        previous.variantOptions[index]
+          ?.label ?? "";
 
+      return {
+        ...previous,
         variantOptions:
           previous.variantOptions.filter(
-            (
-              _item,
-              itemIndex
-            ) =>
+            (_item, itemIndex) =>
               itemIndex !== index
           ),
-      })
-    );
+        weightVariantPrices:
+          previous.weightVariantPrices.filter(
+            (entry) =>
+              entry.variantLabel !==
+              removedLabel
+          ),
+      };
+    });
   };
 
   const addVariant = () => {
@@ -831,16 +925,16 @@ export function ProductForm({
     index: number,
     value: string
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
+    setForm((previous) => {
+      const oldLabel =
+        previous.weightOptions[index]
+          ?.label ?? "";
 
+      return {
+        ...previous,
         weightOptions:
           previous.weightOptions.map(
-            (
-              item,
-              itemIndex
-            ) =>
+            (item, itemIndex) =>
               itemIndex === index
                 ? {
                     ...item,
@@ -848,8 +942,18 @@ export function ProductForm({
                   }
                 : item
           ),
-      })
-    );
+        weightVariantPrices:
+          previous.weightVariantPrices.map(
+            (entry) =>
+              entry.weightLabel === oldLabel
+                ? {
+                    ...entry,
+                    weightLabel: value,
+                  }
+                : entry
+          ),
+      };
+    });
   };
 
   const updateWeightPrice = (
@@ -900,20 +1004,26 @@ export function ProductForm({
   const removeWeight = (
     index: number
   ) => {
-    setForm(
-      (previous) => ({
-        ...previous,
+    setForm((previous) => {
+      const removedLabel =
+        previous.weightOptions[index]
+          ?.label ?? "";
 
+      return {
+        ...previous,
         weightOptions:
           previous.weightOptions.filter(
-            (
-              _item,
-              itemIndex
-            ) =>
+            (_item, itemIndex) =>
               itemIndex !== index
           ),
-      })
-    );
+        weightVariantPrices:
+          previous.weightVariantPrices.filter(
+            (entry) =>
+              entry.weightLabel !==
+              removedLabel
+          ),
+      };
+    });
   };
 
   const addWeight = () => {
@@ -931,6 +1041,85 @@ export function ProductForm({
       })
     );
   };
+
+  /**
+   * ==========================================================
+   * WEIGHT × VARIANT PRICE HELPERS
+   * ==========================================================
+   */
+
+  const getMatrixPrice = (
+    weightLabel: string,
+    variantLabel: string
+  ): number => {
+    const item =
+      form.weightVariantPrices.find(
+        (entry) =>
+          entry.weightLabel === weightLabel &&
+          entry.variantLabel === variantLabel
+      );
+
+    return item?.price ?? 0;
+  };
+
+  const updateMatrixPrice = (
+    weightLabel: string,
+    variantLabel: string,
+    value: string
+  ) => {
+    const normalized = value.trim();
+
+    const parsed =
+      normalized === ""
+        ? 0
+        : Number(normalized);
+
+    const price =
+      Number.isFinite(parsed)
+        ? Math.max(0, parsed)
+        : 0;
+
+    setForm((previous) => {
+      const existingIndex =
+        previous.weightVariantPrices.findIndex(
+          (entry) =>
+            entry.weightLabel === weightLabel &&
+            entry.variantLabel === variantLabel
+        );
+
+      const nextPrices = [
+        ...previous.weightVariantPrices,
+      ];
+
+      if (existingIndex >= 0) {
+        nextPrices[existingIndex] = {
+          ...nextPrices[existingIndex],
+          price,
+        };
+      } else {
+        nextPrices.push({
+          weightLabel,
+          variantLabel,
+          price,
+        });
+      }
+
+      return {
+        ...previous,
+        weightVariantPrices:
+          nextPrices,
+      };
+    });
+  };
+
+  const buildWeightVariantPricesPayload =
+    (): ProductWeightVariantPriceValue[] => {
+      return form.weightVariantPrices.filter(
+        (entry) =>
+          entry.weightLabel.trim() &&
+          entry.variantLabel.trim()
+      );
+    };
 
   /**
    * ==========================================================
@@ -1832,7 +2021,13 @@ export function ProductForm({
                     >
                       Nama Varian
                     </Label>
-
+{variant.id && (
+  <input
+    type="hidden"
+    name="variantOptionIds"
+    value={variant.id}
+  />
+)}
                     <Input
                       id={`variant-label-${index}`}
                       name="variantOptions"
@@ -1961,7 +2156,13 @@ export function ProductForm({
                     >
                       Berat
                     </Label>
-
+{weight.id && (
+  <input
+    type="hidden"
+    name="weightOptionIds"
+    value={weight.id}
+  />
+)}
                     <Input
                       id={`weight-label-${index}`}
                       name="weightOptions"
@@ -2034,6 +2235,285 @@ export function ProductForm({
             )
           )}
         </div>
+      </Card>
+
+      {/* ====================================================== */}
+      {/* HARGA BERAT × VARIAN */}
+      {/* ====================================================== */}
+
+      <Card className="space-y-6 p-6">
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">
+                Harga Berat × Varian
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Atur harga khusus untuk setiap kombinasi
+                berat dan varian. Kosongkan kombinasi
+                jika ingin menggunakan harga fallback.
+              </p>
+            </div>
+
+            <div className="hidden rounded-full border bg-muted/40 px-3 py-1 text-xs font-medium sm:block">
+              {form.weightOptions.length} berat ×{" "}
+              {form.variantOptions.length} varian
+            </div>
+          </div>
+        </div>
+
+        {form.weightOptions.length === 0 ||
+        form.variantOptions.length === 0 ? (
+          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Tambahkan minimal satu pilihan berat dan
+            satu varian untuk mengatur harga kombinasi.
+          </div>
+        ) : (
+          <>
+            {/* Desktop / tablet matrix */}
+            <div className="hidden overflow-x-auto rounded-xl border md:block">
+              <table className="w-full min-w-[680px] border-collapse">
+                <thead>
+                  <tr className="bg-muted/40">
+                    <th className="sticky left-0 z-10 min-w-[150px] border-b border-r bg-muted/40 px-4 py-3 text-left text-sm font-semibold">
+                      Berat
+                    </th>
+
+                    {form.variantOptions.map(
+                      (variant, variantIndex) => (
+                        <th
+                          key={`matrix-header-${variantIndex}-${variant.label}`}
+                          className="min-w-[210px] border-b px-4 py-3 text-left text-sm font-semibold"
+                        >
+                          <div className="truncate">
+                            {variant.label ||
+                              `Varian ${variantIndex + 1}`}
+                          </div>
+
+                          <div className="mt-0.5 text-xs font-normal text-muted-foreground">
+                            Harga khusus
+                          </div>
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {form.weightOptions.map(
+                    (weight, weightIndex) => (
+                      <tr
+                        key={`matrix-row-${weightIndex}-${weight.label}`}
+                        className="transition-colors hover:bg-muted/20"
+                      >
+                        <td className="sticky left-0 z-10 border-r bg-background px-4 py-4 align-top">
+                          <div className="font-medium">
+                            {weight.label ||
+                              `Berat ${weightIndex + 1}`}
+                          </div>
+
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Fallback:{" "}
+                            {formatRupiah(
+                              weight.price
+                            )}
+                          </div>
+                        </td>
+
+                        {form.variantOptions.map(
+                          (
+                            variant,
+                            variantIndex
+                          ) => {
+                            const matrixPrice =
+                              getMatrixPrice(
+                                weight.label,
+                                variant.label
+                              );
+
+                            return (
+                              <td
+                                key={`matrix-cell-${weightIndex}-${variantIndex}`}
+                                className="border-b px-4 py-4 align-top"
+                              >
+                                <div className="space-y-2">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={
+                                      matrixPrice || ""
+                                    }
+                                    placeholder={String(
+                                      weight.price
+                                    )}
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      updateMatrixPrice(
+                                        weight.label,
+                                        variant.label,
+                                        event.target
+                                          .value
+                                      )
+                                    }
+                                    aria-label={`Harga ${weight.label} ${variant.label}`}
+                                  />
+
+                                  <div className="text-xs text-muted-foreground">
+                                    {matrixPrice > 0
+                                      ? formatRupiah(
+                                          matrixPrice
+                                        )
+                                      : "Fallback aktif"}
+                                  </div>
+                                </div>
+                              </td>
+                            );
+                          }
+                        )}
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile matrix */}
+            <div className="space-y-4 md:hidden">
+              {form.weightOptions.map(
+                (weight, weightIndex) => (
+                  <div
+                    key={`mobile-matrix-${weightIndex}-${weight.label}`}
+                    className="rounded-xl border bg-background p-4 shadow-sm"
+                  >
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">
+                          {weight.label ||
+                            `Berat ${weightIndex + 1}`}
+                        </div>
+
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Fallback:{" "}
+                          {formatRupiah(
+                            weight.price
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium">
+                        {form.variantOptions.length} varian
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {form.variantOptions.map(
+                        (
+                          variant,
+                          variantIndex
+                        ) => {
+                          const matrixPrice =
+                            getMatrixPrice(
+                              weight.label,
+                              variant.label
+                            );
+
+                          return (
+                            <div
+                              key={`mobile-matrix-cell-${weightIndex}-${variantIndex}`}
+                              className="rounded-lg border bg-muted/20 p-3"
+                            >
+                              <div className="mb-2 flex items-center justify-between gap-3">
+                                <span className="text-sm font-medium">
+                                  {variant.label ||
+                                    `Varian ${
+                                      variantIndex + 1
+                                    }`}
+                                </span>
+
+                                <span className="text-[11px] text-muted-foreground">
+                                  {matrixPrice > 0
+                                    ? "Harga khusus"
+                                    : "Fallback"}
+                                </span>
+                              </div>
+
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={
+                                  matrixPrice || ""
+                                }
+                                placeholder={String(
+                                  weight.price
+                                )}
+                                onChange={(
+                                  event
+                                ) =>
+                                  updateMatrixPrice(
+                                    weight.label,
+                                    variant.label,
+                                    event.target
+                                      .value
+                                  )
+                                }
+                                aria-label={`Harga ${weight.label} ${variant.label}`}
+                              />
+
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                {matrixPrice > 0
+                                  ? formatRupiah(
+                                      matrixPrice
+                                    )
+                                  : `Fallback ${formatRupiah(
+                                      weight.price
+                                    )}`}
+                              </div>
+                            </div>
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+
+            <div className="rounded-xl border bg-muted/30 p-4">
+              <div className="flex gap-3">
+                <div className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <p>
+                    <strong className="text-foreground">
+                      Harga khusus
+                    </strong>{" "}
+                    akan digunakan jika nilainya diisi.
+                  </p>
+
+                  <p>
+                    Jika kosong, sistem menggunakan
+                    harga berat sebagai fallback dan
+                    kemudian menerapkan penyesuaian
+                    varian sesuai pricing engine.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        <input
+          type="hidden"
+          name="weightVariantPrices"
+          value={JSON.stringify(
+            buildWeightVariantPricesPayload()
+          )}
+          readOnly
+        />
       </Card>
 
       {/* ====================================================== */}

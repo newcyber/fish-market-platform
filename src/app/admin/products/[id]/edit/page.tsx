@@ -160,6 +160,8 @@ export default async function EditProductPage({
   const variantOptions =
   product.variantOptions.map(
     (option) => ({
+      id: option.id,
+
       label: option.label,
 
       priceAdjustment:
@@ -196,17 +198,32 @@ export default async function EditProductPage({
    */
 
   const weightOptions =
-    product.weightOptions.map(
-      (option) => ({
-        label:
-          option.label,
+  product.weightOptions.map(
+    (option) => ({
+      id: option.id,
 
-        price:
-          Number(
-            option.price
-          ),
-      })
-    );
+      label: option.label,
+
+      price:
+        Number(
+          option.price
+        ),
+    })
+  );
+
+    const weightVariantPrices =
+  product.weightVariantPrices.map(
+    (item) => ({
+      weightLabel:
+        item.weightOption.label,
+
+      variantLabel:
+        item.variantOption.label,
+
+      price:
+        Number(item.price),
+    })
+  );
 
   /**
    * ==========================================================
@@ -294,107 +311,65 @@ export default async function EditProductPage({
         }
 
         defaultValues={{
-          /**
-           * CATEGORY
-           */
+  categoryId: product.categoryId,
 
-          categoryId:
-            product.categoryId,
+  name: product.name,
 
-          /**
-           * BASIC INFORMATION
-           */
+  slug: product.slug,
 
-          name:
-            product.name,
+  description:
+    product.description ?? "",
 
-          slug:
-            product.slug,
+  sku:
+    product.sku ?? "",
 
-          description:
-            product.description ??
-            "",
+  price:
+    Number(product.price),
 
-          sku:
-            product.sku ??
-            "",
+  isDiscountActive:
+    product.isDiscountActive,
 
-          /**
-           * BASE PRICE
-           */
+  discountType:
+    product.discountType ?? "",
 
-          price:
-            Number(
-              product.price
-            ),
+  discountValue:
+    product.discountValue !== null
+      ? Number(product.discountValue)
+      : "",
 
-            /**
- * ==========================================================
- * PRODUCT DISCOUNT
- * ==========================================================
- */
+  discountStartAt:
+    product.discountStartAt
+      ? new Date(
+          product.discountStartAt
+        )
+          .toISOString()
+          .slice(0, 16)
+      : "",
 
-isDiscountActive:
-  product.isDiscountActive,
+  discountEndAt:
+    product.discountEndAt
+      ? new Date(
+          product.discountEndAt
+        )
+          .toISOString()
+          .slice(0, 16)
+      : "",
 
-discountType:
-  product.discountType ??
-  "",
+  stock:
+    product.stock,
 
-discountValue:
-  product.discountValue !== null
-    ? Number(
-        product.discountValue
-      )
-    : "",
+  variantOptions,
 
-discountStartAt:
-  product.discountStartAt
-    ? new Date(
-        product.discountStartAt
-      )
-        .toISOString()
-        .slice(0, 16)
-    : "",
+  weightOptions,
 
-discountEndAt:
-  product.discountEndAt
-    ? new Date(
-        product.discountEndAt
-      )
-        .toISOString()
-        .slice(0, 16)
-    : "",
+  weightVariantPrices,
 
-          /**
-           * STOCK
-           */
+  isPublished:
+    product.isPublished,
 
-          stock:
-            product.stock,
-
-          /**
-           * VARIANT OPTIONS
-           */
-
-          variantOptions,
-
-          /**
-           * WEIGHT OPTIONS
-           */
-
-          weightOptions,
-
-          /**
-           * STATUS
-           */
-
-          isPublished:
-            product.isPublished,
-
-          featured:
-            product.featured,
-        }}
+  featured:
+    product.featured,
+}}
       />
     </div>
   );
