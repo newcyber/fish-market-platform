@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useState,
   useTransition,
@@ -41,9 +42,21 @@ import {
  * - Notification dropdown
  * - Mark as read
  * - Mark all as read
+ * - Background polling
  *
  * ============================================================
  */
+
+/**
+ * ============================================================
+ * CONFIGURATION
+ * ============================================================
+ */
+
+/**
+ * Cek notification baru setiap 5 detik.
+ */
+const NOTIFICATION_POLLING_INTERVAL = 5000;
 
 export function NotificationBell() {
   const [
@@ -77,63 +90,219 @@ export function NotificationBell() {
    * ==========================================================
    */
 
-  async function loadNotifications() {
-    setIsLoading(true);
-
-    try {
-      const result =
-        await getNotificationsAction();
-
-      if (!result.success) {
-        return;
-      }
-
-      setNotifications(
-        result.notifications
-      );
-
-      setUnreadCount(
-        result.unreadCount
-      );
-    } catch (error) {
-      console.error(
-        "[LOAD_NOTIFICATIONS_ERROR]",
-        error
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  /**
+    /**
    * ==========================================================
-   * LOAD ON OPEN
+   * LOAD NOTIFICATIONS
    * ==========================================================
    */
 
- /**
- * ==========================================================
- * LOAD ON OPEN
- * ==========================================================
- *
- * Memuat notifikasi setelah Popover benar-benar terbuka.
- *
- * Menggunakan timeout agar update state tidak dipanggil secara
- * langsung pada lifecycle effect.
- */
-useEffect(() => {
-  if (!isOpen) {
-    return;
-  }
+  const loadNotifications =
+    useCallback(
+      async (
+        showLoading = false
+      ) => {
+        /**
+         * Spinner hanya ditampilkan ketika
+         * memang diperlukan.
+         *
+         * Polling background tidak menampilkan
+         * spinner agar UI tidak berkedip.
+         */
+        if (showLoading) {
+          setIsLoading(true);
+        }
 
-  const timeoutId = window.setTimeout(() => {
-    void loadNotifications();
-  }, 0);
+        try {
+          const result =
+            await getNotificationsAction();
 
-  return () => {
-    window.clearTimeout(timeoutId);
-  };
-}, [isOpen]);
+          if (!result.success) {
+            return;
+          }
+
+          setNotifications(
+            result.notifications
+          );
+
+          setUnreadCount(
+            result.unreadCount
+          );
+        } catch (error) {
+          console.error(
+            "[LOAD_NOTIFICATIONS_ERROR]",
+            error
+          );
+        } finally {
+          if (showLoading) {
+            setIsLoading(false);
+          }
+        }
+      },
+      []
+    );
+
+  /**
+   * ==========================================================
+   * INITIAL LOAD
+   * ==========================================================
+   *
+   * React/ESLint pada project ini melarang setState
+   * secara langsung dari lifecycle effect.
+   *
+   * Karena loadNotifications() melakukan setState,
+   * kita jadwalkan initial load ke macrotask berikutnya.
+   *
+   * Hasilnya tetap:
+   *
+   * component mount
+   *       ↓
+   * initial notification load
+   *       ↓
+   * badge unread langsung muncul
+   */
+
+  useEffect(() => {
+    const timeoutId =
+      window.setTimeout(() => {
+        void loadNotifications(true);
+      }, 0);
+
+    return () => {
+      window.clearTimeout(
+        timeoutId
+      );
+    };
+  }, [loadNotifications]);
+
+  /**
+   * ==========================================================
+   * BACKGROUND POLLING
+   * ==========================================================
+   *
+   * Notification diperiksa setiap 5 detik.
+   *
+   * Polling hanya aktif ketika browser tab sedang terlihat.
+   *
+   * Jika user pindah tab:
+   * - polling dihentikan
+   *
+   * Jika user kembali:
+   * - notification langsung diperiksa
+   * - polling dijalankan kembali
+   */
+
+  useEffect(() => {
+    let intervalId:
+      | number
+      | null = null;
+
+    const stopPolling =
+      () => {
+        if (
+          intervalId !== null
+        ) {
+          window.clearInterval(
+            intervalId
+          );
+
+          intervalId = null;
+        }
+      };
+
+    const startPolling =
+      () => {
+        stopPolling();
+
+        if (
+          document.visibilityState !==
+          "visible"
+        ) {
+          return;
+        }
+
+        intervalId =
+          window.setInterval(
+            () => {
+              if (
+                document.visibilityState ===
+                "visible"
+              ) {
+                void loadNotifications();
+              }
+            },
+            NOTIFICATION_POLLING_INTERVAL
+          );
+      };
+
+    const handleVisibilityChange =
+      () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          /**
+           * Jangan menunggu interval berikutnya.
+           * Begitu tab kembali aktif, langsung refresh.
+           */
+          window.setTimeout(() => {
+            void loadNotifications();
+          }, 0);
+
+          startPolling();
+
+          return;
+        }
+
+        stopPolling();
+      };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    startPolling();
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+
+      stopPolling();
+    };
+  }, [loadNotifications]);
+
+  /**
+   * ==========================================================
+   * REFRESH WHEN POPOVER OPENS
+   * ==========================================================
+   *
+   * Polling tetap berjalan walaupun Popover tertutup.
+   *
+   * Ketika user membuka bell, kita lakukan refresh tambahan
+   * supaya isi dropdown selalu paling baru.
+   */
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const timeoutId =
+      window.setTimeout(() => {
+        void loadNotifications(true);
+      }, 0);
+
+    return () => {
+      window.clearTimeout(
+        timeoutId
+      );
+    };
+  }, [
+    isOpen,
+    loadNotifications,
+  ]);
 
   /**
    * ==========================================================
@@ -195,10 +364,12 @@ useEffect(() => {
       }
 
       setNotifications((current) =>
-        current.map((notification) => ({
-          ...notification,
-          isRead: true,
-        }))
+        current.map(
+          (notification) => ({
+            ...notification,
+            isRead: true,
+          })
+        )
       );
 
       setUnreadCount(0);
@@ -271,58 +442,64 @@ useEffect(() => {
     ).format(date);
   }
 
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
+
   return (
     <Popover
       open={isOpen}
       onOpenChange={setIsOpen}
     >
       <PopoverTrigger
-  className="
-    relative
-    inline-flex
-    h-10
-    w-10
-    shrink-0
-    items-center
-    justify-center
-    rounded-md
-    transition-colors
-    hover:bg-accent
-    hover:text-accent-foreground
-    focus-visible:outline-none
-    focus-visible:ring-2
-    focus-visible:ring-ring
-    focus-visible:ring-offset-2
-  "
-  aria-label="Notifikasi"
->
-  <Bell className="h-5 w-5" />
+        className="
+          relative
+          inline-flex
+          h-10
+          w-10
+          shrink-0
+          items-center
+          justify-center
+          rounded-md
+          transition-colors
+          hover:bg-accent
+          hover:text-accent-foreground
+          focus-visible:outline-none
+          focus-visible:ring-2
+          focus-visible:ring-ring
+          focus-visible:ring-offset-2
+        "
+        aria-label="Notifikasi"
+      >
+        <Bell className="h-5 w-5" />
 
-  {unreadCount > 0 ? (
-    <span
-      className="
-        absolute
-        -right-1
-        -top-1
-        flex
-        min-w-5
-        items-center
-        justify-center
-        rounded-full
-        bg-destructive
-        px-1
-        text-[10px]
-        font-bold
-        leading-5
-        text-destructive-foreground
-      "
-    >
-      {unreadCount > 99
-        ? "99+"
-        : unreadCount}
-    </span>
-  ) : null}
-</PopoverTrigger>
+        {unreadCount > 0 ? (
+          <span
+            className="
+              absolute
+              -right-1
+              -top-1
+              flex
+              min-w-5
+              items-center
+              justify-center
+              rounded-full
+              bg-destructive
+              px-1
+              text-[10px]
+              font-bold
+              leading-5
+              text-destructive-foreground
+            "
+          >
+            {unreadCount > 99
+              ? "99+"
+              : unreadCount}
+          </span>
+        ) : null}
+      </PopoverTrigger>
 
       <PopoverContent
         align="end"
@@ -549,6 +726,7 @@ useEffect(() => {
                    * gunakan Link agar langsung menuju
                    * halaman detail order.
                    */
+
                   if (notification.href) {
                     return (
                       <Link
