@@ -102,9 +102,9 @@ export default async function ProductDetailPage({
   const initialInWishlist =
     session?.user?.id
       ? await WishlistService.isInWishlist(
-        session.user.id,
-        product.id
-      )
+          session.user.id,
+          product.id
+        )
       : false;
 
   /**
@@ -209,19 +209,20 @@ export default async function ProductDetailPage({
       );
 
   /**
-* ==========================================================
-* ACTIVE FLASH SALE ITEMS
-* ==========================================================
-*
-* Ambil seluruh Flash Sale Item aktif
-* untuk produk yang sedang dibuka.
-*
-* Data ini digunakan untuk display pricing
-* di Product Detail dan Add To Cart.
-*
-* Backend Cart dan Checkout tetap melakukan
-* validasi ulang melalui Pricing Engine.
-*/
+   * ==========================================================
+   * ACTIVE FLASH SALE ITEMS
+   * ==========================================================
+   *
+   * Ambil seluruh Flash Sale Item aktif
+   * untuk produk yang sedang dibuka.
+   *
+   * Data ini digunakan untuk display pricing
+   * di Product Detail dan Add To Cart.
+   *
+   * Backend Cart dan Checkout tetap melakukan
+   * validasi ulang melalui Pricing Engine.
+   */
+
   const flashSaleNow =
     new Date();
 
@@ -270,14 +271,14 @@ export default async function ProductDetailPage({
           true,
 
         flashSale: {
-  select: {
-    name:
-      true,
+          select: {
+            name:
+              true,
 
-    endAt:
-      true,
-  },
-},
+            endAt:
+              true,
+          },
+        },
       },
     });
 
@@ -322,27 +323,27 @@ export default async function ProductDetailPage({
             item.soldQuantity,
 
           campaignName:
-  item.flashSale.name,
+            item.flashSale.name,
 
-endsAt:
-  item.flashSale.endAt.toISOString(),
+          endsAt:
+            item.flashSale.endAt.toISOString(),
         })
       );
 
   /**
-* ==========================================================
-* PRODUCT DETAIL DISPLAY PRICING
-* ==========================================================
-*
-* Untuk harga utama Product Detail:
-*
-* 1. Prioritaskan Flash Sale product-wide.
-* 2. Jika tidak ada, gunakan Product Discount.
-* 3. Jika tidak ada, gunakan harga normal.
-*
-* Flash Sale khusus weight tidak dipilih secara otomatis
-* karena customer belum memilih weight option.
-*/
+   * ==========================================================
+   * PRODUCT DETAIL DISPLAY PRICING
+   * ==========================================================
+   *
+   * Untuk harga utama Product Detail:
+   *
+   * 1. Prioritaskan Flash Sale product-wide.
+   * 2. Jika tidak ada, gunakan Product Discount.
+   * 3. Jika tidak ada, gunakan harga normal.
+   *
+   * Flash Sale khusus weight tidak dipilih secara otomatis
+   * karena customer belum memilih weight option.
+   */
 
   const productWideFlashSale =
     normalizedFlashSaleItems.find(
@@ -426,87 +427,105 @@ endsAt:
 
   /**
    * ==========================================================
-   * FINAL DISPLAY PRICE
+   * PRODUCT PRICE RANGE
    * ==========================================================
    *
-   * Priority:
+   * PRIORITAS:
    *
-   * 1. Product-wide Flash Sale
-   * 2. Product Discount
-   * 3. Normal Price
+   * 1. weightVariantPrices
+   * 2. weightOptions
+   * 3. product.price
+   *
+   * Contoh matrix:
+   *
+   * 500g  + Utuh          = 30000
+   * 500g  + Dibersihkan   = 35000
+   * 1kg   + Utuh          = 45000
+   * 1kg   + Dibersihkan   = 50000
+   *
+   * Maka Product Detail:
+   *
+   * Rp 30.000 - Rp 50.000
+   *
+   * Ini adalah harga sebelum product discount.
    */
 
-  const isFlashSaleDisplay =
-    productWideFlashSale !==
-    null;
-
-  const displayOriginalPrice =
-    isFlashSaleDisplay
-      ? productWideFlashSale.originalPrice
-      : baseProductPrice;
-
-  const displayFinalPrice =
-    isFlashSaleDisplay
-      ? productWideFlashSale.flashPrice
-      : Math.max(
-        0,
-        baseProductPrice -
-        productDiscountAmount
+  const matrixPriceList =
+    (
+      product.weightVariantPrices ??
+      []
+    )
+      .map(
+        (item) =>
+          Number(item.price)
+      )
+      .filter(
+        (value) =>
+          Number.isFinite(value) &&
+          value >= 0
       );
 
-  const displaySaving =
-    Math.max(
-      0,
-      displayOriginalPrice -
-      displayFinalPrice
-    );
-
-  const displayDiscountPercentage =
-    displayOriginalPrice > 0
-      ? Math.round(
-        (
-          displaySaving /
-          displayOriginalPrice
-        ) * 100
-      )
-      : 0;
-
   /**
    * ==========================================================
-   * WEIGHT-SPECIFIC FLASH SALE EXISTS
+   * FALLBACK PRICE LIST
    * ==========================================================
    *
-   * Digunakan untuk memberi informasi kepada customer
-   * bahwa harga dapat berubah setelah memilih berat.
+   * Jika belum ada Weight × Variant Price,
+   * gunakan harga dari weightOptions.
    */
 
-  const hasWeightSpecificFlashSale =
-    normalizedFlashSaleItems.some(
-      (item) =>
-        item.weightOptionId !==
-        null
+  const originalPriceList =
+    matrixPriceList.length > 0
+      ? matrixPriceList
+      : weightOptions.length > 0
+        ? weightOptions.map(
+            (option) =>
+              option.price
+          )
+        : [baseProductPrice];
+
+  /**
+   * ==========================================================
+   * REMOVE DUPLICATE PRICES
+   * ==========================================================
+   *
+   * Contoh:
+   *
+   * 30000
+   * 30000
+   * 50000
+   *
+   * menjadi:
+   *
+   * 30000
+   * 50000
+   *
+   * Ini tidak mengubah range,
+   * tetapi membuat perhitungan lebih bersih.
+   */
+
+  const uniqueOriginalPriceList =
+    Array.from(
+      new Set(
+        originalPriceList
+      )
     );
 
   /**
- * ==========================================================
- * PRODUCT PRICE RANGE
- * ==========================================================
- *
- * Harga utama produk diambil dari seluruh weight option aktif.
- *
- * Jika produk tidak memiliki weight option:
- *
- * fallback menggunakan product.price.
- *
- * Product Discount diterapkan pada setiap harga weight.
- * Hasil akhirnya digunakan untuk menentukan:
- *
- * minimum price
- * maximum price
- */
+   * ==========================================================
+   * ORIGINAL PRICE RANGE
+   * ==========================================================
+   */
 
-  const price =
-    Number(product.price);
+  const minimumOriginalPrice =
+    Math.min(
+      ...uniqueOriginalPriceList
+    );
+
+  const maximumOriginalPrice =
+    Math.max(
+      ...uniqueOriginalPriceList
+    );
 
   /**
    * ==========================================================
@@ -517,8 +536,8 @@ endsAt:
   const discountValue =
     product.discountValue !== null
       ? Number(
-        product.discountValue
-      )
+          product.discountValue
+        )
       : 0;
 
   const hasDiscountStarted =
@@ -544,16 +563,6 @@ endsAt:
    * ==========================================================
    * APPLY PRODUCT DISCOUNT
    * ==========================================================
-   *
-   * Diskon diterapkan ke setiap harga.
-   *
-   * PERCENTAGE:
-   *
-   * price - percentage discount
-   *
-   * FIXED_AMOUNT:
-   *
-   * price - fixed discount
    */
 
   const applyProductDiscount = (
@@ -580,12 +589,15 @@ endsAt:
 
       const discountAmount =
         originalPrice *
-        (percentage / 100);
+        (
+          percentage /
+          100
+        );
 
       return Math.max(
         0,
         originalPrice -
-        discountAmount
+          discountAmount
       );
     }
 
@@ -605,7 +617,7 @@ endsAt:
       return Math.max(
         0,
         originalPrice -
-        discountAmount
+          discountAmount
       );
     }
 
@@ -614,55 +626,26 @@ endsAt:
 
   /**
    * ==========================================================
-   * ACTIVE WEIGHT PRICES
+   * FINAL PRICE LIST
    * ==========================================================
    *
-   * Jika tersedia weight option aktif,
-   * gunakan seluruh harga weight.
-   *
-   * Jika tidak tersedia,
-   * fallback ke harga dasar produk.
-   */
-
-  const originalPriceList =
-    weightOptions.length > 0
-      ? weightOptions.map(
-        (option) =>
-          option.price
-      )
-      : [price];
-
-  /**
-   * ==========================================================
-   * ORIGINAL PRICE RANGE
-   * ==========================================================
-   */
-
-  const minimumOriginalPrice =
-    Math.min(
-      ...originalPriceList
-    );
-
-  const maximumOriginalPrice =
-    Math.max(
-      ...originalPriceList
-    );
-
-  /**
-   * ==========================================================
-   * FINAL PRICE RANGE
-   * ==========================================================
-   *
-   * Diskon diterapkan pada setiap harga weight.
+   * Discount dihitung terhadap SETIAP harga
+   * pada Weight × Variant matrix.
    */
 
   const finalPriceList =
-    originalPriceList.map(
+    uniqueOriginalPriceList.map(
       (originalPrice) =>
         applyProductDiscount(
           originalPrice
         )
     );
+
+  /**
+   * ==========================================================
+   * FINAL PRICE RANGE
+   * ============================================================
+   */
 
   const minimumFinalPrice =
     Math.min(
@@ -684,14 +667,14 @@ endsAt:
     Math.max(
       0,
       minimumOriginalPrice -
-      minimumFinalPrice
+        minimumFinalPrice
     );
 
   const maximumSaving =
     Math.max(
       0,
       maximumOriginalPrice -
-      maximumFinalPrice
+        maximumFinalPrice
     );
 
   /**
@@ -717,6 +700,89 @@ endsAt:
 
   /**
    * ==========================================================
+   * PRODUCT DISPLAY PRICE
+   * ==========================================================
+   *
+   * Jika Flash Sale product-wide:
+   *
+   * gunakan harga Flash Sale.
+   *
+   * Jika tidak:
+   *
+   * gunakan range hasil Weight × Variant.
+   */
+
+  const isFlashSaleDisplay =
+    productWideFlashSale !==
+    null;
+
+  const displayOriginalPrice =
+    isFlashSaleDisplay
+      ? productWideFlashSale.originalPrice
+      : minimumOriginalPrice;
+
+  const displayOriginalPriceMax =
+    isFlashSaleDisplay
+      ? productWideFlashSale.originalPrice
+      : maximumOriginalPrice;
+
+  const displayFinalPrice =
+    isFlashSaleDisplay
+      ? productWideFlashSale.flashPrice
+      : minimumFinalPrice;
+
+  const displayFinalPriceMax =
+    isFlashSaleDisplay
+      ? productWideFlashSale.flashPrice
+      : maximumFinalPrice;
+
+  const displaySaving =
+    isFlashSaleDisplay
+      ? Math.max(
+          0,
+          productWideFlashSale.originalPrice -
+            productWideFlashSale.flashPrice
+        )
+      : minimumSaving;
+
+  const displaySavingMax =
+    isFlashSaleDisplay
+      ? Math.max(
+          0,
+          productWideFlashSale.originalPrice -
+            productWideFlashSale.flashPrice
+        )
+      : maximumSaving;
+
+  const displayDiscountPercentage =
+    displayOriginalPrice > 0
+      ? Math.round(
+          (
+            (
+              displayOriginalPrice -
+              displayFinalPrice
+            ) /
+            displayOriginalPrice
+          ) *
+            100
+        )
+      : 0;
+
+  /**
+   * ==========================================================
+   * WEIGHT SPECIFIC FLASH SALE EXISTS
+   * ==========================================================
+   */
+
+  const hasWeightSpecificFlashSale =
+    normalizedFlashSaleItems.some(
+      (item) =>
+        item.weightOptionId !==
+        null
+    );
+
+  /**
+   * ==========================================================
    * STOCK
    * ==========================================================
    */
@@ -728,13 +794,14 @@ endsAt:
     stock <= 0;
 
   /**
-   * ==========================================================
+   * ============================================================
    * PAGE
-   * ==========================================================
+   * ============================================================
    */
 
   return (
     <main className="min-h-screen bg-[#f5f5f5]">
+
       {/* ==================================================== */}
       {/* BREADCRUMB */}
       {/* ==================================================== */}
@@ -742,6 +809,7 @@ endsAt:
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-300 px-4 py-4 lg:px-0">
           <nav className="flex flex-wrap items-center gap-1 text-sm">
+
             <Link
               href="/"
               className="text-slate-500 transition hover:text-cyan-600"
@@ -775,6 +843,7 @@ endsAt:
             <span className="max-w-70 truncate text-slate-900">
               {product.name}
             </span>
+
           </nav>
         </div>
       </div>
@@ -785,7 +854,9 @@ endsAt:
 
       <section>
         <div className="mx-auto max-w-300 px-3 py-3 sm:px-4 lg:px-0">
+
           <div className="bg-white">
+
             <div className="grid lg:grid-cols-[480px_minmax(0,1fr)]">
 
               {/* ================================================= */}
@@ -793,10 +864,12 @@ endsAt:
               {/* ================================================= */}
 
               <div className="p-5 lg:p-6">
+
                 <ProductDetailGallery
                   productName={
                     product.name
                   }
+
                   images={
                     images.map(
                       (image) => ({
@@ -814,37 +887,41 @@ endsAt:
                       })
                     )
                   }
+
                   favoriteButton={
                     <ToggleWishlistButton
                       productId={
                         product.id
                       }
+
                       initialInWishlist={
                         initialInWishlist
                       }
+
                       className="
-                  flex
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-full
-                  border
-                  border-slate-200/80
-                  bg-white/95
-                  text-slate-700
-                  shadow-md
-                  backdrop-blur-sm
-                  transition-all
-                  duration-200
-                  hover:scale-105
-                  hover:bg-white
-                  hover:text-red-500
-                  active:scale-95
-                "
+                        flex
+                        h-11
+                        w-11
+                        items-center
+                        justify-center
+                        rounded-full
+                        border
+                        border-slate-200/80
+                        bg-white/95
+                        text-slate-700
+                        shadow-md
+                        backdrop-blur-sm
+                        transition-all
+                        duration-200
+                        hover:scale-105
+                        hover:bg-white
+                        hover:text-red-500
+                        active:scale-95
+                      "
                     />
                   }
                 />
+
               </div>
 
               {/* ================================================= */}
@@ -852,9 +929,11 @@ endsAt:
               {/* ================================================= */}
 
               <div className="min-w-0 p-5 pb-8 lg:p-6 lg:pl-4">
+
                 {/* BADGES */}
 
                 <div className="mb-3 flex flex-wrap items-center gap-2">
+
                   <span className="bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700">
                     {
                       product.category
@@ -864,11 +943,14 @@ endsAt:
 
                   {product.featured && (
                     <span className="inline-flex items-center gap-1 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+
                       <Star className="h-3 w-3 fill-current" />
 
                       Produk Pilihan
+
                     </span>
                   )}
+
                 </div>
 
                 {/* PRODUCT NAME */}
@@ -879,898 +961,1041 @@ endsAt:
 
                 {/* PRODUCT AVAILABILITY */}
 
-<div className="mt-4 flex flex-wrap items-center gap-2">
-  {outOfStock ? (
-    <span
-      className="
-        inline-flex
-        items-center
-        rounded-full
-        bg-red-50
-        px-3
-        py-1.5
-        text-xs
-        font-semibold
-        text-red-600
-      "
-    >
-      Stok sedang habis
-    </span>
-  ) : (
-    <span
-      className="
-        inline-flex
-        items-center
-        rounded-full
-        bg-emerald-50
-        px-3
-        py-1.5
-        text-xs
-        font-semibold
-        text-emerald-700
-      "
-    >
-      Stok tersedia
-    </span>
-  )}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
 
-  <span
-    className="
-      inline-flex
-      items-center
-      rounded-full
-      bg-slate-100
-      px-3
-      py-1.5
-      text-xs
-      font-medium
-      text-slate-600
-    "
-  >
-    Kategori: {product.category.name}
-  </span>
-</div>
+                  {outOfStock ? (
 
-                {/* ====================================================== */}
-{/* PRODUCT PRICE */}
-{/* ====================================================== */}
+                    <span
+                      className="
+                        inline-flex
+                        items-center
+                        rounded-full
+                        bg-red-50
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-red-600
+                      "
+                    >
+                      Stok sedang habis
+                    </span>
 
-<div className="mt-5">
-  {isFlashSaleDisplay ? (
-  <div
-    className="
-      overflow-hidden
-      rounded-2xl
-      border
-      border-orange-200
-      bg-white
-      shadow-sm
-    "
-  >
-    {/* ================================================== */}
-    {/* FLASH SALE HEADER */}
-    {/* ================================================== */}
+                  ) : (
 
-    <div
-      className="
-        flex
-        flex-col
-        gap-3
-        bg-linear-to-r
-        from-[#2d81ee]
-        to-[#45f9ff]
-        px-4
-        py-3.5
-        sm:flex-row
-        sm:items-center
-        sm:justify-between
-      "
-    >
-      <div className="flex items-center gap-2">
-        <div
-          className="
-            flex
-            h-9
-            w-9
-            items-center
-            justify-center
-            rounded-xl
-            bg-white/15
-            text-lg
-          "
-        >
-          ⚡
-        </div>
+                    <span
+                      className="
+                        inline-flex
+                        items-center
+                        rounded-full
+                        bg-emerald-50
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-emerald-700
+                      "
+                    >
+                      Stok tersedia
+                    </span>
 
-        <div>
-          <div className="flex items-center gap-2">
-            <span
-              className="
-                text-base
-                font-black
-                tracking-wide
-                text-white
-                sm:text-lg
-              "
-            >
-              FLASH SALE
-            </span>
+                  )}
 
-            {displayDiscountPercentage > 0 && (
-              <span
-                className="
-                  rounded-md
-                  bg-white/20
-                  px-2
-                  py-0.5
-                  text-[11px]
-                  font-bold
-                  text-white
-                "
-              >
-                -{displayDiscountPercentage}%
-              </span>
-            )}
-          </div>
+                  <span
+                    className="
+                      inline-flex
+                      items-center
+                      rounded-full
+                      bg-slate-100
+                      px-3
+                      py-1.5
+                      text-xs
+                      font-medium
+                      text-slate-600
+                    "
+                  >
+                    Kategori: {product.category.name}
+                  </span>
 
-          <p className="mt-0.5 text-xs text-white/75">
-            Promo terbatas untuk waktu tertentu
-          </p>
-        </div>
-      </div>
-
-      {/* COUNTDOWN */}
-
-      <div
-        className="
-          flex
-          items-center
-          gap-2
-          rounded-lg
-          bg-black/10
-          px-3
-          py-2
-          sm:justify-end
-        "
-      >
-        <span
-          className="
-            text-[11px]
-            font-semibold
-            uppercase
-            tracking-wide
-            text-white/80
-          "
-        >
-          Berakhir dalam
-        </span>
-
-        <FlashSaleCountdown
-          endsAt={productWideFlashSale.endsAt}
-        />
-      </div>
-    </div>
-
-    {/* ================================================== */}
-    {/* FLASH SALE PRICE */}
-    {/* ================================================== */}
-
-    <div
-      className="
-        px-4
-        py-5
-        sm:px-5
-        sm:py-6
-      "
-    >
-      {/* CAMPAIGN */}
-
-      <p
-        className="
-          mb-3
-          text-xs
-          font-medium
-          uppercase
-          tracking-wide
-          text-slate-400
-        "
-      >
-        {productWideFlashSale.campaignName}
-      </p>
-
-      {/* PRICE */}
-
-      <div
-        className="
-          flex
-          flex-wrap
-          items-end
-          gap-x-3
-          gap-y-2
-        "
-      >
-        <div
-          className="
-            text-3xl
-            font-bold
-            tracking-tight
-            text-[#ff2a00]
-            sm:text-4xl
-          "
-        >
-          {formatRupiah(displayFinalPrice)}
-        </div>
-
-        <div
-          className="
-            pb-1
-            text-sm
-            text-slate-400
-            line-through
-          "
-        >
-          {formatRupiah(displayOriginalPrice)}
-        </div>
-      </div>
-
-      {/* SAVING */}
-
-      {displaySaving > 0 && (
-        <div className="mt-4">
-          <span
-            className="
-              inline-flex
-              items-center
-              rounded-lg
-              bg-orange-50
-              px-3
-              py-1.5
-              text-xs
-              font-semibold
-              text-[#ff2a00]
-            "
-          >
-            Hemat {formatRupiah(displaySaving)}
-          </span>
-        </div>
-      )}
-    </div>
-  </div>
-) : (
-  <div
-    className="
-      rounded-2xl
-      border
-      border-slate-200
-      bg-slate-50
-      px-4
-      py-5
-      sm:px-5
-    "
-  >
-    {/* ================================================ */}
-    {/* PRODUCT DISCOUNT */}
-    {/* ================================================ */}
-
-    {isProductDiscountActive &&
-    displaySaving > 0 ? (
-      <div>
-        <p
-          className="
-            mb-2
-            text-xs
-            font-medium
-            uppercase
-            tracking-wide
-            text-slate-400
-          "
-        >
-          Harga Produk
-        </p>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div
-            className="
-              text-3xl
-              font-bold
-              tracking-tight
-              text-slate-950
-              sm:text-4xl
-            "
-          >
-            {formatRupiah(displayFinalPrice)}
-          </div>
-
-          <div
-            className="
-              pb-1
-              text-sm
-              text-slate-400
-              line-through
-            "
-          >
-            {formatRupiah(displayOriginalPrice)}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <span
-            className="
-              inline-flex
-              items-center
-              rounded-lg
-              bg-emerald-50
-              px-3
-              py-1.5
-              text-xs
-              font-semibold
-              text-emerald-700
-            "
-          >
-            Hemat {formatRupiah(displaySaving)}
-          </span>
-        </div>
-      </div>
-    ) : (
-      /* ============================================== */
-      /* NORMAL PRICE */
-      /* ============================================== */
-
-      <div>
-        <p
-          className="
-            mb-2
-            text-xs
-            font-medium
-            uppercase
-            tracking-wide
-            text-slate-400
-          "
-        >
-          Harga Produk
-        </p>
-
-        <div
-          className="
-            text-3xl
-            font-bold
-            tracking-tight
-            text-slate-950
-            sm:text-4xl
-          "
-        >
-          {formatRupiah(displayFinalPrice)}
-        </div>
-      </div>
-    )}
-  </div>
-)}
-
-{/* ==================================================== */}
-{/* WEIGHT SPECIFIC FLASH SALE */}
-{/* ==================================================== */}
-
-{hasWeightSpecificFlashSale &&
-!isFlashSaleDisplay && (
-  <div
-    className="
-      mt-3
-      rounded-xl
-      border
-      border-orange-100
-      border-l-4
-      border-l-[#fc3e18]
-      bg-[#fff8f5]
-      px-4
-      py-3
-    "
-  >
-    <p
-      className="
-        text-xs
-        font-medium
-        leading-5
-        text-[#ff2a00]
-      "
-    >
-      ⚡ Tersedia harga Flash Sale untuk pilihan berat tertentu.
-    </p>
-  </div>
-)}
-</div>
+                </div>
 
                 {/* ==================================================== */}
-{/* PRODUCT META */}
-{/* ==================================================== */}
+                {/* PRODUCT PRICE */}
+                {/* ==================================================== */}
 
-<div
-  className="
-    mt-6
-    overflow-hidden
-    rounded-2xl
-    border
-    border-slate-200
-    bg-white
-  "
->
-  {/* ================================================== */}
-  {/* SHIPPING */}
-  {/* ================================================== */}
+                <div className="mt-5">
 
-  <div
-    className="
-      flex
-      gap-4
-      px-4
-      py-4
-      sm:px-5
-    "
-  >
-    <div
-      className="
-        flex
-        h-10
-        w-10
-        shrink-0
-        items-center
-        justify-center
-        rounded-xl
-        bg-cyan-50
-      "
-    >
-      <Truck className="h-5 w-5 text-cyan-600" />
-    </div>
+                  {isFlashSaleDisplay ? (
 
-    <div className="min-w-0">
-      <p
-        className="
-          text-sm
-          font-semibold
-          text-slate-900
-        "
-      >
-        Pengiriman
-      </p>
+                    <div
+                      className="
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-orange-200
+                        bg-white
+                        shadow-sm
+                      "
+                    >
 
-      <p
-        className="
-          mt-1
-          text-sm
-          leading-6
-          text-slate-500
-        "
-      >
-        Pilih alamat dan metode pengiriman
-        saat checkout.
-      </p>
-    </div>
-  </div>
+                      {/* ================================================== */}
+                      {/* FLASH SALE HEADER */}
+                      {/* ================================================== */}
 
-  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
+                      <div
+                        className="
+                          flex
+                          flex-col
+                          gap-3
+                          bg-linear-to-r
+                          from-[#2d81ee]
+                          to-[#45f9ff]
+                          px-4
+                          py-3.5
+                          sm:flex-row
+                          sm:items-center
+                          sm:justify-between
+                        "
+                      >
 
-  {/* ================================================== */}
-  {/* STOCK */}
-  {/* ================================================== */}
+                        <div className="flex items-center gap-2">
 
-  <div
-    className="
-      flex
-      gap-4
-      px-4
-      py-4
-      sm:px-5
-    "
-  >
-    <div
-      className={`
-        flex
-        h-10
-        w-10
-        shrink-0
-        items-center
-        justify-center
-        rounded-xl
-        ${
-          outOfStock
-            ? "bg-red-50"
-            : "bg-emerald-50"
-        }
-      `}
-    >
-      {outOfStock ? (
-        <X className="h-5 w-5 text-red-600" />
-      ) : (
-        <Check className="h-5 w-5 text-emerald-600" />
-      )}
-    </div>
+                          <div
+                            className="
+                              flex
+                              h-9
+                              w-9
+                              items-center
+                              justify-center
+                              rounded-xl
+                              bg-white/15
+                              text-lg
+                            "
+                          >
+                            ⚡
+                          </div>
 
-    <div className="min-w-0">
-      <p
-        className="
-          text-sm
-          font-semibold
-          text-slate-900
-        "
-      >
-        Ketersediaan
-      </p>
+                          <div>
 
-      {outOfStock ? (
-        <p className="mt-1 text-sm text-red-600">
-          Stok sedang habis
-        </p>
-      ) : (
-        <p className="mt-1 text-sm text-slate-500">
-          Stok tersedia
+                            <div className="flex items-center gap-2">
 
-          <span className="ml-1 font-medium text-slate-900">
-            ({stock} tersedia)
-          </span>
-        </p>
-      )}
-    </div>
-  </div>
+                              <span
+                                className="
+                                  text-base
+                                  font-black
+                                  tracking-wide
+                                  text-white
+                                  sm:text-lg
+                                "
+                              >
+                                FLASH SALE
+                              </span>
 
-  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
+                              {displayDiscountPercentage > 0 && (
+                                <span
+                                  className="
+                                    rounded-md
+                                    bg-white/20
+                                    px-2
+                                    py-0.5
+                                    text-[11px]
+                                    font-bold
+                                    text-white
+                                  "
+                                >
+                                  -{displayDiscountPercentage}%
+                                </span>
+                              )}
 
-  {/* ================================================== */}
-  {/* CATEGORY */}
-  {/* ================================================== */}
+                            </div>
 
-  <div
-    className="
-      flex
-      gap-4
-      px-4
-      py-4
-      sm:px-5
-    "
-  >
-    <div
-      className="
-        flex
-        h-10
-        w-10
-        shrink-0
-        items-center
-        justify-center
-        rounded-xl
-        bg-slate-100
-      "
-    >
-      <Tag className="h-5 w-5 text-slate-600" />
-    </div>
+                            <p className="mt-0.5 text-xs text-white/75">
+                              Promo terbatas untuk waktu tertentu
+                            </p>
 
-    <div className="min-w-0">
-      <p
-        className="
-          text-sm
-          font-semibold
-          text-slate-900
-        "
-      >
-        Kategori
-      </p>
+                          </div>
 
-      <Link
-        href="/customer/products"
-        className="
-          mt-1
-          inline-flex
-          text-sm
-          font-medium
-          text-cyan-700
-          transition
-          hover:text-cyan-800
-          hover:underline
-        "
-      >
-        {product.category.name}
-      </Link>
-    </div>
-  </div>
-</div>
+                        </div>
+
+                        {/* COUNTDOWN */}
+
+                        <div
+                          className="
+                            flex
+                            items-center
+                            gap-2
+                            rounded-lg
+                            bg-black/10
+                            px-3
+                            py-2
+                            sm:justify-end
+                          "
+                        >
+
+                          <span
+                            className="
+                              text-[11px]
+                              font-semibold
+                              uppercase
+                              tracking-wide
+                              text-white/80
+                            "
+                          >
+                            Berakhir dalam
+                          </span>
+
+                          <FlashSaleCountdown
+                            endsAt={
+                              productWideFlashSale.endsAt
+                            }
+                          />
+
+                        </div>
+
+                      </div>
+
+                      {/* ================================================== */}
+                      {/* FLASH SALE PRICE */}
+                      {/* ================================================== */}
+
+                      <div
+                        className="
+                          px-4
+                          py-5
+                          sm:px-5
+                          sm:py-6
+                        "
+                      >
+
+                        <p
+                          className="
+                            mb-3
+                            text-xs
+                            font-medium
+                            uppercase
+                            tracking-wide
+                            text-slate-400
+                          "
+                        >
+                          {productWideFlashSale.campaignName}
+                        </p>
+
+                        <div
+                          className="
+                            flex
+                            flex-wrap
+                            items-end
+                            gap-x-3
+                            gap-y-2
+                          "
+                        >
+
+                          <div
+                            className="
+                              text-3xl
+                              font-bold
+                              tracking-tight
+                              text-[#ff2a00]
+                              sm:text-4xl
+                            "
+                          >
+                            {formatRupiah(
+                              displayFinalPrice
+                            )}
+                          </div>
+
+                          <div
+                            className="
+                              pb-1
+                              text-sm
+                              text-slate-400
+                              line-through
+                            "
+                          >
+                            {formatRupiah(
+                              displayOriginalPrice
+                            )}
+                          </div>
+
+                        </div>
+
+                        {displaySaving > 0 && (
+                          <div className="mt-4">
+
+                            <span
+                              className="
+                                inline-flex
+                                items-center
+                                rounded-lg
+                                bg-orange-50
+                                px-3
+                                py-1.5
+                                text-xs
+                                font-semibold
+                                text-[#ff2a00]
+                              "
+                            >
+                              Hemat{" "}
+                              {formatRupiah(
+                                displaySaving
+                              )}
+                            </span>
+
+                          </div>
+                        )}
+
+                      </div>
+
+                    </div>
+
+                  ) : (
+
+                    <div
+                      className="
+                        rounded-2xl
+                        border
+                        border-slate-200
+                        bg-slate-50
+                        px-4
+                        py-5
+                        sm:px-5
+                      "
+                    >
+
+                      {/* ================================================ */}
+                      {/* PRODUCT DISCOUNT */}
+                      {/* ================================================ */}
+
+                      {hasPriceDiscount ? (
+
+                        <div>
+
+                          <p
+                            className="
+                              mb-2
+                              text-xs
+                              font-medium
+                              uppercase
+                              tracking-wide
+                              text-slate-400
+                            "
+                          >
+                            Harga Produk
+                          </p>
+
+                          <div className="flex flex-wrap items-end gap-3">
+
+                            <div
+                              className="
+                                text-3xl
+                                font-bold
+                                tracking-tight
+                                text-slate-950
+                                sm:text-4xl
+                              "
+                            >
+                              {formatPriceRange(
+                                displayFinalPrice,
+                                displayFinalPriceMax
+                              )}
+                            </div>
+
+                            <div
+                              className="
+                                pb-1
+                                text-sm
+                                text-slate-400
+                                line-through
+                              "
+                            >
+                              {formatPriceRange(
+                                displayOriginalPrice,
+                                displayOriginalPriceMax
+                              )}
+                            </div>
+
+                          </div>
+
+                          {displaySaving > 0 && (
+                            <div className="mt-4">
+
+                              <span
+                                className="
+                                  inline-flex
+                                  items-center
+                                  rounded-lg
+                                  bg-emerald-50
+                                  px-3
+                                  py-1.5
+                                  text-xs
+                                  font-semibold
+                                  text-emerald-700
+                                "
+                              >
+                                Hemat{" "}
+                                {formatPriceRange(
+                                  displaySaving,
+                                  displaySavingMax
+                                )}
+                              </span>
+
+                            </div>
+                          )}
+
+                        </div>
+
+                      ) : (
+
+                        /* ============================================== */
+                        /* NORMAL PRICE */
+                        /* ============================================== */
+
+                        <div>
+
+                          <p
+                            className="
+                              mb-2
+                              text-xs
+                              font-medium
+                              uppercase
+                              tracking-wide
+                              text-slate-400
+                            "
+                          >
+                            Harga Produk
+                          </p>
+
+                          <div
+                            className="
+                              text-3xl
+                              font-bold
+                              tracking-tight
+                              text-slate-950
+                              sm:text-4xl
+                            "
+                          >
+                            {formatPriceRange(
+                              displayFinalPrice,
+                              displayFinalPriceMax
+                            )}
+                          </div>
+
+                        </div>
+
+                      )}
+
+                    </div>
+
+                  )}
+
+                  {/* ==================================================== */}
+                  {/* WEIGHT SPECIFIC FLASH SALE */}
+                  {/* ==================================================== */}
+
+                  {hasWeightSpecificFlashSale &&
+                    !isFlashSaleDisplay && (
+                      <div
+                        className="
+                          mt-3
+                          rounded-xl
+                          border
+                          border-orange-100
+                          border-l-4
+                          border-l-[#fc3e18]
+                          bg-[#fff8f5]
+                          px-4
+                          py-3
+                        "
+                      >
+
+                        <p
+                          className="
+                            text-xs
+                            font-medium
+                            leading-5
+                            text-[#ff2a00]
+                          "
+                        >
+                          ⚡ Tersedia harga Flash Sale untuk pilihan berat tertentu.
+                        </p>
+
+                      </div>
+                    )}
+
+                </div>
+
+                {/* ==================================================== */}
+                {/* PRODUCT META */}
+                {/* ==================================================== */}
+
+                <div
+                  className="
+                    mt-6
+                    overflow-hidden
+                    rounded-2xl
+                    border
+                    border-slate-200
+                    bg-white
+                  "
+                >
+
+                  {/* ================================================== */}
+                  {/* SHIPPING */}
+                  {/* ================================================== */}
+
+                  <div
+                    className="
+                      flex
+                      gap-4
+                      px-4
+                      py-4
+                      sm:px-5
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-cyan-50
+                      "
+                    >
+                      <Truck className="h-5 w-5 text-cyan-600" />
+                    </div>
+
+                    <div className="min-w-0">
+
+                      <p
+                        className="
+                          text-sm
+                          font-semibold
+                          text-slate-900
+                        "
+                      >
+                        Pengiriman
+                      </p>
+
+                      <p
+                        className="
+                          mt-1
+                          text-sm
+                          leading-6
+                          text-slate-500
+                        "
+                      >
+                        Pilih alamat dan metode pengiriman
+                        saat checkout.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
+
+                  {/* ================================================== */}
+                  {/* STOCK */}
+                  {/* ================================================== */}
+
+                  <div
+                    className="
+                      flex
+                      gap-4
+                      px-4
+                      py-4
+                      sm:px-5
+                    "
+                  >
+
+                    <div
+                      className={`
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        ${
+                          outOfStock
+                            ? "bg-red-50"
+                            : "bg-emerald-50"
+                        }
+                      `}
+                    >
+
+                      {outOfStock ? (
+                        <X className="h-5 w-5 text-red-600" />
+                      ) : (
+                        <Check className="h-5 w-5 text-emerald-600" />
+                      )}
+
+                    </div>
+
+                    <div className="min-w-0">
+
+                      <p
+                        className="
+                          text-sm
+                          font-semibold
+                          text-slate-900
+                        "
+                      >
+                        Ketersediaan
+                      </p>
+
+                      {outOfStock ? (
+
+                        <p className="mt-1 text-sm text-red-600">
+                          Stok sedang habis
+                        </p>
+
+                      ) : (
+
+                        <p className="mt-1 text-sm text-slate-500">
+
+                          Stok tersedia
+
+                          <span className="ml-1 font-medium text-slate-900">
+                            ({stock} tersedia)
+                          </span>
+
+                        </p>
+
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
+
+                  {/* ================================================== */}
+                  {/* CATEGORY */}
+                  {/* ================================================== */}
+
+                  <div
+                    className="
+                      flex
+                      gap-4
+                      px-4
+                      py-4
+                      sm:px-5
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-slate-100
+                      "
+                    >
+                      <Tag className="h-5 w-5 text-slate-600" />
+                    </div>
+
+                    <div className="min-w-0">
+
+                      <p
+                        className="
+                          text-sm
+                          font-semibold
+                          text-slate-900
+                        "
+                      >
+                        Kategori
+                      </p>
+
+                      <Link
+                        href="/customer/products"
+                        className="
+                          mt-1
+                          inline-flex
+                          text-sm
+                          font-medium
+                          text-cyan-700
+                          transition
+                          hover:text-cyan-800
+                          hover:underline
+                        "
+                      >
+                        {product.category.name}
+                      </Link>
+
+                    </div>
+
+                  </div>
+
+                </div>
 
                 {/* ================================================= */}
                 {/* CART ACTION */}
                 {/* ================================================= */}
 
                 <div className="mt-8 border-t border-slate-200 pt-7">
+
                   <AddToCartButton
-                    productId={product.id}
-                    stock={product.stock}
+                    productId={
+                      product.id
+                    }
+
+                    stock={
+                      product.stock
+                    }
+
                     basePrice={
                       Number(
                         product.price
                       )
                     }
+
                     variantOptions={
                       variantOptions
                     }
+
                     weightOptions={
                       weightOptions
                     }
+
                     flashSaleItems={
                       normalizedFlashSaleItems
                     }
+
                     isDiscountActive={
                       product.isDiscountActive
                     }
+
                     discountType={
                       product.discountType
                     }
+
                     discountValue={
                       product.discountValue
                         ? Number(
-                          product.discountValue
-                        )
+                            product.discountValue
+                          )
                         : null
                     }
+
                     discountStartAt={
                       product.discountStartAt
                     }
+
                     discountEndAt={
                       product.discountEndAt
                     }
                   />
 
-
                 </div>
+
               </div>
+
             </div>
+
           </div>
 
           {/* ==================================================== */}
-{/* PRODUCT INFORMATION */}
-{/* ==================================================== */}
-
-<section
-  className="
-    mt-3
-    bg-white
-    px-5
-    py-5
-    lg:px-8
-    lg:py-6
-  "
->
-  <div className="max-w-4xl">
-    <h2
-      className="
-        border-b
-        border-slate-100
-        pb-4
-        text-lg
-        font-semibold
-        text-slate-900
-      "
-    >
-      Informasi Produk
-    </h2>
-
-    <div
-      className="
-        mt-5
-        overflow-hidden
-        rounded-xl
-        border
-        border-slate-200
-      "
-    >
-      {/* CATEGORY */}
-
-      <div
-        className="
-          grid
-          grid-cols-[110px_minmax(0,1fr)]
-          items-center
-          gap-4
-          border-b
-          border-slate-100
-          px-4
-          py-3.5
-          text-sm
-          sm:grid-cols-[160px_minmax(0,1fr)]
-          sm:px-5
-        "
-      >
-        <div className="text-slate-500">
-          Kategori
-        </div>
-
-        <div className="font-medium text-slate-900">
-          {product.category.name}
-        </div>
-      </div>
-
-      {/* SKU */}
-
-      <div
-        className="
-          grid
-          grid-cols-[110px_minmax(0,1fr)]
-          items-center
-          gap-4
-          px-4
-          py-3.5
-          text-sm
-          sm:grid-cols-[160px_minmax(0,1fr)]
-          sm:px-5
-        "
-      >
-        <div className="text-slate-500">
-          SKU
-        </div>
-
-        <div
-          className="
-            inline-flex
-            w-fit
-            rounded-md
-            bg-slate-100
-            px-2.5
-            py-1
-            font-mono
-            text-xs
-            font-medium
-            text-slate-700
-          "
-        >
-          {product.sku ?? "-"}
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-{/* ==================================================== */}
-{/* DESCRIPTION */}
-{/* ==================================================== */}
-
-<section
-  className="
-    mt-3
-    bg-white
-    px-5
-    py-5
-    lg:px-8
-    lg:py-6
-  "
->
-  <div className="max-w-4xl">
-    <h2
-      className="
-        border-b
-        border-slate-100
-        pb-4
-        text-lg
-        font-semibold
-        text-slate-900
-      "
-    >
-      Deskripsi Produk
-    </h2>
-
-    <div
-      className="
-        mt-5
-        rounded-xl
-        border
-        border-slate-100
-        bg-slate-50/60
-        px-4
-        py-4
-        sm:px-5
-        sm:py-5
-      "
-    >
-      {product.description ? (
-        <div
-          className="
-            whitespace-pre-line
-            text-sm
-            leading-7
-            text-slate-700
-          "
-        >
-          {product.description}
-        </div>
-      ) : (
-        <div
-          className="
-            flex
-            items-center
-            justify-center
-            py-4
-            text-sm
-            text-slate-400
-          "
-        >
-          Belum ada deskripsi produk.
-        </div>
-      )}
-    </div>
-  </div>
-</section>
+          {/* PRODUCT INFORMATION */}
           {/* ==================================================== */}
-{/* TRUST SECTION */}
-{/* ==================================================== */}
 
-<section
-  className="
-    mt-5
-    overflow-hidden
-    rounded-2xl
-    border
-    border-slate-200
-    bg-white
-  "
->
-  <div
-    className="
-      border-b
-      border-slate-100
-      px-5
-      py-5
-      lg:px-8
-    "
-  >
-    <h2
-      className="
-        text-lg
-        font-semibold
-        text-slate-900
-      "
-    >
-      Kenapa Belanja di Sini?
-    </h2>
+          <section
+            className="
+              mt-3
+              bg-white
+              px-5
+              py-5
+              lg:px-8
+              lg:py-6
+            "
+          >
 
-    <p
-      className="
-        mt-1
-        text-sm
-        text-slate-500
-      "
-    >
-      Kami berusaha memberikan pengalaman belanja seafood
-      yang mudah dan nyaman.
-    </p>
-  </div>
+            <div className="max-w-4xl">
 
-  <div className="grid sm:grid-cols-3">
-    <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
-      <TrustItem
-        icon={
-          <Fish className="h-6 w-6" />
-        }
-        title="Produk Segar"
-        description="Pilihan seafood untuk kebutuhan Anda."
-      />
-    </div>
+              <h2
+                className="
+                  border-b
+                  border-slate-100
+                  pb-4
+                  text-lg
+                  font-semibold
+                  text-slate-900
+                "
+              >
+                Informasi Produk
+              </h2>
 
-    <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
-      <TrustItem
-        icon={
-          <ShieldCheck className="h-6 w-6" />
-        }
-        title="Kualitas Terjaga"
-        description="Informasi produk dan stok ditampilkan secara transparan."
-      />
-    </div>
+              <div
+                className="
+                  mt-5
+                  overflow-hidden
+                  rounded-xl
+                  border
+                  border-slate-200
+                "
+              >
 
-    <div>
-      <TrustItem
-        icon={
-          <Package className="h-6 w-6" />
-        }
-        title="Checkout Mudah"
-        description="Proses pembelian dirancang cepat dan praktis."
-      />
-    </div>
-  </div>
-</section>
+                {/* CATEGORY */}
+
+                <div
+                  className="
+                    grid
+                    grid-cols-[110px_minmax(0,1fr)]
+                    items-center
+                    gap-4
+                    border-b
+                    border-slate-100
+                    px-4
+                    py-3.5
+                    text-sm
+                    sm:grid-cols-[160px_minmax(0,1fr)]
+                    sm:px-5
+                  "
+                >
+
+                  <div className="text-slate-500">
+                    Kategori
+                  </div>
+
+                  <div className="font-medium text-slate-900">
+                    {product.category.name}
+                  </div>
+
+                </div>
+
+                {/* SKU */}
+
+                <div
+                  className="
+                    grid
+                    grid-cols-[110px_minmax(0,1fr)]
+                    items-center
+                    gap-4
+                    px-4
+                    py-3.5
+                    text-sm
+                    sm:grid-cols-[160px_minmax(0,1fr)]
+                    sm:px-5
+                  "
+                >
+
+                  <div className="text-slate-500">
+                    SKU
+                  </div>
+
+                  <div
+                    className="
+                      inline-flex
+                      w-fit
+                      rounded-md
+                      bg-slate-100
+                      px-2.5
+                      py-1
+                      font-mono
+                      text-xs
+                      font-medium
+                      text-slate-700
+                    "
+                  >
+                    {product.sku ?? "-"}
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* ==================================================== */}
+          {/* DESCRIPTION */}
+          {/* ==================================================== */}
+
+          <section
+            className="
+              mt-3
+              bg-white
+              px-5
+              py-5
+              lg:px-8
+              lg:py-6
+            "
+          >
+
+            <div className="max-w-4xl">
+
+              <h2
+                className="
+                  border-b
+                  border-slate-100
+                  pb-4
+                  text-lg
+                  font-semibold
+                  text-slate-900
+                "
+              >
+                Deskripsi Produk
+              </h2>
+
+              <div
+                className="
+                  mt-5
+                  rounded-xl
+                  border
+                  border-slate-100
+                  bg-slate-50/60
+                  px-4
+                  py-4
+                  sm:px-5
+                  sm:py-5
+                "
+              >
+
+                {product.description ? (
+
+                  <div
+                    className="
+                      whitespace-pre-line
+                      text-sm
+                      leading-7
+                      text-slate-700
+                    "
+                  >
+                    {product.description}
+                  </div>
+
+                ) : (
+
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-center
+                      py-4
+                      text-sm
+                      text-slate-400
+                    "
+                  >
+                    Belum ada deskripsi produk.
+                  </div>
+
+                )}
+
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* ==================================================== */}
+          {/* TRUST SECTION */}
+          {/* ==================================================== */}
+
+          <section
+            className="
+              mt-5
+              overflow-hidden
+              rounded-2xl
+              border
+              border-slate-200
+              bg-white
+            "
+          >
+
+            <div
+              className="
+                border-b
+                border-slate-100
+                px-5
+                py-5
+                lg:px-8
+              "
+            >
+
+              <h2
+                className="
+                  text-lg
+                  font-semibold
+                  text-slate-900
+                "
+              >
+                Kenapa Belanja di Sini?
+              </h2>
+
+              <p
+                className="
+                  mt-1
+                  text-sm
+                  text-slate-500
+                "
+              >
+                Kami berusaha memberikan pengalaman belanja seafood
+                yang mudah dan nyaman.
+              </p>
+
+            </div>
+
+            <div className="grid sm:grid-cols-3">
+
+              <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
+
+                <TrustItem
+                  icon={
+                    <Fish className="h-6 w-6" />
+                  }
+
+                  title="Produk Segar"
+
+                  description="Pilihan seafood untuk kebutuhan Anda."
+                />
+
+              </div>
+
+              <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
+
+                <TrustItem
+                  icon={
+                    <ShieldCheck className="h-6 w-6" />
+                  }
+
+                  title="Kualitas Terjaga"
+
+                  description="Informasi produk dan stok ditampilkan secara transparan."
+                />
+
+              </div>
+
+              <div>
+
+                <TrustItem
+                  icon={
+                    <Package className="h-6 w-6" />
+                  }
+
+                  title="Checkout Mudah"
+
+                  description="Proses pembelian dirancang cepat dan praktis."
+                />
+
+              </div>
+
+            </div>
+
+          </section>
+
         </div>
       </section>
+
     </main>
   );
 }
@@ -1802,6 +2027,7 @@ function TrustItem({
         lg:py-6
       "
     >
+
       {/* ICON */}
 
       <div
@@ -1823,6 +2049,7 @@ function TrustItem({
       {/* CONTENT */}
 
       <div className="min-w-0">
+
         <h3
           className="
             text-sm
@@ -1843,7 +2070,9 @@ function TrustItem({
         >
           {description}
         </p>
+
       </div>
+
     </div>
   );
 }
@@ -1865,4 +2094,37 @@ function formatRupiah(
       maximumFractionDigits: 0,
     }
   ).format(value);
+}
+
+/**
+ * ============================================================
+ * FORMAT PRICE RANGE
+ * ============================================================
+ *
+ * Jika min === max:
+ *
+ * Rp 30.000
+ *
+ * Jika berbeda:
+ *
+ * Rp 30.000 - Rp 50.000
+ */
+
+function formatPriceRange(
+  minimum: number,
+  maximum: number
+) {
+  if (
+    minimum === maximum
+  ) {
+    return formatRupiah(
+      minimum
+    );
+  }
+
+  return `${formatRupiah(
+    minimum
+  )} - ${formatRupiah(
+    maximum
+  )}`;
 }

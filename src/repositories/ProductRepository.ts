@@ -1,16 +1,26 @@
 import { prisma } from "@/lib/prisma";
-
 import { Prisma } from "@prisma/client";
+
+/**
+ * ============================================================
+ * PRODUCT FILTERS
+ * ============================================================
+ */
 
 export interface ProductFilters {
   search?: string;
-
   categoryId?: string;
-
   published?: boolean;
-
   featured?: boolean;
 }
+
+/**
+ * ============================================================
+ *
+ * PRODUCT REPOSITORY
+ *
+ * ============================================================
+ */
 
 export class ProductRepository {
   /**
@@ -37,7 +47,6 @@ export class ProductRepository {
     return prisma.product.count({
       where: {
         deletedAt: null,
-
         isPublished: true,
       },
     });
@@ -53,7 +62,6 @@ export class ProductRepository {
     return prisma.product.count({
       where: {
         deletedAt: null,
-
         featured: true,
       },
     });
@@ -63,59 +71,114 @@ export class ProductRepository {
    * ============================================================
    * PRODUCT INCLUDE
    * ============================================================
+   *
+   * Semua relasi product yang dibutuhkan oleh:
+   *
+   * - Product List
+   * - Product Detail
+   * - Product Admin
+   * - Product Pricing
+   *
+   * weightVariantPrices penting untuk:
+   *
+   * Weight × Variant pricing matrix.
    */
 
   private static readonly productInclude = {
-  category: true,
+    /**
+     * ==========================================================
+     * CATEGORY
+     * ==========================================================
+     */
 
-  images: {
-    orderBy: {
-      sortOrder: "asc" as const,
-    },
-  },
+    category: true,
 
-  variantOptions: {
-    where: {
-      isActive: true,
-    },
+    /**
+     * ==========================================================
+     * PRODUCT IMAGES
+     * ==========================================================
+     */
 
-    orderBy: {
-      sortOrder: "asc" as const,
-    },
-  },
-
-  weightOptions: {
-    where: {
-      isActive: true,
-    },
-
-    orderBy: {
-      sortOrder: "asc" as const,
-    },
-  },
-
-  weightVariantPrices: {
-    include: {
-      weightOption: {
-        select: {
-          id: true,
-          label: true,
-        },
-      },
-
-      variantOption: {
-        select: {
-          id: true,
-          label: true,
-        },
+    images: {
+      orderBy: {
+        sortOrder: "asc" as const,
       },
     },
 
-    orderBy: {
-      createdAt: "asc" as const,
+    /**
+     * ==========================================================
+     * VARIANT OPTIONS
+     * ==========================================================
+     */
+
+    variantOptions: {
+      where: {
+        isActive: true,
+      },
+
+      orderBy: {
+        sortOrder: "asc" as const,
+      },
     },
-  },
-};
+
+    /**
+     * ==========================================================
+     * WEIGHT OPTIONS
+     * ==========================================================
+     */
+
+    weightOptions: {
+      where: {
+        isActive: true,
+      },
+
+      orderBy: {
+        sortOrder: "asc" as const,
+      },
+    },
+
+    /**
+     * ==========================================================
+     * WEIGHT × VARIANT PRICES
+     * ==========================================================
+     *
+     * Contoh:
+     *
+     * 500gr + Utuh          = 30000
+     * 500gr + Dibersihkan   = 35000
+     * 1kg   + Utuh          = 45000
+     * 1kg   + Dibersihkan   = 50000
+     *
+     * Data ini digunakan Product Detail untuk:
+     *
+     * Rp 30.000 - Rp 50.000
+     *
+     * dan nantinya digunakan AddToCartButton untuk
+     * mendapatkan harga kombinasi yang benar.
+     */
+
+    weightVariantPrices: {
+      include: {
+        weightOption: {
+          select: {
+            id: true,
+            label: true,
+          },
+        },
+
+        variantOption: {
+          select: {
+            id: true,
+            label: true,
+          },
+        },
+      },
+
+      orderBy: {
+        createdAt: "asc" as const,
+      },
+    },
+  };
 
   /**
    * ============================================================
@@ -137,13 +200,16 @@ export class ProductRepository {
       where: {
         deletedAt: null,
 
+        /**
+         * SEARCH
+         */
+
         ...(search
           ? {
               OR: [
                 {
                   name: {
                     contains: search,
-
                     mode: "insensitive",
                   },
                 },
@@ -151,7 +217,6 @@ export class ProductRepository {
                 {
                   slug: {
                     contains: search,
-
                     mode: "insensitive",
                   },
                 },
@@ -159,7 +224,6 @@ export class ProductRepository {
                 {
                   sku: {
                     contains: search,
-
                     mode: "insensitive",
                   },
                 },
@@ -167,17 +231,29 @@ export class ProductRepository {
             }
           : {}),
 
+        /**
+         * CATEGORY
+         */
+
         ...(categoryId
           ? {
               categoryId,
             }
           : {}),
 
+        /**
+         * PUBLISHED
+         */
+
         ...(published !== undefined
           ? {
               isPublished: published,
             }
           : {}),
+
+        /**
+         * FEATURED
+         */
 
         ...(featured !== undefined
           ? {
@@ -234,9 +310,7 @@ export class ProductRepository {
 
       where: {
         deletedAt: null,
-
         isPublished: true,
-
         featured: true,
       },
 
@@ -253,6 +327,13 @@ export class ProductRepository {
    * ============================================================
    * FIND BY SLUG
    * ============================================================
+   *
+   * Digunakan Product Detail:
+   *
+   * /product/[slug]
+   *
+   * Karena menggunakan productInclude,
+   * weightVariantPrices otomatis ikut dikembalikan.
    */
 
   static async findBySlug(
@@ -261,7 +342,6 @@ export class ProductRepository {
     return prisma.product.findFirst({
       where: {
         slug,
-
         deletedAt: null,
       },
 
@@ -283,7 +363,6 @@ export class ProductRepository {
       await prisma.product.count({
         where: {
           slug,
-
           deletedAt: null,
         },
       });
@@ -308,7 +387,6 @@ export class ProductRepository {
       await prisma.product.count({
         where: {
           sku,
-
           deletedAt: null,
         },
       });
@@ -328,7 +406,6 @@ export class ProductRepository {
     return prisma.product.findFirst({
       where: {
         id,
-
         deletedAt: null,
       },
 
@@ -392,7 +469,9 @@ export class ProductRepository {
       tx: Prisma.TransactionClient
     ) => Promise<T>
   ) {
-    return prisma.$transaction(callback);
+    return prisma.$transaction(
+      callback
+    );
   }
 
   /**
@@ -436,5 +515,11 @@ export class ProductRepository {
     });
   }
 }
+
+/**
+ * ============================================================
+ * DEFAULT EXPORT
+ * ============================================================
+ */
 
 export default ProductRepository;
