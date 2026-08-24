@@ -496,6 +496,34 @@ function formatRupiah(value: number): string {
 
 /**
  * ============================================================
+ * SLUG GENERATOR
+ * ============================================================
+ *
+ * Contoh:
+ * "Ikan Tuna Segar Premium" -> "ikan-tuna-segar-premium"
+ *
+ * Rules:
+ * - lowercase
+ * - remove accents
+ * - remove unsupported characters
+ * - spaces -> hyphen
+ * - collapse duplicate hyphens
+ * ============================================================
+ */
+function generateSlug(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * ============================================================
  * SUBMIT BUTTON
  * ============================================================
  */
@@ -554,6 +582,26 @@ export function ProductForm({
       action,
       initialState
     );
+
+    /**
+ * ============================================================
+ * SLUG AUTO GENERATION
+ * ============================================================
+ *
+ * false = slug masih mengikuti nama produk
+ * true  = admin sudah mengubah slug secara manual
+ *
+ * Pada halaman edit:
+ * jika produk sudah mempunyai slug,
+ * jangan otomatis menimpanya ketika nama berubah.
+ * ============================================================
+ */
+const slugManuallyEditedRef =
+  useRef(
+    Boolean(
+      defaultValues?.slug?.trim()
+    )
+  );
 
   /**
    * ==========================================================
@@ -1391,21 +1439,23 @@ export function ProductForm({
               id="name"
               name="name"
               value={form.name}
-              onChange={(
-                event
-              ) =>
+              onChange={(event) => {
+                const name =
+                  event.target.value;
+
                 setForm(
-                  (
-                    previous
-                  ) => ({
+                  (previous) => ({
                     ...previous,
 
-                    name:
-                      event.target
-                        .value,
+                    name,
+
+                    slug:
+                      slugManuallyEditedRef.current
+                        ? previous.slug
+                        : generateSlug(name),
                   })
-                )
-              }
+                );
+              }}
               required
             />
           </div>
@@ -1419,21 +1469,20 @@ export function ProductForm({
               id="slug"
               name="slug"
               value={form.slug}
-              onChange={(
-                event
-              ) =>
+              onChange={(event) => {
+                slugManuallyEditedRef.current =
+                  true;
+
                 setForm(
-                  (
-                    previous
-                  ) => ({
+                  (previous) => ({
                     ...previous,
 
-                    slug:
-                      event.target
-                        .value,
+                    slug: generateSlug(
+                      event.target.value
+                    ),
                   })
-                )
-              }
+                );
+              }}
               required
             />
           </div>
@@ -1981,7 +2030,7 @@ export function ProductForm({
           </div>
         </div>
       </Card>
-      
+
       {/* ====================================================== */}
       {/* VARIAN PRODUK */}
       {/* ====================================================== */}
@@ -2027,7 +2076,7 @@ export function ProductForm({
                 index
               ) => (
                 <div
-                  key={`${index}-${variant.label}`}
+                  key={`variant-${index}`}
                   className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
                 >
                   <div className="space-y-2">
@@ -2162,7 +2211,7 @@ export function ProductForm({
                 index
               ) => (
                 <div
-                  key={`${index}-${weight.label}`}
+                  key={`weight-${index}`}
                   className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
                 >
                   <div className="space-y-2">
@@ -2298,7 +2347,7 @@ export function ProductForm({
                     {form.variantOptions.map(
                       (variant, variantIndex) => (
                         <th
-                          key={`matrix-header-${variantIndex}-${variant.label}`}
+                          key={`matrix-header-${variantIndex}`}
                           className="min-w-[210px] border-b px-4 py-3 text-left text-sm font-semibold"
                         >
                           <div className="truncate">
@@ -2319,7 +2368,7 @@ export function ProductForm({
                   {form.weightOptions.map(
                     (weight, weightIndex) => (
                       <tr
-                        key={`matrix-row-${weightIndex}-${weight.label}`}
+                        key={`matrix-row-${weightIndex}`}
                         className="transition-colors hover:bg-muted/20"
                       >
                         <td className="sticky left-0 z-10 border-r bg-background px-4 py-4 align-top">
@@ -2400,7 +2449,7 @@ export function ProductForm({
               {form.weightOptions.map(
                 (weight, weightIndex) => (
                   <div
-                    key={`mobile-matrix-${weightIndex}-${weight.label}`}
+                    key={`mobile-matrix-${weightIndex}`}
                     className="rounded-xl border bg-background p-4 shadow-sm"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">

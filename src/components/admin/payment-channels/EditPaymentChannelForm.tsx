@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -11,6 +11,7 @@ import {
   Loader2,
   QrCode,
   Save,
+  Upload,
 } from "lucide-react";
 
 import { PaymentChannelType } from "@prisma/client";
@@ -86,6 +87,92 @@ export default function EditPaymentChannelForm({
 
   const [qrisImage, setQrisImage] =
     useState(channel.qrisImage ?? "");
+
+  const [isUploadingQris, setIsUploadingQris] =
+    useState(false);
+
+  const qrisInputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  /**
+   * ==========================================================
+   * HANDLE QRIS UPLOAD
+   * ==========================================================
+   */
+
+  async function handleQrisUpload(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      window.alert(
+        "Format gambar harus PNG, JPG, JPEG, atau WEBP."
+      );
+      return;
+    }
+
+    if (file.size <= 0 || file.size > 5 * 1024 * 1024) {
+      window.alert(
+        "Ukuran gambar QRIS maksimal 5 MB."
+      );
+      return;
+    }
+
+    setIsUploadingQris(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        "/api/settings/qris",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success || !result.url) {
+        throw new Error(
+          result.message ??
+            "Upload gambar QRIS gagal."
+        );
+      }
+
+      setQrisImage(result.url);
+
+      window.alert(
+        "Gambar QRIS berhasil diupload."
+      );
+    } catch (error) {
+      console.error(
+        "[QRIS_UPLOAD_CLIENT_ERROR]",
+        error
+      );
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengupload gambar QRIS."
+      );
+    } finally {
+      setIsUploadingQris(false);
+    }
+  }
 
   /**
    * ==========================================================
@@ -521,7 +608,6 @@ export default function EditPaymentChannelForm({
               <h2 className="text-lg font-semibold">
                 Gambar QRIS
               </h2>
-
               <p className="mt-1 text-sm text-muted-foreground">
                 Perbarui gambar QRIS yang akan ditampilkan
                 kepada customer.
@@ -530,13 +616,58 @@ export default function EditPaymentChannelForm({
           </div>
 
           <div className="space-y-5">
+            <div className="space-y-3">
+              <label className="text-sm font-medium">
+                Upload Gambar QRIS
+              </label>
+
+              <input
+                ref={qrisInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleQrisUpload}
+                className="hidden"
+                disabled={isUploadingQris || isSubmitting}
+              />
+
+              <button
+                type="button"
+                onClick={() => qrisInputRef.current?.click()}
+                disabled={isUploadingQris || isSubmitting}
+                className="group flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/20 px-6 py-8 text-center transition hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <div className="mb-3 rounded-xl bg-background p-3 shadow-sm">
+                  {isUploadingQris ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  ) : (
+                    <Upload className="h-6 w-6 text-primary" />
+                  )}
+                </div>
+                <span className="text-sm font-semibold">
+                  {isUploadingQris
+                    ? "Mengupload gambar QRIS..."
+                    : "Klik untuk memilih gambar QRIS"}
+                </span>
+                <span className="mt-1 text-xs text-muted-foreground">
+                  PNG, JPG, JPEG atau WEBP • Maksimal 5 MB
+                </span>
+              </button>
+            </div>
+
+            <div className="relative flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                atau
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
             <div className="space-y-2">
               <label
                 htmlFor="qrisImage"
                 className="flex items-center gap-2 text-sm font-medium"
               >
                 <ImageIcon className="h-4 w-4" />
-
                 URL / Path Gambar QRIS
               </label>
 
@@ -544,25 +675,31 @@ export default function EditPaymentChannelForm({
                 id="qrisImage"
                 type="text"
                 value={qrisImage}
-                onChange={(event) =>
-                  setQrisImage(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setQrisImage(event.target.value)}
                 placeholder="/uploads/payments/qris.png"
                 className="h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
 
               <p className="text-xs text-muted-foreground">
-                Masukkan URL atau path gambar QRIS yang valid.
+                Bisa menggunakan hasil upload atau memasukkan URL/path gambar secara manual.
               </p>
             </div>
 
             {qrisImage.trim() && (
               <div className="rounded-2xl border bg-muted/30 p-5">
-                <p className="mb-4 text-sm font-medium">
-                  Preview QRIS
-                </p>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">
+                    Preview QRIS
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setQrisImage("")}
+                    disabled={isSubmitting}
+                    className="text-xs font-medium text-muted-foreground transition hover:text-destructive disabled:opacity-50"
+                  >
+                    Hapus gambar
+                  </button>
+                </div>
 
                 <div className="flex justify-center">
                   <div className="relative aspect-square w-full max-w-sm overflow-hidden rounded-xl border bg-white">

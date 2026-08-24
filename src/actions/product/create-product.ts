@@ -639,19 +639,43 @@ const variantOptions =
      */
 
     if (!parsed.success) {
+  const { error } = parsed;
+
+  const { fieldErrors } =
+    error.flatten();
+
   console.error(
     "[CREATE_PRODUCT_VALIDATION_ERROR]",
-    parsed.error.flatten().fieldErrors
+    {
+      fieldErrors,
+      issues: error.issues,
+    }
   );
+
+  /**
+   * Ambil error pertama agar
+   * user langsung mengetahui
+   * field mana yang bermasalah.
+   */
+  const firstError =
+    Object.values(fieldErrors)
+      .flat()
+      .find(
+        (
+          message
+        ): message is string =>
+          Boolean(message)
+      );
 
   return {
     success: false,
 
     message:
+      firstError ??
       "Validasi gagal. Silakan periksa kembali data produk.",
 
     errors:
-      parsed.error.flatten().fieldErrors,
+      fieldErrors,
   };
 }
 

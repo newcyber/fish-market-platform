@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useRef,
+  useState,
+} from "react";
+
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -13,6 +17,8 @@ import {
   QrCode,
   Save,
   ScrollText,
+  Upload,
+  X,
 } from "lucide-react";
 
 import {
@@ -22,6 +28,21 @@ import {
 type PaymentChannelType =
   | "BANK_TRANSFER"
   | "QRIS";
+
+/**
+ * ============================================================
+ * CONFIGURATION
+ * ============================================================
+ */
+
+const MAX_QRIS_SIZE =
+  5 * 1024 * 1024;
+
+const ALLOWED_QRIS_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+];
 
 /**
  * ============================================================
@@ -79,6 +100,27 @@ export default function CreatePaymentChannelForm() {
   const [qrisImage, setQrisImage] =
     useState("");
 
+  const [
+    isUploadingQris,
+    setIsUploadingQris,
+  ] = useState(false);
+
+  const qrisInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
+  /**
+   * ==========================================================
+   * QRIS PREVIEW ERROR
+   * ==========================================================
+   */
+
+  const [
+    qrisPreviewError,
+    setQrisPreviewError,
+  ] = useState(false);
+
   /**
    * ==========================================================
    * PAYMENT INFORMATION STATE
@@ -89,9 +131,6 @@ export default function CreatePaymentChannelForm() {
     useState("");
 
   const [instructions, setInstructions] =
-    useState("");
-
-  const [icon, setIcon] =
     useState("");
 
   /**
@@ -108,6 +147,25 @@ export default function CreatePaymentChannelForm() {
 
   /**
    * ==========================================================
+   * ICON STATE
+   * ==========================================================
+   *
+   * Icon adalah field terpisah dari qrisImage.
+   *
+   * QRIS:
+   * - qrisImage = gambar QRIS
+   *
+   * Icon:
+   * - icon = identifier icon payment channel
+   *
+   * ==========================================================
+   */
+
+  const [icon, setIcon] =
+    useState("");
+
+  /**
+   * ==========================================================
    * HANDLE PAYMENT TYPE CHANGE
    * ==========================================================
    */
@@ -118,7 +176,8 @@ export default function CreatePaymentChannelForm() {
     setType(value);
 
     /**
-     * QRIS tidak menggunakan rekening bank.
+     * QRIS tidak menggunakan
+     * rekening bank.
      */
 
     if (value === "QRIS") {
@@ -128,11 +187,195 @@ export default function CreatePaymentChannelForm() {
     }
 
     /**
-     * BANK TRANSFER tidak menggunakan gambar QRIS.
+     * BANK TRANSFER tidak menggunakan
+     * gambar QRIS.
      */
 
     if (value === "BANK_TRANSFER") {
       setQrisImage("");
+      setQrisPreviewError(false);
+    }
+  }
+
+  /**
+   * ==========================================================
+   * HANDLE QRIS FILE UPLOAD
+   * ==========================================================
+   */
+
+  async function handleQrisUpload(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      event.target.files?.[0];
+
+    /**
+     * Reset input.
+     *
+     * Dengan cara ini file yang sama
+     * tetap bisa dipilih kembali.
+     */
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE MIME TYPE
+     * --------------------------------------------------------
+     */
+
+    if (
+      !ALLOWED_QRIS_TYPES.includes(
+        file.type
+      )
+    ) {
+      window.alert(
+        "Format gambar QRIS harus PNG, JPG, JPEG, atau WEBP."
+      );
+
+      return;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE FILE SIZE
+     * --------------------------------------------------------
+     */
+
+    if (
+      file.size <= 0 ||
+      file.size > MAX_QRIS_SIZE
+    ) {
+      window.alert(
+        "Ukuran gambar QRIS maksimal 5 MB."
+      );
+
+      return;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * START UPLOAD
+     * --------------------------------------------------------
+     */
+
+    setIsUploadingQris(true);
+    setQrisPreviewError(false);
+
+    try {
+      const formData =
+        new FormData();
+
+      formData.append(
+        "file",
+        file
+      );
+
+      /**
+       * ------------------------------------------------------
+       * SEND TO API
+       * ------------------------------------------------------
+       */
+
+      const response =
+        await fetch(
+          "/api/settings/qris",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+      /**
+       * ------------------------------------------------------
+       * PARSE RESPONSE
+       * ------------------------------------------------------
+       */
+
+      let result: {
+        success?: boolean;
+        message?: string;
+        url?: string;
+      };
+
+      try {
+        result =
+          await response.json();
+      } catch {
+        throw new Error(
+          "Response server tidak valid."
+        );
+      }
+
+      /**
+       * ------------------------------------------------------
+       * HANDLE ERROR
+       * ------------------------------------------------------
+       */
+
+      if (
+        !response.ok ||
+        !result.success ||
+        !result.url
+      ) {
+        throw new Error(
+          result.message ??
+            "Upload gambar QRIS gagal."
+        );
+      }
+
+      /**
+       * ------------------------------------------------------
+       * SAVE URL TO STATE
+       * ------------------------------------------------------
+       */
+
+      setQrisImage(
+        result.url
+      );
+
+      setQrisPreviewError(
+        false
+      );
+
+      window.alert(
+        "Gambar QRIS berhasil diupload."
+      );
+    } catch (error) {
+      console.error(
+        "[QRIS_UPLOAD_CLIENT_ERROR]",
+        error
+      );
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengupload gambar QRIS."
+      );
+    } finally {
+      setIsUploadingQris(false);
+    }
+  }
+
+  /**
+   * ==========================================================
+   * HANDLE REMOVE QRIS IMAGE
+   * ==========================================================
+   */
+
+  function handleRemoveQrisImage() {
+    setQrisImage("");
+    setQrisPreviewError(false);
+
+    if (
+      qrisInputRef.current
+    ) {
+      qrisInputRef.current.value =
+        "";
     }
   }
 
@@ -167,7 +410,9 @@ export default function CreatePaymentChannelForm() {
      * ========================================================
      */
 
-    if (type === "BANK_TRANSFER") {
+    if (
+      type === "BANK_TRANSFER"
+    ) {
       if (!bankName.trim()) {
         window.alert(
           "Nama bank wajib diisi."
@@ -176,7 +421,9 @@ export default function CreatePaymentChannelForm() {
         return;
       }
 
-      if (!accountNumber.trim()) {
+      if (
+        !accountNumber.trim()
+      ) {
         window.alert(
           "Nomor rekening wajib diisi."
         );
@@ -184,7 +431,9 @@ export default function CreatePaymentChannelForm() {
         return;
       }
 
-      if (!accountHolder.trim()) {
+      if (
+        !accountHolder.trim()
+      ) {
         window.alert(
           "Nama pemilik rekening wajib diisi."
         );
@@ -202,12 +451,26 @@ export default function CreatePaymentChannelForm() {
     if (type === "QRIS") {
       if (!qrisImage.trim()) {
         window.alert(
-          "URL atau path gambar QRIS wajib diisi."
+          "Gambar QRIS wajib diupload atau URL/path gambar QRIS wajib diisi."
+        );
+
+        return;
+      }
+
+      if (!instructions.trim()) {
+        window.alert(
+          "Instruksi pembayaran QRIS wajib diisi."
         );
 
         return;
       }
     }
+
+    /**
+     * ========================================================
+     * START SUBMIT
+     * ========================================================
+     */
 
     setIsSubmitting(true);
 
@@ -251,64 +514,103 @@ export default function CreatePaymentChannelForm() {
        */
 
       const result =
-        await createPaymentChannelAction({
-          name:
-            normalizedName,
+        await createPaymentChannelAction(
+          {
+            /**
+             * ------------------------------------------------
+             * BASIC INFORMATION
+             * ------------------------------------------------
+             */
 
-          slug,
+            name:
+              normalizedName,
 
-          type,
+            slug,
 
-          /**
-           * BANK ACCOUNT
-           */
+            type,
 
-          bankName:
-            type === "BANK_TRANSFER"
-              ? bankName.trim() || null
-              : null,
+            /**
+             * ------------------------------------------------
+             * BANK ACCOUNT
+             * ------------------------------------------------
+             */
 
-          accountNumber:
-            type === "BANK_TRANSFER"
-              ? accountNumber.trim() || null
-              : null,
+            bankName:
+              type ===
+              "BANK_TRANSFER"
+                ? bankName.trim() ||
+                  null
+                : null,
 
-          accountHolder:
-            type === "BANK_TRANSFER"
-              ? accountHolder.trim() || null
-              : null,
+            accountNumber:
+              type ===
+              "BANK_TRANSFER"
+                ? accountNumber.trim() ||
+                  null
+                : null,
 
-          /**
-           * QRIS IMAGE
-           */
+            accountHolder:
+              type ===
+              "BANK_TRANSFER"
+                ? accountHolder.trim() ||
+                  null
+                : null,
 
-          qrisImage:
-            type === "QRIS"
-              ? qrisImage.trim() || null
-              : null,
+            /**
+             * ------------------------------------------------
+             * QRIS IMAGE
+             * ------------------------------------------------
+             *
+             * PENTING:
+             *
+             * Gambar QRIS harus masuk
+             * ke field qrisImage,
+             * bukan icon.
+             */
 
-          /**
-           * PAYMENT INFORMATION
-           */
+            qrisImage:
+              type === "QRIS"
+                ? qrisImage.trim() ||
+                  null
+                : null,
 
-          description:
-            description.trim() || null,
+            /**
+             * ------------------------------------------------
+             * PAYMENT INFORMATION
+             * ------------------------------------------------
+             */
 
-          instructions:
-            instructions.trim() || null,
+            description:
+              description.trim() ||
+              null,
 
-          icon:
-            icon.trim() || null,
+            instructions:
+              instructions.trim() ||
+              null,
 
-          /**
-           * GENERAL
-           */
+            /**
+             * ------------------------------------------------
+             * ICON
+             * ------------------------------------------------
+             */
 
-          sortOrder:
-            Number(sortOrder) || 0,
+            icon:
+              icon.trim() ||
+              null,
 
-          isActive,
-        });
+            /**
+             * ------------------------------------------------
+             * GENERAL
+             * ------------------------------------------------
+             */
+
+            sortOrder:
+              Number(sortOrder) ||
+              0,
+
+            isActive,
+          }
+        );
 
       /**
        * ======================================================
@@ -348,12 +650,20 @@ export default function CreatePaymentChannelForm() {
       );
 
       window.alert(
-        "Terjadi kesalahan saat menambahkan metode pembayaran."
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat menambahkan metode pembayaran."
       );
     } finally {
       setIsSubmitting(false);
     }
   }
+
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
 
   return (
     <form
@@ -382,7 +692,11 @@ export default function CreatePaymentChannelForm() {
               "/admin/payment-channels"
             )
           }
-          className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+          disabled={
+            isSubmitting ||
+            isUploadingQris
+          }
+          className="inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ArrowLeft className="h-4 w-4" />
 
@@ -406,6 +720,8 @@ export default function CreatePaymentChannelForm() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+          {/* BANK TRANSFER */}
+
           <button
             type="button"
             onClick={() =>
@@ -413,9 +729,14 @@ export default function CreatePaymentChannelForm() {
                 "BANK_TRANSFER"
               )
             }
+            disabled={
+              isSubmitting ||
+              isUploadingQris
+            }
             className={[
               "rounded-2xl border p-5 text-left transition",
-              type === "BANK_TRANSFER"
+              type ===
+              "BANK_TRANSFER"
                 ? "border-primary bg-primary/5 ring-1 ring-primary"
                 : "hover:bg-muted/50",
             ].join(" ")}
@@ -437,10 +758,18 @@ export default function CreatePaymentChannelForm() {
             </div>
           </button>
 
+          {/* QRIS */}
+
           <button
             type="button"
             onClick={() =>
-              handleTypeChange("QRIS")
+              handleTypeChange(
+                "QRIS"
+              )
+            }
+            disabled={
+              isSubmitting ||
+              isUploadingQris
             }
             className={[
               "rounded-2xl border p-5 text-left transition",
@@ -484,6 +813,8 @@ export default function CreatePaymentChannelForm() {
         </div>
 
         <div className="space-y-5">
+          {/* NAME */}
+
           <div>
             <label
               htmlFor="name"
@@ -506,9 +837,15 @@ export default function CreatePaymentChannelForm() {
                   ? "Contoh: QRIS"
                   : "Contoh: BCA Transfer"
               }
-              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              disabled={
+                isSubmitting ||
+                isUploadingQris
+              }
+              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
+
+          {/* DESCRIPTION */}
 
           <div>
             <label
@@ -528,7 +865,11 @@ export default function CreatePaymentChannelForm() {
               }
               placeholder="Deskripsi singkat metode pembayaran."
               rows={3}
-              className="w-full resize-none rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              disabled={
+                isSubmitting ||
+                isUploadingQris
+              }
+              className="w-full resize-none rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
         </div>
@@ -538,7 +879,8 @@ export default function CreatePaymentChannelForm() {
           BANK INFORMATION
       ====================================================== */}
 
-      {type === "BANK_TRANSFER" && (
+      {type ===
+        "BANK_TRANSFER" && (
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
           <div className="mb-6">
             <h2 className="text-lg font-semibold">
@@ -551,6 +893,8 @@ export default function CreatePaymentChannelForm() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
+            {/* BANK */}
+
             <div>
               <label
                 htmlFor="bankName"
@@ -569,9 +913,14 @@ export default function CreatePaymentChannelForm() {
                   )
                 }
                 placeholder="Contoh: BCA"
-                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+                disabled={
+                  isSubmitting
+                }
+                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
+
+            {/* ACCOUNT NUMBER */}
 
             <div>
               <label
@@ -591,9 +940,14 @@ export default function CreatePaymentChannelForm() {
                   )
                 }
                 placeholder="Contoh: 1234567890"
-                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+                disabled={
+                  isSubmitting
+                }
+                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
+
+            {/* ACCOUNT HOLDER */}
 
             <div className="md:col-span-2">
               <label
@@ -612,44 +966,132 @@ export default function CreatePaymentChannelForm() {
                     event.target.value
                   )
                 }
-                placeholder="Contoh: QRIS"
-                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+                placeholder="Contoh: Pusat Ikan Segar"
+                disabled={
+                  isSubmitting
+                }
+                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
           </div>
         </div>
       )}
 
-      {/* =====================================================
+            {/* =====================================================
           QRIS IMAGE
       ====================================================== */}
 
       {type === "QRIS" && (
-        <div className="rounded-2xl border bg-card p-6 shadow-sm">
-          <div className="mb-6 flex items-start gap-3">
-            <div className="rounded-xl bg-muted p-3">
+        <div className="rounded-2xl border bg-card p-4 shadow-sm sm:p-6">
+          {/* ==================================================
+              HEADER
+          ================================================== */}
+
+          <div className="mb-5 flex items-start gap-3 sm:mb-6">
+            <div className="shrink-0 rounded-xl bg-muted p-3">
               <QrCode className="h-5 w-5" />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold">
                 Gambar QRIS
               </h2>
 
-              <p className="mt-1 text-sm text-muted-foreground">
-                Masukkan URL atau path gambar QRIS yang akan
-                ditampilkan kepada customer.
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Upload gambar QRIS atau masukkan URL/path
+                gambar secara manual.
               </p>
             </div>
           </div>
 
           <div className="space-y-5">
+
+            {/* ==================================================
+                UPLOAD QRIS
+            ================================================== */}
+
+            <div>
+              <input
+                ref={qrisInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={
+                  handleQrisUpload
+                }
+                disabled={
+                  isUploadingQris ||
+                  isSubmitting
+                }
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  qrisInputRef.current?.click()
+                }
+                disabled={
+                  isUploadingQris ||
+                  isSubmitting
+                }
+                className="flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-muted-foreground/25 bg-muted/20 px-4 py-8 text-center transition hover:border-primary/50 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60 sm:px-6 sm:py-10"
+              >
+                {isUploadingQris ? (
+                  <>
+                    <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary" />
+
+                    <span className="text-sm font-semibold">
+                      Mengupload QRIS...
+                    </span>
+
+                    <span className="mt-1 text-xs text-muted-foreground">
+                      Mohon tunggu sampai upload selesai.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-3 rounded-full bg-primary/10 p-3">
+                      <Upload className="h-6 w-6 text-primary" />
+                    </div>
+
+                    <span className="text-sm font-semibold">
+                      Upload Gambar QRIS
+                    </span>
+
+                    <span className="mt-1 text-xs leading-5 text-muted-foreground">
+                      PNG, JPG, JPEG, atau WEBP
+                      <br className="sm:hidden" />
+                      {" "}• Maksimal 5 MB
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* ==================================================
+                OR DIVIDER
+            ================================================== */}
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                atau
+              </span>
+
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            {/* ==================================================
+                MANUAL URL / PATH
+            ================================================== */}
+
             <div>
               <label
                 htmlFor="qrisImage"
                 className="mb-2 flex items-center gap-2 text-sm font-medium"
               >
-                <ImageIcon className="h-4 w-4" />
+                <ImageIcon className="h-4 w-4 shrink-0" />
 
                 URL / Path Gambar QRIS
               </label>
@@ -663,39 +1105,54 @@ export default function CreatePaymentChannelForm() {
                     event.target.value
                   )
                 }
-                placeholder="/uploads/payments/qris.png"
-                className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+                placeholder="/uploads/settings/qris/qris.png"
+                disabled={
+                  isUploadingQris ||
+                  isSubmitting
+                }
+                className="w-full rounded-xl border bg-background px-4 py-3 text-sm outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
               />
 
-              <p className="mt-2 text-xs text-muted-foreground">
-                Contoh: /uploads/payments/qris.png atau URL
-                gambar dari storage Anda.
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Gunakan opsi ini jika gambar QRIS sudah
+                tersedia di storage atau menggunakan URL
+                eksternal.
               </p>
             </div>
 
+            {/* ==================================================
+                CURRENT VALUE
+            ================================================== */}
+
             {qrisImage.trim() && (
-              <div className="overflow-hidden rounded-2xl border bg-muted/30 p-5">
-                <p className="mb-4 text-sm font-medium">
-                  Preview QRIS
-                </p>
+              <div className="rounded-2xl border bg-muted/20 p-4 sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">
+                      Preview QRIS
+                    </p>
+
+                    <p className="mt-1 break-all text-xs text-muted-foreground">
+                      {qrisImage}
+                    </p>
+                  </div>
+                </div>
 
                 <div className="flex justify-center">
-                  <div className="relative aspect-square w-full max-w-sm overflow-hidden rounded-xl border bg-white">
+                  <div className="relative aspect-square w-full max-w-xs overflow-hidden rounded-xl border bg-white shadow-sm sm:max-w-sm">
                     <Image
                       src={qrisImage}
                       alt="Preview QRIS"
                       fill
                       unoptimized
+                      sizes="(max-width: 640px) 90vw, 384px"
                       className="object-contain p-4"
-                      onError={() => {
-                        // Browser akan tetap menampilkan container
-                        // apabila URL gambar belum valid.
-                      }}
                     />
                   </div>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       )}
@@ -734,7 +1191,11 @@ export default function CreatePaymentChannelForm() {
               ? "Scan QRIS menggunakan aplikasi pembayaran Anda, lalu selesaikan pembayaran."
               : "Silakan transfer ke rekening yang tertera."
           }
-          className="w-full resize-none rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+          disabled={
+            isSubmitting ||
+            isUploadingQris
+          }
+          className="w-full resize-none rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
 
@@ -754,12 +1215,14 @@ export default function CreatePaymentChannelForm() {
             </h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Atur urutan dan status metode pembayaran.
+              Atur urutan, icon, dan status metode pembayaran.
             </p>
           </div>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
+          {/* SORT ORDER */}
+
           <div>
             <label
               htmlFor="sortOrder"
@@ -778,9 +1241,15 @@ export default function CreatePaymentChannelForm() {
                   event.target.value
                 )
               }
-              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              disabled={
+                isSubmitting ||
+                isUploadingQris
+              }
+              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
+
+          {/* ICON */}
 
           <div>
             <label
@@ -799,11 +1268,17 @@ export default function CreatePaymentChannelForm() {
                   event.target.value
                 )
               }
-              placeholder="Contoh: credit-card"
-              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30"
+              placeholder="Contoh: credit-card atau qr-code"
+              disabled={
+                isSubmitting ||
+                isUploadingQris
+              }
+              className="w-full rounded-xl border bg-background px-4 py-3 outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
         </div>
+
+        {/* ACTIVE */}
 
         <label className="mt-6 flex cursor-pointer items-center justify-between rounded-xl border p-4">
           <div>
@@ -812,8 +1287,7 @@ export default function CreatePaymentChannelForm() {
             </p>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Metode aktif akan tersedia untuk customer saat
-              checkout.
+              Metode aktif akan tersedia untuk customer saat checkout.
             </p>
           </div>
 
@@ -825,6 +1299,10 @@ export default function CreatePaymentChannelForm() {
                 event.target.checked
               )
             }
+            disabled={
+              isSubmitting ||
+              isUploadingQris
+            }
             className="h-5 w-5"
           />
         </label>
@@ -835,22 +1313,32 @@ export default function CreatePaymentChannelForm() {
       ====================================================== */}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        {/* CANCEL */}
+
         <button
           type="button"
-          disabled={isSubmitting}
+          disabled={
+            isSubmitting ||
+            isUploadingQris
+          }
           onClick={() =>
             router.push(
               "/admin/payment-channels"
             )
           }
-          className="inline-flex items-center justify-center rounded-xl border px-5 py-3 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded-xl border px-5 py-3 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
           Batal
         </button>
 
+        {/* SUBMIT */}
+
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={
+            isSubmitting ||
+            isUploadingQris
+          }
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? (
