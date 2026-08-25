@@ -32,10 +32,18 @@ import FlashSaleService from
  *
  * Shared homepage untuk:
  *
- * - Guest: /
- * - Customer: /customer
+ * - Guest:
+ *   /
  *
- * Perbedaan utama hanya pada navigation/header dan productsHref.
+ * - Customer:
+ *   /customer
+ *
+ * Perbedaan utama hanya pada:
+ *
+ * - navigation/header
+ * - productsHref
+ *
+ * ============================================================
  */
 
 interface SharedHomePageProps {
@@ -51,6 +59,8 @@ interface SharedHomePageProps {
  *
  * Prisma Decimal dan Date harus diubah menjadi plain value
  * sebelum dikirim ke Client Component.
+ *
+ * ============================================================
  */
 
 function serializeFlashSale(
@@ -153,9 +163,20 @@ function serializeFlashSale(
 export default async function SharedHomePage({
   mode,
 }: SharedHomePageProps) {
+
   /**
    * ==========================================================
    * PRODUCTS HREF
+   * ==========================================================
+   *
+   * Guest:
+   *
+   * /products
+   *
+   * Customer:
+   *
+   * /customer/products
+   *
    * ==========================================================
    */
 
@@ -168,6 +189,27 @@ export default async function SharedHomePage({
    * ==========================================================
    * FETCH HOMEPAGE DATA
    * ==========================================================
+   *
+   * Semua data utama homepage diambil secara paralel.
+   *
+   * CATEGORY TIDAK DIAMBIL DI SINI.
+   *
+   * HomeCategoryShortcuts sekarang menggunakan:
+   *
+   * - Ikan Segar
+   * - Udang
+   * - Seafood
+   * - Frozen
+   * - Paket Hemat
+   * - Promo
+   *
+   * sebagai shortcut bisnis dengan icon yang tetap.
+   *
+   * URL category dibangun oleh:
+   *
+   * HomeCategoryShortcuts
+   *
+   * ==========================================================
    */
 
   const [
@@ -177,6 +219,7 @@ export default async function SharedHomePage({
     newestProducts,
   ] =
     await Promise.all([
+
       /**
        * ========================================================
        * FLASH SALE
@@ -308,7 +351,21 @@ export default async function SharedHomePage({
       }),
     ]);
 
-    const storeSettings =
+  /**
+   * ==========================================================
+   * STORE SETTINGS
+   * ==========================================================
+   *
+   * Digunakan untuk:
+   *
+   * - Hero Slide 1
+   * - Hero Slide 2
+   * - Hero Slide 3
+   *
+   * ==========================================================
+   */
+
+  const storeSettings =
     await prisma.storeSettings.findFirst();
 
   /**
@@ -370,7 +427,9 @@ export default async function SharedHomePage({
    * BEST SELLING PRODUCTS
    * ==========================================================
    *
-   * Ambil productId berdasarkan total quantity tertinggi.
+   * Ambil product berdasarkan ranking quantity.
+   *
+   * ==========================================================
    */
 
   const bestSellingProductIds =
@@ -412,6 +471,8 @@ export default async function SharedHomePage({
    * ==========================================================
    *
    * Digunakan agar urutan ranking dari groupBy tetap terjaga.
+   *
+   * ==========================================================
    */
 
   const bestSellingProductMap =
@@ -423,6 +484,12 @@ export default async function SharedHomePage({
         ]
       )
     );
+
+  /**
+   * ==========================================================
+   * SERIALIZE BEST SELLING PRODUCTS
+   * ==========================================================
+   */
 
   const serializedBestSellingProducts =
     bestSellingGroups
@@ -539,36 +606,45 @@ export default async function SharedHomePage({
       className="
         min-h-screen
         overflow-x-hidden
+
         bg-(--ice-50)
       "
     >
 
-      {/* ====================================================== */}
-      {/* HERO */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          HERO
+      ====================================================== */}
 
       <HomeHeroCarousel
-  productsHref={productsHref}
-  heroImages={{
-    slide1:
-      storeSettings?.heroSlide1Image ??
-      null,
+        productsHref={
+          productsHref
+        }
 
-    slide2:
-      storeSettings?.heroSlide2Image ??
-      null,
+        heroImages={{
+          slide1:
+            storeSettings?.heroSlide1Image ??
+            null,
 
-    slide3:
-      storeSettings?.heroSlide3Image ??
-      null,
-  }}
-/>
+          slide2:
+            storeSettings?.heroSlide2Image ??
+            null,
 
-      {/* ====================================================== */}
-      {/* CATEGORY */}
-      {/* ====================================================== */}
+          slide3:
+            storeSettings?.heroSlide3Image ??
+            null,
+        }}
+      />
 
-      <div className="relative z-10">
+      {/* ======================================================
+          CATEGORY
+      ====================================================== */}
+
+      <div
+        className="
+          relative
+          z-10
+        "
+      >
         <HomeCategoryShortcuts
           productsHref={
             productsHref
@@ -576,16 +652,22 @@ export default async function SharedHomePage({
         />
       </div>
 
-      {/* ====================================================== */}
-      {/* FLASH SALE */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          FLASH SALE
+      ====================================================== */}
 
       {serializedFlashSale && (
-        <div className="relative z-10">
+        <div
+          className="
+            relative
+            z-10
+          "
+        >
           <HomeFlashSaleSection
             flashSale={
               serializedFlashSale
             }
+
             productsHref={
               productsHref
             }
@@ -593,11 +675,16 @@ export default async function SharedHomePage({
         </div>
       )}
 
-      {/* ====================================================== */}
-      {/* PROMO BANNER */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          PROMO BANNER
+      ====================================================== */}
 
-      <div className="relative z-10">
+      <div
+        className="
+          relative
+          z-10
+        "
+      >
         <HomePromoBanner
           productsHref={
             productsHref
@@ -605,54 +692,61 @@ export default async function SharedHomePage({
         />
       </div>
 
-      {/* ====================================================== */}
-      {/* PRODUCT CONTENT AREA */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          PRODUCT CONTENT AREA
+      ====================================================== */}
 
       <div
         className="
           relative
+
           bg-(--ice-50)
+
           pb-10
+
           sm:pb-14
+
           lg:pb-16
         "
       >
 
-        {/* ==================================================== */}
-        {/* FEATURED PRODUCTS */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            FEATURED PRODUCTS
+        ==================================================== */}
 
         <HomeFeaturedProducts
           products={
             serializedFeaturedProducts
           }
+
           productsHref={
             productsHref
           }
         />
 
-        {/* ==================================================== */}
-        {/* BEST SELLING PRODUCTS */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            BEST SELLING PRODUCTS
+        ==================================================== */}
 
         <HomeBestSellingProducts
           products={
             serializedBestSellingProducts
           }
+
           productsHref={
             productsHref
           }
         />
 
-        {/* ==================================================== */}
-        {/* NEWEST PRODUCTS */}
-        {/* ==================================================== */}
+        {/* ====================================================
+            NEWEST PRODUCTS
+        ==================================================== */}
 
         <HomeNewestProducts
           products={
             serializedNewestProducts
           }
+
           productsHref={
             productsHref
           }
