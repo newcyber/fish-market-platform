@@ -28,6 +28,13 @@ import WishlistService from "@/services/wishlist/wishlist.service";
 
 import ToggleWishlistButton from "@/components/customer/wishlist/ToggleWishlistButton";
 
+import HomeCategoryService from
+  "@/services/category/home-category.service";
+
+  import type {
+  HomeCategorySlug,
+} from "@/constants/customer/home-categories";
+
 import ProductGridTransition from
   "@/components/customer/products/ProductGridTransition";
 
@@ -83,11 +90,51 @@ export default async function CustomerProductsPage({
     params.search?.trim() ||
     undefined;
 
-  const categoryId =
-    params.category &&
-      params.category !== "all"
-      ? params.category
-      : undefined;
+  const categorySlug =
+  params.category &&
+  params.category !== "all"
+    ? params.category
+    : undefined;
+
+
+    /**
+ * ==========================================================
+ * HOME CATEGORY FILTER
+ * ==========================================================
+ */
+
+const isHomeCategory =
+  categorySlug ===
+    "ikan-segar" ||
+  categorySlug ===
+    "udang" ||
+  categorySlug ===
+    "seafood" ||
+  categorySlug ===
+    "frozen" ||
+  categorySlug ===
+    "paket-hemat" ||
+  categorySlug ===
+    "promo";
+
+const homeCategorySlug =
+  isHomeCategory
+    ? (
+        categorySlug as
+          | HomeCategorySlug
+      )
+    : undefined;
+
+const categoryIds =
+  homeCategorySlug &&
+  homeCategorySlug !==
+    "promo" &&
+  homeCategorySlug !==
+    "paket-hemat"
+    ? await HomeCategoryService.getCategoryIds(
+        homeCategorySlug
+      )
+    : undefined;
 
   /**
    * ==========================================================
@@ -101,10 +148,39 @@ export default async function CustomerProductsPage({
     storeSettings,
   ] = await Promise.all([
     ProductService.getProducts({
-      search,
-      categoryId,
-      published: true,
-    }),
+  search,
+
+  /**
+   * Category database lama.
+   *
+   * Hanya digunakan jika parameter bukan
+   * logical homepage category.
+   */
+  categoryId:
+    !isHomeCategory
+      ? categorySlug
+      : undefined,
+
+  /**
+   * Logical homepage category.
+   *
+   * Contoh:
+   *
+   * ikan-segar
+   * -> [ikan-laut-id, ikan-air-tawar-id]
+   */
+  categoryIds,
+
+  /**
+   * PROMO
+   */
+
+  discounted:
+    homeCategorySlug ===
+    "promo",
+
+  published: true,
+}),
 
     CategoryService.getCategories({
       active: true,
@@ -1085,7 +1161,7 @@ export default async function CustomerProductsPage({
         name: category.name,
       })
     )}
-    activeCategoryId={categoryId}
+    activeCategoryId={categorySlug}
     basePath="/customer/products"
   />
 </div>
@@ -1233,7 +1309,7 @@ export default async function CustomerProductsPage({
 
             <EmptyState
               search={search}
-              category={categoryId}
+              category={categorySlug}
             />
 
           ) : (

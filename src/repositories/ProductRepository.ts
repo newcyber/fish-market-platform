@@ -9,8 +9,45 @@ import { Prisma } from "@prisma/client";
 
 export interface ProductFilters {
   search?: string;
+
+  /**
+   * ============================================================
+   * SINGLE CATEGORY
+   * ============================================================
+   *
+   * Tetap dipertahankan agar compatibility dengan
+   * fitur existing tidak rusak.
+   */
   categoryId?: string;
+
+  /**
+   * ============================================================
+   * MULTIPLE CATEGORIES
+   * ============================================================
+   *
+   * Digunakan oleh shortcut kategori homepage.
+   *
+   * Contoh:
+   *
+   * Ikan Segar:
+   * [
+   *   categoryIdIkanLaut,
+   *   categoryIdIkanAirTawar
+   * ]
+   */
+  categoryIds?: string[];
+
+  /**
+   * ============================================================
+   * PRODUCT DISCOUNT
+   * ============================================================
+   *
+   * true = hanya produk yang sedang memiliki discount aktif.
+   */
+  discounted?: boolean;
+
   published?: boolean;
+
   featured?: boolean;
 }
 
@@ -186,90 +223,190 @@ export class ProductRepository {
    * ============================================================
    */
 
-  static async findMany(
-    filters: ProductFilters = {}
-  ) {
-    const {
-      search,
-      categoryId,
-      published,
-      featured,
-    } = filters;
+  /**
+ * ============================================================
+ * FIND MANY
+ * ============================================================
+ */
 
-    return prisma.product.findMany({
-      where: {
-        deletedAt: null,
+static async findMany(
+  filters: ProductFilters = {}
+) {
+  const {
+    search,
+    categoryId,
+    categoryIds,
+    discounted,
+    published,
+    featured,
+  } = filters;
 
-        /**
-         * SEARCH
-         */
+  /**
+   * ==========================================================
+   * CATEGORY FILTER
+   * ==========================================================
+   *
+   * Priority:
+   *
+   * 1. categoryIds
+   * 2. categoryId
+   *
+   * categoryIds digunakan untuk logical category homepage
+   * seperti:
+   *
+   * ikan-segar
+   * seafood
+   */
 
-        ...(search
-          ? {
+  const categoryFilter =
+    categoryIds &&
+    categoryIds.length > 0
+      ? {
+          categoryId: {
+            in: categoryIds,
+          },
+        }
+      : categoryId
+        ? {
+            categoryId,
+          }
+        : {};
+
+  /**
+   * ==========================================================
+   * DISCOUNT FILTER
+   * ==========================================================
+   *
+   * Hanya menampilkan discount yang:
+   *
+   * - isDiscountActive = true
+   * - jika startAt ada, sudah dimulai
+   * - jika endAt ada, belum berakhir
+   *
+   * Waktu menggunakan database query berdasarkan NOW().
+   */
+
+  const discountFilter =
+    discounted
+      ? {
+          isDiscountActive: true,
+
+          AND: [
+            {
               OR: [
                 {
-                  name: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
+                  discountStartAt: null,
                 },
-
                 {
-                  slug: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-
-                {
-                  sku: {
-                    contains: search,
-                    mode: "insensitive",
+                  discountStartAt: {
+                    lte: new Date(),
                   },
                 },
               ],
-            }
-          : {}),
+            },
 
-        /**
-         * CATEGORY
-         */
+            {
+              OR: [
+                {
+                  discountEndAt: null,
+                },
+                {
+                  discountEndAt: {
+                    gte: new Date(),
+                  },
+                },
+              ],
+            },
+          ],
+        }
+      : {};
 
-        ...(categoryId
-          ? {
-              categoryId,
-            }
-          : {}),
+  return prisma.product.findMany({
+    where: {
+      deletedAt: null,
 
-        /**
-         * PUBLISHED
-         */
+      /**
+       * ========================================================
+       * SEARCH
+       * ========================================================
+       */
 
-        ...(published !== undefined
-          ? {
-              isPublished: published,
-            }
-          : {}),
+      ...(search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
 
-        /**
-         * FEATURED
-         */
+              {
+                slug: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
 
-        ...(featured !== undefined
-          ? {
-              featured,
-            }
-          : {}),
-      },
+              {
+                sku: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            ],
+          }
+        : {}),
 
-      include:
-        this.productInclude,
+      /**
+       * ========================================================
+       * CATEGORY
+       * ========================================================
+       */
 
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-  }
+      ...categoryFilter,
+
+      /**
+       * ========================================================
+       * DISCOUNT
+       * ========================================================
+       */
+
+      ...discountFilter,
+
+      /**
+       * ========================================================
+       * PUBLISHED
+       * ========================================================
+       */
+
+      ...(published !== undefined
+        ? {
+            isPublished: published,
+          }
+        : {}),
+
+      /**
+       * ========================================================
+       * FEATURED
+       * ========================================================
+       */
+
+      ...(featured !== undefined
+        ? {
+            featured,
+          }
+        : {}),
+    },
+
+    include:
+      this.productInclude,
+
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}
 
   /**
    * ============================================================
