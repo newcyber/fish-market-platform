@@ -150,7 +150,7 @@ export function HomeUserMenu({
                 {/* AKUN SAYA */}
 
                 <Link
-                  href="/customer"
+                  href="customer/profile"
                   onClick={() => {
                     setIsOpen(false);
                   }}
