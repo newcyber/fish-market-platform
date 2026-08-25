@@ -6,7 +6,11 @@ import {
 } from "react";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import {
   useForm,
@@ -73,27 +77,32 @@ import {
  * ============================================================
  * LOGIN FORM
  * ============================================================
- *
- * Customer Login
- *
- * Features:
- * - Responsive mobile layout
- * - Remember Me
- * - Forgot Password
- * - Email verification redirect
- * - Server field errors
- * - Loading state
- * - Accessible form controls
- *
- * Authentication flow tetap menggunakan:
- *
- * login(values)
- *
- * ============================================================
  */
 
 export function LoginForm() {
-  const router = useRouter();
+  const router =
+    useRouter();
+
+  const searchParams =
+    useSearchParams();
+
+  const rawCallbackUrl =
+    searchParams.get(
+      "callbackUrl"
+    );
+
+  /**
+   * ==========================================================
+   * SAFE CALLBACK URL
+   * ==========================================================
+   */
+
+  const callbackUrl =
+    rawCallbackUrl &&
+    rawCallbackUrl.startsWith("/") &&
+    !rawCallbackUrl.startsWith("//")
+      ? rawCallbackUrl
+      : "/";
 
   /**
    * ==========================================================
@@ -138,7 +147,9 @@ export function LoginForm() {
     },
   } = useForm<LoginInput>({
     resolver:
-      zodResolver(LoginSchema),
+      zodResolver(
+        LoginSchema
+      ),
 
     defaultValues: {
       email: "",
@@ -159,135 +170,151 @@ export function LoginForm() {
   ) => {
     setServerError("");
 
-    startTransition(async () => {
-      try {
-        const result =
-          await login(values);
+    startTransition(
+      async () => {
+        try {
+          const result =
+            await login(values);
 
-        /**
-         * ======================================================
-         * LOGIN FAILED
-         * ======================================================
-         */
-
-        if (!result.success) {
           /**
            * ====================================================
-           * EMAIL NOT VERIFIED
+           * LOGIN FAILED
            * ====================================================
-           *
-           * User diarahkan ke halaman:
-           *
-           * /verify-email?email=...
-           *
-           * Jangan mengubah flow ini.
            */
 
-          if (
-            result.code ===
-            "EMAIL_NOT_VERIFIED"
-          ) {
-            toast.error(
+          if (!result.success) {
+
+            /**
+             * ==================================================
+             * EMAIL NOT VERIFIED
+             * ==================================================
+             */
+
+            if (
+              result.code ===
+              "EMAIL_NOT_VERIFIED"
+            ) {
+              toast.error(
+                result.message ??
+                  "Email Anda belum diverifikasi."
+              );
+
+              router.push(
+                `/verify-email?email=${encodeURIComponent(
+                  values.email
+                    .trim()
+                    .toLowerCase()
+                )}`
+              );
+
+              return;
+            }
+
+            /**
+             * ==================================================
+             * FIELD ERRORS
+             * ==================================================
+             */
+
+            if (
+              result.fieldErrors
+            ) {
+              for (
+                const [
+                  field,
+                  message,
+                ] of Object.entries(
+                  result.fieldErrors
+                )
+              ) {
+                if (!message) {
+                  continue;
+                }
+
+                setError(
+                  field as keyof LoginInput,
+                  {
+                    type: "server",
+                    message,
+                  }
+                );
+              }
+            }
+
+            /**
+             * ==================================================
+             * SERVER ERROR
+             * ==================================================
+             */
+
+            const message =
               result.message ??
-                "Email Anda belum diverifikasi."
+              "Login gagal. Silakan periksa kembali data Anda.";
+
+            setServerError(
+              message
             );
 
-            router.push(
-              `/verify-email?email=${encodeURIComponent(
-                values.email
-                  .trim()
-                  .toLowerCase()
-              )}`
+            toast.error(
+              message
             );
 
             return;
           }
 
           /**
-           * ====================================================
-           * FIELD ERRORS
-           * ====================================================
+           * ==================================================
+           * LOGIN SUCCESS
+           * ==================================================
            */
 
-          if (result.fieldErrors) {
-            for (
-              const [
-                field,
-                message,
-              ] of Object.entries(
-                result.fieldErrors
-              )
-            ) {
-              if (!message) {
-                continue;
-              }
-
-              setError(
-                field as keyof LoginInput,
-                {
-                  type: "server",
-                  message,
-                }
-              );
-            }
-          }
+          toast.success(
+            result.message ??
+              "Login berhasil."
+          );
 
           /**
-           * ====================================================
-           * SERVER ERROR
-           * ====================================================
+           * ==================================================
+           * REDIRECT
+           * ==================================================
+           *
+           * Jika ada callbackUrl:
+           *
+           * /customer/cart
+           *
+           * maka user dikembalikan ke sana.
+           *
+           * Jika tidak ada:
+           *
+           * /
            */
 
+          router.replace(
+            callbackUrl
+          );
+
+          router.refresh();
+
+        } catch (error) {
+
+          console.error(
+            "[LOGIN_FORM_ERROR]",
+            error
+          );
+
           const message =
-            result.message ??
-            "Login gagal. Silakan periksa kembali data Anda.";
+            "Terjadi kesalahan saat login. Silakan coba lagi.";
 
-          setServerError(message);
+          setServerError(
+            message
+          );
 
-          toast.error(message);
-
-          return;
+          toast.error(
+            message
+          );
         }
-
-        /**
-         * ======================================================
-         * LOGIN SUCCESS
-         * ======================================================
-         */
-
-        toast.success(
-          result.message ??
-            "Login berhasil."
-        );
-
-        /**
-         * Middleware menentukan
-         * tujuan berdasarkan role.
-         */
-
-        router.replace("/");
-
-        router.refresh();
-      } catch (error) {
-        /**
-         * ======================================================
-         * CLIENT / NETWORK ERROR
-         * ======================================================
-         */
-
-        console.error(
-          "[LOGIN_FORM_ERROR]",
-          error
-        );
-
-        const message =
-          "Terjadi kesalahan saat login. Silakan coba lagi.";
-
-        setServerError(message);
-
-        toast.error(message);
       }
-    });
+    );
   };
 
   /**
@@ -298,10 +325,6 @@ export function LoginForm() {
 
   return (
     <AuthCard>
-
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
 
       <AuthHeader
         title="Masuk"

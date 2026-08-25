@@ -305,42 +305,6 @@ export default async function CustomerProductsPage({
       ) ?? []
     );
 
-  /**
-   * ==========================================================
-   * CATEGORY URL
-   * ==========================================================
-   */
-
-  function categoryUrl(
-    selectedCategoryId?: string
-  ) {
-    const query =
-      new URLSearchParams();
-
-    if (search) {
-      query.set(
-        "search",
-        search
-      );
-    }
-
-    if (
-      selectedCategoryId
-    ) {
-      query.set(
-        "category",
-        selectedCategoryId
-      );
-    }
-
-    const queryString =
-      query.toString();
-
-    return queryString
-      ? `/customer/products?${queryString}`
-      : "/customer/products";
-  }
-
   return (
     <main
       className="
