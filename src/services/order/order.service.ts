@@ -48,14 +48,29 @@ export interface OrderDashboardSummary {
 }
 
 export interface CreateOrderItemInput {
+  /**
+   * Product parent.
+   *
+   * Tetap dikirim agar server memastikan SKU
+   * memang milik product tersebut.
+   */
   productId: string;
 
+  /**
+   * Canonical sellable SKU.
+   *
+   * Harga dan stok transaksi ditentukan oleh SKU ini.
+   */
+  skuId: string;
+
+  /**
+   * Quantity final yang dibeli.
+   */
   quantity: number;
 
-  productVariant?: string | null;
-
-  productWeight?: string | null;
-
+  /**
+   * Catatan customer untuk item.
+   */
   customerNote?: string | null;
 }
 
@@ -317,9 +332,59 @@ export default class OrderService {
     * Jika salah satu proses gagal,
     * seluruh transaksi akan di-rollback.
   */
+    /**
+   * ============================================================
+   * CREATE ORDER
+   * ============================================================
+   *
+   * Canonical transaction flow:
+   *
+   * Product
+   *   ↓
+   * ProductSku
+   *   ↓
+   * ProductPricingService
+   *   ↓
+   * OrderItem.skuId
+   *   ↓
+   * ProductSku.stock
+   *   ↓
+   * StockLedger.skuId
+   *
+   * Legacy:
+   *
+   * - productVariant
+   * - productWeight
+   *
+   * tidak lagi digunakan sebagai source of truth.
+   *
+   * Semua proses penting berada di dalam satu Prisma transaction:
+   *
+   * 1. Validate customer
+   * 2. Validate address
+   * 3. Validate product + SKU
+   * 4. Aggregate SKU stock requirement
+   * 5. Resolve canonical pricing
+   * 6. Collect Flash Sale requirements
+   * 7. Calculate voucher
+   * 8. Create Order + OrderItems
+   * 9. Consume Flash Sale
+   * 10. Consume voucher
+   * 11. Decrement ProductSku.stock
+   * 12. Create StockLedger
+   *
+   * Jika salah satu proses gagal,
+   * seluruh transaction di-rollback.
+   */
   static async createOrder(
     input: CreateOrderInput
   ) {
+    /**
+     * ==========================================================
+     * BASIC VALIDATION
+     * ==========================================================
+     */
+
     if (!input.userId) {
       throw new Error(
         "Customer wajib dipilih."
@@ -340,9 +405,9 @@ export default class OrderService {
 
     if (
       input.paymentMethod !==
-      PaymentMethod.BANK_TRANSFER &&
+        PaymentMethod.BANK_TRANSFER &&
       input.paymentMethod !==
-      PaymentMethod.QRIS
+        PaymentMethod.QRIS
     ) {
       throw new Error(
         "Metode pembayaran tidak valid."
@@ -350,7 +415,7 @@ export default class OrderService {
     }
 
     const shippingCost =
-    input.shippingCost ?? 0;
+      input.shippingCost ?? 0;
 
     if (
       !Number.isFinite(
@@ -373,46 +438,58 @@ export default class OrderService {
     }
 
     const voucherCode =
-    input.voucherCode
-    ?.trim()
-    .toUpperCase() || null;
+      input.voucherCode
+        ?.trim()
+        .toUpperCase() || null;
 
     /**
-      * ============================================================
-      * NORMALIZE ORDER ITEMS
-      * ============================================================
-      *
-      * OrderItem identity:
-      *
-      * productId
-      * + productVariant
-      * + productWeight
-      * + customerNote
-      *
-      * Stok nantinya tetap dihitung berdasarkan productId.
-    */
+     * ==========================================================
+     * NORMALIZE ORDER ITEMS
+     * ==========================================================
+     *
+     * Canonical identity:
+     *
+     *   productId + skuId
+     *
+     * Customer note bukan bagian dari identity SKU.
+     *
+     * Jika SKU yang sama muncul lebih dari sekali,
+     * quantity digabungkan.
+     */
 
     const itemMap =
-    new Map<
-    string,
-    {
-      productId: string;
-      productVariant: string | null;
-      productWeight: string | null;
-      customerNote: string | null;
-      quantity: number;
-    }
-    >();
+      new Map<
+        string,
+        {
+          productId: string;
+          skuId: string;
+          quantity: number;
+          customerNote: string | null;
+        }
+      >();
 
-    for (const item of input.items) {
+    for (
+      const item of input.items
+    ) {
       const productId =
-      String(
-        item.productId
-      ).trim();
+        String(
+          item.productId
+        ).trim();
 
       if (!productId) {
         throw new Error(
           "Produk tidak valid."
+        );
+      }
+
+      const skuId =
+        String(
+          item.skuId
+        ).trim();
+
+      if (!skuId) {
+        throw new Error(
+          "SKU produk wajib dipilih."
         );
       }
 
@@ -427,71 +504,73 @@ export default class OrderService {
         );
       }
 
-      const productVariant =
-      item.productVariant?.trim() ||
-      null;
-
-      const productWeight =
-      item.productWeight?.trim() ||
-      null;
-
       const customerNote =
-      item.customerNote?.trim() ||
-      null;
+        item.customerNote
+          ?.trim() || null;
 
       const itemKey =
-      [
-        productId,
-        productVariant ?? "",
-        productWeight ?? "",
-        customerNote ?? "",
-      ].join("::");
+        `${productId}::${skuId}`;
 
       const existing =
-      itemMap.get(itemKey);
+        itemMap.get(
+          itemKey
+        );
 
       if (existing) {
         existing.quantity +=
-        item.quantity;
+          item.quantity;
+
+        /**
+         * Jika request kedua membawa note,
+         * gunakan note tersebut sebagai note terbaru.
+         */
+        if (
+          customerNote !== null
+        ) {
+          existing.customerNote =
+            customerNote;
+        }
       } else {
         itemMap.set(
           itemKey,
           {
             productId,
-            productVariant,
-            productWeight,
-            customerNote,
+            skuId,
             quantity:
-            item.quantity,
+              item.quantity,
+            customerNote,
           }
         );
       }
     }
 
     const normalizedItems =
-    Array.from(
-      itemMap.values()
-    );
+      Array.from(
+        itemMap.values()
+      );
 
     /**
-      * ============================================================
-      * TRANSACTION
-      * ============================================================
-    */
+     * ==========================================================
+     * TRANSACTION
+     * ==========================================================
+     */
 
     return prisma.$transaction(
       async (tx) => {
         /**
-          * ========================================================
-          * 1. VALIDATE CUSTOMER
-          * ========================================================
-        */
+         * ========================================================
+         * 1. VALIDATE CUSTOMER
+         * ========================================================
+         */
 
         const user =
-        await tx.user.findFirst({
+          await tx.user.findFirst({
             where: {
-              id: input.userId,
-              deletedAt: null,
+              id:
+                input.userId,
+
+              deletedAt:
+                null,
             },
           });
 
@@ -508,17 +587,22 @@ export default class OrderService {
         }
 
         /**
-          * ========================================================
-          * 2. VALIDATE ADDRESS
-          * ========================================================
-        */
+         * ========================================================
+         * 2. VALIDATE ADDRESS
+         * ========================================================
+         */
 
         const address =
-        await tx.address.findFirst({
+          await tx.address.findFirst({
             where: {
-              id: input.addressId,
-              userId: input.userId,
-              deletedAt: null,
+              id:
+                input.addressId,
+
+              userId:
+                input.userId,
+
+              deletedAt:
+                null,
             },
           });
 
@@ -529,29 +613,31 @@ export default class OrderService {
         }
 
         /**
-          * ========================================================
-          * 3. GET PRODUCTS
-          * ========================================================
-        */
+         * ========================================================
+         * 3. GET PRODUCTS
+         * ========================================================
+         */
 
         const productIds =
-        [
-          ...new Set(
-            normalizedItems.map(
-              (item) =>
-              item.productId
-            )
-          ),
-        ];
+          [
+            ...new Set(
+              normalizedItems.map(
+                (item) =>
+                  item.productId
+              )
+            ),
+          ];
 
         const products =
-        await tx.product.findMany({
+          await tx.product.findMany({
             where: {
               id: {
-                in: productIds,
+                in:
+                  productIds,
               },
 
-              deletedAt: null,
+              deletedAt:
+                null,
             },
           });
 
@@ -560,655 +646,871 @@ export default class OrderService {
           productIds.length
         ) {
           const foundIds =
-          new Set(
-            products.map(
-              (product) =>
-              product.id
-            )
-          );
+            new Set(
+              products.map(
+                (product) =>
+                  product.id
+              )
+            );
 
           const missingProduct =
-          normalizedItems.find(
-            (item) =>
-            !foundIds.has(
-              item.productId
+            normalizedItems.find(
+              (item) =>
+                !foundIds.has(
+                  item.productId
+                )
+            );
+
+          throw new Error(
+            `Produk ${
+              missingProduct?.productId ??
+              ""
+            } tidak ditemukan.`
+          );
+        }
+
+        const productMap =
+          new Map(
+            products.map(
+              (product) => [
+                product.id,
+                product,
+              ]
             )
           );
 
-          throw new Error(
-            `Produk ${missingProduct?.productId ??
-            ""
-          } tidak ditemukan.`
-        );
-      }
-
-      const productMap =
-      new Map(
-        products.map(
-          (product) => [
-            product.id,
-            product,
-          ]
-        )
-      );
-
-      /**
-        * ========================================================
-        * 4. VALIDATE OPTIONS
-        * ========================================================
-      */
-
-      for (
-        const item of normalizedItems
-      ) {
-        if (item.productVariant) {
-          const variant =
-          await tx.productVariantOption.findFirst({
-              where: {
-                productId:
-                item.productId,
-
-                label:
-                item.productVariant,
-
-                isActive: true,
-              },
-
-              select: {
-                id: true,
-              },
-            });
-
-          if (!variant) {
-            throw new Error(
-              "Varian produk yang dipilih tidak valid atau sudah tidak tersedia."
-            );
-          }
-        }
-
-        if (item.productWeight) {
-          const weight =
-          await tx.productWeightOption.findFirst({
-              where: {
-                productId:
-                item.productId,
-
-                label:
-                item.productWeight,
-
-                isActive: true,
-              },
-
-              select: {
-                id: true,
-              },
-            });
-
-          if (!weight) {
-            throw new Error(
-              "Pilihan berat produk tidak valid atau sudah tidak tersedia."
-            );
-          }
-        }
-      }
-
-      /**
-        * ========================================================
-        * 5. AGGREGATE STOCK REQUIREMENT
-        * ========================================================
-        *
-        * Variant dan weight membedakan OrderItem,
-        * tetapi stok Product tetap satu.
-      */
-
-      const stockRequirement =
-      new Map<
-      string,
-      number
-      >();
-
-      for (
-        const item of normalizedItems
-      ) {
-        stockRequirement.set(
-          item.productId,
-          (
-            stockRequirement.get(
-              item.productId
-            ) ?? 0
-          ) +
-          item.quantity
-        );
-      }
-
-      /**
-        * ========================================================
-        * 6. VALIDATE STOCK + CALCULATE ORDER ITEMS
-        * ========================================================
-        *
-        * Harga wajib dihitung melalui ProductPricingService
-        * agar konsisten dengan CartService.
-      */
-
-      let subtotal =
-      new Prisma.Decimal(0);
-
-      const orderItems: Prisma.OrderItemCreateWithoutOrderInput[] =
-      [];
-
-      for (
-        const item of normalizedItems
-      ) {
-        const product =
-        productMap.get(
-          item.productId
-        );
-
-        if (!product) {
-          throw new Error(
-            "Produk tidak ditemukan."
-          );
-        }
-
         /**
-          * ======================================================
-          * VALIDATE STOCK
-          * ======================================================
-        */
+         * ========================================================
+         * 4. GET CANONICAL SKUS
+         * ========================================================
+         *
+         * SKU harus:
+         *
+         * - ada
+         * - aktif
+         * - benar-benar milik product
+         *
+         * Tidak ada lagi pencarian:
+         *
+         * - productVariant
+         * - productWeight
+         */
 
-        const requiredQuantity =
-        stockRequirement.get(
-          item.productId
-        ) ?? 0;
+        const skuIds =
+          [
+            ...new Set(
+              normalizedItems.map(
+                (item) =>
+                  item.skuId
+              )
+            ),
+          ];
+
+        const skus =
+          await tx.productSku.findMany({
+            where: {
+              id: {
+                in:
+                  skuIds,
+              },
+
+              isActive:
+                true,
+            },
+
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption: {
+                    include: {
+                      group: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
 
         if (
-          product.stock <
-          requiredQuantity
+          skus.length !==
+          skuIds.length
         ) {
+          const foundSkuIds =
+            new Set(
+              skus.map(
+                (sku) =>
+                  sku.id
+              )
+            );
+
+          const missingSku =
+            normalizedItems.find(
+              (item) =>
+                !foundSkuIds.has(
+                  item.skuId
+                )
+            );
+
           throw new Error(
-            `Stock ${product.name} tidak mencukupi. Stock tersedia: ${product.stock}.`
+            `SKU ${
+              missingSku?.skuId ??
+              ""
+            } tidak ditemukan atau sudah tidak aktif.`
+          );
+        }
+
+        const skuMap =
+          new Map(
+            skus.map(
+              (sku) => [
+                sku.id,
+                sku,
+              ]
+            )
+          );
+
+        /**
+         * ========================================================
+         * 5. VALIDATE PRODUCT ↔ SKU RELATION
+         * ========================================================
+         *
+         * Jangan percaya productId dari client.
+         *
+         * SKU harus benar-benar milik product
+         * yang dikirim dalam request.
+         */
+
+        for (
+          const item of normalizedItems
+        ) {
+          const product =
+            productMap.get(
+              item.productId
+            );
+
+          if (!product) {
+            throw new Error(
+              "Produk tidak ditemukan."
+            );
+          }
+
+          const sku =
+            skuMap.get(
+              item.skuId
+            );
+
+          if (!sku) {
+            throw new Error(
+              "SKU tidak ditemukan."
+            );
+          }
+
+          if (
+            sku.productId !==
+            product.id
+          ) {
+            throw new Error(
+              `SKU "${sku.sku}" tidak sesuai dengan produk "${product.name}".`
+            );
+          }
+
+          if (
+            !sku.isActive
+          ) {
+            throw new Error(
+              `SKU "${sku.sku}" sedang tidak aktif.`
+            );
+          }
+        }
+
+        /**
+         * ========================================================
+         * 6. AGGREGATE STOCK REQUIREMENT PER SKU
+         * ========================================================
+         *
+         * Sangat penting:
+         *
+         * STOCK SEKARANG DIHITUNG BERDASARKAN SKU.
+         *
+         * BUKAN:
+         *
+         * productId
+         *
+         * Contoh:
+         *
+         * Kakap 1KG UTUH  -> SKU-A -> qty 2
+         * Kakap 1KG FILET -> SKU-B -> qty 3
+         *
+         * Maka:
+         *
+         * SKU-A stock -= 2
+         * SKU-B stock -= 3
+         */
+
+        const stockRequirement =
+          new Map<
+            string,
+            number
+          >();
+
+        for (
+          const item of normalizedItems
+        ) {
+          stockRequirement.set(
+            item.skuId,
+            (
+              stockRequirement.get(
+                item.skuId
+              ) ?? 0
+            ) +
+              item.quantity
           );
         }
 
         /**
-          * ======================================================
-          * RESOLVE PRODUCT PRICE
-          * ======================================================
-          *
-          * Formula:
-          *
-          * Weight Price / Product Price
-          * +
-          * Variant Adjustment
-          * =
-          * Final Price
-        */
+         * ========================================================
+         * 7. VALIDATE STOCK + RESOLVE PRICING
+         * ========================================================
+         */
 
-        const pricing =
-        await ProductPricingService.resolve(
-          tx,
-          {
-            productId:
-            product.id,
+        let subtotal =
+          new Prisma.Decimal(
+            0
+          );
 
-            productVariant:
-            item.productVariant,
+        const orderItems:
+          Prisma.OrderItemCreateWithoutOrderInput[] =
+          [];
 
-            productWeight:
-            item.productWeight,
+        const flashSaleRequirements:
+          FlashSaleCheckoutRequirement[] =
+          [];
 
-            fallbackPrice:
-            product.price,
+        for (
+          const item of normalizedItems
+        ) {
+          const product =
+            productMap.get(
+              item.productId
+            );
+
+          if (!product) {
+            throw new Error(
+              "Produk tidak ditemukan."
+            );
           }
-        );
 
-        const itemSubtotal =
-        pricing.finalPrice.mul(
-          item.quantity
-        );
+          const sku =
+            skuMap.get(
+              item.skuId
+            );
 
-        subtotal =
-        subtotal.plus(
-          itemSubtotal
-        );
+          if (!sku) {
+            throw new Error(
+              "SKU tidak ditemukan."
+            );
+          }
 
-        /**
-          * ======================================================
-          * BUILD ORDER ITEM SNAPSHOT
-          * ======================================================
-        */
+          const requiredQuantity =
+            stockRequirement.get(
+              sku.id
+            ) ?? 0;
 
-        orderItems.push({
+          /**
+           * Initial stock validation.
+           *
+           * Final atomic guard tetap dilakukan
+           * ketika UPDATE ProductSku dijalankan.
+           */
+
+          if (
+            sku.stock <
+            requiredQuantity
+          ) {
+            throw new Error(
+              `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${sku.stock}.`
+            );
+          }
+
+          /**
+           * ======================================================
+           * RESOLVE CANONICAL PRICING
+           * ======================================================
+           *
+           * SKU adalah sumber harga.
+           *
+           * Product discount / Flash Sale
+           * tetap dihitung oleh pricing engine.
+           */
+
+          const pricing =
+            await ProductPricingService.resolve(
+              tx,
+              {
+                productId:
+                  product.id,
+
+                skuId:
+                  sku.id,
+
+                fallbackPrice:
+                  product.price,
+              }
+            );
+
+          /**
+           * ======================================================
+           * COLLECT FLASH SALE REQUIREMENT
+           * ======================================================
+           *
+           * Flash Sale tidak langsung mengubah soldQuantity
+           * di sini.
+           *
+           * Consumption dilakukan setelah Order berhasil dibuat,
+           * tetapi masih di transaction yang sama.
+           */
+
+          if (
+            pricing.isFlashSaleApplied &&
+            pricing.flashSaleItemId
+          ) {
+            flashSaleRequirements.push({
+              flashSaleItemId:
+                pricing.flashSaleItemId,
+
+              quantity:
+                item.quantity,
+
+              price:
+                pricing.finalPrice,
+            });
+          }
+
+          /**
+           * ======================================================
+           * CALCULATE ITEM SUBTOTAL
+           * ======================================================
+           */
+
+          const price =
+            pricing.finalPrice;
+
+          const quantity =
+            new Prisma.Decimal(
+              item.quantity
+            );
+
+          const itemSubtotal =
+            price.mul(
+              quantity
+            );
+
+          subtotal =
+            subtotal.plus(
+              itemSubtotal
+            );
+
+          /**
+           * ======================================================
+           * BUILD ORDER ITEM
+           * ======================================================
+           *
+           * sku relation adalah canonical.
+           *
+           * productVariant/productWeight
+           * sengaja tidak digunakan lagi.
+           *
+           * Field legacy di database tetap aman
+           * untuk order lama.
+           */
+
+          orderItems.push({
             product: {
               connect: {
                 id:
-                product.id,
+                  product.id,
+              },
+            },
+
+            sku: {
+              connect: {
+                id:
+                  sku.id,
               },
             },
 
             productName:
-            product.name,
+              product.name,
 
+            /**
+             * Legacy snapshot.
+             *
+             * Tidak lagi menjadi source of truth.
+             *
+             * Untuk order baru kita kosongkan.
+             * SKU relation menjadi referensi canonical.
+             */
             productVariant:
-            item.productVariant,
-
-            productWeight:
-            item.productWeight,
-
-            customerNote:
-            item.customerNote,
-
-            price:
-            pricing.finalPrice,
-
-            quantity:
-            item.quantity,
-
-            subtotal:
-            itemSubtotal,
-          });
-      }
-
-      /**
-        * ========================================================
-        * 7. VOUCHER CALCULATION
-        * ========================================================
-        *
-        * Voucher dihitung setelah seluruh item selesai
-        * sehingga subtotal sudah merupakan nilai final.
-      */
-
-      let voucherResult:
-      | Awaited<
-      ReturnType<
-      typeof VoucherService.validateAndCalculate
-      >
-      >
-      | null = null;
-
-      if (voucherCode) {
-        voucherResult =
-        await VoucherService.validateAndCalculate(
-          {
-            code:
-            voucherCode,
-
-            userId:
-            input.userId,
-
-            subtotal,
-          },
-          tx
-        );
-      }
-
-      /**
-        * ========================================================
-        * VOUCHER DISCOUNT
-        * ========================================================
-      */
-
-      const voucherDiscount =
-      voucherResult?.discountAmount ??
-      new Prisma.Decimal(0);
-
-      const discountedSubtotal =
-      voucherResult?.finalSubtotal ??
-      subtotal;
-
-      /**
-        * ========================================================
-        * SHIPPING + FINAL TOTAL
-        * ========================================================
-      */
-
-      const shipping =
-      new Prisma.Decimal(
-        shippingCost
-      );
-
-      const total =
-      discountedSubtotal.plus(
-        shipping
-      );
-
-      /**
-        * ========================================================
-        * 8. CREATE ORDER
-        * ========================================================
-      */
-
-      const orderNumber =
-      this.generateOrderNumber();
-
-      const order =
-      await tx.order.create({
-          data: {
-            orderNumber,
-
-            userId:
-            input.userId,
-
-            addressId:
-            input.addressId,
-
-            status:
-            OrderStatus.PENDING,
-
-            paymentStatus:
-            PaymentStatus.PENDING,
-
-            paymentMethod:
-            input.paymentMethod,
-
-            /**
-              * Nilai subtotal asli sebelum diskon voucher.
-            */
-            subtotal,
-
-            /**
-              * Snapshot voucher pada order.
-              *
-              * Jika tidak menggunakan voucher,
-              * semua field akan bernilai null / 0.
-            */
-            voucherId:
-            voucherResult?.voucher.id ??
-            null,
-
-            voucherCode:
-            voucherResult?.voucher.code ??
-            null,
-
-            voucherName:
-            voucherResult?.voucher.name ??
-            null,
-
-            voucherDiscount,
-
-            /**
-              * Ongkir tetap terpisah dari diskon voucher.
-            */
-            shippingCost:
-            shipping,
-
-            /**
-              * Total akhir:
-              *
-              * subtotal
-              * - voucherDiscount
-              * + shipping
-            */
-            total,
-
-            notes:
-            input.notes?.trim() ||
-            null,
-
-            items: {
-              create:
-              orderItems,
-            },
-          },
-
-          include: {
-            user: true,
-
-            address: true,
-
-            items: {
-              include: {
-                product: true,
-              },
-            },
-
-            paymentProof: true,
-          },
-        });
-
-
-        
-      /**
-        * ========================================================
-        * 9. CONSUME VOUCHER + CREATE VOUCHER USAGE
-        * ========================================================
-        *
-        * Voucher hanya dianggap digunakan setelah
-        * order berhasil dibuat.
-        *
-        * Proses ini tetap berada di dalam transaction.
-      */
-
-      if (voucherResult) {
-        const { voucher } =
-        voucherResult;
-
-        /**
-          * ======================================================
-          * FINAL PER-USER LIMIT CHECK
-          * ======================================================
-          *
-          * Validasi awal sudah dilakukan oleh VoucherService.
-          *
-          * Pengecekan ulang dilakukan sedekat mungkin dengan
-          * proses consume voucher agar perubahan penggunaan voucher
-          * selama proses checkout dapat terdeteksi kembali.
-        */
-
-        /**
-          * ======================================================
-          * ATOMIC PER-USER LIMIT
-          * ======================================================
-          *
-          * Lock berdasarkan kombinasi voucher + user.
-          *
-          * Request checkout lain dari user yang sama dengan voucher
-          * yang sama harus menunggu transaction ini selesai.
-          *
-          * Setelah lock diperoleh, usage count dibaca kembali sehingga
-          * perUserLimit tidak dapat ditembus oleh request paralel.
-        */
-
-        if (
-          voucher.perUserLimit !== null
-        ) {
-          /**
-            * ------------------------------------------------------
-            * ACQUIRE TRANSACTION LOCK
-            * ------------------------------------------------------
-          */
-
-          await VoucherRepository.acquireUserVoucherLock(
-            voucher.id,
-            input.userId,
-            tx
-          );
-
-          /**
-            * ------------------------------------------------------
-            * RE-CHECK USER USAGE
-            * ------------------------------------------------------
-          */
-
-          const userUsageCount =
-          await VoucherRepository.countUserUsage(
-            voucher.id,
-            input.userId,
-            tx
-          );
-
-          if (
-            userUsageCount >=
-            voucher.perUserLimit
-          ) {
-            throw new Error(
-              "Anda sudah mencapai batas penggunaan voucher ini."
-            );
-          }
-        }
-
-        /**
-          * ======================================================
-          * GUARDED GLOBAL USAGE COUNT
-          * ======================================================
-          *
-          * Mencegah usageCount melebihi usageLimit ketika beberapa
-          * customer menggunakan voucher secara bersamaan.
-        */
-
-        const usageResult =
-        await tx.voucher.updateMany({
-            where: {
-              id:
-              voucher.id,
-
-              deletedAt:
               null,
 
-              isActive:
-              true,
+            productWeight:
+              null,
 
-              ...(voucher.usageLimit !== null
-                ? {
-                  usageCount: {
-                    lt:
-                    voucher.usageLimit,
-                  },
-                }
-                : {}),
+            customerNote:
+              item.customerNote,
+
+            price,
+
+            quantity:
+              item.quantity,
+
+            subtotal:
+              itemSubtotal,
+          });
+        }
+
+        /**
+         * ========================================================
+         * 8. VOUCHER CALCULATION
+         * ========================================================
+         */
+
+        let voucherResult:
+          | Awaited<
+              ReturnType<
+                typeof VoucherService.validateAndCalculate
+              >
+            >
+          | null =
+          null;
+
+        if (
+          voucherCode
+        ) {
+          voucherResult =
+            await VoucherService.validateAndCalculate(
+              {
+                code:
+                  voucherCode,
+
+                userId:
+                  input.userId,
+
+                subtotal,
+              },
+              tx
+            );
+        }
+
+        /**
+         * ========================================================
+         * 9. VOUCHER DISCOUNT
+         * ========================================================
+         */
+
+        const voucherDiscount =
+          voucherResult?.discountAmount ??
+          new Prisma.Decimal(
+            0
+          );
+
+        const discountedSubtotal =
+          voucherResult?.finalSubtotal ??
+          subtotal;
+
+        /**
+         * ========================================================
+         * 10. SHIPPING + FINAL TOTAL
+         * ========================================================
+         */
+
+        const shipping =
+          new Prisma.Decimal(
+            shippingCost
+          );
+
+        const total =
+          discountedSubtotal.plus(
+            shipping
+          );
+
+        /**
+         * ========================================================
+         * 11. CREATE ORDER
+         * ========================================================
+         */
+
+        const orderNumber =
+          this.generateOrderNumber();
+
+        const order =
+          await tx.order.create({
+            data: {
+              orderNumber,
+
+              userId:
+                input.userId,
+
+              addressId:
+                input.addressId,
+
+              status:
+                OrderStatus.PENDING,
+
+              paymentStatus:
+                PaymentStatus.PENDING,
+
+              paymentMethod:
+                input.paymentMethod,
+
+              /**
+               * Subtotal sebelum voucher.
+               */
+              subtotal,
+
+              /**
+               * Voucher snapshot.
+               */
+              voucherId:
+                voucherResult?.voucher.id ??
+                null,
+
+              voucherCode:
+                voucherResult?.voucher.code ??
+                null,
+
+              voucherName:
+                voucherResult?.voucher.name ??
+                null,
+
+              voucherDiscount,
+
+              /**
+               * Ongkir.
+               */
+              shippingCost:
+                shipping,
+
+              /**
+               * Total:
+               *
+               * subtotal
+               * - voucherDiscount
+               * + shipping
+               */
+              total,
+
+              notes:
+                input.notes?.trim() ||
+                null,
+
+              items: {
+                create:
+                  orderItems,
+              },
             },
 
-            data: {
-              usageCount: {
-                increment:
-                1,
+            include: {
+              user:
+                true,
+
+              address:
+                true,
+
+              items: {
+                include: {
+                  product:
+                    true,
+
+                  sku:
+                    true,
+                },
               },
+
+              paymentProof:
+                true,
             },
           });
 
+        /**
+         * ========================================================
+         * 12. CONSUME FLASH SALE
+         * ========================================================
+         *
+         * Wajib dilakukan setelah Order berhasil dibuat.
+         *
+         * Tetapi masih berada dalam transaction yang sama.
+         *
+         * FlashSaleCheckoutService bertanggung jawab terhadap:
+         *
+         * - campaign validation
+         * - quota validation
+         * - per-user limit
+         * - advisory lock
+         * - atomic soldQuantity increment
+         * - FlashSalePurchase
+         */
+
         if (
-          usageResult.count !== 1
+          flashSaleRequirements.length >
+          0
         ) {
-          throw new Error(
-            "Voucher sudah mencapai batas penggunaan. Silakan gunakan voucher lain."
+          await FlashSaleCheckoutService.consume(
+            {
+              userId:
+                input.userId,
+
+              orderId:
+                order.id,
+
+              requirements:
+                flashSaleRequirements,
+            },
+            tx
           );
         }
 
         /**
-          * ======================================================
-          * CREATE VOUCHER USAGE RECORD
-          * ======================================================
-        */
-
-        await VoucherRepository.createUsage(
-          {
-            voucherId:
-            voucher.id,
-
-            userId:
-            input.userId,
-
-            orderId:
-            order.id,
-
-            discountAmount:
-            voucherResult.discountAmount,
-          },
-          tx
-        );
-      }
-
-      /**
-        * ========================================================
-        * 10. ATOMIC STOCK DECREMENT + STOCK LEDGER
-        * ========================================================
-      */
-
-      for (
-        const [
-          productId,
-          quantity,
-        ] of stockRequirement
-      ) {
-        const product =
-        productMap.get(
-          productId
-        );
-
-        if (!product) {
-          throw new Error(
-            "Produk tidak ditemukan."
-          );
-        }
-
-        const stockBefore =
-        product.stock;
-
-        const result =
-        await tx.product.updateMany({
-            where: {
-              id: productId,
-
-              deletedAt: null,
-
-              stock: {
-                gte: quantity,
-              },
-            },
-
-            data: {
-              stock: {
-                decrement:
-                quantity,
-              },
-            },
-          });
+         * ========================================================
+         * 13. CONSUME VOUCHER + CREATE USAGE
+         * ========================================================
+         */
 
         if (
-          result.count !== 1
+          voucherResult
         ) {
-          throw new Error(
-            `Stock ${product.name} berubah sebelum transaksi selesai. Silakan coba lagi.`
+          const {
+            voucher,
+          } =
+            voucherResult;
+
+          /**
+           * ------------------------------------------------------
+           * LOCK USER + VOUCHER
+           * ------------------------------------------------------
+           */
+
+          if (
+            voucher.perUserLimit !==
+            null
+          ) {
+            await VoucherRepository.acquireUserVoucherLock(
+              voucher.id,
+              input.userId,
+              tx
+            );
+
+            const userUsageCount =
+              await VoucherRepository.countUserUsage(
+                voucher.id,
+                input.userId,
+                tx
+              );
+
+            if (
+              userUsageCount >=
+              voucher.perUserLimit
+            ) {
+              throw new Error(
+                "Anda sudah mencapai batas penggunaan voucher ini."
+              );
+            }
+          }
+
+          /**
+           * ------------------------------------------------------
+           * GUARDED GLOBAL USAGE COUNT
+           * ------------------------------------------------------
+           */
+
+          const usageResult =
+            await tx.voucher.updateMany({
+              where: {
+                id:
+                  voucher.id,
+
+                deletedAt:
+                  null,
+
+                isActive:
+                  true,
+
+                ...(voucher.usageLimit !==
+                null
+                  ? {
+                      usageCount: {
+                        lt:
+                          voucher.usageLimit,
+                      },
+                    }
+                  : {}),
+              },
+
+              data: {
+                usageCount: {
+                  increment:
+                    1,
+                },
+              },
+            });
+
+          if (
+            usageResult.count !==
+            1
+          ) {
+            throw new Error(
+              "Voucher sudah mencapai batas penggunaan. Silakan gunakan voucher lain."
+            );
+          }
+
+          /**
+           * ------------------------------------------------------
+           * CREATE VOUCHER USAGE
+           * ------------------------------------------------------
+           */
+
+          await VoucherRepository.createUsage(
+            {
+              voucherId:
+                voucher.id,
+
+              userId:
+                input.userId,
+
+              orderId:
+                order.id,
+
+              discountAmount:
+                voucherResult.discountAmount,
+            },
+            tx
           );
         }
 
-        const stockAfter =
-        stockBefore -
-        quantity;
+        /**
+         * ========================================================
+         * 14. ATOMIC SKU STOCK DECREMENT
+         * ========================================================
+         *
+         * Jangan update Product.stock lagi.
+         *
+         * Canonical stock:
+         *
+         *   ProductSku.stock
+         *
+         * Guard:
+         *
+         *   stock >= quantity
+         *
+         * sehingga dua checkout bersamaan tidak dapat
+         * mengurangi stock menjadi negatif.
+         */
 
-        await tx.stockLedger.create({
+        for (
+          const [
+            skuId,
+            quantity,
+          ] of stockRequirement
+        ) {
+          const sku =
+            skuMap.get(
+              skuId
+            );
+
+          if (!sku) {
+            throw new Error(
+              "SKU tidak ditemukan."
+            );
+          }
+
+          const stockBefore =
+            sku.stock;
+
+          const result =
+            await tx.productSku.updateMany({
+              where: {
+                id:
+                  sku.id,
+
+                productId:
+                  sku.productId,
+
+                isActive:
+                  true,
+
+                stock: {
+                  gte:
+                    quantity,
+                },
+              },
+
+              data: {
+                stock: {
+                  decrement:
+                    quantity,
+                },
+              },
+            });
+
+          if (
+            result.count !==
+            1
+          ) {
+            throw new Error(
+              `Stok SKU "${sku.sku}" berubah sebelum transaksi selesai. Silakan coba lagi.`
+            );
+          }
+
+          const stockAfter =
+            stockBefore -
+            quantity;
+
+          /**
+           * ======================================================
+           * STOCK LEDGER
+           * ======================================================
+           *
+           * skuId wajib disimpan agar histori stok
+           * dapat dilacak sampai level SKU.
+           */
+
+          await tx.stockLedger.create({
             data: {
-              productId,
+              productId:
+                sku.productId,
+
+              skuId:
+                sku.id,
 
               orderId:
-              order.id,
+                order.id,
 
               type:
-              "SALE",
+                "SALE",
 
               quantity:
-              -quantity,
+                -quantity,
 
               stockBefore,
 
               stockAfter,
 
               note:
-              `Penjualan ${order.orderNumber}`,
+                `Penjualan ${order.orderNumber} - SKU ${sku.sku}`,
             },
           });
+        }
+
+        /**
+         * ========================================================
+         * 15. RETURN ORDER
+         * ========================================================
+         */
+
+        return order;
       }
-
-      /**
-        * ========================================================
-        * 9. RETURN ORDER
-        * ========================================================
-      */
-
-      return order;
-    }
-  );
-}
+    );
+  }
 
 /**
   * Update order.
@@ -1257,51 +1559,32 @@ static async updateOrder(
   }
 
   /**
-    * ============================================================
-    * NORMALIZE ORDER ITEMS
-    * ============================================================
-    *
-    * Identity OrderItem:
-    *
-    * productId
-    * + productVariant
-    * + productWeight
-    * + customerNote
-    *
-    * Item yang benar-benar identik akan digabung.
-    *
-    * Stok tetap dihitung berdasarkan productId.
-  */
-
+   * ============================================================
+   * NORMALIZE ORDER ITEMS
+   * ============================================================
+   *
+   * Canonical identity:
+   *
+   *   productId + skuId
+   *
+   * Customer note bukan identity SKU.
+   */
   const itemMap =
-  new Map<
-  string,
-  {
-    productId: string;
-    productVariant: string | null;
-    productWeight: string | null;
-    customerNote: string | null;
-    quantity: number;
-  }
-  >();
+    new Map<
+      string,
+      {
+        productId: string;
+        skuId: string;
+        quantity: number;
+        customerNote: string | null;
+      }
+    >();
 
   for (const item of input.items) {
     const productId =
-    String(
-      item.productId
-    ).trim();
-
-    const quantity =
-  Number(item.quantity);
-
-if (
-  !Number.isInteger(quantity) ||
-  quantity <= 0
-) {
-  throw new Error(
-    "Quantity produk harus berupa angka bulat lebih dari 0."
-  );
-}
+      String(
+        item.productId
+      ).trim();
 
     if (!productId) {
       throw new Error(
@@ -1309,8 +1592,22 @@ if (
       );
     }
 
+    const skuId =
+      String(
+        item.skuId
+      ).trim();
+
+    if (!skuId) {
+      throw new Error(
+        "SKU produk wajib dipilih."
+      );
+    }
+
+    const quantity =
+      Number(item.quantity);
+
     if (
-      !Number.isFinite(quantity) ||
+      !Number.isInteger(quantity) ||
       quantity <= 0
     ) {
       throw new Error(
@@ -1318,50 +1615,43 @@ if (
       );
     }
 
-    const productVariant =
-    item.productVariant?.trim() ||
-    null;
-
-    const productWeight =
-    item.productWeight?.trim() ||
-    null;
-
     const customerNote =
-    item.customerNote?.trim() ||
-    null;
+      item.customerNote?.trim() ||
+      null;
 
     const itemKey =
-    [
-      productId,
-      productVariant ?? "",
-      productWeight ?? "",
-      customerNote ?? "",
-    ].join("::");
+      `${productId}::${skuId}`;
 
     const existing =
-    itemMap.get(itemKey);
+      itemMap.get(itemKey);
 
     if (existing) {
       existing.quantity +=
-      quantity;
+        quantity;
+
+      if (
+        customerNote !== null
+      ) {
+        existing.customerNote =
+          customerNote;
+      }
     } else {
       itemMap.set(
         itemKey,
         {
           productId,
-          productVariant,
-          productWeight,
-          customerNote,
+          skuId,
           quantity,
+          customerNote,
         }
       );
     }
   }
 
   const finalItems =
-  Array.from(
-    itemMap.values()
-  );
+    Array.from(
+      itemMap.values()
+    );
 
   if (
     finalItems.length === 0
@@ -1372,9 +1662,9 @@ if (
   }
 
   const shippingCost =
-  Number(
-    input.shippingCost ?? 0
-  );
+    Number(
+      input.shippingCost ?? 0
+    );
 
   if (
     !Number.isFinite(
@@ -1390,13 +1680,13 @@ if (
   return prisma.$transaction(
     async (tx) => {
       /**
-        * ========================================================
-        * 1. GET CURRENT ORDER
-        * ========================================================
-      */
+       * ==========================================================
+       * 1. GET CURRENT ORDER
+       * ==========================================================
+       */
 
       const order =
-      await tx.order.findUnique({
+        await tx.order.findUnique({
           where: {
             id,
           },
@@ -1419,10 +1709,10 @@ if (
       }
 
       /**
-        * ========================================================
-        * 2. VALIDATE ORDER STATUS
-        * ========================================================
-      */
+       * ==========================================================
+       * 2. VALIDATE ORDER STATUS
+       * ==========================================================
+       */
 
       if (
         order.status !==
@@ -1443,16 +1733,16 @@ if (
       }
 
       /**
-        * ========================================================
-        * 3. VALIDATE CUSTOMER
-        * ========================================================
-      */
+       * ==========================================================
+       * 3. VALIDATE CUSTOMER
+       * ==========================================================
+       */
 
       const customer =
-      await tx.user.findFirst({
+        await tx.user.findFirst({
           where: {
             id:
-            input.userId,
+              input.userId,
 
             deletedAt: null,
 
@@ -1467,19 +1757,19 @@ if (
       }
 
       /**
-        * ========================================================
-        * 4. VALIDATE ADDRESS
-        * ========================================================
-      */
+       * ==========================================================
+       * 4. VALIDATE ADDRESS
+       * ==========================================================
+       */
 
       const address =
-      await tx.address.findFirst({
+        await tx.address.findFirst({
           where: {
             id:
-            input.addressId,
+              input.addressId,
 
             userId:
-            input.userId,
+              input.userId,
 
             deletedAt: null,
           },
@@ -1492,27 +1782,50 @@ if (
       }
 
       /**
-        * ========================================================
-        * 5. GET PRODUCTS
-        * ========================================================
-      */
+       * ==========================================================
+       * 5. VALIDATE LEGACY ORDER
+       * ==========================================================
+       *
+       * Order lama yang belum memiliki skuId tidak boleh
+       * diedit menggunakan engine SKU baru.
+       *
+       * Jangan menebak mapping variant/weight → SKU.
+       */
+
+      const legacyItem =
+        order.items.find(
+          (item) =>
+            !item.skuId
+        );
+
+      if (legacyItem) {
+        throw new Error(
+          "Order lama ini belum memiliki SKU canonical dan tidak dapat diedit. Silakan buat order baru."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * 6. GET PRODUCTS
+       * ==========================================================
+       */
 
       const productIds =
-      [
-        ...new Set(
-          finalItems.map(
-            (item) =>
-            item.productId
-          )
-        ),
-      ];
+        [
+          ...new Set(
+            finalItems.map(
+              (item) =>
+                item.productId
+            )
+          ),
+        ];
 
       const products =
-      await tx.product.findMany({
+        await tx.product.findMany({
           where: {
             id: {
               in:
-              productIds,
+                productIds,
             },
 
             deletedAt: null,
@@ -1524,725 +1837,842 @@ if (
         productIds.length
       ) {
         const foundIds =
-        new Set(
-          products.map(
-            (product) =>
-            product.id
-          )
-        );
+          new Set(
+            products.map(
+              (product) =>
+                product.id
+            )
+          );
 
         const missing =
-        finalItems.find(
-          (item) =>
-          !foundIds.has(
-            item.productId
+          finalItems.find(
+            (item) =>
+              !foundIds.has(
+                item.productId
+              )
+          );
+
+        throw new Error(
+          `Produk ${
+            missing?.productId ??
+            ""
+          } tidak ditemukan.`
+        );
+      }
+
+      const productMap =
+        new Map(
+          products.map(
+            (product) => [
+              product.id,
+              product,
+            ]
           )
         );
 
-        throw new Error(
-          `Produk ${missing?.productId ??
-          ""
-        } tidak ditemukan.`
-      );
-    }
+      /**
+       * ==========================================================
+       * 7. GET CANONICAL SKUS
+       * ==========================================================
+       */
 
-    const productMap =
-    new Map(
-      products.map(
-        (product) => [
-          product.id,
-          product,
-        ]
-      )
-    );
+      const newSkuIds =
+        [
+          ...new Set(
+            finalItems.map(
+              (item) =>
+                item.skuId
+            )
+          ),
+        ];
 
-    /**
-      * ========================================================
-      * 6. VALIDATE PRODUCT OPTIONS
-      * ========================================================
-    */
+      const oldSkuIds =
+        [
+          ...new Set(
+            order.items
+              .map(
+                (item) =>
+                  item.skuId
+              )
+              .filter(
+                (
+                  skuId
+                ): skuId is string =>
+                  Boolean(skuId)
+              )
+          ),
+        ];
 
-    for (
-      const item of finalItems
-    ) {
+      const skuIds =
+        [
+          ...new Set([
+            ...newSkuIds,
+            ...oldSkuIds,
+          ]),
+        ];
+
+      const skus =
+        await tx.productSku.findMany({
+          where: {
+            id: {
+              in:
+                skuIds,
+            },
+          },
+
+          include: {
+            skuOptions: {
+              include: {
+                variantOption: {
+                  include: {
+                    group: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
       if (
-        item.productVariant
+        skus.length !==
+        skuIds.length
       ) {
-        const variant =
-        await tx.productVariantOption.findFirst({
-            where: {
-              productId:
-              item.productId,
+        const foundSkuIds =
+          new Set(
+            skus.map(
+              (sku) =>
+                sku.id
+            )
+          );
 
-              label:
-              item.productVariant,
+        const missing =
+          skuIds.find(
+            (skuId) =>
+              !foundSkuIds.has(
+                skuId
+              )
+          );
 
-              isActive: true,
-            },
+        throw new Error(
+          `SKU ${
+            missing ?? ""
+          } tidak ditemukan.`
+        );
+      }
 
-            select: {
-              id: true,
-            },
-          });
+      const skuMap =
+        new Map(
+          skus.map(
+            (sku) => [
+              sku.id,
+              sku,
+            ]
+          )
+        );
 
-        if (!variant) {
+      /**
+       * ==========================================================
+       * 8. VALIDATE PRODUCT ↔ SKU
+       * ==========================================================
+       */
+
+      for (
+        const item of finalItems
+      ) {
+        const product =
+          productMap.get(
+            item.productId
+          );
+
+        if (!product) {
           throw new Error(
-            "Varian produk yang dipilih tidak valid atau sudah tidak tersedia."
+            "Produk tidak ditemukan."
+          );
+        }
+
+        const sku =
+          skuMap.get(
+            item.skuId
+          );
+
+        if (!sku) {
+          throw new Error(
+            "SKU tidak ditemukan."
+          );
+        }
+
+        if (
+          sku.productId !==
+          product.id
+        ) {
+          throw new Error(
+            `SKU "${sku.sku}" tidak sesuai dengan produk "${product.name}".`
+          );
+        }
+
+        if (!sku.isActive) {
+          throw new Error(
+            `SKU "${sku.sku}" sedang tidak aktif.`
           );
         }
       }
 
-      if (
-        item.productWeight
+      /**
+       * ==========================================================
+       * 9. BUILD OLD STOCK MAP
+       * ==========================================================
+       *
+       * Stok sekarang sudah berada pada kondisi:
+       *
+       *   current SKU stock
+       *
+       * yaitu setelah order lama mengambil stock.
+       *
+       * Untuk mengetahui stok efektif:
+       *
+       *   currentStock + oldOrderQuantity
+       *
+       * tetapi seluruh perhitungan dilakukan per SKU.
+       */
+
+      const oldStockMap =
+        new Map<
+          string,
+          number
+        >();
+
+      for (
+        const item of
+          order.items
       ) {
-        const weight =
-        await tx.productWeightOption.findFirst({
-            where: {
-              productId:
-              item.productId,
-
-              label:
-              item.productWeight,
-
-              isActive: true,
-            },
-
-            select: {
-              id: true,
-            },
-          });
-
-        if (!weight) {
-          throw new Error(
-            "Pilihan berat produk tidak valid atau sudah tidak tersedia."
-          );
+        if (!item.skuId) {
+          continue;
         }
-      }
-    }
 
-    /**
-      * ========================================================
-      * 7. BUILD OLD STOCK MAP
-      * ========================================================
-      *
-      * OrderItem lama dapat memiliki
-      * variant/weight berbeda,
-      * tetapi stok tetap satu per Product.
-    */
-
-    const oldStockMap =
-    new Map<
-    string,
-    number
-    >();
-
-    for (
-      const item of
-      order.items
-    ) {
-      oldStockMap.set(
-        item.productId,
-        (
-          oldStockMap.get(
-            item.productId
-          ) ?? 0
-        ) +
-        item.quantity
-      );
-    }
-
-    /**
-      * ========================================================
-      * 8. BUILD NEW STOCK MAP
-      * ========================================================
-    */
-
-    const newStockMap =
-    new Map<
-    string,
-    number
-    >();
-
-    for (
-      const item of
-      finalItems
-    ) {
-      newStockMap.set(
-        item.productId,
-        (
-          newStockMap.get(
-            item.productId
-          ) ?? 0
-        ) +
-        item.quantity
-      );
-    }
-
-    /**
-      * ========================================================
-      * 9. VALIDATE STOCK REQUIREMENT
-      * ========================================================
-      *
-      * Product.stock saat ini sudah dalam
-      * kondisi stok lama order telah
-      * dikurangi.
-      *
-      * Maka stok efektif untuk validasi:
-      *
-      * currentStock + oldOrderQuantity
-    */
-
-    for (
-      const [
-        productId,
-        newQuantity,
-      ] of newStockMap
-    ) {
-      const product =
-      productMap.get(
-        productId
-      );
-
-      if (!product) {
-        throw new Error(
-          "Produk tidak ditemukan."
-        );
-      }
-
-      const oldQuantity =
-      oldStockMap.get(
-        productId
-      ) ?? 0;
-
-      const availableStock =
-      product.stock +
-      oldQuantity;
-
-      if (
-        availableStock <
-        newQuantity
-      ) {
-        throw new Error(
-          `Stock ${product.name} tidak mencukupi. Stock tersedia: ${availableStock}.`
-        );
-      }
-    }
-
-    /**
-      * ========================================================
-      * 10. BUILD NEW ORDER ITEMS
-      * ========================================================
-    */
-
-    let subtotal =
-    new Prisma.Decimal(0);
-
-    const newOrderItems = [];
-
-    for (const item of finalItems) {
-      const product =
-      productMap.get(
-        item.productId
-      );
-
-      if (!product) {
-        throw new Error(
-          "Produk tidak ditemukan."
+        oldStockMap.set(
+          item.skuId,
+          (
+            oldStockMap.get(
+              item.skuId
+            ) ?? 0
+          ) +
+            item.quantity
         );
       }
 
       /**
-        * ======================================================
-        * RESOLVE PRODUCT PRICING
-        * ======================================================
-        *
-        * Gunakan pricing engine yang sama dengan createOrder()
-        * agar harga variant dan weight selalu konsisten.
-      */
+       * ==========================================================
+       * 10. BUILD NEW STOCK MAP
+       * ==========================================================
+       */
 
-      const pricing =
-      await ProductPricingService.resolve(
-        tx,
-        {
-          productId:
-          product.id,
+      const newStockMap =
+        new Map<
+          string,
+          number
+        >();
 
-          productVariant:
-          item.productVariant,
+      for (
+        const item of
+          finalItems
+      ) {
+        newStockMap.set(
+          item.skuId,
+          (
+            newStockMap.get(
+              item.skuId
+            ) ?? 0
+          ) +
+            item.quantity
+        );
+      }
 
-          productWeight:
-          item.productWeight,
+      /**
+       * ==========================================================
+       * 11. VALIDATE NEW STOCK
+       * ==========================================================
+       *
+       * Hanya SKU yang masih digunakan order baru perlu
+       * divalidasi.
+       */
 
-          fallbackPrice:
-          product.price,
+      for (
+        const [
+          skuId,
+          newQuantity,
+        ] of newStockMap
+      ) {
+        const sku =
+          skuMap.get(
+            skuId
+          );
+
+        if (!sku) {
+          throw new Error(
+            "SKU tidak ditemukan."
+          );
         }
-      );
 
-      const price =
-      pricing.finalPrice;
+        const oldQuantity =
+          oldStockMap.get(
+            skuId
+          ) ?? 0;
 
-      const quantity =
-      new Prisma.Decimal(
-        item.quantity
-      );
+        const availableStock =
+          sku.stock +
+          oldQuantity;
 
-      const itemSubtotal =
-      price.mul(
-        quantity
-      );
+        if (
+          availableStock <
+          newQuantity
+        ) {
+          throw new Error(
+            `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${availableStock}.`
+          );
+        }
+      }
 
-      subtotal =
-      subtotal.plus(
-        itemSubtotal
-      );
+      /**
+       * ==========================================================
+       * 12. BUILD NEW ORDER ITEMS
+       * ==========================================================
+       */
 
-      newOrderItems.push({
+      let subtotal =
+        new Prisma.Decimal(
+          0
+        );
+
+      const newOrderItems = [];
+
+      const flashSaleRequirements:
+        FlashSaleCheckoutRequirement[] =
+        [];
+
+      for (
+        const item of
+          finalItems
+      ) {
+        const product =
+          productMap.get(
+            item.productId
+          );
+
+        if (!product) {
+          throw new Error(
+            "Produk tidak ditemukan."
+          );
+        }
+
+        const sku =
+          skuMap.get(
+            item.skuId
+          );
+
+        if (!sku) {
+          throw new Error(
+            "SKU tidak ditemukan."
+          );
+        }
+
+        /**
+         * ========================================================
+         * RESOLVE CANONICAL PRICING
+         * ========================================================
+         */
+
+        const pricing =
+          await ProductPricingService.resolve(
+            tx,
+            {
+              productId:
+                product.id,
+
+              skuId:
+                sku.id,
+
+              fallbackPrice:
+                product.price,
+            }
+          );
+
+        /**
+         * Flash Sale
+         *
+         * Kita collect requirement terlebih dahulu.
+         * Consumption dilakukan setelah OrderItem baru
+         * selesai dibangun.
+         */
+
+        if (
+          pricing.isFlashSaleApplied &&
+          pricing.flashSaleItemId
+        ) {
+          flashSaleRequirements.push({
+            flashSaleItemId:
+              pricing.flashSaleItemId,
+
+            quantity:
+              item.quantity,
+
+            price:
+              pricing.finalPrice,
+          });
+        }
+
+        const price =
+          pricing.finalPrice;
+
+        const quantity =
+          new Prisma.Decimal(
+            item.quantity
+          );
+
+        const itemSubtotal =
+          price.mul(
+            quantity
+          );
+
+        subtotal =
+          subtotal.plus(
+            itemSubtotal
+          );
+
+        newOrderItems.push({
           productId:
-          product.id,
+            product.id,
+
+          skuId:
+            sku.id,
 
           productName:
-          product.name,
+            product.name,
 
+          /**
+           * Legacy fields.
+           *
+           * Order baru hasil update menggunakan SKU
+           * sebagai canonical reference.
+           */
           productVariant:
-          item.productVariant,
+            null,
 
           productWeight:
-          item.productWeight,
+            null,
 
           customerNote:
-          item.customerNote,
+            item.customerNote,
 
           price,
 
           quantity:
-          item.quantity,
+            item.quantity,
 
           subtotal:
-          itemSubtotal,
+            itemSubtotal,
         });
-    }
-
-    /**
-      * ========================================================
-      * SHIPPING + FINAL TOTAL
-      * ========================================================
-    */
-
-    const shipping =
-    new Prisma.Decimal(
-      shippingCost
-    );
-
-    /**
-      * ====================================================
-      * FINAL ORDER TOTAL
-      * ====================================================
-      *
-      * Total akhir:
-      *
-      * subtotal
-      * - voucher discount
-      * + shipping
-    */
-
-    /**
- * ============================================================
- * VOUCHER DISCOUNT SNAPSHOT
- * ============================================================
- *
- * Voucher pada order merupakan snapshot transaksi.
- *
- * Jangan melakukan validasi ulang voucher di sini karena:
- *
- * - voucher mungkin sudah expired
- * - usage limit mungkin sudah penuh
- * - voucher sudah tercatat pada VoucherUsage
- * - order menyimpan snapshot voucherDiscount
- *
- * Ketika item order diubah, kita tetap menggunakan nominal
- * voucher discount yang tersimpan pada order.
- */
-const voucherDiscount =
-  new Prisma.Decimal(
-    order.voucherDiscount ?? 0
-  );
-
-/**
- * ============================================================
- * CALCULATE FINAL SUBTOTAL
- * ============================================================
- *
- * subtotal
- * - voucherDiscount
- *
- * Nilai tidak boleh negatif.
- */
-const subtotalAfterVoucher =
-  Prisma.Decimal.max(
-    subtotal.minus(
-      voucherDiscount
-    ),
-    new Prisma.Decimal(0)
-  );
-
-/**
- * ============================================================
- * CALCULATE GRAND TOTAL
- * ============================================================
- *
- * subtotal setelah voucher
- * + shipping
- */
-const total =
-  subtotalAfterVoucher.plus(
-    shipping
-  );
-
-    /**
-      * ========================================================
-      * 11. UPDATE STOCK + CREATE STOCK LEDGER
-      * ========================================================
-      *
-      * delta > 0
-      * → Order membutuhkan stok tambahan
-      * → Product.stock berkurang
-      * → SALE
-      *
-      * delta < 0
-      * → Sebagian stok order dilepas
-      * → Product.stock bertambah
-      * → RETURN
-    */
-
-    const affectedProductIds =
-    new Set([
-        ...oldStockMap.keys(),
-        ...newStockMap.keys(),
-      ]);
-
-    for (
-      const productId of
-      affectedProductIds
-    ) {
-      const oldQuantity =
-      oldStockMap.get(
-        productId
-      ) ?? 0;
-
-      const newQuantity =
-      newStockMap.get(
-        productId
-      ) ?? 0;
-
-      const delta =
-      newQuantity -
-      oldQuantity;
-
-      if (
-        delta === 0
-      ) {
-        continue;
       }
 
       /**
-        * ======================================================
-        * FIND PRODUCT
-        * ======================================================
-        *
-        * Product dapat berasal dari:
-        *
-        * 1. Item baru yang masih ada pada order
-        *    → tersedia di productMap.
-        *
-        * 2. Item lama yang sudah dihapus dari order
-        *    → perlu diambil kembali dari database.
-      */
+       * ==========================================================
+       * 13. VOUCHER SNAPSHOT
+       * ==========================================================
+       *
+       * Jangan validasi ulang voucher.
+       *
+       * Voucher adalah snapshot transaksi.
+       */
 
-      const product =
-      productMap.get(
-        productId
-      ) ??
-      await tx.product.findFirst({
-          where: {
-            id:
-            productId,
-
-            deletedAt:
-            null,
-          },
-        });
-
-      if (!product) {
-        throw new Error(
-          `Produk ${productId} tidak ditemukan.`
+      const voucherDiscount =
+        new Prisma.Decimal(
+          order.voucherDiscount ??
+            0
         );
-      }
+
+      const subtotalAfterVoucher =
+        Prisma.Decimal.max(
+          subtotal.minus(
+            voucherDiscount
+          ),
+          new Prisma.Decimal(
+            0
+          )
+        );
 
       /**
-        * ======================================================
-        * DELTA POSITIF
-        * ======================================================
-        *
-        * Contoh:
-        *
-        * lama = 2
-        * baru = 5
-        * delta = +3
-        *
-        * Kurangi stok 3.
-      */
+       * ==========================================================
+       * 14. SHIPPING + TOTAL
+       * ==========================================================
+       */
 
-      if (
-        delta > 0
+      const shipping =
+        new Prisma.Decimal(
+          shippingCost
+        );
+
+      const total =
+        subtotalAfterVoucher.plus(
+          shipping
+        );
+
+      /**
+       * ==========================================================
+       * 15. UPDATE STOCK PER SKU
+       * ==========================================================
+       *
+       * delta:
+       *
+       *   newQuantity - oldQuantity
+       *
+       * delta > 0
+       *   stock berkurang
+       *
+       * delta < 0
+       *   stock bertambah
+       */
+
+      const affectedSkuIds =
+        new Set([
+          ...oldStockMap.keys(),
+          ...newStockMap.keys(),
+        ]);
+
+      for (
+        const skuId of
+          affectedSkuIds
       ) {
-        /**
-          * Snapshot stok sebelum perubahan.
-        */
+        const oldQuantity =
+          oldStockMap.get(
+            skuId
+          ) ?? 0;
 
-        const currentProduct =
-        await tx.product.findUnique({
-            where: {
-              id:
-              productId,
-            },
+        const newQuantity =
+          newStockMap.get(
+            skuId
+          ) ?? 0;
 
-            select: {
-              id: true,
-              name: true,
-              stock: true,
-            },
-          });
-
-        if (!currentProduct) {
-          throw new Error(
-            "Produk tidak ditemukan saat update order."
-          );
-        }
-
-        const stockBefore =
-        currentProduct.stock;
-
-        const result =
-        await tx.product.updateMany({
-            where: {
-              id:
-              productId,
-
-              deletedAt: null,
-
-              stock: {
-                gte:
-                delta,
-              },
-            },
-
-            data: {
-              stock: {
-                decrement:
-                delta,
-              },
-            },
-          });
+        const delta =
+          newQuantity -
+          oldQuantity;
 
         if (
-          result.count !== 1
+          delta === 0
         ) {
+          continue;
+        }
+
+        const sku =
+          skuMap.get(
+            skuId
+          );
+
+        if (!sku) {
           throw new Error(
-            `Stock ${currentProduct.name} tidak mencukupi atau berubah sebelum transaksi selesai.`
+            `SKU ${skuId} tidak ditemukan.`
           );
         }
 
-        const stockAfter =
-        stockBefore -
-        delta;
+        /**
+         * --------------------------------------------------------
+         * DELTA POSITIVE
+         * --------------------------------------------------------
+         */
 
-        await tx.stockLedger.create({
+        if (
+          delta > 0
+        ) {
+          const currentSku =
+            await tx.productSku.findUnique({
+              where: {
+                id:
+                  sku.id,
+              },
+
+              select: {
+                id: true,
+                sku: true,
+                productId: true,
+                stock: true,
+                isActive: true,
+              },
+            });
+
+          if (!currentSku) {
+            throw new Error(
+              "SKU tidak ditemukan saat update order."
+            );
+          }
+
+          const stockBefore =
+            currentSku.stock;
+
+          const result =
+            await tx.productSku.updateMany({
+              where: {
+                id:
+                  currentSku.id,
+
+                productId:
+                  currentSku.productId,
+
+                isActive:
+                  true,
+
+                stock: {
+                  gte:
+                    delta,
+                },
+              },
+
+              data: {
+                stock: {
+                  decrement:
+                    delta,
+                },
+              },
+            });
+
+          if (
+            result.count !==
+            1
+          ) {
+            throw new Error(
+              `Stok SKU "${currentSku.sku}" tidak mencukupi atau berubah sebelum transaksi selesai.`
+            );
+          }
+
+          const stockAfter =
+            stockBefore -
+            delta;
+
+          await tx.stockLedger.create({
             data: {
-              productId,
+              productId:
+                currentSku.productId,
+
+              skuId:
+                currentSku.id,
 
               orderId:
-              order.id,
+                order.id,
 
               type:
-              "SALE",
+                "SALE",
 
               quantity:
-              -delta,
+                -delta,
 
               stockBefore,
 
               stockAfter,
 
               note:
-              `Penyesuaian order ${order.orderNumber}: quantity bertambah ${delta}`,
+                `Penyesuaian order ${order.orderNumber}: SKU ${currentSku.sku} bertambah ${delta}`,
             },
           });
 
-        continue;
-      }
+          continue;
+        }
 
-      /**
-        * ======================================================
-        * DELTA NEGATIF
-        * ======================================================
-        *
-        * Contoh:
-        *
-        * lama = 5
-        * baru = 2
-        * delta = -3
-        *
-        * Kembalikan stok 3.
-      */
+        /**
+         * --------------------------------------------------------
+         * DELTA NEGATIVE
+         * --------------------------------------------------------
+         */
 
-      const restoreQuantity =
-      Math.abs(
-        delta
-      );
+        const restoreQuantity =
+          Math.abs(
+            delta
+          );
 
-      const currentProduct =
-      await tx.product.findUnique({
-          where: {
-            id:
-            productId,
-          },
-
-          select: {
-            id: true,
-            name: true,
-            stock: true,
-          },
-        });
-
-      if (!currentProduct) {
-        throw new Error(
-          "Produk tidak ditemukan saat update order."
-        );
-      }
-
-      const stockBefore =
-      currentProduct.stock;
-
-      const updatedProduct =
-      await tx.product.update({
-          where: {
-            id:
-            productId,
-          },
-
-          data: {
-            stock: {
-              increment:
-              restoreQuantity,
+        const currentSku =
+          await tx.productSku.findUnique({
+            where: {
+              id:
+                sku.id,
             },
-          },
 
-          select: {
-            stock: true,
-          },
-        });
+            select: {
+              id: true,
+              sku: true,
+              productId: true,
+              stock: true,
+            },
+          });
 
-      const stockAfter =
-      updatedProduct.stock;
+        if (!currentSku) {
+          throw new Error(
+            "SKU tidak ditemukan saat restore stock."
+          );
+        }
 
-      await tx.stockLedger.create({
+        const stockBefore =
+          currentSku.stock;
+
+        const updatedSku =
+          await tx.productSku.update({
+            where: {
+              id:
+                currentSku.id,
+            },
+
+            data: {
+              stock: {
+                increment:
+                  restoreQuantity,
+              },
+            },
+
+            select: {
+              stock: true,
+            },
+          });
+
+        const stockAfter =
+          updatedSku.stock;
+
+        await tx.stockLedger.create({
           data: {
-            productId,
+            productId:
+              currentSku.productId,
+
+            skuId:
+              currentSku.id,
 
             orderId:
-            order.id,
+              order.id,
 
             type:
-            "RETURN",
+              "RETURN",
 
             quantity:
-            restoreQuantity,
+              restoreQuantity,
 
             stockBefore,
 
             stockAfter,
 
             note:
-            `Penyesuaian order ${order.orderNumber}: quantity berkurang ${restoreQuantity}`,
+              `Penyesuaian order ${order.orderNumber}: SKU ${currentSku.sku} berkurang ${restoreQuantity}`,
           },
         });
-    }
+      }
 
-    /**
-      * ========================================================
-      * 12. REPLACE ORDER ITEMS
-      * ========================================================
-    */
+      /**
+       * ==========================================================
+       * 16. REPLACE ORDER ITEMS
+       * ==========================================================
+       */
 
-    await tx.orderItem.deleteMany({
+      await tx.orderItem.deleteMany({
         where: {
           orderId:
-          id,
+            id,
         },
       });
 
-    await tx.orderItem.createMany({
+      await tx.orderItem.createMany({
         data:
-        newOrderItems.map(
-          (item) => ({
+          newOrderItems.map(
+            (item) => ({
               orderId:
-              id,
+                id,
 
               productId:
-              item.productId,
+                item.productId,
+
+              skuId:
+                item.skuId,
 
               productName:
-              item.productName,
+                item.productName,
 
               productVariant:
-              item.productVariant,
+                null,
 
               productWeight:
-              item.productWeight,
+                null,
 
               customerNote:
-              item.customerNote,
+                item.customerNote,
 
               price:
-              item.price,
+                item.price,
 
               quantity:
-              item.quantity,
+                item.quantity,
 
               subtotal:
-              item.subtotal,
+                item.subtotal,
             })
-        ),
+          ),
       });
 
-    /**
-      * ========================================================
-      * 13. UPDATE ORDER
-      * ========================================================
-    */
+      /**
+       * ==========================================================
+       * 17. FLASH SALE
+       * ==========================================================
+       *
+       * Order lama mungkin sudah memiliki FlashSalePurchase.
+       *
+       * Release lama terlebih dahulu, lalu consume berdasarkan
+       * item baru.
+       *
+       * Semua tetap berada dalam transaction yang sama.
+       */
 
-    return await tx.order.update({
+      await FlashSaleRepository.releasePurchasesByOrderId(
+        tx,
+        order.id
+      );
+
+      if (
+        flashSaleRequirements.length >
+        0
+      ) {
+        await FlashSaleCheckoutService.consume(
+          {
+            userId:
+              input.userId,
+
+            orderId:
+              order.id,
+
+            requirements:
+              flashSaleRequirements,
+          },
+          tx
+        );
+      }
+
+      /**
+       * ==========================================================
+       * 18. UPDATE ORDER
+       * ==========================================================
+       */
+
+      return await tx.order.update({
         where: {
           id,
         },
 
         data: {
           userId:
-          input.userId,
+            input.userId,
 
           addressId:
-          input.addressId,
+            input.addressId,
 
           subtotal,
 
           shippingCost:
-          shipping,
+            shipping,
 
           total,
 
           notes:
-          input.notes?.trim() ||
-          null,
+            input.notes?.trim() ||
+            null,
         },
 
         include: {
@@ -2253,14 +2683,16 @@ const total =
           items: {
             include: {
               product: true,
+
+              sku: true,
             },
           },
 
           paymentProof: true,
         },
       });
-  }
-);
+    }
+  );
 }
 
 /**
