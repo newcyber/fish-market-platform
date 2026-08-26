@@ -1,8 +1,6 @@
 "use client";
 
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 
 import {
   Loader2,
@@ -12,13 +10,9 @@ import {
   Trash2,
 } from "lucide-react";
 
-import {
-  useRouter,
-} from "next/navigation";
+import { useRouter } from "next/navigation";
 
-import {
-  Button,
-} from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 
 import {
   FlashSaleItemForm,
@@ -50,25 +44,35 @@ interface FlashSaleItem {
 
   product: {
     id: string;
-
     name: string;
   };
 
-  weightOption: {
+  sku: {
     id: string;
-
-    label: string;
+    sku: string;
+    price: number;
+    stock: number;
+    isActive: boolean;
+    skuOptions: {
+      id: string;
+      variantOption: {
+        id: string;
+        label: string;
+        group: {
+          id: string;
+          name: string;
+        };
+      };
+    }[];
   } | null;
 }
 
 interface FlashSaleItemsSectionProps {
   flashSaleId: string;
 
-  items:
-    FlashSaleItem[];
+  items: FlashSaleItem[];
 
-  products:
-    FlashSaleProductOption[];
+  products: FlashSaleProductOption[];
 }
 
 /**
@@ -77,19 +81,39 @@ interface FlashSaleItemsSectionProps {
  * ============================================================
  */
 
-function formatCurrency(
-  value: number
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+/**
+ * ============================================================
+ * FORMAT SKU LABEL
+ * ============================================================
+ */
+
+function formatSkuLabel(
+  sku: FlashSaleItem["sku"]
 ) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
+  if (!sku) {
+    return "SKU tidak tersedia";
+  }
 
-      currency: "IDR",
+  const options = sku.skuOptions
+    .map(
+      (skuOption) =>
+        `${skuOption.variantOption.group.name}: ${skuOption.variantOption.label}`
+    )
+    .join(" • ");
 
-      maximumFractionDigits: 0,
-    }
-  ).format(value);
+  if (!options) {
+    return sku.sku;
+  }
+
+  return `${sku.sku} • ${options}`;
 }
 
 /**
@@ -100,13 +124,10 @@ function formatCurrency(
 
 export function FlashSaleItemsSection({
   flashSaleId,
-
   items,
-
   products,
 }: FlashSaleItemsSectionProps) {
-  const router =
-    useRouter();
+  const router = useRouter();
 
   /**
    * ==========================================================
@@ -114,31 +135,17 @@ export function FlashSaleItemsSection({
    * ==========================================================
    */
 
-  const [
-    isAddingItem,
-    setIsAddingItem,
-  ] = useState(false);
+  const [isAddingItem, setIsAddingItem] =
+    useState(false);
 
-  const [
-    editingItem,
-    setEditingItem,
-  ] = useState<FlashSaleItem | null>(
-    null
-  );
+  const [editingItem, setEditingItem] =
+    useState<FlashSaleItem | null>(null);
 
-  const [
-    deletingItemId,
-    setDeletingItemId,
-  ] = useState<string | null>(
-    null
-  );
+  const [deletingItemId, setDeletingItemId] =
+    useState<string | null>(null);
 
-  const [
-    error,
-    setError,
-  ] = useState<string | null>(
-    null
-  );
+  const [error, setError] =
+    useState<string | null>(null);
 
   /**
    * ==========================================================
@@ -148,9 +155,7 @@ export function FlashSaleItemsSection({
 
   function handleAddItem() {
     setError(null);
-
     setEditingItem(null);
-
     setIsAddingItem(true);
   }
 
@@ -164,9 +169,7 @@ export function FlashSaleItemsSection({
     item: FlashSaleItem
   ) {
     setError(null);
-
     setIsAddingItem(false);
-
     setEditingItem(item);
   }
 
@@ -178,9 +181,7 @@ export function FlashSaleItemsSection({
 
   function handleCancel() {
     setIsAddingItem(false);
-
     setEditingItem(null);
-
     setError(null);
   }
 
@@ -192,9 +193,7 @@ export function FlashSaleItemsSection({
 
   function handleSuccess() {
     setIsAddingItem(false);
-
     setEditingItem(null);
-
     setError(null);
 
     router.refresh();
@@ -209,10 +208,9 @@ export function FlashSaleItemsSection({
   async function handleDeleteItem(
     item: FlashSaleItem
   ) {
-    const confirmed =
-      window.confirm(
-        `Hapus "${item.product.name}" dari Flash Sale?\n\nTindakan ini tidak dapat dibatalkan.`
-      );
+    const confirmed = window.confirm(
+      `Hapus "${item.product.name}" dari Flash Sale?\n\nTindakan ini tidak dapat dibatalkan.`
+    );
 
     if (!confirmed) {
       return;
@@ -220,21 +218,17 @@ export function FlashSaleItemsSection({
 
     setError(null);
 
-    setDeletingItemId(
-      item.id
-    );
+    setDeletingItemId(item.id);
 
     try {
-      const response =
-        await fetch(
-          `/api/admin/flash-sales/${flashSaleId}/items/${item.id}`,
-          {
-            method: "DELETE",
-          }
-        );
+      const response = await fetch(
+        `/api/admin/flash-sales/${flashSaleId}/items/${item.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -271,8 +265,8 @@ export function FlashSaleItemsSection({
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Pilih produk dan atur harga serta
-            kuota Flash Sale.
+            Pilih produk dan SKU, lalu atur harga
+            serta kuota Flash Sale.
           </p>
         </div>
 
@@ -315,36 +309,35 @@ export function FlashSaleItemsSection({
             products={products}
             mode="edit"
             item={{
-  id: editingItem.id,
+              id: editingItem.id,
 
-  productId:
-    editingItem.product.id,
+              productId:
+                editingItem.product.id,
 
-  weightOptionId:
-    editingItem.weightOption?.id ??
-    null,
+              skuId:
+                editingItem.sku?.id ?? null,
 
-  originalPrice:
-    editingItem.originalPrice,
+              originalPrice:
+                editingItem.originalPrice,
 
-  flashPrice:
-    editingItem.flashPrice,
+              flashPrice:
+                editingItem.flashPrice,
 
-  stockLimit:
-    editingItem.stockLimit,
+              stockLimit:
+                editingItem.stockLimit,
 
-  soldQuantity:
-    editingItem.soldQuantity,
+              soldQuantity:
+                editingItem.soldQuantity,
 
-  perUserLimit:
-    editingItem.perUserLimit,
+              perUserLimit:
+                editingItem.perUserLimit,
 
-  sortOrder:
-    editingItem.sortOrder,
+              sortOrder:
+                editingItem.sortOrder,
 
-  isActive:
-    editingItem.isActive,
-}}
+              isActive:
+                editingItem.isActive,
+            }}
             onCancel={handleCancel}
             onSuccess={handleSuccess}
           />
@@ -370,7 +363,7 @@ export function FlashSaleItemsSection({
           </h2>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Kelola produk dan harga promo
+            Kelola produk, SKU, dan harga promo
             dalam campaign ini.
           </p>
         </div>
@@ -380,7 +373,6 @@ export function FlashSaleItemsSection({
           onClick={handleAddItem}
         >
           <Plus className="mr-2 h-4 w-4" />
-
           Tambah Produk
         </Button>
       </div>
@@ -407,7 +399,7 @@ export function FlashSaleItemsSection({
             </h3>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Tambahkan produk ke campaign
+              Tambahkan produk dan SKU ke campaign
               Flash Sale ini.
             </p>
           </div>
@@ -418,186 +410,178 @@ export function FlashSaleItemsSection({
             onClick={handleAddItem}
           >
             <Plus className="mr-2 h-4 w-4" />
-
             Tambah Produk
           </Button>
         </div>
       ) : (
         <div className="divide-y">
-          {items.map(
-  (item) => {
-    const remainingStock =
-      Math.max(
-        0,
-        item.stockLimit -
-          item.soldQuantity
-      );
+          {items.map((item) => {
+            const remainingStock =
+              Math.max(
+                0,
+                item.stockLimit -
+                  item.soldQuantity
+              );
 
-    const hasSales =
-      item.soldQuantity > 0;
+            const hasSales =
+              item.soldQuantity > 0;
 
-    const discountPercent =
-      item.originalPrice > 0
-        ? Math.max(
-            0,
-            Math.round(
-              (
-                (
-                  item.originalPrice -
-                  item.flashPrice
-                ) /
-                item.originalPrice
-              ) *
-                100
-            )
-          )
-        : 0;
+            const discountPercent =
+              item.originalPrice > 0
+                ? Math.max(
+                    0,
+                    Math.round(
+                      ((item.originalPrice -
+                        item.flashPrice) /
+                        item.originalPrice) *
+                        100
+                    )
+                  )
+                : 0;
 
-              const isDeleting =
-                deletingItemId ===
-                item.id;
+            const isDeleting =
+              deletingItemId === item.id;
 
-              return (
-                <div
-                  key={item.id}
-                  className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between"
-                >
-                  {/* PRODUCT */}
+            return (
+              <div
+                key={item.id}
+                className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between"
+              >
+                {/* PRODUCT */}
 
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">
-                        {item.product.name}
-                      </p>
-
-                      {!item.isActive ? (
-                        <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
-                          Tidak Aktif
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-500/15 dark:text-green-400">
-                          Aktif
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {item.weightOption
-                        ? item.weightOption.label
-                        : "Semua pilihan berat"}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">
+                      {item.product.name}
                     </p>
 
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                      <span>
-                        Kuota:{" "}
-                        {item.stockLimit}
+                    {!item.isActive ? (
+                      <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
+                        Tidak Aktif
                       </span>
-
-                      <span>
-                        Terjual:{" "}
-                        {item.soldQuantity}
+                    ) : (
+                      <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700 dark:bg-green-500/15 dark:text-green-400">
+                        Aktif
                       </span>
-
-                      <span>
-                        Sisa:{" "}
-                        {remainingStock}
-                      </span>
-
-                      <span>
-                        Maks. per user:{" "}
-                        {item.perUserLimit}
-                      </span>
-                    </div>
+                    )}
                   </div>
 
-                  {/* PRICE */}
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatSkuLabel(item.sku)}
+                  </p>
 
-                  <div className="flex flex-row items-end justify-between gap-6 lg:flex-col lg:items-end">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Harga Normal
-                      </p>
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                    <span>
+                      Kuota:{" "}
+                      {item.stockLimit}
+                    </span>
 
-                      <p className="mt-1 text-sm text-muted-foreground line-through">
+                    <span>
+                      Terjual:{" "}
+                      {item.soldQuantity}
+                    </span>
+
+                    <span>
+                      Sisa:{" "}
+                      {remainingStock}
+                    </span>
+
+                    <span>
+                      Maks. per user:{" "}
+                      {item.perUserLimit}
+                    </span>
+
+                    {item.sku ? (
+                      <span>
+                        Stok SKU:{" "}
+                        {item.sku.stock}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* PRICE */}
+
+                <div className="flex flex-row items-end justify-between gap-6 lg:flex-col lg:items-end">
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Harga Normal
+                    </p>
+
+                    <p className="mt-1 text-sm text-muted-foreground line-through">
+                      {formatCurrency(
+                        item.originalPrice
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">
+                        -{discountPercent}%
+                      </span>
+
+                      <p className="font-semibold">
                         {formatCurrency(
-                          item.originalPrice
+                          item.flashPrice
                         )}
                       </p>
                     </div>
 
-                    <div className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">
-                          -{discountPercent}%
-                        </span>
-
-                        <p className="font-semibold">
-                          {formatCurrency(
-                            item.flashPrice
-                          )}
-                        </p>
-                      </div>
-
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Urutan:{" "}
-                        {item.sortOrder}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* ACTIONS */}
-
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isDeleting}
-                      onClick={() =>
-                        handleEditItem(
-                          item
-                        )
-                      }
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-
-                      Edit
-                    </Button>
-
-                    <Button
-  type="button"
-  variant="destructive"
-  size="sm"
-  disabled={
-    isDeleting ||
-    hasSales
-  }
-  title={
-    hasSales
-      ? "Item tidak dapat dihapus karena sudah memiliki penjualan."
-      : "Hapus item Flash Sale"
-  }
-  onClick={() =>
-    handleDeleteItem(
-      item
-    )
-  }
->
-  {isDeleting ? (
-    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-  ) : (
-    <Trash2 className="mr-2 h-4 w-4" />
-  )}
-
-  {isDeleting
-    ? "Menghapus..."
-    : "Hapus"}
-</Button>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Urutan:{" "}
+                      {item.sortOrder}
+                    </p>
                   </div>
                 </div>
-              );
-            }
-          )}
+
+                {/* ACTIONS */}
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isDeleting}
+                    onClick={() =>
+                      handleEditItem(item)
+                    }
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={
+                      isDeleting ||
+                      hasSales
+                    }
+                    title={
+                      hasSales
+                        ? "Item tidak dapat dihapus karena sudah memiliki penjualan."
+                        : "Hapus item Flash Sale"
+                    }
+                    onClick={() =>
+                      handleDeleteItem(item)
+                    }
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-2 h-4 w-4" />
+                    )}
+
+                    {isDeleting
+                      ? "Menghapus..."
+                      : "Hapus"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

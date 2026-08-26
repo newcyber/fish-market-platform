@@ -313,6 +313,10 @@ model CartItem {
 
   weightSku String?
 
+  /// New canonical sellable SKU. Nullable during migration.
+  skuId String?
+  sku   ProductSku? @relation("CartItemSku", fields: [skuId], references: [id], onDelete: Restrict)
+
   /**
    * ============================================================
    * CUSTOMER NOTE
@@ -391,6 +395,7 @@ model CartItem {
   @@unique([cartId, productId, productVariant, productWeight])
   @@index([cartId])
   @@index([productId])
+  @@index([skuId])
   @@index([flashSaleId])
   @@index([flashSaleItemId])
 }
@@ -536,6 +541,7 @@ model Product {
 
   sku String? @unique
 
+  /// LEGACY PRODUCT-LEVEL PRICE. SKU.price is canonical for variant products.
   price Decimal @db.Decimal(12, 2)
 
   /**
@@ -560,6 +566,7 @@ model Product {
 
   discountEndAt DateTime?
 
+  /// LEGACY PRODUCT-LEVEL STOCK. SKU.stock becomes source-of-truth.
   stock Int @default(0)
 
   isPublished Boolean @default(true)
@@ -568,7 +575,11 @@ model Product {
 
   images ProductImage[]
 
-  variantOptions ProductVariantOption[]
+  legacyVariantOptions LegacyProductVariantOption[] @relation("LegacyProductVariantOptions")
+
+  variantGroups ProductVariantGroup[]
+
+  skus ProductSku[]
 
   weightOptions ProductWeightOption[] @relation("ProductWeightOptions")
 
@@ -813,6 +824,10 @@ model FlashSaleItem {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  /// New canonical sellable SKU. Nullable during migration.
+  skuId String?
+  sku   ProductSku? @relation("FlashSaleItemSku", fields: [skuId], references: [id], onDelete: Restrict)
+
   /**
    * ============================================================
    * WEIGHT OPTION
@@ -918,6 +933,7 @@ model FlashSaleItem {
 
   @@index([flashSaleId])
   @@index([productId])
+  @@index([skuId])
   @@index([weightOptionId])
   @@index([isActive])
   @@index([sortOrder])
@@ -1011,6 +1027,88 @@ model FlashSalePurchase {
   @@index([flashSaleItemId, userId])
 }
 
+// ============================================================
+// NEW FLEXIBLE PRODUCT VARIANT SYSTEM
+// ============================================================
+
+model ProductVariantGroup {
+  id        String                 @id @default(uuid())
+  productId String
+  product   Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int                    @default(0)
+  isActive  Boolean                @default(true)
+  options   ProductVariantOption[]
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  @@unique([productId, name])
+  @@index([productId])
+  @@index([productId, sortOrder])
+  @@index([isActive])
+}
+
+model ProductVariantOption {
+  id         String              @id @default(uuid())
+  groupId    String
+  group      ProductVariantGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  label      String
+  sortOrder  Int                 @default(0)
+  isActive   Boolean             @default(true)
+  skuOptions ProductSkuOption[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@unique([groupId, label])
+  @@index([groupId])
+  @@index([groupId, sortOrder])
+  @@index([isActive])
+  /// Temporary table name so the new model can coexist with the legacy table.
+  @@map("ProductVariantOptionNew")
+}
+
+model ProductSku {
+  id               String               @id @default(uuid())
+  productId        String
+  product          Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku              String               @unique
+  price            Decimal              @db.Decimal(12, 2)
+  isDiscountActive Boolean              @default(false)
+  discountType     ProductDiscountType?
+  discountValue    Decimal?             @db.Decimal(12, 2)
+  discountStartAt  DateTime?
+  discountEndAt    DateTime?
+  stock            Int                  @default(0)
+  isActive         Boolean              @default(true)
+  skuOptions       ProductSkuOption[]
+  cartItems        CartItem[]           @relation("CartItemSku")
+  orderItems       OrderItem[]          @relation("OrderItemSku")
+  stockLedgers     StockLedger[]        @relation("StockLedgerSku")
+  flashSaleItems   FlashSaleItem[]      @relation("FlashSaleItemSku")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([productId])
+  @@index([productId, isActive])
+  @@index([stock])
+  @@index([isDiscountActive])
+  @@index([discountStartAt])
+  @@index([discountEndAt])
+}
+
+model ProductSkuOption {
+  id              String               @id @default(uuid())
+  skuId           String
+  sku             ProductSku           @relation(fields: [skuId], references: [id], onDelete: Cascade)
+  variantOptionId String
+  variantOption   ProductVariantOption @relation(fields: [variantOptionId], references: [id], onDelete: Restrict)
+  createdAt       DateTime             @default(now())
+
+  @@unique([skuId, variantOptionId])
+  @@index([skuId])
+  @@index([variantOptionId])
+}
+
 /**
  * ============================================================
  * PRODUCT VARIANT OPTION
@@ -1023,7 +1121,7 @@ model FlashSalePurchase {
  * - Fillet
  */
 
-model ProductVariantOption {
+model LegacyProductVariantOption {
   /**
    * ============================================================
    * PRIMARY
@@ -1040,7 +1138,7 @@ model ProductVariantOption {
 
   productId String
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation("LegacyProductVariantOptions", fields: [productId], references: [id], onDelete: Cascade)
 
   /**
    * ============================================================
@@ -1111,6 +1209,7 @@ model ProductVariantOption {
   @@index([productId])
   @@index([isActive])
   @@index([sortOrder])
+  @@map("ProductVariantOption")
 }
 
 /**
@@ -1175,7 +1274,7 @@ model ProductWeightVariantPrice {
    */
   variantOptionId String
 
-  variantOption ProductVariantOption @relation("ProductWeightVariantPriceVariant", fields: [variantOptionId], references: [id])
+  variantOption LegacyProductVariantOption @relation("ProductWeightVariantPriceVariant", fields: [variantOptionId], references: [id])
 
   /**
    * PRICE
@@ -1221,6 +1320,10 @@ model StockLedger {
   productId String
 
   product Product @relation("ProductStockLedgers", fields: [productId], references: [id], onDelete: Cascade)
+
+  /// New canonical stock owner. Nullable during migration.
+  skuId String?
+  sku   ProductSku? @relation("StockLedgerSku", fields: [skuId], references: [id], onDelete: Restrict)
 
   /**
    * ============================================================
@@ -1281,6 +1384,7 @@ model StockLedger {
    */
 
   @@index([productId])
+  @@index([skuId])
   @@index([orderId])
   @@index([type])
   @@index([createdAt])
@@ -1447,6 +1551,10 @@ model OrderItem {
 
   product Product @relation(fields: [productId], references: [id])
 
+  /// New canonical sellable SKU. Nullable during migration.
+  skuId String?
+  sku   ProductSku? @relation("OrderItemSku", fields: [skuId], references: [id], onDelete: Restrict)
+
   /**
    * ============================================================
    * PRODUCT SNAPSHOT
@@ -1519,6 +1627,7 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+  @@index([skuId])
 }
 
 /**

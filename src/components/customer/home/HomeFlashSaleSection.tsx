@@ -70,9 +70,14 @@ interface FlashSaleItem {
 
   product: FlashSaleProduct;
 
-  weightOption:
-    | FlashSaleWeightOption
-    | null;
+  sku:
+  | {
+      id: string;
+      sku: string;
+      price: NumericValue;
+      stock: number;
+    }
+  | null;
 }
 
 interface FlashSaleData {
@@ -688,11 +693,11 @@ function FlashSaleProductCard({
 
         {/* WEIGHT */}
 
-        {item.weightOption && (
-          <p className="mt-1 truncate text-[9px] text-slate-400 sm:text-xs">
-            {item.weightOption.label}
-          </p>
-        )}
+        {item.sku?.sku && (
+  <p className="mt-1 truncate text-[9px] text-slate-400 sm:text-xs">
+    {item.sku.sku}
+  </p>
+)}
 
         {/* PRICE */}
 

@@ -5,31 +5,128 @@ import { prisma } from "@/lib/prisma";
  * CART REPOSITORY
  * ============================================================
  *
- * Repository khusus untuk seluruh akses database Cart dan CartItem.
+ * Repository khusus untuk seluruh akses database Cart dan
+ * CartItem.
  *
- * PENTING:
+ * ARCHITECTURE:
  *
- * Harga pada CartItem adalah SNAPSHOT harga final saat produk
- * dimasukkan ke keranjang.
+ * Product
+ *   └── ProductSku
+ *         ↓
+ *      CartItem.skuId
  *
- * Contoh:
+ * skuId adalah canonical identity untuk sellable item.
  *
- * Product.price              = 40.000
- * ProductWeightOption.price  = 45.000
- * Variant adjustment         = +5.000
+ * Repository TIDAK:
  *
- * Maka CartItem.price dapat menjadi:
+ * - menghitung harga
+ * - menentukan flash sale
+ * - menentukan stock
+ * - melakukan business validation
  *
- * 50.000
+ * Semua business logic tersebut berada di CartService.
  *
- * Harga tersebut tidak boleh otomatis berubah ketika admin
- * mengubah harga produk setelah item masuk ke keranjang.
+ * ============================================================
  *
- * Perhitungan harga dilakukan di CartService.
- * Repository hanya bertugas membaca dan menyimpan data.
+ * LEGACY COMPATIBILITY
+ * ============================================================
+ *
+ * Field berikut masih dipertahankan karena data lama:
+ *
+ * - productVariant
+ * - productWeight
+ * - weightSku
+ *
+ * Field tersebut BUKAN sumber kebenaran inventory.
+ *
+ * Untuk item baru:
+ *
+ * - skuId wajib diisi oleh CartService
+ * - stock berasal dari ProductSku.stock
+ * - harga berasal dari ProductPricingService
  *
  * ============================================================
  */
+
+/**
+ * ============================================================
+ * CART ITEM DATA TYPES
+ * ============================================================
+ */
+
+interface CreateCartItemData {
+  cartId: string;
+
+  productId: string;
+
+  /**
+   * Canonical sellable SKU.
+   *
+   * Nullable hanya untuk compatibility dengan data lama.
+   */
+  skuId?: string | null;
+
+  /**
+   * Legacy snapshot fields.
+   */
+  productVariant?: string | null;
+
+  productWeight?: string | null;
+
+  weightSku?: string | null;
+
+  customerNote?: string | null;
+
+  quantity: number;
+
+  /**
+   * Harga final snapshot.
+   */
+  price: number;
+
+  /**
+   * Pricing snapshot.
+   */
+  isFlashSaleApplied?: boolean;
+
+  flashSaleId?: string | null;
+
+  flashSaleItemId?: string | null;
+}
+
+interface UpdateCartItemData {
+  quantity: number;
+
+  /**
+   * Harga final snapshot.
+   */
+  price?: number;
+
+  /**
+   * Canonical SKU.
+   */
+  skuId?: string | null;
+
+  /**
+   * Legacy snapshot fields.
+   */
+  productVariant?: string | null;
+
+  productWeight?: string | null;
+
+  weightSku?: string | null;
+
+  customerNote?: string | null;
+
+  /**
+   * Pricing snapshot.
+   */
+  isFlashSaleApplied?: boolean;
+
+  flashSaleId?: string | null;
+
+  flashSaleItemId?: string | null;
+}
 
 export class CartRepository {
   /**
@@ -64,6 +161,26 @@ export class CartRepository {
                 },
               },
             },
+
+            /**
+             * Canonical SKU.
+             *
+             * Include sku agar CartService / UI dapat
+             * mengetahui SKU aktual yang sedang dibeli.
+             */
+            sku: {
+              include: {
+                skuOptions: {
+                  include: {
+                    variantOption: {
+                      include: {
+                        group: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -75,13 +192,13 @@ export class CartRepository {
    * GET CART ITEM COUNT
    * ============================================================
    *
-   * Menghitung jumlah baris item dalam cart.
+   * Menghitung jumlah BARIS item dalam cart.
    *
    * Contoh:
    *
-   * Ikan A
-   * Ikan B
-   * Ikan C
+   * Ikan A SKU 500gr
+   * Ikan A SKU 1kg
+   * Ikan B SKU 500gr
    *
    * Hasil = 3
    *
@@ -129,10 +246,6 @@ export class CartRepository {
    * ============================================================
    * FIND OR CREATE CART
    * ============================================================
-   *
-   * Memastikan user selalu memiliki cart.
-   *
-   * ============================================================
    */
 
   static async findOrCreate(
@@ -157,27 +270,91 @@ export class CartRepository {
    * FIND CART ITEM
    * ============================================================
    *
-   * Satu produk dapat memiliki beberapa CartItem berbeda
-   * berdasarkan kombinasi:
+   * CANONICAL IDENTITY:
    *
-   * productId
-   * productVariant
-   * productWeight
+   *   cartId + productId + skuId
+   *
+   * productVariant / productWeight TIDAK lagi digunakan
+   * untuk menentukan apakah dua item adalah item yang sama.
    *
    * Contoh:
    *
-   * Ikan Bandeng:
+   * Product A
+   *   SKU 500GR
+   *   SKU 1KG
    *
-   * 1. Utuh / 500gr
-   * 2. Dibersihkan / 500gr
-   * 3. Dibersihkan / 1kg
-   *
-   * Ketiganya dianggap item berbeda.
+   * harus menghasilkan dua CartItem berbeda.
    *
    * ============================================================
    */
 
   static async findItem(
+    cartId: string,
+    productId: string,
+    skuId?: string | null
+  ) {
+    return prisma.cartItem.findFirst({
+      where: {
+        cartId,
+
+        productId,
+
+        /**
+         * Untuk item canonical:
+         *
+         * skuId tertentu harus match.
+         *
+         * Untuk legacy item:
+         * skuId null hanya match dengan null.
+         */
+        skuId:
+          skuId ?? null,
+      },
+
+      include: {
+        product: {
+          include: {
+            category: true,
+
+            images: {
+              orderBy: {
+                sortOrder: "asc",
+              },
+            },
+          },
+        },
+
+        sku: {
+          include: {
+            skuOptions: {
+              include: {
+                variantOption: {
+                  include: {
+                    group: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * ============================================================
+   * FIND LEGACY CART ITEM
+   * ============================================================
+   *
+   * Compatibility helper untuk data lama yang belum mempunyai
+   * skuId.
+   *
+   * JANGAN digunakan sebagai canonical lookup untuk item baru.
+   *
+   * ============================================================
+   */
+
+  static async findLegacyItem(
     cartId: string,
     productId: string,
     productVariant?: string | null,
@@ -188,6 +365,8 @@ export class CartRepository {
         cartId,
 
         productId,
+
+        skuId: null,
 
         productVariant:
           productVariant ?? null,
@@ -208,6 +387,8 @@ export class CartRepository {
             },
           },
         },
+
+        sku: true,
       },
     });
   }
@@ -217,14 +398,9 @@ export class CartRepository {
    * FIND CART ITEM BY ID
    * ============================================================
    *
-   * PENTING:
-   *
    * Method ini hanya mencari CartItem.
    *
-   * Validasi bahwa CartItem benar-benar milik user harus
-   * dilakukan di CartService melalui:
-   *
-   * cartItem.cart.userId === userId
+   * Validasi ownership user dilakukan di CartService.
    *
    * ============================================================
    */
@@ -251,6 +427,20 @@ export class CartRepository {
             },
           },
         },
+
+        sku: {
+          include: {
+            skuOptions: {
+              include: {
+                variantOption: {
+                  include: {
+                    group: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -260,37 +450,15 @@ export class CartRepository {
    * CREATE CART ITEM
    * ============================================================
    *
-   * price adalah HARGA FINAL.
+   * Repository hanya menyimpan data.
    *
-   * Contoh:
-   *
-   * Berat 1kg      = 45.000
-   * Dibersihkan    = +5.000
-   *
-   * CartItem.price = 50.000
-   *
-   * Repository tidak menghitung harga.
-   * Harga final harus dikirim oleh CartService.
+   * Harga final harus sudah dihitung oleh CartService.
    *
    * ============================================================
    */
 
   static async createItem(
-    data: {
-      cartId: string;
-
-      productId: string;
-
-      productVariant?: string | null;
-
-      productWeight?: string | null;
-
-      customerNote?: string | null;
-
-      quantity: number;
-
-      price: number;
-    }
+    data: CreateCartItemData
   ) {
     return prisma.cartItem.create({
       data: {
@@ -300,24 +468,54 @@ export class CartRepository {
         productId:
           data.productId,
 
+        /**
+         * Canonical SKU.
+         */
+        skuId:
+          data.skuId ?? null,
+
+        /**
+         * Legacy compatibility fields.
+         */
         productVariant:
-          data.productVariant ?? null,
+          data.productVariant ??
+          null,
 
         productWeight:
-          data.productWeight ?? null,
+          data.productWeight ??
+          null,
+
+        weightSku:
+          data.weightSku ??
+          null,
 
         customerNote:
-          data.customerNote ?? null,
+          data.customerNote ??
+          null,
 
         quantity:
           data.quantity,
 
         /**
-         * SNAPSHOT HARGA FINAL
+         * FINAL PRICE SNAPSHOT
          */
-
         price:
           data.price,
+
+        /**
+         * PRICING SNAPSHOT
+         */
+        isFlashSaleApplied:
+          data.isFlashSaleApplied ??
+          false,
+
+        flashSaleId:
+          data.flashSaleId ??
+          null,
+
+        flashSaleItemId:
+          data.flashSaleItemId ??
+          null,
       },
     });
   }
@@ -327,41 +525,40 @@ export class CartRepository {
    * UPDATE CART ITEM
    * ============================================================
    *
-   * price bersifat optional.
+   * Semua field bersifat optional kecuali quantity.
    *
-   * Jika hanya quantity yang berubah,
-   * harga tidak disentuh.
+   * Repository tidak melakukan business validation.
    *
    * ============================================================
    */
 
   static async updateItem(
     itemId: string,
-    data: {
-      quantity: number;
-
-      price?: number;
-
-      productVariant?: string | null;
-
-      productWeight?: string | null;
-
-      customerNote?: string | null;
-    }
+    data: UpdateCartItemData
   ) {
     return prisma.cartItem.update({
       where: {
-        id: itemId,
+        id:
+          itemId,
       },
 
       data: {
         quantity:
           data.quantity,
 
-        ...(data.price !== undefined
+        ...(data.price !==
+        undefined
           ? {
               price:
                 data.price,
+            }
+          : {}),
+
+        ...(data.skuId !==
+        undefined
+          ? {
+              skuId:
+                data.skuId,
             }
           : {}),
 
@@ -381,11 +578,43 @@ export class CartRepository {
             }
           : {}),
 
+        ...(data.weightSku !==
+        undefined
+          ? {
+              weightSku:
+                data.weightSku,
+            }
+          : {}),
+
         ...(data.customerNote !==
         undefined
           ? {
               customerNote:
                 data.customerNote,
+            }
+          : {}),
+
+        ...(data.isFlashSaleApplied !==
+        undefined
+          ? {
+              isFlashSaleApplied:
+                data.isFlashSaleApplied,
+            }
+          : {}),
+
+        ...(data.flashSaleId !==
+        undefined
+          ? {
+              flashSaleId:
+                data.flashSaleId,
+            }
+          : {}),
+
+        ...(data.flashSaleItemId !==
+        undefined
+          ? {
+              flashSaleItemId:
+                data.flashSaleItemId,
             }
           : {}),
       },
@@ -397,11 +626,11 @@ export class CartRepository {
    * UPDATE CART ITEM QUANTITY
    * ============================================================
    *
-   * PENTING:
+   * Hanya mengubah quantity.
    *
-   * Method ini HANYA mengubah quantity.
+   * Harga snapshot tidak disentuh.
    *
-   * Harga snapshot CartItem.price tidak boleh berubah.
+   * Business validation tetap dilakukan oleh CartService.
    *
    * ============================================================
    */
@@ -412,7 +641,8 @@ export class CartRepository {
   ) {
     return prisma.cartItem.update({
       where: {
-        id: cartItemId,
+        id:
+          cartItemId,
       },
 
       data: {
@@ -432,7 +662,8 @@ export class CartRepository {
   ) {
     return prisma.cartItem.delete({
       where: {
-        id: itemId,
+        id:
+          itemId,
       },
     });
   }

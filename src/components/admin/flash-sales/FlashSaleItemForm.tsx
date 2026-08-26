@@ -13,13 +13,9 @@ import {
   X,
 } from "lucide-react";
 
-import {
-  Button,
-} from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 
-import {
-  Input,
-} from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 
 /**
  * ============================================================
@@ -27,12 +23,32 @@ import {
  * ============================================================
  */
 
-export interface FlashSaleProductWeightOption {
+export interface FlashSaleSkuOption {
   id: string;
 
-  label: string;
+  sku: string;
 
   price: number;
+
+  stock: number;
+
+  isActive: boolean;
+
+  skuOptions: {
+    id: string;
+
+    variantOption: {
+      id: string;
+
+      label: string;
+
+      group: {
+        id: string;
+
+        name: string;
+      };
+    };
+  }[];
 }
 
 export interface FlashSaleProductOption {
@@ -44,8 +60,7 @@ export interface FlashSaleProductOption {
 
   stock: number;
 
-  weightOptions:
-    FlashSaleProductWeightOption[];
+  skus: FlashSaleSkuOption[];
 }
 
 /**
@@ -59,7 +74,7 @@ export interface FlashSaleItemFormInitialItem {
 
   productId: string;
 
-  weightOptionId: string | null;
+  skuId: string | null;
 
   originalPrice: number;
 
@@ -79,8 +94,7 @@ export interface FlashSaleItemFormInitialItem {
 interface FlashSaleItemFormProps {
   flashSaleId: string;
 
-  products:
-    FlashSaleProductOption[];
+  products: FlashSaleProductOption[];
 
   mode?: "create" | "edit";
 
@@ -97,19 +111,35 @@ interface FlashSaleItemFormProps {
  * ============================================================
  */
 
-function formatCurrency(
-  value: number
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+/**
+ * ============================================================
+ * FORMAT SKU LABEL
+ * ============================================================
+ */
+
+function formatSkuLabel(
+  sku: FlashSaleSkuOption
 ) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
+  const options = sku.skuOptions
+    .map(
+      (skuOption) =>
+        `${skuOption.variantOption.group.name}: ${skuOption.variantOption.label}`
+    )
+    .join(" • ");
 
-      currency: "IDR",
+  if (!options) {
+    return sku.sku;
+  }
 
-      maximumFractionDigits: 0,
-    }
-  ).format(value);
+  return `${sku.sku} • ${options}`;
 }
 
 /**
@@ -154,10 +184,10 @@ export function FlashSaleItemForm({
   );
 
   const [
-    weightOptionId,
-    setWeightOptionId,
+    skuId,
+    setSkuId,
   ] = useState(
-    item?.weightOptionId ?? ""
+    item?.skuId ?? ""
   );
 
   const [
@@ -236,29 +266,28 @@ export function FlashSaleItemForm({
 
   /**
    * ==========================================================
-   * SELECTED WEIGHT OPTION
+   * SELECTED SKU
    * ==========================================================
    */
 
-  const selectedWeightOption =
+  const selectedSku =
     useMemo(() => {
       if (
         !selectedProduct ||
-        !weightOptionId
+        !skuId
       ) {
         return null;
       }
 
       return (
-        selectedProduct.weightOptions.find(
-          (option) =>
-            option.id ===
-            weightOptionId
+        selectedProduct.skus.find(
+          (sku) =>
+            sku.id === skuId
         ) ?? null
       );
     }, [
       selectedProduct,
-      weightOptionId,
+      skuId,
     ]);
 
   /**
@@ -267,21 +296,30 @@ export function FlashSaleItemForm({
    * ==========================================================
    *
    * CREATE:
-   * Harga dihitung dari produk / weight option.
+   * Harga diambil dari ProductSku.price.
    *
    * EDIT:
-   * Gunakan originalPrice yang tersimpan
-   * agar histori harga item tidak berubah.
+   * Gunakan originalPrice yang tersimpan agar
+   * histori harga item tidak berubah.
    */
 
   const originalPrice =
     isEditMode && item
       ? item.originalPrice
-      : selectedWeightOption
-        ? selectedWeightOption.price
+      : selectedSku
+        ? selectedSku.price
         : selectedProduct
           ? selectedProduct.price
           : 0;
+
+  /**
+   * ==========================================================
+   * AVAILABLE SKU STOCK
+   * ==========================================================
+   */
+
+  const availableSkuStock =
+    selectedSku?.stock ?? 0;
 
   /**
    * ==========================================================
@@ -309,29 +347,33 @@ export function FlashSaleItemForm({
 
     setProductId(value);
 
-    setWeightOptionId("");
+    setSkuId("");
 
     setFlashPrice("");
+
+    setStockLimit("");
 
     setError(null);
   }
 
   /**
    * ==========================================================
-   * WEIGHT OPTION CHANGE
+   * SKU CHANGE
    * ==========================================================
    */
 
-  function handleWeightOptionChange(
+  function handleSkuChange(
     value: string
   ) {
     if (isEditMode) {
       return;
     }
 
-    setWeightOptionId(value);
+    setSkuId(value);
 
     setFlashPrice("");
+
+    setStockLimit("");
 
     setError(null);
   }
@@ -358,6 +400,36 @@ export function FlashSaleItemForm({
     if (!productId) {
       setError(
         "Silakan pilih produk."
+      );
+
+      return;
+    }
+
+    /**
+     * ========================================================
+     * VALIDATE SKU
+     * ========================================================
+     */
+
+    if (!skuId) {
+      setError(
+        "Silakan pilih SKU produk."
+      );
+
+      return;
+    }
+
+    if (!selectedSku) {
+      setError(
+        "SKU yang dipilih tidak ditemukan."
+      );
+
+      return;
+    }
+
+    if (!selectedSku.isActive) {
+      setError(
+        "SKU yang dipilih sedang tidak aktif."
       );
 
       return;
@@ -421,6 +493,31 @@ export function FlashSaleItemForm({
 
     /**
      * ========================================================
+     * STOCK LIMIT VS SKU STOCK
+     * ========================================================
+     *
+     * Untuk CREATE, jangan izinkan kuota Flash Sale
+     * melebihi stok SKU yang tersedia.
+     *
+     * Untuk EDIT, stok bisa berubah setelah item dibuat,
+     * sehingga backend tetap menjadi sumber validasi final.
+     */
+
+    if (
+      !isEditMode &&
+      availableSkuStock >= 0 &&
+      parsedStockLimit >
+        availableSkuStock
+    ) {
+      setError(
+        `Kuota Flash Sale tidak boleh melebihi stok SKU (${availableSkuStock}).`
+      );
+
+      return;
+    }
+
+    /**
+     * ========================================================
      * PREVENT STOCK BELOW SOLD QUANTITY
      * ========================================================
      */
@@ -459,15 +556,9 @@ export function FlashSaleItemForm({
       return;
     }
 
-    /**
-     * ========================================================
-     * PREVENT PER USER ABOVE STOCK
-     * ========================================================
-     */
-
     if (
       parsedPerUserLimit >
-      parsedStockLimit
+        parsedStockLimit
     ) {
       setError(
         "Batas pembelian per user tidak boleh lebih besar dari kuota Flash Sale."
@@ -539,9 +630,7 @@ export function FlashSaleItemForm({
               body: JSON.stringify({
                 productId,
 
-                weightOptionId:
-                  weightOptionId ||
-                  null,
+                skuId,
 
                 originalPrice:
                   Number(
@@ -706,30 +795,28 @@ export function FlashSaleItemForm({
 
         {isEditMode ? (
           <p className="text-xs text-muted-foreground">
-            Produk tidak dapat diubah setelah
-            item Flash Sale dibuat.
+            Produk tidak dapat diubah
+            setelah item Flash Sale dibuat.
           </p>
         ) : null}
       </div>
 
-      {/* WEIGHT OPTION */}
+      {/* SKU */}
 
-      {selectedProduct &&
-      selectedProduct.weightOptions.length >
-        0 ? (
+      {selectedProduct ? (
         <div className="grid gap-2">
           <label
-            htmlFor="weightOptionId"
+            htmlFor="skuId"
             className="text-sm font-medium"
           >
-            Pilihan Berat
+            SKU Produk
           </label>
 
           <select
-            id="weightOptionId"
-            value={weightOptionId}
+            id="skuId"
+            value={skuId}
             onChange={(event) =>
-              handleWeightOptionChange(
+              handleSkuChange(
                 event.target.value
               )
             }
@@ -740,35 +827,98 @@ export function FlashSaleItemForm({
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="">
-              Semua pilihan berat
+              Pilih SKU
             </option>
 
-            {selectedProduct.weightOptions.map(
-              (option) => (
+            {selectedProduct.skus.map(
+              (sku) => (
                 <option
-                  key={option.id}
-                  value={option.id}
+                  key={sku.id}
+                  value={sku.id}
+                  disabled={
+                    !sku.isActive
+                  }
                 >
-                  {option.label} —{" "}
+                  {formatSkuLabel(
+                    sku
+                  )}{" "}
+                  —{" "}
                   {formatCurrency(
-                    option.price
-                  )}
+                    sku.price
+                  )}{" "}
+                  — Stok{" "}
+                  {sku.stock}
+                  {!sku.isActive
+                    ? " — Tidak Aktif"
+                    : ""}
                 </option>
               )
             )}
           </select>
 
           <p className="text-xs text-muted-foreground">
-            {isEditMode
-              ? "Pilihan berat tidak dapat diubah setelah item Flash Sale dibuat."
-              : "Jika tidak memilih pilihan berat, Flash Sale berlaku untuk produk secara umum."}
+            Setiap SKU merupakan unit
+            penjualan yang berbeda dalam
+            Flash Sale.
           </p>
+
+          {isEditMode ? (
+            <p className="text-xs text-muted-foreground">
+              SKU tidak dapat diubah setelah
+              item Flash Sale dibuat.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* SELECTED SKU INFO */}
+
+      {selectedSku ? (
+        <div className="rounded-lg border bg-muted/30 p-4">
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">
+                SKU Terpilih
+              </p>
+
+              <p className="mt-1 font-semibold">
+                {formatSkuLabel(
+                  selectedSku
+                )}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Harga SKU
+                </p>
+
+                <p className="mt-1 font-medium">
+                  {formatCurrency(
+                    selectedSku.price
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Stok SKU
+                </p>
+
+                <p className="mt-1 font-medium">
+                  {selectedSku.stock}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 
       {/* ORIGINAL PRICE */}
 
-      {selectedProduct ? (
+      {selectedProduct &&
+      selectedSku ? (
         <div className="rounded-lg border bg-muted/30 p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -780,6 +930,11 @@ export function FlashSaleItemForm({
                 {formatCurrency(
                   originalPrice
                 )}
+              </p>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                Harga normal berasal dari
+                ProductSku.price.
               </p>
             </div>
 
@@ -811,7 +966,7 @@ export function FlashSaleItemForm({
           placeholder="Contoh: 25000"
           disabled={
             isSubmitting ||
-            !selectedProduct
+            !selectedSku
           }
         />
 
@@ -822,13 +977,11 @@ export function FlashSaleItemForm({
             {Math.max(
               0,
               Math.round(
-                (
-                  (originalPrice -
-                    Number(
-                      flashPrice
-                    )) /
-                  originalPrice
-                ) *
+                ((originalPrice -
+                  Number(
+                    flashPrice
+                  )) /
+                  originalPrice) *
                   100
               )
             )}
@@ -858,6 +1011,12 @@ export function FlashSaleItemForm({
                 )
               : 1
           }
+          max={
+            !isEditMode &&
+            selectedSku
+              ? selectedSku.stock
+              : undefined
+          }
           value={stockLimit}
           onChange={(event) =>
             setStockLimit(
@@ -872,7 +1031,9 @@ export function FlashSaleItemForm({
           {isEditMode &&
           soldQuantity > 0
             ? `Minimal kuota adalah ${soldQuantity}, karena jumlah tersebut sudah terjual.`
-            : "Jumlah maksimal unit yang dapat terjual dalam Flash Sale ini."}
+            : selectedSku
+              ? `Maksimal kuota awal adalah stok SKU saat ini (${selectedSku.stock}).`
+              : "Jumlah maksimal unit yang dapat terjual dalam Flash Sale ini."}
         </p>
       </div>
 
@@ -947,7 +1108,7 @@ export function FlashSaleItemForm({
           </p>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Produk dapat digunakan dalam
+            SKU dapat digunakan dalam
             campaign Flash Sale.
           </p>
         </div>
@@ -975,7 +1136,6 @@ export function FlashSaleItemForm({
           onClick={onCancel}
         >
           <X className="mr-2 h-4 w-4" />
-
           Batal
         </Button>
 
@@ -983,7 +1143,8 @@ export function FlashSaleItemForm({
           type="submit"
           disabled={
             isSubmitting ||
-            !selectedProduct
+            !selectedProduct ||
+            !selectedSku
           }
         >
           {isSubmitting ? (

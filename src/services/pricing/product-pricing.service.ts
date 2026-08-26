@@ -3,79 +3,79 @@ import {
   ProductDiscountType,
 } from "@prisma/client";
 
-import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
-
 /**
  * ============================================================
- * PRODUCT PRICING SERVICE
+ * PRODUCT PRICING SERVICE V2 - SKU BASED
  * ============================================================
  *
- * Single source of truth untuk seluruh perhitungan harga produk.
+ * Canonical pricing flow:
  *
- * PRIORITY:
+ * ProductSku.price
+ *       ↓
+ * Product Discount
+ *       ↓
+ * Flash Sale (if active)
+ *       ↓
+ * Final Price
  *
- * 1. Flash Sale
- * 2. Product Discount
- * 3. Normal Price
+ * VariantOption tidak lagi memiliki:
+ * - productId
+ * - priceAdjustment
  *
- * NORMAL PRICE PRIORITY:
+ * Weight juga bukan lagi pricing entity khusus.
+ * Berat hanyalah salah satu VariantGroup.
  *
- * 1. ProductWeightVariantPrice
- *    = harga spesifik kombinasi berat + varian
+ * IMPORTANT:
+ * `skuId` adalah canonical input.
  *
- * 2. ProductWeightOption.price
- *    +
- *    ProductVariantOption.priceAdjustment
- *
- * 3. Product.price
- *
- * ============================================================
+ * `productVariant` / `productWeight` dipertahankan sementara
+ * hanya agar consumer lama tetap dapat dikompilasi. Jika caller
+ * masih mengirim variant/weight tanpa skuId, service akan menolak
+ * dengan error yang jelas. Jangan deploy sebelum caller lama
+ * dimigrasikan ke skuId.
  */
 
 export interface ResolveProductPriceInput {
   productId: string;
 
-  productVariant?: string | null;
+  /**
+   * Canonical sellable unit.
+   */
+  skuId?: string | null;
 
+  /**
+   * Legacy inputs - temporary compatibility only.
+   */
+  productVariant?: string | null;
   productWeight?: string | null;
 
-  fallbackPrice: Prisma.Decimal;
+  /**
+   * Legacy fallback for products without SKU.
+   * Untuk product dengan SKU, canonical price berasal dari SKU.
+   */
+  fallbackPrice?: Prisma.Decimal | number;
 }
 
 export interface ProductPricingResult {
   /**
-   * Harga sebelum Flash Sale atau Product Discount.
+   * Harga SKU sebelum Product Discount / Flash Sale.
    */
   originalPrice: Prisma.Decimal;
 
   /**
-   * Nominal diskon yang diterapkan.
+   * Nominal discount yang benar-benar diterapkan.
    */
   discountAmount: Prisma.Decimal;
 
   /**
-   * Harga akhir yang harus digunakan.
+   * Harga final.
    */
   finalPrice: Prisma.Decimal;
 
-  /**
-   * Menandakan apakah Product Discount diterapkan.
-   */
   isDiscountApplied: boolean;
-
-  /**
-   * Menandakan apakah Flash Sale diterapkan.
-   */
   isFlashSaleApplied: boolean;
 
-  /**
-   * Flash Sale Item yang digunakan.
-   */
   flashSaleItemId: string | null;
-
-  /**
-   * Flash Sale campaign yang digunakan.
-   */
   flashSaleId: string | null;
 }
 
@@ -85,41 +85,57 @@ export default class ProductPricingService {
    * RESOLVE PRODUCT PRICE
    * ============================================================
    */
-
   static async resolve(
     tx: Prisma.TransactionClient,
     input: ResolveProductPriceInput
   ): Promise<ProductPricingResult> {
     const {
       productId,
+      skuId,
       productVariant,
       productWeight,
       fallbackPrice,
     } = input;
 
     /**
+     * ----------------------------------------------------------
+     * LEGACY GUARD
+     * ----------------------------------------------------------
+     *
+     * Kita sengaja tidak mencoba menebak SKU dari label variant
+     * lama. Pada sistem baru satu produk bisa memiliki lebih dari
+     * dua VariantGroup, sehingga pasangan:
+     *
+     * productVariant + productWeight
+     *
+     * tidak cukup untuk menentukan SKU secara unik.
+     */
+    if (
+      !skuId &&
+      (productVariant || productWeight)
+    ) {
+      throw new Error(
+        "Pricing sekarang berbasis SKU. skuId wajib dikirim untuk produk dengan variant."
+      );
+    }
+
+    /**
      * ==========================================================
-     * GET PRODUCT CONFIGURATION
+     * GET PRODUCT
      * ==========================================================
      */
-
     const product =
       await tx.product.findUnique({
         where: {
           id: productId,
         },
-
         select: {
           id: true,
-
+          price: true,
           isDiscountActive: true,
-
           discountType: true,
-
           discountValue: true,
-
           discountStartAt: true,
-
           discountEndAt: true,
         },
       });
@@ -132,377 +148,213 @@ export default class ProductPricingService {
 
     /**
      * ==========================================================
-     * RESOLVE BASE PRICE
+     * RESOLVE CANONICAL SKU
      * ==========================================================
-     *
-     * Fallback:
-     *
-     * ProductWeightOption.price
-     * OR
-     * Product.price
      */
+    let originalPrice: Prisma.Decimal;
 
-    let basePrice =
-      new Prisma.Decimal(
-        fallbackPrice
-      );
-
-    let weightOptionId:
-      | string
-      | null = null;
-
-    if (productWeight) {
-      const weightOption =
-        await tx.productWeightOption.findFirst({
+    if (skuId) {
+      const sku =
+        await tx.productSku.findFirst({
           where: {
+            id: skuId,
             productId,
-
-            label:
-              productWeight,
-
-            isActive:
-              true,
           },
-
           select: {
             id: true,
-
-            label: true,
-
             price: true,
+            stock: true,
+            isActive: true,
           },
         });
 
-      if (!weightOption) {
+      if (!sku) {
         throw new Error(
-          "Pilihan berat produk tidak valid atau sudah tidak tersedia."
+          "SKU produk tidak ditemukan."
         );
       }
 
-      if (
-        weightOption.price === null ||
-        weightOption.price === undefined
-      ) {
+      if (!sku.isActive) {
         throw new Error(
-          `Harga untuk pilihan berat "${weightOption.label}" belum diatur.`
+          "SKU produk sudah tidak tersedia."
         );
       }
 
-      weightOptionId =
-        weightOption.id;
+      originalPrice =
+        new Prisma.Decimal(sku.price);
 
-      basePrice =
-        new Prisma.Decimal(
-          weightOption.price
-        );
-    }
-
-    /**
-     * ==========================================================
-     * RESOLVE VARIANT
-     * ==========================================================
-     *
-     * Variant adjustment tetap digunakan
-     * sebagai fallback untuk produk lama.
-     */
-
-    let variantAdjustment =
-      new Prisma.Decimal(0);
-
-    let variantOptionId:
-      | string
-      | null = null;
-
-    if (productVariant) {
-      const variantOption =
-        await tx.productVariantOption.findFirst({
-          where: {
-            productId,
-
-            label:
-              productVariant,
-
-            isActive:
-              true,
-          },
-
-          select: {
-            id: true,
-
-            label: true,
-
-            priceAdjustment: true,
-          },
-        });
-
-      if (!variantOption) {
+      if (originalPrice.lessThan(0)) {
         throw new Error(
-          "Varian produk yang dipilih tidak valid atau sudah tidak tersedia."
+          "Harga SKU tidak valid."
         );
       }
+    } else {
+      /**
+       * Product tanpa variant/SKU lama.
+       *
+       * Setelah seluruh consumer dimigrasikan, fallback ini dapat
+       * dihapus dan skuId dibuat wajib.
+       */
+      originalPrice =
+        fallbackPrice !== undefined
+          ? new Prisma.Decimal(
+              fallbackPrice
+            )
+          : new Prisma.Decimal(
+              product.price
+            );
 
-      variantOptionId =
-        variantOption.id;
-
-      variantAdjustment =
-        new Prisma.Decimal(
-          variantOption.priceAdjustment ?? 0
+      if (originalPrice.lessThan(0)) {
+        throw new Error(
+          "Harga produk tidak valid."
         );
-    }
-
-    /**
-     * ==========================================================
-     * RESOLVE WEIGHT × VARIANT PRICE
-     * ==========================================================
-     *
-     * PRIORITY:
-     *
-     * ProductWeightVariantPrice
-     *
-     * Contoh:
-     *
-     * Kakap 1 KG + Utuh
-     * = Rp100.000
-     *
-     * Kakap 1 KG + Dibersihkan
-     * = Rp105.000
-     *
-     * Kakap 2 KG + Utuh
-     * = Rp200.000
-     *
-     * Kakap 2 KG + Dibersihkan
-     * = Rp207.000
-     */
-
-    let originalPrice =
-      basePrice.plus(
-        variantAdjustment
-      );
-
-    let hasSpecificWeightVariantPrice =
-      false;
-
-    if (
-      weightOptionId &&
-      variantOptionId
-    ) {
-      const specificPrice =
-        await tx.productWeightVariantPrice.findUnique({
-          where: {
-            productId_weightOptionId_variantOptionId: {
-              productId,
-
-              weightOptionId,
-
-              variantOptionId,
-            },
-          },
-
-          select: {
-            price: true,
-          },
-        });
-
-      if (specificPrice) {
-        originalPrice =
-          new Prisma.Decimal(
-            specificPrice.price
-          );
-
-        hasSpecificWeightVariantPrice =
-          true;
       }
     }
 
     /**
      * ==========================================================
-     * VALIDATE ORIGINAL PRICE
-     * ==========================================================
-     */
-
-    if (
-      originalPrice.lessThan(0)
-    ) {
-      throw new Error(
-        "Harga normal produk tidak boleh kurang dari nol."
-      );
-    }
-
-    /**
-     * ==========================================================
-     * RESOLVE FLASH SALE
+     * FIND ACTIVE FLASH SALE
      * ==========================================================
      *
-     * Flash Sale memiliki prioritas lebih tinggi
-     * daripada Product Discount.
+     * Canonical priority:
+     *
+     * 1. Flash Sale yang menunjuk SKU ini.
+     * 2. Legacy/product-wide Flash Sale tanpa skuId.
+     *
+     * Kita tidak lagi menggunakan weightOptionId.
      */
+    const now = new Date();
 
-    const flashSaleItem =
-      await FlashSaleRepository.findActiveItem(
-        tx,
-        {
-          productId,
+    const flashSaleScope = {
+      isActive: true,
+      flashSale: {
+        status: "ACTIVE" as const,
+        deletedAt: null,
+        startAt: {
+          lte: now,
+        },
+        endAt: {
+          gt: now,
+        },
+      },
+    };
 
-          weightOptionId,
+    let flashSaleItem:
+      | {
+          id: string;
+          flashSaleId: string;
+          flashPrice: Prisma.Decimal;
         }
-      );
+      | null = null;
+
+    if (skuId) {
+      flashSaleItem =
+        await tx.flashSaleItem.findFirst({
+          where: {
+            ...flashSaleScope,
+            productId,
+            skuId,
+          },
+          select: {
+            id: true,
+            flashSaleId: true,
+            flashPrice: true,
+          },
+          orderBy: [
+            {
+              sortOrder: "asc",
+            },
+            {
+              createdAt: "asc",
+            },
+          ],
+        });
+
+      /**
+       * Product-wide fallback.
+       *
+       * Dipakai hanya sebagai compatibility path selama Flash Sale
+       * lama masih ada. Item SKU-specific tetap memiliki prioritas.
+       */
+      if (!flashSaleItem) {
+        flashSaleItem =
+          await tx.flashSaleItem.findFirst({
+            where: {
+              ...flashSaleScope,
+              productId,
+              skuId: null,
+              weightOptionId: null,
+            },
+            select: {
+              id: true,
+              flashSaleId: true,
+              flashPrice: true,
+            },
+            orderBy: [
+              {
+                sortOrder: "asc",
+              },
+              {
+                createdAt: "asc",
+              },
+            ],
+          });
+      }
+    }
 
     /**
      * ==========================================================
      * FLASH SALE
      * ==========================================================
      *
-     * Flash Sale Base Price
-     * +
-     * Variant Adjustment
-     *
-     * Untuk produk lama:
-     *
-     * weight price
-     * +
-     * variant adjustment
-     *
-     * Untuk produk dengan harga kombinasi:
-     *
-     * kita tetap gunakan variantAdjustment
-     * untuk menjaga kompatibilitas dengan
-     * mekanisme Flash Sale yang sudah ada.
+     * Flash Sale memiliki prioritas lebih tinggi daripada
+     * Product Discount.
      */
-
     if (flashSaleItem) {
-      /**
-       * ========================================================
-       * FLASH SALE BASE PRICE
-       * ========================================================
-       */
-
-      const flashSaleBasePrice =
+      const flashPrice =
         new Prisma.Decimal(
           flashSaleItem.flashPrice
         );
 
-      /**
-       * ========================================================
-       * VALIDATE FLASH SALE PRICE
-       * ========================================================
-       */
-
-      if (
-        flashSaleBasePrice.lessThan(0)
-      ) {
+      if (flashPrice.lessThan(0)) {
         throw new Error(
           "Harga Flash Sale tidak valid."
         );
       }
 
-      /**
-       * ========================================================
-       * APPLY VARIANT ADJUSTMENT
-       * ========================================================
-       *
-       * Untuk kombinasi harga baru:
-       *
-       * specificPrice
-       * -
-       * basePrice
-       *
-       * digunakan sebagai effective adjustment.
-       *
-       * Contoh:
-       *
-       * Weight 2 KG:
-       * Base       = 200.000
-       * Dibersihkan = 207.000
-       *
-       * Effective adjustment:
-       *
-       * 207.000 - 200.000
-       * = 7.000
-       *
-       * Dengan begitu Flash Sale tetap
-       * mengikuti perbedaan harga varian.
-       */
-
-      let effectiveVariantAdjustment =
-        variantAdjustment;
-
       if (
-        hasSpecificWeightVariantPrice
-      ) {
-        effectiveVariantAdjustment =
-          originalPrice.minus(
-            basePrice
-          );
-      }
-
-      /**
-       * ========================================================
-       * FINAL FLASH SALE PRICE
-       * ========================================================
-       */
-
-      const finalFlashPrice =
-        flashSaleBasePrice.plus(
-          effectiveVariantAdjustment
-        );
-
-      /**
-       * ========================================================
-       * VALIDATE FINAL FLASH PRICE
-       * ========================================================
-       *
-       * Flash Sale tidak boleh lebih mahal
-       * daripada harga normal kombinasi.
-       */
-
-      if (
-        finalFlashPrice.lessThanOrEqualTo(
+        flashPrice.greaterThan(
           originalPrice
         )
       ) {
-        const discountAmount =
-          originalPrice.minus(
-            finalFlashPrice
-          );
-
-        return {
-          originalPrice,
-
-          discountAmount,
-
-          finalPrice:
-            finalFlashPrice,
-
-          isDiscountApplied:
-            false,
-
-          isFlashSaleApplied:
-            true,
-
-          flashSaleItemId:
-            flashSaleItem.id,
-
-          flashSaleId:
-            flashSaleItem.flashSaleId,
-        };
+        throw new Error(
+          "Harga Flash Sale tidak boleh lebih tinggi dari harga SKU."
+        );
       }
+
+      const discountAmount =
+        originalPrice.minus(
+          flashPrice
+        );
+
+      return {
+        originalPrice,
+        discountAmount,
+        finalPrice: flashPrice,
+        isDiscountApplied: false,
+        isFlashSaleApplied: true,
+        flashSaleItemId:
+          flashSaleItem.id,
+        flashSaleId:
+          flashSaleItem.flashSaleId,
+      };
     }
 
     /**
      * ==========================================================
-     * CALCULATE PRODUCT DISCOUNT
+     * PRODUCT DISCOUNT
      * ==========================================================
      */
-
-    const now =
-      new Date();
-
-    let discountAmount =
-      new Prisma.Decimal(0);
-
-    let isDiscountApplied =
-      false;
-
     const hasDiscountConfiguration =
       product.isDiscountActive &&
       product.discountType !== null &&
@@ -521,6 +373,12 @@ export default class ProductPricingService {
       hasStarted &&
       hasNotEnded;
 
+    let discountAmount =
+      new Prisma.Decimal(0);
+
+    let isDiscountApplied =
+      false;
+
     if (
       isDiscountCurrentlyActive &&
       product.discountValue !== null &&
@@ -531,12 +389,6 @@ export default class ProductPricingService {
           product.discountValue
         );
 
-      /**
-       * --------------------------------------------------------
-       * PERCENTAGE DISCOUNT
-       * --------------------------------------------------------
-       */
-
       if (
         product.discountType ===
         ProductDiscountType.PERCENTAGE
@@ -544,10 +396,8 @@ export default class ProductPricingService {
         const percentage =
           Prisma.Decimal.max(
             new Prisma.Decimal(0),
-
             Prisma.Decimal.min(
               discountValue,
-
               new Prisma.Decimal(100)
             )
           );
@@ -558,12 +408,6 @@ export default class ProductPricingService {
             .div(100);
       }
 
-      /**
-       * --------------------------------------------------------
-       * FIXED AMOUNT DISCOUNT
-       * --------------------------------------------------------
-       */
-
       if (
         product.discountType ===
         ProductDiscountType.FIXED_AMOUNT
@@ -571,24 +415,13 @@ export default class ProductPricingService {
         discountAmount =
           Prisma.Decimal.max(
             new Prisma.Decimal(0),
-
             discountValue
           );
       }
 
-      /**
-       * --------------------------------------------------------
-       * LIMIT DISCOUNT
-       * --------------------------------------------------------
-       *
-       * Discount tidak boleh lebih besar
-       * dari harga asli kombinasi.
-       */
-
       discountAmount =
         Prisma.Decimal.min(
           discountAmount,
-
           originalPrice
         );
 
@@ -598,46 +431,28 @@ export default class ProductPricingService {
 
     /**
      * ==========================================================
-     * CALCULATE FINAL PRICE
+     * FINAL PRICE
      * ==========================================================
      */
-
     const finalPrice =
       originalPrice.minus(
         discountAmount
       );
 
-    if (
-      finalPrice.lessThan(0)
-    ) {
+    if (finalPrice.lessThan(0)) {
       throw new Error(
         "Harga final produk tidak boleh kurang dari nol."
       );
     }
 
-    /**
-     * ==========================================================
-     * RETURN RESULT
-     * ==========================================================
-     */
-
     return {
       originalPrice,
-
       discountAmount,
-
       finalPrice,
-
       isDiscountApplied,
-
-      isFlashSaleApplied:
-        false,
-
-      flashSaleItemId:
-        null,
-
-      flashSaleId:
-        null,
+      isFlashSaleApplied: false,
+      flashSaleItemId: null,
+      flashSaleId: null,
     };
   }
 }

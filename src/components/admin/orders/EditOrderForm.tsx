@@ -60,22 +60,26 @@ interface CustomerOption {
   addresses: AddressOption[];
 }
 
+interface SkuOption {
+  id: string;
+  sku: string;
+  price: number;
+  stock: number;
+  isActive: boolean;
+}
+
 interface ProductOption {
   id: string;
-
   name: string;
-
   sku?: string | null;
-
   price: number;
-
   stock: number;
-
+  skus: SkuOption[];
 }
 
 interface EditOrderItem {
   productId: string;
-
+  skuId: string;
   quantity: number;
 }
 
@@ -182,10 +186,36 @@ export default function EditOrderForm({
     EditOrderItem[]
   >(order.items);
 
-  const [
+    const [
     selectedProductId,
     setSelectedProductId,
   ] = useState("");
+
+  const [
+    selectedSkuId,
+    setSelectedSkuId,
+  ] = useState("");
+
+  const selectedProduct =
+    products.find(
+      (product) =>
+        product.id ===
+        selectedProductId
+    );
+
+  const selectedSku =
+    useMemo(
+      () =>
+        selectedProduct?.skus.find(
+          (sku) =>
+            sku.id ===
+            selectedSkuId
+        ),
+      [
+        selectedProduct,
+        selectedSkuId,
+      ]
+    );
 
   const [
     selectedQuantity,
@@ -214,13 +244,6 @@ export default function EditOrderForm({
   const addresses =
     selectedCustomer?.addresses ??
     [];
-
-  const selectedProduct =
-    products.find(
-      (product) =>
-        product.id ===
-        selectedProductId
-    );
 
   const subtotal =
     useMemo(() => {
@@ -259,149 +282,219 @@ export default function EditOrderForm({
     subtotal + shipping;
 
   function addProduct() {
-    setError("");
+  setError("");
 
-    if (!selectedProduct) {
-      setError(
-        "Silakan pilih produk."
-      );
-
-      return;
-    }
-
-    const quantity =
-      Number(
-        selectedQuantity
-      );
-
-    if (
-      !Number.isInteger(
-        quantity
-      ) ||
-      quantity < 1
-    ) {
-      setError(
-        "Quantity harus minimal 1."
-      );
-
-      return;
-    }
-
-    const existing =
-      items.find(
-        (item) =>
-          item.productId ===
-          selectedProduct.id
-      );
-
-    const nextQuantity =
-      (existing?.quantity ??
-        0) + quantity;
-
-    /**
-     * Untuk product yang sudah ada
-     * di order, stock saat ini belum
-     * dikurangi di UI.
-     *
-     * Karena service akan mengembalikan
-     * stock lama terlebih dahulu saat
-     * transaction berjalan.
-     */
-    if (
-      nextQuantity >
-      selectedProduct.stock +
-        (existing?.quantity ??
-          0)
-    ) {
-      setError(
-        `Quantity ${selectedProduct.name} melebihi stock yang tersedia.`
-      );
-
-      return;
-    }
-
-    if (existing) {
-      setItems(
-        (current) =>
-          current.map(
-            (item) =>
-              item.productId ===
-              selectedProduct.id
-                ? {
-                    ...item,
-                    quantity:
-                      nextQuantity,
-                  }
-                : item
-          )
-      );
-    } else {
-      setItems(
-        (current) => [
-          ...current,
-          {
-            productId:
-              selectedProduct.id,
-            quantity,
-          },
-        ]
-      );
-    }
-
-    setSelectedProductId("");
-
-    setSelectedQuantity("1");
-  }
-
-  function removeProduct(
-    productId: string
-  ) {
-    setItems(
-      (current) =>
-        current.filter(
-          (item) =>
-            item.productId !==
-            productId
-        )
+  if (!selectedProduct) {
+    setError(
+      "Silakan pilih produk."
     );
+
+    return;
   }
 
-  function updateQuantity(
-    productId: string,
-    quantity: number
+  if (!selectedSku) {
+    setError(
+      "Silakan pilih SKU produk."
+    );
+
+    return;
+  }
+
+  const quantity =
+    Number(
+      selectedQuantity
+    );
+
+  if (
+    !Number.isInteger(
+      quantity
+    ) ||
+    quantity < 1
   ) {
-    const product =
-      products.find(
-        (item) =>
-          item.id ===
-          productId
-      );
+    setError(
+      "Quantity harus minimal 1."
+    );
 
-    if (!product) {
-      return;
-    }
+    return;
+  }
 
-    const safeQuantity =
-      Math.max(
-        1,
-        Math.floor(quantity)
-      );
+  /**
+   * ==========================================================
+   * FIND EXISTING ITEM BY SKU
+   * ==========================================================
+   *
+   * Product yang sama dapat memiliki beberapa SKU.
+   * Karena itu identitas item harus menggunakan skuId,
+   * bukan productId.
+   */
+  const existing =
+    items.find(
+      (item) =>
+        item.skuId ===
+        selectedSku.id
+    );
 
+  const existingQuantity =
+    existing?.quantity ?? 0;
+
+  const nextQuantity =
+    existingQuantity +
+    quantity;
+
+  /**
+   * ==========================================================
+   * STOCK VALIDATION
+   * ==========================================================
+   *
+   * Gunakan stock SKU, bukan stock Product.
+   *
+   * Untuk item existing, quantity lama boleh tetap
+   * dipertahankan karena service akan melakukan
+   * stock reconciliation ketika transaction berjalan.
+   */
+  if (
+    nextQuantity >
+    selectedSku.stock
+  ) {
+    setError(
+      `Quantity SKU ${selectedSku.sku} melebihi stock yang tersedia (${selectedSku.stock}).`
+    );
+
+    return;
+  }
+
+  /**
+   * ==========================================================
+   * UPDATE EXISTING SKU
+   * ==========================================================
+   */
+  if (existing) {
     setItems(
       (current) =>
         current.map(
           (item) =>
-            item.productId ===
-            productId
+            item.skuId ===
+            selectedSku.id
               ? {
                   ...item,
+
                   quantity:
-                    safeQuantity,
+                    nextQuantity,
                 }
               : item
         )
     );
   }
+
+  /**
+   * ==========================================================
+   * ADD NEW SKU
+   * ==========================================================
+   */
+  else {
+    setItems(
+      (current) => [
+        ...current,
+
+        {
+          productId:
+            selectedProduct.id,
+
+          skuId:
+            selectedSku.id,
+
+          quantity,
+        },
+      ]
+    );
+  }
+
+  /**
+   * Reset selector setelah berhasil
+   * menambahkan / memperbarui item.
+   */
+  setSelectedProductId("");
+
+  setSelectedSkuId("");
+
+  setSelectedQuantity("1");
+}
+
+  function removeProduct(
+  skuId: string
+) {
+  setItems(
+    (current) =>
+      current.filter(
+        (item) =>
+          item.skuId !==
+          skuId
+      )
+  );
+}
+
+  function updateQuantity(
+  skuId: string,
+  quantity: number
+) {
+  const item =
+    items.find(
+      (currentItem) =>
+        currentItem.skuId ===
+        skuId
+    );
+
+  if (!item) {
+    return;
+  }
+
+  const product =
+    products.find(
+      (currentProduct) =>
+        currentProduct.id ===
+        item.productId
+    );
+
+  if (!product) {
+    return;
+  }
+
+  const sku =
+    product.skus.find(
+      (currentSku) =>
+        currentSku.id ===
+        skuId
+    );
+
+  if (!sku) {
+    return;
+  }
+
+  const safeQuantity =
+    Math.max(
+      1,
+      Math.min(
+        Math.floor(quantity),
+        sku.stock
+      )
+    );
+
+  setItems(
+    (current) =>
+      current.map(
+        (currentItem) =>
+          currentItem.skuId ===
+          skuId
+            ? {
+                ...currentItem,
+
+                quantity:
+                  safeQuantity,
+              }
+            : currentItem
+      )
+  );
+}
 
   function submit() {
     setError("");
@@ -748,11 +841,9 @@ export default function EditOrderForm({
                               event
                             ) =>
                               updateQuantity(
-                                item.productId,
+                                item.skuId,
                                 Number(
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                               )
                             }
@@ -777,7 +868,7 @@ export default function EditOrderForm({
                             size="sm"
                             onClick={() =>
                               removeProduct(
-                                item.productId
+                                item.skuId
                               )
                             }
                             disabled={

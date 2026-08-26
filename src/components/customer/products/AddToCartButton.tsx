@@ -26,79 +26,100 @@ import {
 
 /**
  * ============================================================
- * PRODUCT VARIANT OPTION
- * ============================================================
- */
-
-interface ProductVariantOption {
-  id: string;
-  label: string;
-  priceAdjustment: number;
-}
-
-/**
- * ============================================================
- * PRODUCT WEIGHT OPTION
- * ============================================================
- */
-
-interface ProductWeightOption {
-  id: string;
-  label: string;
-  price: number;
-}
-
-/**
- * ============================================================
- * WEIGHT × VARIANT PRICE
+ * PRODUCT VARIANT GROUP
  * ============================================================
  *
- * Harga pada matrix adalah HARGA FINAL normal
- * untuk kombinasi Weight × Variant.
+ * Canonical variant structure:
+ *
+ * Product
+ *   └─ ProductVariantGroup
+ *        └─ ProductVariantOption
  *
  * Contoh:
  *
- * 1 KG + Utuh        = 100000
- * 1 KG + Dibersihkan = 105000
+ * Group: Kondisi
+ *   - Utuh
+ *   - Dibersihkan
+ *   - Fillet
  *
- * Jadi harga ini TIDAK boleh ditambahkan lagi
- * dengan priceAdjustment.
- *
- * Struktur ini mengikuti ProductForm dan ProductService.
+ * Group: Berat
+ *   - 500 Gram
+ *   - 1 KG
+ *   - 2 KG
  */
+interface ProductVariantGroup {
+  id: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  options: ProductVariantOption[];
+}
 
-interface ProductWeightVariantPrice {
-  weightLabel: string;
-  variantLabel: string;
+/**
+ * ============================================================
+ * PRODUCT VARIANT OPTION
+ * ============================================================
+ */
+interface ProductVariantOption {
+  id: string;
+  groupId: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+/**
+ * ============================================================
+ * PRODUCT SKU OPTION
+ * ============================================================
+ *
+ * Relasi:
+ *
+ * ProductSkuOption.variantOptionId
+ *          ↓
+ * ProductVariantOption.id
+ */
+interface ProductSkuOption {
+  id: string;
+  skuId: string;
+  variantOptionId: string;
+}
+
+/**
+ * ============================================================
+ * PRODUCT SKU
+ * ============================================================
+ *
+ * SKU adalah canonical sellable unit.
+ *
+ * Harga dan stok berasal dari SKU.
+ */
+interface ProductSku {
+  id: string;
+  sku: string;
+  productId: string;
   price: number;
+  stock: number;
+  isActive: boolean;
+  skuOptions: ProductSkuOption[];
 }
 
 /**
  * ============================================================
  * FLASH SALE ITEM
  * ============================================================
+ *
+ * Flash Sale sekarang diarahkan ke SKU.
  */
-
 interface ProductFlashSaleItem {
   id: string;
-
-  weightOptionId:
-    | string
-    | null;
-
+  skuId: string | null;
   originalPrice: number;
-
   flashPrice: number;
-
   stockLimit: number;
-
   soldQuantity: number;
-
   campaignName: string;
-
-  endsAt:
-    | string
-    | Date;
+  endsAt: string | Date;
 }
 
 /**
@@ -106,7 +127,6 @@ interface ProductFlashSaleItem {
  * PRODUCT DISCOUNT
  * ============================================================
  */
-
 type ProductDiscountType =
   | "PERCENTAGE"
   | "FIXED_AMOUNT";
@@ -116,22 +136,28 @@ type ProductDiscountType =
  * PROPS
  * ============================================================
  */
-
 interface AddToCartButtonProps {
   productId: string;
 
-  stock: number;
-
-  basePrice: number;
-
-  variantOptions?: ProductVariantOption[];
-
-  weightOptions?: ProductWeightOption[];
+  /**
+   * Fallback untuk product lama yang belum memiliki SKU.
+   *
+   * Untuk product yang sudah memiliki active SKU,
+   * stock dan basePrice tidak lagi menjadi sumber kebenaran
+   * utama.
+   */
+  stock?: number;
+  basePrice?: number;
 
   /**
-   * Harga final Weight × Variant.
+   * Canonical variant system.
    */
-  weightVariantPrices?: ProductWeightVariantPrice[];
+  variantGroups?: ProductVariantGroup[];
+
+  /**
+   * Canonical sellable SKUs.
+   */
+  skus?: ProductSku[];
 
   flashSaleItems?: ProductFlashSaleItem[];
 
@@ -161,7 +187,6 @@ interface AddToCartButtonProps {
  * FORMAT RUPIAH
  * ============================================================
  */
-
 function formatRupiah(
   value: number
 ) {
@@ -184,19 +209,14 @@ function formatRupiah(
  * ADD TO CART BUTTON
  * ============================================================
  */
-
 export default function AddToCartButton({
   productId,
 
-  stock,
+  stock = 0,
+  basePrice = 0,
 
-  basePrice,
-
-  variantOptions = [],
-
-  weightOptions = [],
-
-  weightVariantPrices = [],
+  variantGroups = [],
+  skus = [],
 
   flashSaleItems = [],
 
@@ -210,26 +230,42 @@ export default function AddToCartButton({
 
   discountEndAt = null,
 }: AddToCartButtonProps) {
-  const router =
-    useRouter();
+  const router = useRouter();
 
   /**
    * ==========================================================
-   * DEFAULT OPTIONS
+   * NORMALIZED DATA
    * ==========================================================
    */
 
-  const defaultVariant =
-    variantOptions.length === 1
-      ? variantOptions[0]?.label ??
-        null
-      : null;
+  const activeVariantGroups = useMemo(
+    () =>
+      variantGroups
+        .filter(
+          (group) =>
+            group.isActive &&
+            group.options.some(
+              (option) =>
+                option.isActive
+            )
+        )
+        .sort(
+          (a, b) =>
+            a.sortOrder -
+            b.sortOrder
+        ),
+    [variantGroups]
+  );
 
-  const defaultWeight =
-    weightOptions.length === 1
-      ? weightOptions[0]?.label ??
-        null
-      : null;
+  const activeSkus = useMemo(
+    () =>
+      skus.filter(
+        (sku) =>
+          sku.isActive &&
+          sku.productId === productId
+      ),
+    [skus, productId]
+  );
 
   /**
    * ==========================================================
@@ -242,21 +278,19 @@ export default function AddToCartButton({
     setQuantity,
   ] = useState(1);
 
+  /**
+   * selectedOptions:
+   *
+   * {
+   *   [groupId]: optionId
+   * }
+   */
   const [
-    selectedVariant,
-    setSelectedVariant,
-  ] =
-    useState<string | null>(
-      defaultVariant
-    );
-
-  const [
-    selectedWeight,
-    setSelectedWeight,
-  ] =
-    useState<string | null>(
-      defaultWeight
-    );
+    selectedOptions,
+    setSelectedOptions,
+  ] = useState<
+    Record<string, string>
+  >({});
 
   const [
     customerNote,
@@ -266,229 +300,172 @@ export default function AddToCartButton({
   const [
     isPending,
     startTransition,
-  ] =
-    useTransition();
+  ] = useTransition();
 
   const [
     message,
     setMessage,
-  ] =
-    useState<string | null>(
-      null
-    );
+  ] = useState<string | null>(
+    null
+  );
 
   const [
     success,
     setSuccess,
-  ] =
-    useState(false);
+  ] = useState(false);
 
   /**
    * ==========================================================
-   * STOCK
-   * ==========================================================
-   */
-
-  const outOfStock =
-    stock <= 0;
-
-  /**
-   * ==========================================================
-   * REQUIREMENTS
+   * REQUIREMENT
    * ==========================================================
    */
 
   const requiresVariant =
-    variantOptions.length > 0;
-
-  const requiresWeight =
-    weightOptions.length > 0;
+    activeVariantGroups.length > 0;
 
   /**
    * ==========================================================
-   * SELECTED VARIANT
+   * SELECTED SKU
    * ==========================================================
+   *
+   * SKU dicari berdasarkan kombinasi ProductVariantOption
+   * yang dipilih customer.
+   *
+   * Semua active group harus memiliki pilihan.
    */
-
-  const selectedVariantOption =
-    useMemo(
-      () =>
-        variantOptions.find(
-          (variant) =>
-            variant.label ===
-            selectedVariant
-        ) ?? null,
-      [
-        variantOptions,
-        selectedVariant,
-      ]
-    );
-
-  /**
-   * ==========================================================
-   * SELECTED WEIGHT
-   * ==========================================================
-   */
-
-  const selectedWeightOption =
-    useMemo(
-      () =>
-        weightOptions.find(
-          (weight) =>
-            weight.label ===
-            selectedWeight
-        ) ?? null,
-      [
-        weightOptions,
-        selectedWeight,
-      ]
-    );
-
-  /**
-   * ==========================================================
-   * RESOLVE MATRIX PRICE
-   * ==========================================================
-   *
-   * PRIORITY:
-   *
-   * 1. Weight × Variant matrix
-   * 2. Weight price
-   * 3. Product base price
-   *
-   * Jika matrix ditemukan:
-   *
-   * matrix.price
-   *
-   * dipakai langsung.
-   *
-   * TIDAK ditambah variantAdjustment.
-   */
-
-  const matrixPrice =
+  const selectedSku =
     useMemo(() => {
+      /**
+       * Product tanpa active group.
+       *
+       * Jika hanya ada satu SKU aktif, gunakan SKU tersebut.
+       */
       if (
-        !selectedWeightOption ||
-        !selectedVariantOption
+        activeVariantGroups.length ===
+        0
       ) {
+        if (
+          activeSkus.length === 1
+        ) {
+          return activeSkus[0];
+        }
+
         return null;
       }
 
-      const found =
-        weightVariantPrices.find(
-          (item) =>
-            item.weightLabel
-              .trim()
-              .toLowerCase() ===
-              selectedWeightOption.label
-                .trim()
-                .toLowerCase() &&
-            item.variantLabel
-              .trim()
-              .toLowerCase() ===
-              selectedVariantOption.label
-                .trim()
-                .toLowerCase()
+      /**
+       * Semua group wajib dipilih.
+       */
+      const selectedOptionIds =
+        activeVariantGroups.map(
+          (group) =>
+            selectedOptions[
+              group.id
+            ]
         );
 
-      if (!found) {
-        return null;
-      }
-
-      const price =
-        Number(found.price);
-
       if (
-        !Number.isFinite(price) ||
-        price < 0
+        selectedOptionIds.some(
+          (optionId) =>
+            !optionId
+        )
       ) {
         return null;
       }
 
-      return price;
+      /**
+       * Cari SKU yang memiliki seluruh
+       * ProductVariantOption yang dipilih.
+       */
+      return (
+        activeSkus.find(
+          (sku) => {
+            const skuOptionIds =
+              sku.skuOptions.map(
+                (skuOption) =>
+                  skuOption.variantOptionId
+              );
+
+            if (
+              skuOptionIds.length !==
+              activeVariantGroups.length
+            ) {
+              return false;
+            }
+
+            return selectedOptionIds.every(
+              (optionId) =>
+                skuOptionIds.includes(
+                  optionId
+                )
+            );
+          }
+        ) ?? null
+      );
     }, [
-      weightVariantPrices,
-      selectedWeightOption,
-      selectedVariantOption,
+      activeVariantGroups,
+      activeSkus,
+      selectedOptions,
     ]);
 
   /**
    * ==========================================================
-   * BASE COMBINATION PRICE
+   * SELECTED SKU PRICE
    * ==========================================================
-   *
-   * Jika matrix tersedia:
-   *
-   * matrix price
-   *
-   * Jika tidak:
-   *
-   * weight price + variant adjustment
-   *
-   * Fallback ini dipertahankan agar produk lama
-   * yang belum memiliki matrix tetap bekerja.
    */
-
-  const originalUnitPrice =
-    useMemo(() => {
-      /**
-       * ========================================================
-       * MATRIX
-       * ========================================================
-       */
-
-      if (
-        matrixPrice !== null
-      ) {
-        return matrixPrice;
-      }
-
-      /**
-       * ========================================================
-       * WEIGHT FALLBACK
-       * ========================================================
-       */
-
-      const weightPrice =
-        selectedWeightOption
-          ? Number(
-              selectedWeightOption.price
-            )
-          : Number(basePrice);
-
-      /**
-       * ========================================================
-       * VARIANT ADJUSTMENT FALLBACK
-       * ========================================================
-       */
-
-      const variantAdjustment =
-        selectedVariantOption
-          ? Number(
-              selectedVariantOption.priceAdjustment
-            )
-          : 0;
-
-      return Math.max(
-        0,
-        weightPrice
-      ) +
-        Math.max(
+  const selectedSkuPrice =
+    selectedSku
+      ? Math.max(
           0,
-          variantAdjustment
+          Number(
+            selectedSku.price
+          )
+        )
+      : null;
+
+  /**
+   * ==========================================================
+   * ORIGINAL UNIT PRICE
+   * ==========================================================
+   *
+   * SKU menjadi sumber harga utama.
+   *
+   * Product-level basePrice hanya fallback untuk
+   * product lama yang belum mempunyai SKU.
+   */
+  const originalUnitPrice =
+    selectedSkuPrice !== null
+      ? selectedSkuPrice
+      : Math.max(
+          0,
+          Number(basePrice)
         );
-    }, [
-      matrixPrice,
-      selectedWeightOption,
-      selectedVariantOption,
-      basePrice,
-    ]);
+
+  /**
+   * ==========================================================
+   * SKU STOCK
+   * ==========================================================
+   */
+  const currentStock =
+    selectedSku
+      ? Math.max(
+          0,
+          Number(
+            selectedSku.stock
+          )
+        )
+      : activeSkus.length > 0
+        ? 0
+        : Math.max(
+            0,
+            Number(stock)
+          );
 
   /**
    * ==========================================================
    * CURRENT TIME
    * ==========================================================
    */
-
   const now =
     new Date();
 
@@ -497,7 +474,6 @@ export default function AddToCartButton({
    * DISCOUNT STATUS
    * ==========================================================
    */
-
   const hasDiscountStarted =
     !discountStartAt ||
     new Date(
@@ -525,7 +501,6 @@ export default function AddToCartButton({
    * PRODUCT DISCOUNT
    * ==========================================================
    */
-
   const discountAmount =
     useMemo(() => {
       if (
@@ -584,83 +559,45 @@ export default function AddToCartButton({
    * ACTIVE FLASH SALE
    * ==========================================================
    *
-   * PRIORITY:
+   * Flash Sale harus mengarah ke SKU.
    *
-   * 1. Flash Sale khusus weight
-   * 2. Flash Sale product-wide
+   * Tidak lagi mencari berdasarkan weightOptionId.
    */
-
   const activeFlashSaleItem =
     useMemo(() => {
+      if (
+        !selectedSku
+      ) {
+        return null;
+      }
+
       const availableItems =
         flashSaleItems.filter(
           (item) =>
+            item.skuId ===
+              selectedSku.id &&
             Number(
               item.stockLimit
             ) >
-            Number(
-              item.soldQuantity
-            )
+              Number(
+                item.soldQuantity
+              )
         );
 
-      /**
-       * ========================================================
-       * WEIGHT SPECIFIC
-       * ========================================================
-       */
-
-      if (
-        selectedWeightOption
-      ) {
-        const weightSpecific =
-          availableItems.find(
-            (item) =>
-              item.weightOptionId ===
-              selectedWeightOption.id
-          );
-
-        if (
-          weightSpecific
-        ) {
-          return weightSpecific;
-        }
-      }
-
-      /**
-       * ========================================================
-       * PRODUCT WIDE
-       * ========================================================
-       */
-
       return (
-        availableItems.find(
-          (item) =>
-            item.weightOptionId ===
-            null
-        ) ?? null
+        availableItems[0] ??
+        null
       );
     }, [
       flashSaleItems,
-      selectedWeightOption,
+      selectedSku,
     ]);
 
   /**
    * ==========================================================
    * FLASH SALE PRICE
    * ==========================================================
-   *
-   * Catatan:
-   *
-   * Flash Sale price merupakan harga promo dasar
-   * untuk item yang dipilih.
-   *
-   * Variant adjustment hanya digunakan pada fallback
-   * produk lama yang tidak memiliki matrix.
-   *
-   * Jika matrix normal tersedia, matrix tersebut tetap
-   * menjadi harga normal.
    */
-
   const flashSaleBasePrice =
     activeFlashSaleItem
       ? Math.max(
@@ -676,16 +613,9 @@ export default function AddToCartButton({
    * FLASH SALE APPLIED
    * ==========================================================
    */
-
   const isFlashSaleApplied =
     activeFlashSaleItem !==
     null;
-
-  /**
-   * ==========================================================
-   * FINAL UNIT PRICE
-   * ==========================================================
-   */
 
   /**
    * ==========================================================
@@ -696,18 +626,11 @@ export default function AddToCartButton({
    *
    * 1. Flash Sale
    * 2. Product Discount
-   * 3. Normal Price
-   *
-   * Flash Sale menggunakan flashPrice sebagai harga final
-   * untuk kombinasi yang dipilih.
+   * 3. Normal SKU price
    */
-
   const unitPrice =
     isFlashSaleApplied
-      ? Math.max(
-          0,
-          flashSaleBasePrice
-        )
+      ? flashSaleBasePrice
       : Math.max(
           0,
           originalUnitPrice -
@@ -716,20 +639,11 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   * ORIGINAL PRICE
-   * ==========================================================
-   *
-   * Harga normal sebelum Flash Sale / discount.
-   */
-
-  const currentOriginalPrice =
-    originalUnitPrice;
-
-  /**
-   * ==========================================================
    * CURRENT SAVING
    * ==========================================================
    */
+  const currentOriginalPrice =
+    originalUnitPrice;
 
   const currentSaving =
     Math.max(
@@ -743,7 +657,6 @@ export default function AddToCartButton({
    * TOTAL PRICE
    * ==========================================================
    */
-
   const totalPrice =
     unitPrice *
     quantity;
@@ -753,11 +666,15 @@ export default function AddToCartButton({
    * TOTAL SAVING
    * ==========================================================
    */
-
   const totalDiscountAmount =
     currentSaving *
     quantity;
 
+  /**
+   * ==========================================================
+   * FLASH SALE REMAINING STOCK
+   * ==========================================================
+   */
   const flashSaleRemainingStock =
     isFlashSaleApplied &&
     activeFlashSaleItem
@@ -777,7 +694,6 @@ export default function AddToCartButton({
    * FLASH SALE SOLD PERCENTAGE
    * ==========================================================
    */
-
   const flashSaleSoldPercentage =
     isFlashSaleApplied &&
     activeFlashSaleItem &&
@@ -806,22 +722,36 @@ export default function AddToCartButton({
    * EFFECTIVE MAX QUANTITY
    * ==========================================================
    */
-
   const effectiveMaxQuantity =
     flashSaleRemainingStock !==
     null
       ? Math.min(
-          stock,
+          currentStock,
           flashSaleRemainingStock
         )
-      : stock;
+      : currentStock;
+
+  /**
+   * ==========================================================
+   * STOCK STATE
+   * ==========================================================
+   *
+   * Jika product memiliki active SKU tetapi customer
+   * belum memilih kombinasi, jangan anggap stok tersedia.
+   */
+  const selectionIncomplete =
+    requiresVariant &&
+    !selectedSku;
+
+  const outOfStock =
+    selectionIncomplete ||
+    currentStock <= 0;
 
   /**
    * ==========================================================
    * FLASH SALE SOLD OUT
    * ==========================================================
    */
-
   const isFlashSaleSoldOut =
     isFlashSaleApplied &&
     flashSaleRemainingStock !==
@@ -834,7 +764,6 @@ export default function AddToCartButton({
    * RESET MESSAGE
    * ==========================================================
    */
-
   function resetMessage() {
     setSuccess(false);
     setMessage(null);
@@ -842,10 +771,43 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
+   * SELECT OPTION
+   * ==========================================================
+   */
+  function selectOption(
+    groupId: string,
+    optionId: string
+  ) {
+    setSelectedOptions(
+      (previous) => ({
+        ...previous,
+        [groupId]:
+          optionId,
+      })
+    );
+
+    setQuantity(
+      (current) =>
+        Math.max(
+          1,
+          Math.min(
+            current,
+            Math.max(
+              1,
+              currentStock
+            )
+          )
+        )
+    );
+
+    resetMessage();
+  }
+
+  /**
+   * ==========================================================
    * QUANTITY DECREASE
    * ==========================================================
    */
-
   function decrease() {
     setQuantity(
       (current) =>
@@ -863,7 +825,6 @@ export default function AddToCartButton({
    * QUANTITY INCREASE
    * ==========================================================
    */
-
   function increase() {
     if (
       effectiveMaxQuantity <=
@@ -893,123 +854,60 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   * SELECT VARIANT
+   * OPTION AVAILABILITY
    * ==========================================================
+   *
+   * Menentukan apakah sebuah option mempunyai minimal satu
+   * SKU yang compatible dengan pilihan group lain.
    */
-
-  function selectVariant(
-    variant: string
+  function isOptionAvailable(
+    groupId: string,
+    optionId: string
   ) {
-    setSelectedVariant(
-      variant
+    if (
+      activeSkus.length ===
+      0
+    ) {
+      return true;
+    }
+
+    return activeSkus.some(
+      (sku) => {
+        const skuOptionIds =
+          sku.skuOptions.map(
+            (item) =>
+              item.variantOptionId
+          );
+
+        if (
+          !skuOptionIds.includes(
+            optionId
+          )
+        ) {
+          return false;
+        }
+
+        return Object.entries(
+          selectedOptions
+        ).every(
+          ([
+            selectedGroupId,
+            selectedOptionId,
+          ]) => {
+            if (
+              selectedGroupId ===
+              groupId
+            ) {
+              return true;
+            }
+
+            return skuOptionIds.includes(
+              selectedOptionId
+            );
+          }
+        );
+      }
     );
-
-    resetMessage();
-  }
-
-  /**
-   * ==========================================================
-   * SELECT WEIGHT
-   * ==========================================================
-   */
-
-  function selectWeight(
-    weight: string
-  ) {
-    setSelectedWeight(
-      weight
-    );
-
-    /**
-     * ========================================================
-     * FIND NEXT FLASH SALE
-     * ========================================================
-     */
-
-    const nextWeightOption =
-      weightOptions.find(
-        (option) =>
-          option.label ===
-          weight
-      );
-
-    const nextWeightOptionId =
-      nextWeightOption?.id ??
-      null;
-
-    const availableItems =
-      flashSaleItems.filter(
-        (item) =>
-          Number(
-            item.stockLimit
-          ) >
-          Number(
-            item.soldQuantity
-          )
-      );
-
-    const nextFlashSaleItem =
-      availableItems.find(
-        (item) =>
-          item.weightOptionId ===
-          nextWeightOptionId
-      ) ??
-      availableItems.find(
-        (item) =>
-          item.weightOptionId ===
-          null
-      ) ??
-      null;
-
-    /**
-     * ========================================================
-     * NEXT MAX QUANTITY
-     * ========================================================
-     */
-
-    const nextFlashSaleRemaining =
-      nextFlashSaleItem
-        ? Math.max(
-            0,
-            Number(
-              nextFlashSaleItem.stockLimit
-            ) -
-              Number(
-                nextFlashSaleItem.soldQuantity
-              )
-          )
-        : null;
-
-    const nextMax =
-      nextFlashSaleRemaining !==
-      null
-        ? Math.min(
-            stock,
-            nextFlashSaleRemaining
-          )
-        : stock;
-
-    /**
-     * ========================================================
-     * CLAMP QUANTITY
-     * ========================================================
-     */
-
-    setQuantity(
-      (current) =>
-        Math.max(
-          1,
-          Math.min(
-            current,
-            Math.max(
-              1,
-              nextMax
-            )
-          )
-        )
-    );
-
-    resetMessage();
   }
 
   /**
@@ -1017,32 +915,65 @@ export default function AddToCartButton({
    * VALIDATION
    * ==========================================================
    */
-
   function validateSelection() {
     /**
-     * ========================================================
-     * OUT OF STOCK
-     * ========================================================
+     * --------------------------------------------------------
+     * VARIANT SELECTION
+     * --------------------------------------------------------
      */
-
     if (
-      outOfStock
+      requiresVariant &&
+      !selectedSku
     ) {
       setSuccess(false);
 
       setMessage(
-        "Produk sedang habis."
+        "Silakan pilih semua varian produk terlebih dahulu."
       );
 
       return false;
     }
 
     /**
-     * ========================================================
-     * FLASH SALE SOLD OUT
-     * ========================================================
+     * --------------------------------------------------------
+     * SKU ACTIVE VALIDATION
+     * --------------------------------------------------------
      */
+    if (
+      activeSkus.length > 0 &&
+      !selectedSku
+    ) {
+      setSuccess(false);
 
+      setMessage(
+        "Kombinasi varian produk tidak tersedia."
+      );
+
+      return false;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * STOCK
+     * --------------------------------------------------------
+     */
+    if (
+      currentStock <= 0
+    ) {
+      setSuccess(false);
+
+      setMessage(
+        "Produk untuk pilihan ini sedang habis."
+      );
+
+      return false;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * FLASH SALE
+     * --------------------------------------------------------
+     */
     if (
       isFlashSaleSoldOut
     ) {
@@ -1056,11 +987,10 @@ export default function AddToCartButton({
     }
 
     /**
-     * ========================================================
+     * --------------------------------------------------------
      * QUANTITY
-     * ========================================================
+     * --------------------------------------------------------
      */
-
     if (
       quantity < 1
     ) {
@@ -1074,11 +1004,10 @@ export default function AddToCartButton({
     }
 
     /**
-     * ========================================================
+     * --------------------------------------------------------
      * MAX QUANTITY
-     * ========================================================
+     * --------------------------------------------------------
      */
-
     if (
       quantity >
       effectiveMaxQuantity
@@ -1094,70 +1023,6 @@ export default function AddToCartButton({
       return false;
     }
 
-    /**
-     * ========================================================
-     * VARIANT
-     * ========================================================
-     */
-
-    if (
-      requiresVariant &&
-      !selectedVariant
-    ) {
-      setSuccess(false);
-
-      setMessage(
-        "Silakan pilih varian produk terlebih dahulu."
-      );
-
-      return false;
-    }
-
-    /**
-     * ========================================================
-     * WEIGHT
-     * ========================================================
-     */
-
-    if (
-      requiresWeight &&
-      !selectedWeight
-    ) {
-      setSuccess(false);
-
-      setMessage(
-        "Silakan pilih berat produk terlebih dahulu."
-      );
-
-      return false;
-    }
-
-    /**
-     * ========================================================
-     * MATRIX VALIDATION
-     * ========================================================
-     *
-     * Jika matrix tersedia dan customer memilih
-     * Weight + Variant tetapi kombinasinya tidak ada,
-     * jangan izinkan checkout dengan harga fallback.
-     */
-
-    if (
-      selectedWeightOption &&
-      selectedVariantOption &&
-      weightVariantPrices.length >
-        0 &&
-      matrixPrice === null
-    ) {
-      setSuccess(false);
-
-      setMessage(
-        `Harga untuk kombinasi "${selectedWeightOption.label} × ${selectedVariantOption.label}" belum tersedia.`
-      );
-
-      return false;
-    }
-
     return true;
   }
 
@@ -1166,86 +1031,86 @@ export default function AddToCartButton({
    * SUBMIT PRODUCT
    * ==========================================================
    */
-
   function submitProduct(
-    buyNow = false
-  ) {
-    if (
-      isPending
-    ) {
-      return;
-    }
+  buyNow = false
+) {
+  if (isPending) {
+    return;
+  }
 
-    if (
-      !validateSelection()
-    ) {
-      return;
-    }
+  if (!validateSelection()) {
+    return;
+  }
 
-    resetMessage();
+  /**
+   * Setelah validateSelection():
+   * - Jika product memiliki SKU aktif,
+   *   selectedSku wajib tersedia.
+   */
+  if (activeSkus.length > 0 && !selectedSku) {
+    setSuccess(false);
+    setMessage(
+      "SKU produk tidak ditemukan."
+    );
+    return;
+  }
 
-    startTransition(
-      async () => {
-        const result =
-          await addToCartAction({
-            productId,
+  resetMessage();
 
-            quantity,
+  startTransition(
+    async () => {
+      const result =
+        await addToCartAction({
+          productId,
 
-            productVariant:
-              selectedVariant,
+          skuId:
+            selectedSku?.id ?? "",
 
-            productWeight:
-              selectedWeight,
+          quantity,
 
-            customerNote,
-          });
+          customerNote:
+            customerNote.trim() ||
+            null,
+        });
 
-        if (
-          !result.success
-        ) {
-          setSuccess(false);
-
-          setMessage(
-            result.message ??
-              "Gagal menambahkan produk ke keranjang."
-          );
-
-          return;
-        }
-
-        setSuccess(true);
+      if (!result.success) {
+        setSuccess(false);
 
         setMessage(
           result.message ??
-            "Produk berhasil ditambahkan ke keranjang."
+            "Gagal menambahkan produk ke keranjang."
         );
 
-        window.dispatchEvent(
-          new Event(
-            "cart-updated"
-          )
-        );
-
-        if (
-          buyNow
-        ) {
-          router.push(
-            "/customer/cart"
-          );
-
-          router.refresh();
-        }
+        return;
       }
-    );
-  }
+
+      setSuccess(true);
+
+      setMessage(
+        result.message ??
+          "Produk berhasil ditambahkan ke keranjang."
+      );
+
+      window.dispatchEvent(
+        new Event("cart-updated")
+      );
+
+      if (buyNow) {
+        router.push(
+          "/customer/cart"
+        );
+
+        router.refresh();
+      }
+    }
+  );
+}
 
   /**
    * ==========================================================
    * RENDER
    * ==========================================================
    */
-
   return (
     <div className="w-full space-y-6">
 
@@ -1254,15 +1119,12 @@ export default function AddToCartButton({
       {/* ====================================================== */}
 
       <div>
-
         {isFlashSaleApplied &&
         activeFlashSaleItem ? (
 
           <div className="overflow-hidden border-y border-orange-100 bg-[#fff4f1]">
 
-            {/* ================================================= */}
             {/* FLASH SALE HEADER */}
-            {/* ================================================= */}
 
             <div
               className="
@@ -1297,7 +1159,8 @@ export default function AddToCartButton({
 
                 {currentSaving >
                   0 &&
-                  currentOriginalPrice > 0 && (
+                  currentOriginalPrice >
+                    0 && (
                     <span
                       className="
                         rounded
@@ -1357,9 +1220,7 @@ export default function AddToCartButton({
 
             </div>
 
-            {/* ================================================= */}
             {/* FLASH SALE CONTENT */}
-            {/* ================================================= */}
 
             <div className="px-5 py-4">
 
@@ -1376,9 +1237,7 @@ export default function AddToCartButton({
                 }
               </p>
 
-              {/* ================================================= */}
               {/* FLASH SALE STOCK */}
-              {/* ================================================= */}
 
               {flashSaleRemainingStock !==
                 null && (
@@ -1520,9 +1379,7 @@ export default function AddToCartButton({
                 </div>
               )}
 
-              {/* ================================================= */}
               {/* PRICE */}
-              {/* ================================================= */}
 
               <div
                 className="
@@ -1708,142 +1565,153 @@ export default function AddToCartButton({
       </div>
 
       {/* ====================================================== */}
-      {/* VARIANT */}
+      {/* VARIANT GROUPS */}
       {/* ====================================================== */}
 
-      {requiresVariant && (
-        <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
+      {activeVariantGroups.map(
+        (group) => {
 
-          <div>
+          const activeOptions =
+            group.options
+              .filter(
+                (option) =>
+                  option.isActive
+              )
+              .sort(
+                (a, b) =>
+                  a.sortOrder -
+                  b.sortOrder
+              );
 
-            <h3 className="text-sm text-slate-500">
-              Varian Produk
-            </h3>
+          if (
+            activeOptions.length ===
+            0
+          ) {
+            return null;
+          }
 
-            <p className="mt-1 text-xs text-slate-400">
-              Pilih kondisi produk.
-            </p>
+          return (
+            <div
+              key={group.id}
+              className="
+                grid
+                gap-3
+                sm:grid-cols-[130px_minmax(0,1fr)]
+              "
+            >
 
-          </div>
+              <div>
 
-          <div className="grid grid-cols-2 gap-3">
+                <h3 className="text-sm text-slate-500">
+                  {group.name}
+                </h3>
 
-            {variantOptions.map(
-              (variant) => {
-                const selected =
-                  selectedVariant ===
-                  variant.label;
+                <p className="mt-1 text-xs text-slate-400">
+                  Pilih{" "}
+                  {group.name.toLowerCase()}.
+                </p>
 
-                return (
-                  <button
-                    key={
-                      variant.id
-                    }
-                    type="button"
-                    onClick={() =>
-                      selectVariant(
-                        variant.label
-                      )
-                    }
-                    disabled={
-                      outOfStock ||
-                      isPending
-                    }
-                    className={[
-                      "min-h-13.5 rounded-xl border px-4 py-2 text-sm transition",
+              </div>
 
-                      selected
-                        ? "border-cyan-600 bg-cyan-50 text-cyan-700 shadow-sm"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50",
+              <div className="flex flex-wrap gap-2">
 
-                      outOfStock ||
-                      isPending
-                        ? "cursor-not-allowed opacity-60"
-                        : "",
-                    ].join(" ")}
-                  >
-                    <div className="font-medium">
-                      {
-                        variant.label
-                      }
-                    </div>
-                  </button>
-                );
-              }
-            )}
+                {activeOptions.map(
+                  (option) => {
 
-          </div>
+                    const selected =
+                      selectedOptions[
+                        group.id
+                      ] ===
+                      option.id;
 
-        </div>
+                    const available =
+                      isOptionAvailable(
+                        group.id,
+                        option.id
+                      );
+
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() =>
+                          selectOption(
+                            group.id,
+                            option.id
+                          )
+                        }
+                        disabled={
+                          isPending ||
+                          !available
+                        }
+                        className={[
+                          "min-h-13.5 rounded-xl border px-4 py-2 text-sm transition",
+
+                          selected
+                            ? "border-cyan-600 bg-cyan-50 text-cyan-700 shadow-sm"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50",
+
+                          !available ||
+                          isPending
+                            ? "cursor-not-allowed opacity-50"
+                            : "",
+                        ].join(" ")}
+                      >
+                        <div className="font-medium">
+                          {
+                            option.label
+                          }
+                        </div>
+                      </button>
+                    );
+                  }
+                )}
+
+              </div>
+
+            </div>
+          );
+        }
       )}
 
       {/* ====================================================== */}
-      {/* WEIGHT */}
+      {/* SELECTED SKU INFO */}
       {/* ====================================================== */}
 
-      {requiresWeight && (
-        <div className="grid gap-3 sm:grid-cols-[130px_minmax(0,1fr)]">
+      {selectedSku && (
+        <div
+          className="
+            rounded-xl
+            border
+            border-slate-200
+            bg-slate-50
+            px-4
+            py-3
+          "
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
 
-          <div>
+            <span className="text-xs text-slate-500">
+              SKU
+            </span>
 
-            <h3 className="text-sm text-slate-500">
-              Berat Produk
-            </h3>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Pilih berat produk.
-            </p>
-
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-
-            {weightOptions.map(
-              (weight) => {
-                const selected =
-                  selectedWeight ===
-                  weight.label;
-
-                return (
-                  <button
-                    key={
-                      weight.id
-                    }
-                    type="button"
-                    onClick={() =>
-                      selectWeight(
-                        weight.label
-                      )
-                    }
-                    disabled={
-                      outOfStock ||
-                      isPending
-                    }
-                    className={[
-                      "min-w-19.5 rounded-xl border px-4 py-2 text-sm font-medium transition",
-
-                      selected
-                        ? "border-cyan-600 bg-cyan-50 text-cyan-700 shadow-sm"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-slate-50",
-
-                      outOfStock ||
-                      isPending
-                        ? "cursor-not-allowed opacity-60"
-                        : "",
-                    ].join(" ")}
-                  >
-                    <div className="font-medium">
-                      {
-                        weight.label
-                      }
-                    </div>
-                  </button>
-                );
-              }
-            )}
+            <span className="text-xs font-semibold text-slate-700">
+              {selectedSku.sku}
+            </span>
 
           </div>
 
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+
+            <span className="text-xs text-slate-500">
+              Stok varian
+            </span>
+
+            <span className="text-xs font-semibold text-slate-700">
+              {currentStock}
+            </span>
+
+          </div>
         </div>
       )}
 
@@ -2016,7 +1884,7 @@ export default function AddToCartButton({
                   0
                   ? "Kuota Flash Sale habis"
                   : `${flashSaleRemainingStock} kuota Flash Sale tersisa`
-                : `${stock} tersedia`}
+                : `${currentStock} tersedia`}
             </span>
           )}
 
@@ -2211,9 +2079,7 @@ export default function AddToCartButton({
 
         <div className="grid gap-3 sm:grid-cols-2">
 
-          {/* ================================================= */}
           {/* ADD TO CART */}
-          {/* ================================================= */}
 
           <button
             type="button"
@@ -2250,6 +2116,8 @@ export default function AddToCartButton({
               </>
             ) : isFlashSaleSoldOut ? (
               "Kuota Flash Sale Habis"
+            ) : selectionIncomplete ? (
+              "Pilih Varian"
             ) : outOfStock ? (
               "Produk Habis"
             ) : (
@@ -2258,9 +2126,7 @@ export default function AddToCartButton({
 
           </button>
 
-          {/* ================================================= */}
           {/* BUY NOW */}
-          {/* ================================================= */}
 
           <button
             type="button"
@@ -2299,6 +2165,8 @@ export default function AddToCartButton({
               </>
             ) : isFlashSaleSoldOut ? (
               "Kuota Flash Sale Habis"
+            ) : selectionIncomplete ? (
+              "Pilih Varian"
             ) : outOfStock ? (
               "Produk Habis"
             ) : (

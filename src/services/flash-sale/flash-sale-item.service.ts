@@ -1,9 +1,6 @@
-import {
-  Prisma,
-} from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-
 import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
 
 /**
@@ -13,16 +10,27 @@ import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository
  *
  * Business logic untuk item di dalam Flash Sale campaign.
  *
- * Responsibilities:
+ * Canonical sellable unit:
  *
+ *   Product
+ *      ↓
+ *   ProductSku
+ *      ↓
+ *   FlashSaleItem
+ *
+ * Legacy weightOptionId masih dipertahankan di database untuk
+ * kebutuhan migration, tetapi application service baru tidak
+ * lagi menggunakan weight option sebagai sumber kebenaran.
+ *
+ * Responsibilities:
  * - List item
  * - Get item
  * - Create item
  * - Update item
  * - Delete item
  * - Validasi Flash Sale
- * - Validasi product
- * - Validasi weight option
+ * - Validasi Product
+ * - Validasi Product SKU
  * - Duplicate protection
  * - Price validation
  * - Stock validation
@@ -38,13 +46,24 @@ import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository
  * CREATE FLASH SALE ITEM INPUT
  * ============================================================
  */
-
 export interface CreateFlashSaleItemInput {
   productId: string;
 
-  weightOptionId?: string | null;
+  /**
+   * Canonical sellable SKU.
+   */
+  skuId: string;
 
-  originalPrice: number;
+  /**
+   * Legacy compatibility.
+   *
+   * Nilai ini tidak lagi menjadi sumber harga.
+   * Harga normal selalu diambil dari ProductSku.price.
+   *
+   * Tetap optional agar caller lama yang masih mengirim field
+   * ini tidak langsung rusak selama migration.
+   */
+  originalPrice?: number;
 
   flashPrice: number;
 
@@ -62,12 +81,20 @@ export interface CreateFlashSaleItemInput {
  * UPDATE FLASH SALE ITEM INPUT
  * ============================================================
  */
-
 export interface UpdateFlashSaleItemInput {
   productId?: string;
 
-  weightOptionId?: string | null;
+  /**
+   * Jika dikirim, SKU akan diganti.
+   * Jika undefined, SKU existing dipertahankan.
+   */
+  skuId?: string;
 
+  /**
+   * Legacy compatibility only.
+   *
+   * Tidak digunakan sebagai sumber harga canonical.
+   */
   originalPrice?: number;
 
   flashPrice?: number;
@@ -83,17 +110,29 @@ export interface UpdateFlashSaleItemInput {
 
 /**
  * ============================================================
+ * INTERNAL SKU TYPE
+ * ============================================================
+ */
+type ProductSkuRecord = {
+  id: string;
+  productId: string;
+  sku: string;
+  price: Prisma.Decimal;
+  stock: number;
+  isActive: boolean;
+};
+
+/**
+ * ============================================================
  * FLASH SALE ITEM SERVICE
  * ============================================================
  */
-
 export default class FlashSaleItemService {
   /**
    * ==========================================================
    * VALIDATE NUMBER
    * ==========================================================
    */
-
   private static validateNumber(
     value: number,
     fieldName: string
@@ -115,23 +154,18 @@ export default class FlashSaleItemService {
    * VALIDATE INTEGER
    * ==========================================================
    */
-
   private static validateInteger(
     value: number,
     fieldName: string,
     minimum = 0
   ) {
-    if (
-      !Number.isInteger(value)
-    ) {
+    if (!Number.isInteger(value)) {
       throw new Error(
         `${fieldName} harus berupa angka bulat.`
       );
     }
 
-    if (
-      value < minimum
-    ) {
+    if (value < minimum) {
       throw new Error(
         `${fieldName} tidak boleh kurang dari ${minimum}.`
       );
@@ -145,13 +179,10 @@ export default class FlashSaleItemService {
    * ENSURE FLASH SALE EXISTS
    * ==========================================================
    */
-
   private static async ensureFlashSaleExists(
     flashSaleId: string
   ) {
-    if (
-      !flashSaleId?.trim()
-    ) {
+    if (!flashSaleId?.trim()) {
       throw new Error(
         "Flash Sale ID wajib diisi."
       );
@@ -176,25 +207,29 @@ export default class FlashSaleItemService {
    * ENSURE PRODUCT EXISTS
    * ==========================================================
    */
-
   private static async ensureProductExists(
     productId: string
   ) {
+    const normalizedProductId =
+      productId?.trim();
+
+    if (!normalizedProductId) {
+      throw new Error(
+        "Product ID wajib diisi."
+      );
+    }
+
     const product =
       await prisma.product.findFirst({
         where: {
-          id: productId,
-
+          id: normalizedProductId,
           deletedAt: null,
         },
 
         select: {
           id: true,
-
           name: true,
-
           price: true,
-
           isPublished: true,
         },
       });
@@ -210,77 +245,264 @@ export default class FlashSaleItemService {
 
   /**
    * ==========================================================
-   * ENSURE WEIGHT OPTION EXISTS
+   * ENSURE PRODUCT SKU EXISTS
    * ==========================================================
    *
-   * Weight option harus benar-benar milik product.
+   * SKU adalah canonical sellable unit.
+   *
+   * Validasi:
+   * - SKU harus ada
+   * - SKU harus aktif
+   * - SKU harus milik productId
+   *
+   * Harga canonical:
+   * - sku.price
+   *
+   * Stock canonical:
+   * - sku.stock
    *
    * ==========================================================
    */
-
-  private static async ensureWeightOptionExists(
+  private static async ensureProductSkuExists(
     productId: string,
-    weightOptionId?: string | null
-  ) {
-    if (!weightOptionId) {
-      return null;
+    skuId: string
+  ): Promise<ProductSkuRecord> {
+    const normalizedProductId =
+      productId?.trim();
+
+    const normalizedSkuId =
+      skuId?.trim();
+
+    if (!normalizedProductId) {
+      throw new Error(
+        "Product ID wajib diisi."
+      );
     }
 
-    const weightOption =
-      await prisma.productWeightOption.findFirst({
+    if (!normalizedSkuId) {
+      throw new Error(
+        "SKU ID wajib diisi."
+      );
+    }
+
+    const sku =
+      await prisma.productSku.findFirst({
         where: {
-          id: weightOptionId,
-
-          productId,
-
+          id: normalizedSkuId,
+          productId: normalizedProductId,
           isActive: true,
         },
 
         select: {
           id: true,
-
           productId: true,
-
-          label: true,
+          sku: true,
+          price: true,
+          stock: true,
+          isActive: true,
         },
       });
 
-    if (!weightOption) {
+    if (!sku) {
       throw new Error(
-        "Weight option tidak ditemukan atau tidak aktif untuk produk tersebut."
+        "SKU tidak ditemukan, tidak aktif, atau bukan milik produk tersebut."
       );
     }
 
-    return weightOption;
+    if (sku.stock < 0) {
+      throw new Error(
+        "Stock SKU tidak valid."
+      );
+    }
+
+    return sku;
   }
 
   /**
    * ==========================================================
-   * VALIDATE ITEM ACTIVE STATE
+   * RESOLVE SKU + PRODUCT
+   * ==========================================================
+   *
+   * Digunakan ketika productId dan skuId datang dari request.
+   *
+   * ProductId tetap dipertahankan pada FlashSaleItem untuk
+   * compatibility dan query existing, tetapi SKU menjadi
+   * canonical sellable unit.
+   * ==========================================================
+   */
+  private static async resolveSku(
+    productId: string,
+    skuId: string
+  ) {
+    const product =
+      await this.ensureProductExists(
+        productId
+      );
+
+    const sku =
+      await this.ensureProductSkuExists(
+        product.id,
+        skuId
+      );
+
+    return {
+      product,
+      sku,
+    };
+  }
+
+  /**
+   * ==========================================================
+   * GET CANONICAL ORIGINAL PRICE
+   * ==========================================================
+   */
+  private static getCanonicalOriginalPrice(
+    sku: ProductSkuRecord
+  ) {
+    const originalPrice =
+      Number(sku.price);
+
+    if (
+      !Number.isFinite(originalPrice) ||
+      originalPrice <= 0
+    ) {
+      throw new Error(
+        "Harga SKU tidak valid."
+      );
+    }
+
+    return originalPrice;
+  }
+
+  /**
+   * ==========================================================
+   * VALIDATE FLASH PRICE
+   * ==========================================================
+   */
+  private static validateFlashPrice(
+    flashPrice: number,
+    originalPrice: number
+  ) {
+    const normalizedFlashPrice =
+      this.validateNumber(
+        flashPrice,
+        "Harga Flash Sale"
+      );
+
+    if (normalizedFlashPrice <= 0) {
+      throw new Error(
+        "Harga Flash Sale harus lebih besar dari 0."
+      );
+    }
+
+    if (
+      normalizedFlashPrice >=
+      originalPrice
+    ) {
+      throw new Error(
+        "Harga Flash Sale harus lebih kecil dari harga normal SKU."
+      );
+    }
+
+    return normalizedFlashPrice;
+  }
+
+  /**
+   * ==========================================================
+   * VALIDATE STOCK LIMIT
+   * ==========================================================
+   */
+  private static validateStockLimit(
+    stockLimit: number,
+    skuStock: number
+  ) {
+    const normalizedStockLimit =
+      this.validateInteger(
+        stockLimit,
+        "Stock limit",
+        1
+      );
+
+    if (
+      normalizedStockLimit >
+      skuStock
+    ) {
+      throw new Error(
+        `Stock limit Flash Sale tidak boleh lebih besar dari stock SKU (${skuStock}).`
+      );
+    }
+
+    return normalizedStockLimit;
+  }
+
+  /**
+   * ==========================================================
+   * VALIDATE PER USER LIMIT
+   * ==========================================================
+   *
+   * 0 = tidak ada batas khusus.
+   * ==========================================================
+   */
+  private static validatePerUserLimit(
+    perUserLimit: number,
+    stockLimit: number
+  ) {
+    const normalizedPerUserLimit =
+      this.validateInteger(
+        perUserLimit,
+        "Per user limit",
+        0
+      );
+
+    if (
+      normalizedPerUserLimit > 0 &&
+      normalizedPerUserLimit >
+        stockLimit
+    ) {
+      throw new Error(
+        "Batas pembelian per user tidak boleh lebih besar dari stock limit."
+      );
+    }
+
+    return normalizedPerUserLimit;
+  }
+
+  /**
+   * ==========================================================
+   * VALIDATE SORT ORDER
+   * ==========================================================
+   */
+  private static validateSortOrder(
+    sortOrder: number
+  ) {
+    return this.validateInteger(
+      sortOrder,
+      "Sort order",
+      0
+    );
+  }
+
+  /**
+   * ==========================================================
+   * VALIDATE ACTIVE STATE
    * ==========================================================
    *
    * Item boleh aktif pada:
-   *
    * - DRAFT
    * - SCHEDULED
    * - ACTIVE
    *
-   * Tetapi tidak boleh diaktifkan kembali pada:
-   *
+   * Tidak boleh diaktifkan kembali pada:
    * - ENDED
    * - CANCELLED
    *
    * Untuk campaign ACTIVE, periode harus masih valid.
-   *
    * ==========================================================
    */
-
   private static validateActiveState(
     flashSale: {
       status: string;
-
       startAt: Date;
-
       endAt: Date;
     },
     isActive: boolean
@@ -289,32 +511,17 @@ export default class FlashSaleItemService {
       return;
     }
 
-    /**
-     * --------------------------------------------------------
-     * TERMINAL CAMPAIGN
-     * --------------------------------------------------------
-     */
-
     if (
-      flashSale.status ===
-        "ENDED" ||
-      flashSale.status ===
-        "CANCELLED"
+      flashSale.status === "ENDED" ||
+      flashSale.status === "CANCELLED"
     ) {
       throw new Error(
         "Item tidak dapat diaktifkan karena Flash Sale sudah berakhir atau dibatalkan."
       );
     }
 
-    /**
-     * --------------------------------------------------------
-     * ACTIVE CAMPAIGN
-     * --------------------------------------------------------
-     */
-
     if (
-      flashSale.status ===
-      "ACTIVE"
+      flashSale.status === "ACTIVE"
     ) {
       const now =
         new Date();
@@ -337,7 +544,6 @@ export default class FlashSaleItemService {
    * GET MANY
    * ==========================================================
    */
-
   static async getMany(
     flashSaleId: string
   ) {
@@ -355,7 +561,6 @@ export default class FlashSaleItemService {
    * GET BY ID
    * ==========================================================
    */
-
   static async getById(
     flashSaleId: string,
     itemId: string
@@ -364,9 +569,7 @@ export default class FlashSaleItemService {
       flashSaleId
     );
 
-    if (
-      !itemId?.trim()
-    ) {
+    if (!itemId?.trim()) {
       throw new Error(
         "Item Flash Sale ID wajib diisi."
       );
@@ -392,7 +595,6 @@ export default class FlashSaleItemService {
    * CREATE
    * ==========================================================
    */
-
   static async create(
     flashSaleId: string,
     input: CreateFlashSaleItemInput
@@ -402,175 +604,113 @@ export default class FlashSaleItemService {
         flashSaleId
       );
 
-    /**
-     * --------------------------------------------------------
-     * VALIDATE PRODUCT
-     * --------------------------------------------------------
-     */
-
-    if (
-      !input.productId?.trim()
-    ) {
+    if (!input.productId?.trim()) {
       throw new Error(
         "Product ID wajib diisi."
       );
     }
 
-    const productId =
-      input.productId.trim();
-
-    const product =
-      await this.ensureProductExists(
-        productId
-      );
-
-    /**
-     * --------------------------------------------------------
-     * VALIDATE WEIGHT
-     * --------------------------------------------------------
-     */
-
-    const weightOptionId =
-      input.weightOptionId
-        ?.trim() || null;
-
-    await this.ensureWeightOptionExists(
-      productId,
-      weightOptionId
-    );
-
-    /**
-     * --------------------------------------------------------
-     * DUPLICATE PROTECTION
-     * --------------------------------------------------------
-     *
-     * Satu produk hanya boleh mempunyai:
-     *
-     * - satu item product-wide
-     * - satu item per weight
-     *
-     * dalam campaign yang sama.
-     */
-
-    const duplicate =
-      await FlashSaleRepository.findDuplicateItem({
-        flashSaleId,
-
-        productId,
-
-        weightOptionId,
-      });
-
-    if (duplicate) {
+    if (!input.skuId?.trim()) {
       throw new Error(
-        "Produk atau weight option tersebut sudah ada dalam Flash Sale ini."
+        "SKU ID wajib diisi."
       );
     }
 
     /**
      * --------------------------------------------------------
-     * VALIDATE PRICES
+     * RESOLVE PRODUCT + SKU
      * --------------------------------------------------------
      */
+    const productId =
+      input.productId.trim();
 
+    const skuId =
+      input.skuId.trim();
+
+    const {
+      product,
+      sku,
+    } =
+      await this.resolveSku(
+        productId,
+        skuId
+      );
+
+    /**
+     * --------------------------------------------------------
+     * CANONICAL ORIGINAL PRICE
+     * --------------------------------------------------------
+     *
+     * Jangan percaya originalPrice dari client.
+     */
     const originalPrice =
+      this.getCanonicalOriginalPrice(
+        sku
+      );
+
+    /**
+     * Jika caller masih mengirim originalPrice,
+     * kita validasi formatnya saja. Nilai database SKU
+     * tetap menjadi sumber kebenaran.
+     */
+    if (
+      input.originalPrice !==
+      undefined
+    ) {
       this.validateNumber(
         input.originalPrice,
         "Harga normal"
       );
+    }
 
+    /**
+     * --------------------------------------------------------
+     * FLASH PRICE
+     * --------------------------------------------------------
+     */
     const flashPrice =
-      this.validateNumber(
+      this.validateFlashPrice(
         input.flashPrice,
-        "Harga Flash Sale"
+        originalPrice
       );
-
-    if (
-      originalPrice <= 0
-    ) {
-      throw new Error(
-        "Harga normal harus lebih besar dari 0."
-      );
-    }
-
-    if (
-      flashPrice <= 0
-    ) {
-      throw new Error(
-        "Harga Flash Sale harus lebih besar dari 0."
-      );
-    }
-
-    if (
-      flashPrice >=
-      originalPrice
-    ) {
-      throw new Error(
-        "Harga Flash Sale harus lebih kecil dari harga normal."
-      );
-    }
 
     /**
      * --------------------------------------------------------
-     * VALIDATE STOCK LIMIT
+     * STOCK LIMIT
      * --------------------------------------------------------
      */
-
     const stockLimit =
-      this.validateInteger(
+      this.validateStockLimit(
         input.stockLimit,
-        "Stock limit",
-        1
+        sku.stock
       );
 
     /**
      * --------------------------------------------------------
-     * VALIDATE PER USER LIMIT
-     * --------------------------------------------------------
-     *
-     * Schema/database saat ini menggunakan angka.
-     *
-     * 0 = tidak ada batas khusus.
-     *
+     * PER USER LIMIT
      * --------------------------------------------------------
      */
-
     const perUserLimit =
-  this.validateInteger(
-    input.perUserLimit ?? 0,
-    "Per user limit",
-    0
-  );
-
-if (
-  perUserLimit > 0 &&
-  perUserLimit >
-    stockLimit
-) {
-  throw new Error(
-    "Batas pembelian per user tidak boleh lebih besar dari stock limit."
-  );
-}
-
-    /**
-     * --------------------------------------------------------
-     * VALIDATE SORT ORDER
-     * --------------------------------------------------------
-     */
-
-    const sortOrder =
-      this.validateInteger(
-        input.sortOrder ?? 0,
-        "Sort order",
-        0
+      this.validatePerUserLimit(
+        input.perUserLimit ?? 0,
+        stockLimit
       );
 
     /**
      * --------------------------------------------------------
-     * VALIDATE ACTIVE STATE
+     * SORT ORDER
      * --------------------------------------------------------
      */
+    const sortOrder =
+      this.validateSortOrder(
+        input.sortOrder ?? 0
+      );
 
+    /**
+     * --------------------------------------------------------
+     * ACTIVE STATE
+     * --------------------------------------------------------
+     */
     const isActive =
       input.isActive ??
       true;
@@ -582,10 +722,34 @@ if (
 
     /**
      * --------------------------------------------------------
+     * DUPLICATE PROTECTION
+     * --------------------------------------------------------
+     *
+     * Canonical uniqueness:
+     *
+     *   flashSaleId + skuId
+     *
+     * ProductId tetap dikirim karena masih menjadi field
+     * compatibility pada FlashSaleItem.
+     */
+    const duplicate =
+      await FlashSaleRepository.findDuplicateItem({
+        flashSaleId,
+        productId: product.id,
+        skuId,
+      });
+
+    if (duplicate) {
+      throw new Error(
+        "SKU tersebut sudah ada di Flash Sale ini."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
      * CREATE ITEM
      * --------------------------------------------------------
      */
-
     return FlashSaleRepository.createItem({
       flashSale: {
         connect: {
@@ -599,15 +763,11 @@ if (
         },
       },
 
-      ...(weightOptionId
-        ? {
-            weightOption: {
-              connect: {
-                id: weightOptionId,
-              },
-            },
-          }
-        : {}),
+      sku: {
+        connect: {
+          id: sku.id,
+        },
+      },
 
       originalPrice,
 
@@ -630,7 +790,6 @@ if (
    * UPDATE
    * ==========================================================
    */
-
   static async update(
     flashSaleId: string,
     itemId: string,
@@ -649,10 +808,26 @@ if (
 
     /**
      * --------------------------------------------------------
-     * PRODUCT
+     * PREVENT EMPTY UPDATE
      * --------------------------------------------------------
      */
+    if (
+      Object.keys(input).length ===
+      0
+    ) {
+      throw new Error(
+        "Tidak ada data yang diperbarui."
+      );
+    }
 
+    /**
+     * --------------------------------------------------------
+     * RESOLVE PRODUCT
+     * --------------------------------------------------------
+     *
+     * ProductId dapat berubah hanya jika SKU juga sesuai
+     * dengan product tersebut.
+     */
     const productId =
       input.productId !== undefined
         ? input.productId.trim()
@@ -664,133 +839,111 @@ if (
       );
     }
 
-    if (
-      input.productId !==
-      undefined
-    ) {
+    const product =
       await this.ensureProductExists(
         productId
       );
+
+    /**
+     * --------------------------------------------------------
+     * RESOLVE SKU
+     * --------------------------------------------------------
+     *
+     * Jika skuId tidak dikirim:
+     * - gunakan SKU existing.
+     *
+     * Jika existing item masih legacy tanpa skuId:
+     * - update tidak boleh diam-diam membuat item menjadi
+     *   SKU-less lagi.
+     * - caller wajib menyediakan skuId.
+     */
+    const nextSkuId =
+      input.skuId !== undefined
+        ? input.skuId.trim()
+        : current.skuId;
+
+    if (!nextSkuId) {
+      throw new Error(
+        "Item Flash Sale legacy belum memiliki SKU. Kirim skuId untuk melakukan migration."
+      );
     }
 
-    /**
-     * --------------------------------------------------------
-     * WEIGHT
-     * --------------------------------------------------------
-     */
-
-    const weightOptionId =
-      input.weightOptionId !==
-      undefined
-        ? input.weightOptionId?.trim() ||
-          null
-        : current.weightOptionId;
-
-    await this.ensureWeightOptionExists(
-      productId,
-      weightOptionId
-    );
+    const sku =
+      await this.ensureProductSkuExists(
+        product.id,
+        nextSkuId
+      );
 
     /**
      * --------------------------------------------------------
-     * DUPLICATE PROTECTION
+     * CANONICAL ORIGINAL PRICE
      * --------------------------------------------------------
+     *
+     * Jika SKU berubah, snapshot harga harus mengikuti harga
+     * SKU baru.
+     *
+     * Jika SKU tidak berubah, tetap ambil dari SKU saat ini
+     * sehingga originalPrice tidak berasal dari browser.
      */
-
-    if (
-      input.productId !==
-        undefined ||
-      input.weightOptionId !==
-        undefined
-    ) {
-      const duplicate =
-        await FlashSaleRepository.findDuplicateItem({
-          flashSaleId,
-
-          productId,
-
-          weightOptionId,
-
-          excludeItemId:
-            itemId,
-        });
-
-      if (duplicate) {
-        throw new Error(
-          "Produk atau weight option tersebut sudah ada dalam Flash Sale ini."
-        );
-      }
-    }
-
-    /**
-     * --------------------------------------------------------
-     * PRICES
-     * --------------------------------------------------------
-     */
-
     const originalPrice =
+      this.getCanonicalOriginalPrice(
+        sku
+      );
+
+    /**
+     * Caller lama boleh mengirim originalPrice, tetapi tidak
+     * boleh menentukan nilai canonical.
+     */
+    if (
       input.originalPrice !==
       undefined
-        ? this.validateNumber(
-            input.originalPrice,
-            "Harga normal"
-          )
-        : Number(
-            current.originalPrice
-          );
+    ) {
+      this.validateNumber(
+        input.originalPrice,
+        "Harga normal"
+      );
+    }
 
+    /**
+     * --------------------------------------------------------
+     * FLASH PRICE
+     * --------------------------------------------------------
+     */
     const flashPrice =
-      input.flashPrice !==
-      undefined
-        ? this.validateNumber(
+      input.flashPrice !== undefined
+        ? this.validateFlashPrice(
             input.flashPrice,
-            "Harga Flash Sale"
+            originalPrice
           )
-        : Number(
-            current.flashPrice
+        : this.validateFlashPrice(
+            Number(current.flashPrice),
+            originalPrice
           );
-
-    if (
-      originalPrice <= 0
-    ) {
-      throw new Error(
-        "Harga normal harus lebih besar dari 0."
-      );
-    }
-
-    if (
-      flashPrice <= 0
-    ) {
-      throw new Error(
-        "Harga Flash Sale harus lebih besar dari 0."
-      );
-    }
-
-    if (
-      flashPrice >=
-      originalPrice
-    ) {
-      throw new Error(
-        "Harga Flash Sale harus lebih kecil dari harga normal."
-      );
-    }
 
     /**
      * --------------------------------------------------------
      * STOCK LIMIT
      * --------------------------------------------------------
+     *
+     * Jika stockLimit tidak dikirim, pertahankan nilai existing.
+     *
+     * Tetap pastikan quota tidak melebihi stock SKU.
      */
-
     const stockLimit =
-      input.stockLimit !==
-      undefined
-        ? this.validateInteger(
+      input.stockLimit !== undefined
+        ? this.validateStockLimit(
             input.stockLimit,
-            "Stock limit",
-            1
+            sku.stock
           )
-        : current.stockLimit;
+        : this.validateStockLimit(
+            current.stockLimit,
+            sku.stock
+          );
 
+    /**
+     * Jangan pernah menurunkan quota di bawah quantity
+     * yang sudah terjual.
+     */
     if (
       stockLimit <
       current.soldQuantity
@@ -805,39 +958,29 @@ if (
      * PER USER LIMIT
      * --------------------------------------------------------
      */
-
     const perUserLimit =
-  input.perUserLimit !== undefined
-    ? this.validateInteger(
-        input.perUserLimit,
-        "Per user limit",
-        0
-      )
-    : current.perUserLimit ?? 0;
-
-    if (
-      perUserLimit > 0 &&
-      perUserLimit >
-        stockLimit
-    ) {
-      throw new Error(
-        "Batas pembelian per user tidak boleh lebih besar dari stock limit."
-      );
-    }
+      input.perUserLimit !==
+      undefined
+        ? this.validatePerUserLimit(
+            input.perUserLimit,
+            stockLimit
+          )
+        : this.validatePerUserLimit(
+            current.perUserLimit ??
+              0,
+            stockLimit
+          );
 
     /**
      * --------------------------------------------------------
      * SORT ORDER
      * --------------------------------------------------------
      */
-
     const sortOrder =
       input.sortOrder !==
       undefined
-        ? this.validateInteger(
-            input.sortOrder,
-            "Sort order",
-            0
+        ? this.validateSortOrder(
+            input.sortOrder
           )
         : current.sortOrder;
 
@@ -845,10 +988,7 @@ if (
      * --------------------------------------------------------
      * ACTIVE STATE
      * --------------------------------------------------------
-     *
-     * Jika tidak dikirim, pertahankan state sebelumnya.
      */
-
     const nextIsActive =
       input.isActive !==
       undefined
@@ -862,17 +1002,44 @@ if (
 
     /**
      * --------------------------------------------------------
-     * PREVENT EMPTY UPDATE
+     * DUPLICATE PROTECTION
      * --------------------------------------------------------
+     *
+     * Cek duplicate jika:
+     * - product berubah
+     * - SKU berubah
+     *
+     * ProductId + SKU harus konsisten.
      */
+    const productChanged =
+      input.productId !==
+      undefined &&
+      input.productId.trim() !==
+        current.productId;
+
+    const skuChanged =
+      input.skuId !==
+      undefined &&
+      input.skuId.trim() !==
+        current.skuId;
 
     if (
-      Object.keys(input)
-        .length === 0
+      productChanged ||
+      skuChanged
     ) {
-      throw new Error(
-        "Tidak ada data yang diperbarui."
-      );
+      const duplicate =
+        await FlashSaleRepository.findDuplicateItem({
+          flashSaleId,
+          productId: product.id,
+          skuId: sku.id,
+          excludeItemId: itemId,
+        });
+
+      if (duplicate) {
+        throw new Error(
+          "SKU tersebut sudah ada di Flash Sale ini."
+        );
+      }
     }
 
     /**
@@ -880,51 +1047,44 @@ if (
      * BUILD UPDATE DATA
      * --------------------------------------------------------
      */
-
     const data:
       Prisma.FlashSaleItemUpdateInput =
       {
-        ...(input.productId !==
-        undefined
+        ...(productChanged
           ? {
               product: {
                 connect: {
-                  id: productId,
+                  id: product.id,
                 },
               },
             }
           : {}),
 
-        ...(input.weightOptionId !==
-        undefined
-          ? {
-              weightOption:
-                weightOptionId
-                  ? {
-                      connect: {
-                        id: weightOptionId,
-                      },
-                    }
-                  : {
-                      disconnect:
-                        true,
-                    },
-            }
-          : {}),
+        /**
+         * SKU selalu di-connect pada update ini.
+         *
+         * Ini juga melakukan migration otomatis terhadap
+         * FlashSaleItem lama yang masih skuId = null.
+         */
+        sku: {
+          connect: {
+            id: sku.id,
+          },
+        },
 
-        ...(input.originalPrice !==
-        undefined
-          ? {
-              originalPrice,
-            }
-          : {}),
+        /**
+         * Harga normal selalu mengikuti ProductSku.price.
+         */
+        originalPrice,
 
         ...(input.flashPrice !==
         undefined
           ? {
               flashPrice,
             }
-          : {}),
+          : {
+              flashPrice,
+            }),
 
         ...(input.stockLimit !==
         undefined
@@ -961,7 +1121,6 @@ if (
      * UPDATE
      * --------------------------------------------------------
      */
-
     return FlashSaleRepository.updateItem(
       flashSaleId,
       itemId,
@@ -979,12 +1138,11 @@ if (
    *
    * Jika sudah pernah dibeli:
    *
-   *     DELETE ❌
-   *     isActive=false ✅
+   *   DELETE ❌
+   *   isActive=false ✅
    *
    * ==========================================================
    */
-
   static async delete(
     flashSaleId: string,
     itemId: string
@@ -1000,7 +1158,6 @@ if (
      * PURCHASE HISTORY PROTECTION
      * --------------------------------------------------------
      */
-
     if (
       item._count.purchases > 0
     ) {
@@ -1013,10 +1170,7 @@ if (
      * --------------------------------------------------------
      * HARD DELETE
      * --------------------------------------------------------
-     *
-     * Aman karena belum memiliki purchase history.
      */
-
     return FlashSaleRepository.deleteItem(
       flashSaleId,
       itemId

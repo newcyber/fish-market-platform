@@ -1,41 +1,17 @@
-import {
-  notFound,
-} from "next/navigation";
+import { notFound } from "next/navigation";
 
-import {
-  prisma,
-} from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 import ProductForm from "@/components/admin/products/ProductForm";
-
 import ProductGallery from "@/components/admin/products/ProductGallery";
 
-import {
-  ProductService,
-} from "@/services/product/product.service";
+import { ProductService } from "@/services/product/product.service";
 
 import {
   updateProductAction,
 } from "@/actions/product/update-product";
 
-/**
- * ============================================================
- *
- * EDIT PRODUCT PAGE
- *
- * ============================================================
- */
-
-export const dynamic =
-  "force-dynamic";
-
-/**
- * ============================================================
- *
- * PAGE PROPS
- *
- * ============================================================
- */
+export const dynamic = "force-dynamic";
 
 interface EditProductPageProps {
   params: Promise<{
@@ -45,48 +21,56 @@ interface EditProductPageProps {
 
 /**
  * ============================================================
- *
- * EDIT PRODUCT PAGE
- *
+ * EDIT PRODUCT PAGE - VARIANT/SKU V3
  * ============================================================
+ *
+ * Source of truth:
+ *
+ * Product
+ *   ├── variantGroups
+ *   │     └── options
+ *   └── skus
+ *         └── skuOptions
+ *
+ * Tidak ada lagi:
+ *   - variantOptions
+ *   - weightOptions
+ *   - weightVariantPrices
+ *
+ * Penting:
+ * - Tidak membuat default variant.
+ * - Produk tanpa variant => variantGroups = [] dan skus = [].
+ * - Existing option memakai id database.
+ * - Existing SKU memakai id + optionRefs.
  */
-
 export default async function EditProductPage({
   params,
 }: EditProductPageProps) {
-  /**
-   * ==========================================================
-   *
-   * GET PRODUCT ID
-   *
-   * ==========================================================
-   */
+  const { id } = await params;
 
-  const {
-    id,
-  } =
-    await params;
+  const [product, categories] = await Promise.all([
+    ProductService.getProductById(id),
 
-  /**
-   * ==========================================================
-   *
-   * LOAD PRODUCT
-   *
-   * ==========================================================
-   */
-
-  const product =
-    await ProductService.getProductById(
-      id
-    );
-
-  /**
-   * ==========================================================
-   *
-   * PRODUCT NOT FOUND
-   *
-   * ==========================================================
-   */
+    prisma.category.findMany({
+      where: {
+        OR: [
+          {
+            deletedAt: null,
+          },
+          {
+            id,
+          },
+        ],
+      },
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    }),
+  ]);
 
   if (!product) {
     notFound();
@@ -94,175 +78,80 @@ export default async function EditProductPage({
 
   /**
    * ==========================================================
-   *
-   * LOAD CATEGORIES
-   *
-   * Penting:
-   *
-   * Selalu sertakan kategori produk saat ini.
-   *
-   * Hal ini mencegah select category menjadi
-   * kosong ketika kategori produk tidak masuk
-   * query kategori aktif.
-   *
+   * VARIANT GROUPS
    * ==========================================================
+   *
+   * Jangan membuat fallback variant.
+   *
+   * Kalau database kosong:
+   *   []
+   *
+   * Kalau database memiliki variant:
+   *   tampilkan persis yang tersimpan.
    */
+  const variantGroups = product.variantGroups.map(
+    (group) => ({
+      id: group.id,
+      name: group.name,
+      sortOrder: group.sortOrder,
+      isActive: group.isActive,
 
-  const categories =
-    await prisma.category.findMany({
-      where: {
-        OR: [
-          {
-            deletedAt: null,
-          },
+      options: group.options.map(
+        (option) => ({
+          id: option.id,
 
-          {
-            id:
-              product.categoryId,
-          },
-        ],
-      },
+          /**
+           * Existing option menggunakan database ID sebagai
+           * stable reference. ProductForm akan memakai id
+           * tersebut untuk optionRefs.
+           */
+          key: option.id,
 
-      orderBy: {
-        name: "asc",
-      },
-
-      select: {
-        id: true,
-
-        name: true,
-      },
-    });
+          label: option.label,
+          sortOrder: option.sortOrder,
+          isActive: option.isActive,
+        })
+      ),
+    })
+  );
 
   /**
    * ==========================================================
-   *
-   * PRODUCT VARIANT OPTIONS
-   *
-   * Database:
-   *
-   * [
-   *   {
-   *     id: "...",
-   *     label: "Utuh"
-   *   }
-   * ]
-   *
-   * ProductForm:
-   *
-   * [
-   *   "Utuh"
-   * ]
-   *
+   * SKU
    * ==========================================================
+   *
+   * optionRefs berasal dari ProductSkuOption.variantOptionId.
+   *
+   * Tidak ada lagi weightVariantPrices.
+   * Harga dan stok adalah milik SKU.
    */
+  const skus = product.skus.map(
+    (sku) => ({
+      id: sku.id,
+      sku: sku.sku,
+      price: Number(sku.price),
+      stock: sku.stock,
 
-  const variantOptions =
-  product.variantOptions.map(
-    (option) => ({
-      id: option.id,
-
-      label: option.label,
-
-      priceAdjustment:
-        Number(
-          option.priceAdjustment ?? 0
+      optionRefs: sku.skuOptions
+        .map(
+          (skuOption) =>
+            skuOption.variantOptionId
         ),
+
+      isActive: sku.isActive,
     })
   );
 
   /**
    * ==========================================================
-   *
-   * PRODUCT WEIGHT OPTIONS
-   *
-   * Database:
-   *
-   * [
-   *   {
-   *     label: "500gr",
-   *     price: Decimal
-   *   }
-   * ]
-   *
-   * ProductForm:
-   *
-   * [
-   *   {
-   *     label: "500gr",
-   *     price: 25000
-   *   }
-   * ]
-   *
+   * UPDATE ACTION
    * ==========================================================
    */
-
-  const weightOptions =
-  product.weightOptions.map(
-    (option) => ({
-      id: option.id,
-
-      label: option.label,
-
-      price:
-        Number(
-          option.price
-        ),
-    })
-  );
-
-    const weightVariantPrices =
-  product.weightVariantPrices.map(
-    (item) => ({
-      weightLabel:
-        item.weightOption.label,
-
-      variantLabel:
-        item.variantOption.label,
-
-      price:
-        Number(item.price),
-    })
-  );
-
-  /**
-   * ==========================================================
-   *
-   * BIND UPDATE ACTION
-   *
-   * Before bind:
-   *
-   * (
-   *   id,
-   *   prevState,
-   *   formData
-   * )
-   *
-   * After bind:
-   *
-   * (
-   *   prevState,
-   *   formData
-   * )
-   *
-   * Compatible dengan useActionState().
-   *
-   * ==========================================================
-   */
-
   const updateAction =
     updateProductAction.bind(
       null,
       product.id
     );
-
-  /**
-   * ==========================================================
-   *
-   * RENDER
-   *
-   * ==========================================================
-   */
 
   return (
     <div className="space-y-6">
@@ -276,9 +165,8 @@ export default async function EditProductPage({
         </h1>
 
         <p className="mt-1 text-muted-foreground">
-          Perbarui informasi produk, stok,
-          varian, pilihan berat, harga setiap
-          berat, dan gallery gambar produk.
+          Perbarui informasi produk, variant group,
+          SKU, harga, stok, dan gallery gambar produk.
         </p>
       </div>
 
@@ -287,12 +175,8 @@ export default async function EditProductPage({
       {/* ====================================================== */}
 
       <ProductGallery
-        productId={
-          product.id
-        }
-        images={
-          product.images
-        }
+        productId={product.id}
+        images={product.images}
       />
 
       {/* ====================================================== */}
@@ -300,76 +184,72 @@ export default async function EditProductPage({
       {/* ====================================================== */}
 
       <ProductForm
-        categories={
-          categories
-        }
-
+        categories={categories}
         submitLabel="Update Produk"
-
-        action={
-          updateAction
-        }
-
+        action={updateAction}
         defaultValues={{
-  categoryId: product.categoryId,
+          categoryId: product.categoryId,
 
-  name: product.name,
+          name: product.name,
 
-  slug: product.slug,
+          slug: product.slug,
 
-  description:
-    product.description ?? "",
+          description:
+            product.description ?? "",
 
-  sku:
-    product.sku ?? "",
+          sku:
+            product.sku ?? "",
 
-  price:
-    Number(product.price),
+          price:
+            Number(product.price),
 
-  isDiscountActive:
-    product.isDiscountActive,
+          isDiscountActive:
+            product.isDiscountActive,
 
-  discountType:
-    product.discountType ?? "",
+          discountType:
+            product.discountType ?? "",
 
-  discountValue:
-    product.discountValue !== null
-      ? Number(product.discountValue)
-      : "",
+          discountValue:
+            product.discountValue !== null
+              ? Number(product.discountValue)
+              : "",
 
-  discountStartAt:
-    product.discountStartAt
-      ? new Date(
-          product.discountStartAt
-        )
-          .toISOString()
-          .slice(0, 16)
-      : "",
+          discountStartAt:
+            product.discountStartAt
+              ? new Date(
+                  product.discountStartAt
+                )
+                  .toISOString()
+                  .slice(0, 16)
+              : "",
 
-  discountEndAt:
-    product.discountEndAt
-      ? new Date(
-          product.discountEndAt
-        )
-          .toISOString()
-          .slice(0, 16)
-      : "",
+          discountEndAt:
+            product.discountEndAt
+              ? new Date(
+                  product.discountEndAt
+                )
+                  .toISOString()
+                  .slice(0, 16)
+              : "",
 
-  stock:
-    product.stock,
+          stock:
+            product.stock,
 
-  variantOptions,
+          /**
+           * ====================================================
+           * NEW VARIANT SYSTEM
+           * ====================================================
+           */
+          variantGroups,
 
-  weightOptions,
+          skus,
 
-  weightVariantPrices,
+          isPublished:
+            product.isPublished,
 
-  isPublished:
-    product.isPublished,
-
-  featured:
-    product.featured,
-}}
+          featured:
+            product.featured,
+        }}
       />
     </div>
   );

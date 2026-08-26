@@ -59,22 +59,26 @@ interface CustomerOption {
 
 }
 
+interface SkuOption {
+  id: string;
+  sku: string;
+  price: number;
+  stock: number;
+  isActive: boolean;
+}
+
 interface ProductOption {
   id: string;
-
   name: string;
-
   sku: string | null;
-
   price: number;
-
   stock: number;
-  
+  skus: SkuOption[];
 }
 
 interface CartItem {
   productId: string;
-
+  skuId: string;
   quantity: number;
 }
 
@@ -150,6 +154,38 @@ export default function CreateOrderForm({
     setSelectedProductId,
   ] = useState("");
 
+    const [
+    selectedSkuId,
+  ] = useState("");
+
+  const selectedProduct =
+    useMemo(
+      () =>
+        products.find(
+          (product) =>
+            product.id ===
+            selectedProductId
+        ),
+      [
+        products,
+        selectedProductId,
+      ]
+    );
+
+  const selectedSku =
+    useMemo(
+      () =>
+        selectedProduct?.skus.find(
+          (sku) =>
+            sku.id ===
+            selectedSkuId
+        ),
+      [
+        selectedProduct,
+        selectedSkuId,
+      ]
+    );
+
   const [
     selectedQuantity,
     setSelectedQuantity,
@@ -188,20 +224,6 @@ export default function CreateOrderForm({
     selectedCustomer?.addresses ??
     [];
 
-  const selectedProduct =
-    useMemo(
-      () =>
-        products.find(
-          (product) =>
-            product.id ===
-            selectedProductId
-        ),
-      [
-        products,
-        selectedProductId,
-      ]
-    );
-
   const subtotal =
     useMemo(() => {
       return items.reduce(
@@ -237,12 +259,14 @@ export default function CreateOrderForm({
     setError("");
 
     if (!selectedProduct) {
-      setError(
-        "Silakan pilih produk."
-      );
+  setError("Silakan pilih produk.");
+  return;
+}
 
-      return;
-    }
+if (!selectedSku) {
+  setError("Silakan pilih SKU.");
+  return;
+}
 
     const quantity =
       Number(selectedQuantity);
@@ -260,32 +284,34 @@ export default function CreateOrderForm({
       return;
     }
 
-    if (
-      quantity >
-      selectedProduct.stock
-    ) {
-      setError(
-        `Stock ${selectedProduct.name} hanya ${selectedProduct.stock}.`
-      );
+    if (quantity > selectedSku.stock) {
+  setError(
+    `Stock SKU ${selectedSku.sku} hanya ${selectedSku.stock}.`
+  );
 
-      return;
-    }
+  return;
+}
 
-    setItems(
+        setItems(
       (currentItems) => {
         const existing =
           currentItems.find(
             (item) =>
-              item.productId ===
-              selectedProduct.id
+              item.skuId ===
+              selectedSku.id
           );
 
         if (!existing) {
           return [
             ...currentItems,
+
             {
               productId:
                 selectedProduct.id,
+
+              skuId:
+                selectedSku.id,
+
               quantity,
             },
           ];
@@ -297,10 +323,10 @@ export default function CreateOrderForm({
 
         if (
           nextQuantity >
-          selectedProduct.stock
+          selectedSku.stock
         ) {
           setError(
-            `Total quantity ${selectedProduct.name} melebihi stock.`
+            `Total quantity SKU ${selectedSku.sku} melebihi stock ${selectedSku.stock}.`
           );
 
           return currentItems;
@@ -308,10 +334,11 @@ export default function CreateOrderForm({
 
         return currentItems.map(
           (item) =>
-            item.productId ===
-            selectedProduct.id
+            item.skuId ===
+            selectedSku.id
               ? {
                   ...item,
+
                   quantity:
                     nextQuantity,
                 }
@@ -775,11 +802,9 @@ export default function CreateOrderForm({
                                 event
                               ) =>
                                 updateQuantity(
-                                  item.productId,
-                                  Number(
-                                    event
-                                      .target
-                                      .value
+                                  item.skuId,
+                                    Number(
+                                  event.target.value
                                   )
                                 )
                               }
@@ -804,8 +829,8 @@ export default function CreateOrderForm({
                               size="sm"
                               onClick={() =>
                                 removeProduct(
-                                  item.productId
-                                )
+                                  item.skuId
+                                    )
                               }
                               disabled={
                                 isPending

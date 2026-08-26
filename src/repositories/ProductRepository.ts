@@ -122,19 +122,7 @@ export class ProductRepository {
    */
 
   private static readonly productInclude = {
-    /**
-     * ==========================================================
-     * CATEGORY
-     * ==========================================================
-     */
-
     category: true,
-
-    /**
-     * ==========================================================
-     * PRODUCT IMAGES
-     * ==========================================================
-     */
 
     images: {
       orderBy: {
@@ -142,77 +130,91 @@ export class ProductRepository {
       },
     },
 
-    /**
-     * ==========================================================
-     * VARIANT OPTIONS
-     * ==========================================================
-     */
-
-    variantOptions: {
+    variantGroups: {
       where: {
         isActive: true,
       },
-
       orderBy: {
         sortOrder: "asc" as const,
       },
-    },
-
-    /**
-     * ==========================================================
-     * WEIGHT OPTIONS
-     * ==========================================================
-     */
-
-    weightOptions: {
-      where: {
-        isActive: true,
-      },
-
-      orderBy: {
-        sortOrder: "asc" as const,
-      },
-    },
-
-    /**
-     * ==========================================================
-     * WEIGHT × VARIANT PRICES
-     * ==========================================================
-     *
-     * Contoh:
-     *
-     * 500gr + Utuh          = 30000
-     * 500gr + Dibersihkan   = 35000
-     * 1kg   + Utuh          = 45000
-     * 1kg   + Dibersihkan   = 50000
-     *
-     * Data ini digunakan Product Detail untuk:
-     *
-     * Rp 30.000 - Rp 50.000
-     *
-     * dan nantinya digunakan AddToCartButton untuk
-     * mendapatkan harga kombinasi yang benar.
-     */
-
-    weightVariantPrices: {
       include: {
-        weightOption: {
-          select: {
-            id: true,
-            label: true,
+        options: {
+          where: {
+            isActive: true,
           },
-        },
-
-        variantOption: {
-          select: {
-            id: true,
-            label: true,
+          orderBy: {
+            sortOrder: "asc" as const,
           },
         },
       },
+    },
 
+    skus: {
+      where: {
+        isActive: true,
+      },
       orderBy: {
         createdAt: "asc" as const,
+      },
+      include: {
+        skuOptions: {
+          include: {
+            variantOption: {
+              include: {
+                group: true,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  /**
+   * ============================================================
+   * ADMIN PRODUCT INCLUDE
+   * ============================================================
+   *
+   * Admin Edit Product harus dapat membaca option/SKU yang
+   * sudah inactive agar history konfigurasi tidak hilang dari form.
+   */
+
+  private static readonly productAdminInclude = {
+    category: true,
+
+    images: {
+      orderBy: {
+        sortOrder: "asc" as const,
+      },
+    },
+
+    variantGroups: {
+      orderBy: {
+        sortOrder: "asc" as const,
+      },
+      include: {
+        options: {
+          orderBy: {
+            sortOrder: "asc" as const,
+          },
+        },
+      },
+    },
+
+    skus: {
+      orderBy: {
+        createdAt: "asc" as const,
+      },
+      include: {
+        skuOptions: {
+          include: {
+            variantOption: {
+              include: {
+                group: true,
+              },
+            },
+          },
+        },
       },
     },
   };
@@ -354,6 +356,18 @@ static async findMany(
                   mode: "insensitive",
                 },
               },
+
+              {
+                skus: {
+                  some: {
+                    sku: {
+                      contains: search,
+                      mode: "insensitive",
+                    },
+                    isActive: true,
+                  },
+                },
+              },
             ],
           }
         : {}),
@@ -470,7 +484,7 @@ static async findMany(
    * /product/[slug]
    *
    * Karena menggunakan productInclude,
-   * weightVariantPrices otomatis ikut dikembalikan.
+   * variantGroups + active SKUs beserta SKU options ikut dikembalikan.
    */
 
   static async findBySlug(
@@ -520,13 +534,38 @@ static async findMany(
       return false;
     }
 
-    const count =
-      await prisma.product.count({
-        where: {
-          sku,
+    const count = await prisma.productSku.count({
+      where: {
+        sku,
+        product: {
           deletedAt: null,
         },
-      });
+      },
+    });
+
+    return count > 0;
+  }
+
+  /**
+   * Check the legacy/product-level code stored on Product.sku.
+   *
+   * This is kept separately because Product.sku is still present
+   * during the migration period, while ProductSku.sku is the
+   * canonical inventory/transaction SKU.
+   */
+  static async existsByProductSku(
+    sku: string
+  ) {
+    if (!sku) {
+      return false;
+    }
+
+    const count = await prisma.product.count({
+      where: {
+        sku,
+        deletedAt: null,
+      },
+    });
 
     return count > 0;
   }
@@ -548,6 +587,30 @@ static async findMany(
 
       include:
         this.productInclude,
+    });
+  }
+
+  /**
+   * ============================================================
+   * FIND BY ID FOR ADMIN
+   * ============================================================
+   *
+   * Digunakan Edit Product. Tidak memfilter inactive group,
+   * option, atau SKU karena data tersebut dapat tetap diperlukan
+   * untuk sinkronisasi dan audit konfigurasi.
+   */
+
+  static async findByIdForAdmin(
+    id: string
+  ) {
+    return prisma.product.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+
+      include:
+        this.productAdminInclude,
     });
   }
 

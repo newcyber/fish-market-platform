@@ -1,1686 +1,2232 @@
-import {
-  ProductRepository,
-} from "@/repositories/ProductRepository";
-
-import {
-  Prisma,
-  ProductDiscountType,
-} from "@prisma/client";
+import { ProductRepository } from "@/repositories/ProductRepository";
+import { Prisma, ProductDiscountType } from "@prisma/client";
 
 /**
  * ============================================================
- *
  * PRODUCT FILTERS
- *
  * ============================================================
  */
-
 export interface ProductFilters {
-  /**
-   * ==========================================================
-   * SEARCH
-   * ==========================================================
-   */
-
   search?: string;
-
-  /**
-   * ==========================================================
-   * SINGLE CATEGORY
-   * ==========================================================
-   *
-   * Digunakan jika hanya membutuhkan satu category ID.
-   */
-
   categoryId?: string;
-
-  /**
-   * ==========================================================
-   * MULTIPLE CATEGORIES
-   * ==========================================================
-   *
-   * Digunakan oleh logical category homepage.
-   *
-   * Contoh:
-   *
-   * Ikan Segar
-   * ├── Ikan Laut
-   * └── Ikan Air Tawar
-   *
-   */
-
   categoryIds?: string[];
-
-  /**
-   * ==========================================================
-   * DISCOUNT
-   * ==========================================================
-   *
-   * true:
-   * hanya produk yang sedang memiliki diskon aktif.
-   */
-
   discounted?: boolean;
-
-  /**
-   * ==========================================================
-   * PUBLISHED
-   * ==========================================================
-   */
-
   published?: boolean;
-
-  /**
-   * ==========================================================
-   * FEATURED
-   * ==========================================================
-   */
-
   featured?: boolean;
 }
 
 /**
  * ============================================================
- *
- * PRODUCT VARIANT OPTION INPUT
- *
+ * NEW VARIANT / SKU INPUT
  * ============================================================
+ *
+ * Variant group is completely generic.
+ *
+ * Example:
+ * [
+ *   {
+ *     name: "Kondisi",
+ *     options: [{ label: "Utuh" }, { label: "Dibersihkan" }]
+ *   },
+ *   {
+ *     name: "Berat",
+ *     options: [{ label: "500 gr" }, { label: "1 Kg" }]
+ *   }
+ * ]
+ *
+ * SKU can reference existing DB option IDs (update) OR stable
+ * "Group::Option" keys (create/update from a form before IDs exist).
  */
-
 export interface ProductVariantOptionInput {
   id?: string;
-
+  key?: string;
   label: string;
-
-  /**
-   * Nilai tambahan terhadap harga produk.
-   *
-   * Contoh:
-   *
-   * Utuh        = 0
-   * Dibersihkan = 5000
-   * Fillet      = 10000
-   */
-  priceAdjustment: number;
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
-/**
- * ============================================================
- *
- * PRODUCT WEIGHT OPTION INPUT
- *
- * ============================================================
- */
-
-export interface ProductWeightOptionInput {
+export interface ProductVariantGroupInput {
   id?: string;
-
-  label: string;
-
-  price: number;
+  name: string;
+  options: ProductVariantOptionInput[];
+  sortOrder?: number;
 }
 
-/**
- * ============================================================
- * PRODUCT WEIGHT × VARIANT PRICE INPUT
- * ============================================================
- */
-
-export interface ProductWeightVariantPriceInput {
-  weightLabel: string;
-
-  variantLabel: string;
-
+export interface ProductSkuInput {
+  id?: string;
+  sku: string;
   price: number;
+  stock: number;
+  /**
+   * Reference to a ProductVariantOption.
+   *
+   * It can be:
+   * - an existing database option ID
+   * - a temporary/client option key
+   */
+  optionRefs?: string[];
+  isActive?: boolean;
 }
-
-/**
- * ============================================================
- *
- * CREATE PRODUCT INPUT
- *
- * ============================================================
- */
 
 export interface CreateProductInput {
   categoryId: string;
-
   name: string;
-
   slug: string;
-
   description?: string | null;
-
   sku?: string | null;
 
-  /**
-   * ============================================================
-   * PRODUCT PRICE
-   * ============================================================
-   *
-   * Harga dasar produk.
-   *
-   * Digunakan sebagai fallback apabila produk
-   * tidak menggunakan pilihan berat.
-   */
-
+  /** Legacy fallback for products without variant groups. */
   price: number;
-
-  /**
-   * ============================================================
-   * PRODUCT DISCOUNT
-   * ============================================================
-   *
-   * Konfigurasi diskon produk.
-   *
-   * Contoh percentage:
-   *
-   * isDiscountActive: true
-   * discountType: PERCENTAGE
-   * discountValue: 10
-   *
-   * Artinya:
-   * Diskon 10%.
-   *
-   * ------------------------------------------------------------
-   *
-   * Contoh fixed amount:
-   *
-   * isDiscountActive: true
-   * discountType: FIXED_AMOUNT
-   * discountValue: 5000
-   *
-   * Artinya:
-   * Diskon Rp5.000.
-   */
-
-  isDiscountActive?: boolean;
-
-  discountType?:
-    | ProductDiscountType
-    | null;
-
-  discountValue?:
-    | number
-    | null;
-
-  /**
-   * Tanggal mulai diskon.
-   *
-   * Jika null, diskon dapat langsung aktif.
-   */
-
-  discountStartAt?:
-    | Date
-    | null;
-
-  /**
-   * Tanggal berakhir diskon.
-   *
-   * Jika null, diskon tidak memiliki
-   * batas waktu berakhir.
-   */
-
-  discountEndAt?:
-    | Date
-    | null;
-
-  /**
-   * ============================================================
-   * PRODUCT STOCK
-   * ============================================================
-   */
-
   stock: number;
 
-  /**
-   * ============================================================
-   * PRODUCT VARIANT OPTIONS
-   * ============================================================
-   *
-   * Contoh:
-   *
-   * [
-   *   {
-   *     label: "Utuh",
-   *     priceAdjustment: 0,
-   *   },
-   *   {
-   *     label: "Dibersihkan",
-   *     priceAdjustment: 5000,
-   *   },
-   * ]
-   */
-
-  variantOptions?:
-    ProductVariantOptionInput[];
-
-  /**
-   * ============================================================
-   * PRODUCT WEIGHT OPTIONS
-   * ============================================================
-   *
-   * Contoh:
-   *
-   * [
-   *   {
-   *     label: "500gr",
-   *     price: 25000,
-   *   },
-   *   {
-   *     label: "1kg",
-   *     price: 45000,
-   *   },
-   * ]
-   */
-
-  weightOptions?:
-    ProductWeightOptionInput[];
-
-    /**
- * ============================================================
- * PRODUCT WEIGHT × VARIANT PRICES
- * ============================================================
- */
-
-weightVariantPrices?:
-  ProductWeightVariantPriceInput[];
-
-  /**
-   * ============================================================
-   * PRODUCT STATUS
-   * ============================================================
-   */
+  isDiscountActive?: boolean;
+  discountType?: ProductDiscountType | null;
+  discountValue?: number | null;
+  discountStartAt?: Date | null;
+  discountEndAt?: Date | null;
 
   isPublished?: boolean;
-
   featured?: boolean;
+
+  /**
+   * IMPORTANT:
+   * undefined = do not configure variants
+   * []        = explicitly no variants
+   * [...]     = configure variant groups
+   */
+  variantGroups?: ProductVariantGroupInput[];
+
+  /**
+   * If omitted:
+   * - no variants => one default SKU
+   * - variants => Cartesian combinations with product price and stock=0
+   *
+   * If supplied, each SKU must select exactly one option from
+   * every active group.
+   */
+  skus?: ProductSkuInput[];
 }
 
-/**
- * ============================================================
- *
- * UPDATE PRODUCT INPUT
- *
- * ============================================================
- */
+export type UpdateProductInput = Partial<CreateProductInput>;
 
-export type UpdateProductInput =
-  Partial<CreateProductInput>;
+type Tx = Prisma.TransactionClient;
 
-/**
- * ============================================================
- *
- * NORMALIZE VARIANT OPTIONS
- *
- * ============================================================
- *
- * Tujuan:
- *
- * - Mempertahankan ID option lama ketika update product.
- * - Membersihkan whitespace pada label.
- * - Menolak label kosong.
- * - Menolak harga adjustment negatif / invalid.
- * - Mencegah duplicate label secara case-insensitive.
- *
- * PENTING:
- *
- * id tidak dibuat ulang di sini.
- *
- * Jika option berasal dari database:
- *
- * {
- *   id: "existing-id",
- *   label: "Utuh",
- *   priceAdjustment: 0
- * }
- *
- * maka ID tersebut tetap dipertahankan sampai proses update.
- *
- * Jika option baru:
- *
- * {
- *   label: "Fillet",
- *   priceAdjustment: 10000
- * }
- *
- * maka id tetap undefined dan service akan membuat record baru.
- * ============================================================
- */
+type CreatedOption = {
+  id: string;
+  groupId: string;
+  label: string;
+  key?: string;
+  /**
+   * Temporary/client reference used by the form before DB IDs exist.
+   * Example: "group-xxx::option-yyy"
+   */
+  clientRef?: string;
+};
 
-function normalizeVariantOptions(
-  options:
-    | ProductVariantOptionInput[]
-    | undefined
-): ProductVariantOptionInput[] | undefined {
-  if (
-    options ===
-    undefined
-  ) {
-    return undefined;
-  }
+type CreatedGroup = {
+  id: string;
+  name: string;
+  options: CreatedOption[];
+  clientRef?: string;
+};
 
-  const normalizedOptions:
-    ProductVariantOptionInput[] =
-    [];
-
-  const usedLabels =
-    new Set<string>();
-
-  for (
-    const option of
-    options
-  ) {
-    const label =
-      option.label.trim();
-
-    if (!label) {
-      continue;
-    }
-
-    const priceAdjustment =
-      Number(
-        option.priceAdjustment
-      );
-
-    if (
-      !Number.isFinite(
-        priceAdjustment
-      ) ||
-      priceAdjustment < 0
-    ) {
-      throw new Error(
-        `Harga tambahan untuk varian "${label}" tidak valid.`
-      );
-    }
-
-    const normalizedLabel =
-      label.toLowerCase();
-
-    if (
-      usedLabels.has(
-        normalizedLabel
-      )
-    ) {
-      throw new Error(
-        `Varian "${label}" terduplikasi.`
-      );
-    }
-
-    usedLabels.add(
-      normalizedLabel
-    );
-
-    normalizedOptions.push({
-      /**
-       * Existing option:
-       * preserve ID.
-       *
-       * New option:
-       * ID tetap undefined.
-       */
-      ...(option.id
-        ? {
-            id:
-              option.id,
-          }
-        : {}),
-
-      label,
-
-      priceAdjustment,
-    });
-  }
-
-  return normalizedOptions;
-}
-
-/**
- * ============================================================
- *
- * NORMALIZE WEIGHT OPTIONS
- *
- * ============================================================
- *
- * Tujuan:
- *
- * - Mempertahankan ID weight option lama.
- * - Membersihkan whitespace pada label.
- * - Menolak label kosong.
- * - Menolak harga negatif / invalid.
- * - Mencegah duplicate label secara case-insensitive.
- *
- * PENTING:
- *
- * Weight option dapat direferensikan oleh FlashSaleItem.
- *
- * Karena itu ID existing TIDAK BOLEH hilang saat update.
- * ============================================================
- */
-
-function normalizeWeightOptions(
-  options:
-    | ProductWeightOptionInput[]
-    | undefined
-): ProductWeightOptionInput[] | undefined {
-  if (
-    options ===
-    undefined
-  ) {
-    return undefined;
-  }
-
-  const normalizedOptions:
-    ProductWeightOptionInput[] =
-    [];
-
-  const usedLabels =
-    new Set<string>();
-
-  for (
-    const option of
-    options
-  ) {
-    const label =
-      option.label.trim();
-
-    if (!label) {
-      continue;
-    }
-
-    const price =
-      Number(
-        option.price
-      );
-
-    if (
-      !Number.isFinite(
-        price
-      ) ||
-      price < 0
-    ) {
-      throw new Error(
-        `Harga untuk pilihan berat "${label}" tidak valid.`
-      );
-    }
-
-    const normalizedLabel =
-      label.toLowerCase();
-
-    if (
-      usedLabels.has(
-        normalizedLabel
-      )
-    ) {
-      throw new Error(
-        `Pilihan berat "${label}" terduplikasi.`
-      );
-    }
-
-    usedLabels.add(
-      normalizedLabel
-    );
-
-    normalizedOptions.push({
-      /**
-       * Existing weight:
-       * preserve ID.
-       *
-       * New weight:
-       * ID tetap undefined.
-       */
-      ...(option.id
-        ? {
-            id:
-              option.id,
-          }
-        : {}),
-
-      label,
-
-      price,
-    });
-  }
-
-  return normalizedOptions;
-}
-
-/**
- * ============================================================
- * NORMALIZE WEIGHT × VARIANT PRICES
- * ============================================================
- */
-
-function normalizeWeightVariantPrices(
-  options:
-    | ProductWeightVariantPriceInput[]
-    | undefined
-):
-  | ProductWeightVariantPriceInput[]
-  | undefined {
-  if (options === undefined) {
-    return undefined;
-  }
-
-  const normalized:
-    ProductWeightVariantPriceInput[] = [];
-
-  const usedKeys =
-    new Set<string>();
-
-  for (const option of options) {
-    const weightLabel =
-      option.weightLabel.trim();
-
-    const variantLabel =
-      option.variantLabel.trim();
-
-    if (
-      !weightLabel ||
-      !variantLabel
-    ) {
-      continue;
-    }
-
-    const price =
-      Number(option.price);
-
-    if (
-      !Number.isFinite(price) ||
-      price < 0
-    ) {
-      throw new Error(
-        `Harga kombinasi "${weightLabel} × ${variantLabel}" tidak valid.`
-      );
-    }
-
-    const key =
-      `${weightLabel.toLowerCase()}::${variantLabel.toLowerCase()}`;
-
-    if (
-      usedKeys.has(key)
-    ) {
-      throw new Error(
-        `Harga kombinasi "${weightLabel} × ${variantLabel}" terduplikasi.`
-      );
-    }
-
-    usedKeys.add(key);
-
-    normalized.push({
-      weightLabel,
-      variantLabel,
-      price,
-    });
-  }
-
-  return normalized;
-}
-
-/**
- * ============================================================
- * BUILD WEIGHT × VARIANT PRICE CREATE DATA
- * ============================================================
- */
-
-function buildWeightVariantPriceCreateData(
-  prices:
-    ProductWeightVariantPriceInput[],
-  weightOptions: Array<{
+type ExistingVariantGroup = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  options: Array<{
     id: string;
+    groupId: string;
     label: string;
-  }>,
-  variantOptions: Array<{
-    id: string;
-    label: string;
-  }>
-) {
-  const weightMap =
-    new Map(
-      weightOptions.map(
-        (option) => [
-          option.label.toLowerCase(),
-          option.id,
-        ]
-      )
+    isActive: boolean;
+  }>;
+};
+
+function mapExistingVariantGroups(
+  groups: ExistingVariantGroup[]
+): CreatedGroup[] {
+  return groups
+    .filter((group) => group.isActive)
+    .map((group) => ({
+      id: group.id,
+      name: group.name,
+      options: group.options
+        .filter((option) => option.isActive)
+        .map((option) => ({
+          id: option.id,
+          groupId: option.groupId,
+          label: option.label,
+        })),
+    }))
+    .filter((group) => group.options.length > 0);
+}
+
+function cleanLabel(value: string, field: string): string {
+  const label = value.trim();
+  if (!label) throw new Error(`${field} tidak boleh kosong.`);
+  return label;
+}
+
+function normalizeKey(value: string): string {
+  return value.trim().toLocaleLowerCase();
+}
+
+function optionKey(groupName: string, label: string): string {
+  return `${normalizeKey(groupName)}::${normalizeKey(label)}`;
+}
+
+function skuKey(optionIds: string[]): string {
+  return [...optionIds].sort().join("|");
+}
+
+function slugPart(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildGeneratedSku(
+  productCode: string,
+  labels: string[],
+  index: number
+): string {
+  const base = slugPart(productCode) || "PRODUCT";
+  const suffix = labels.map(slugPart).filter(Boolean).join("-");
+  return `${base}-${suffix || `OPTION-${index + 1}`}`;
+}
+
+function validateVariantGroups(
+  groups: ProductVariantGroupInput[]
+): ProductVariantGroupInput[] {
+  const seenGroups = new Set<string>();
+
+  return groups.map((rawGroup, groupIndex) => {
+    const name = cleanLabel(
+      rawGroup.name,
+      `Nama variant group #${groupIndex + 1}`
     );
 
-  const variantMap =
-    new Map(
-      variantOptions.map(
-        (option) => [
-          option.label.toLowerCase(),
-          option.id,
-        ]
-      )
-    );
+    const groupKey = normalizeKey(name);
+    if (seenGroups.has(groupKey)) {
+      throw new Error(`Variant group "${name}" duplikat.`);
+    }
+    seenGroups.add(groupKey);
 
-  return prices.map(
-    (item) => {
-      const weightId =
-        weightMap.get(
-          item.weightLabel.toLowerCase()
-        );
+    if (!Array.isArray(rawGroup.options) || rawGroup.options.length === 0) {
+      throw new Error(`Variant group "${name}" harus memiliki minimal 1 option.`);
+    }
 
-      if (!weightId) {
+    const seenOptions = new Set<string>();
+
+    const options = rawGroup.options.map((rawOption, optionIndex) => {
+      const label = cleanLabel(
+        rawOption.label,
+        `Option ${optionIndex + 1} pada "${name}"`
+      );
+
+      const key = normalizeKey(label);
+      if (seenOptions.has(key)) {
         throw new Error(
-          `Pilihan berat "${item.weightLabel}" tidak ditemukan.`
+          `Option "${label}" duplikat pada variant group "${name}".`
         );
       }
-
-      const variantId =
-        variantMap.get(
-          item.variantLabel.toLowerCase()
-        );
-
-      if (!variantId) {
-        throw new Error(
-          `Varian "${item.variantLabel}" tidak ditemukan.`
-        );
-      }
+      seenOptions.add(key);
 
       return {
-        weightOptionId:
-          weightId,
-
-        variantOptionId:
-          variantId,
-
-        price:
-          item.price,
+        id: rawOption.id,
+        key: rawOption.key,
+        label,
+        sortOrder: rawOption.sortOrder ?? optionIndex,
       };
-    }
+    });
+
+    return {
+      id: rawGroup.id,
+      name,
+      options,
+      sortOrder: rawGroup.sortOrder ?? groupIndex,
+    };
+  });
+}
+
+function cartesian<T>(lists: T[][]): T[][] {
+  if (lists.length === 0) return [];
+
+  return lists.reduce<T[][]>(
+    (acc, current) =>
+      acc.flatMap((prefix) =>
+        current.map((item) => [...prefix, item])
+      ),
+    [[]]
   );
 }
 
-/**
- * ============================================================
- *
- * PRODUCT SERVICE
- *
- * ============================================================
- */
+async function createGroupsAndOptions(
+  tx: Tx,
+  productId: string,
+  groups: ProductVariantGroupInput[]
+): Promise<CreatedGroup[]> {
+  const result: CreatedGroup[] = [];
+
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+    const groupInput = groups[groupIndex];
+
+    const group = await tx.productVariantGroup.create({
+      data: {
+        productId,
+        name: groupInput.name,
+        sortOrder: groupInput.sortOrder ?? groupIndex,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    const options: CreatedOption[] = [];
+
+    for (let optionIndex = 0; optionIndex < groupInput.options.length; optionIndex++) {
+      const optionInput = groupInput.options[optionIndex];
+
+      const option = await tx.productVariantOption.create({
+        data: {
+          groupId: group.id,
+          label: optionInput.label,
+          sortOrder: optionInput.sortOrder ?? optionIndex,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          groupId: true,
+          label: true,
+        },
+      });
+
+      options.push({
+        ...option,
+        key: optionInput.key,
+        clientRef:
+          groupInput.id && optionInput.id
+            ? `${groupInput.id}::${optionInput.id}`
+            : undefined,
+      });
+    }
+
+    result.push({
+      id: group.id,
+      name: group.name,
+      options,
+      clientRef: groupInput.id,
+    });
+  }
+
+  return result;
+}
+
+function buildOptionMaps(groups: CreatedGroup[]) {
+  const byKey = new Map<string, CreatedOption>();
+  const byId = new Map<string, CreatedOption>();
+  const groupById = new Map<string, CreatedGroup>();
+
+  for (const group of groups) {
+    groupById.set(group.id, group);
+
+    for (const option of group.options) {
+      byKey.set(optionKey(group.name, option.label), option);
+
+      if (option.key) {
+        byKey.set(normalizeKey(option.key), option);
+      }
+
+      if (option.clientRef) {
+        byKey.set(normalizeKey(option.clientRef), option);
+      }
+
+      byId.set(option.id, option);
+    }
+  }
+
+  return { byKey, byId, groupById };
+}
+
+function resolveSkuOptionIds(
+  input: ProductSkuInput,
+  groups: CreatedGroup[],
+  maps: ReturnType<typeof buildOptionMaps>
+): string[] {
+  const refs = input.optionRefs ?? [];
+
+  if (refs.length === 0) {
+    throw new Error(
+      `SKU "${input.sku}" harus memiliki optionRefs.`
+    );
+  }
+
+  const ids = refs.map((ref) => {
+    const normalizedRef = normalizeKey(ref);
+
+    // Existing DB ID
+    const byId = maps.byId.get(ref);
+    if (byId) return byId.id;
+
+    // Client key or Group::Option key
+    const byKey = maps.byKey.get(normalizedRef);
+    if (byKey) return byKey.id;
+
+    throw new Error(
+      `Option reference "${ref}" pada SKU "${input.sku}" tidak ditemukan.`
+    );
+  });
+
+  const uniqueIds = [...new Set(ids)];
+
+  if (uniqueIds.length !== ids.length) {
+    throw new Error(
+      `SKU "${input.sku}" tidak boleh memilih option yang sama lebih dari satu kali.`
+    );
+  }
+
+  if (uniqueIds.length !== groups.length) {
+    throw new Error(
+      `SKU "${input.sku}" harus memilih tepat 1 option dari setiap variant group.`
+    );
+  }
+
+  const selected = uniqueIds.map((id) => maps.byId.get(id)!);
+  const groupIds = new Set(
+    selected.map((option) => option.groupId)
+  );
+
+  if (groupIds.size !== groups.length) {
+    throw new Error(
+      `SKU "${input.sku}" memiliki lebih dari satu option dari group yang sama atau tidak lengkap.`
+    );
+  }
+
+  return uniqueIds;
+}
+
+function validateSkuNumbers(input: ProductSkuInput) {
+  const sku = input.sku.trim();
+  if (!sku) throw new Error("SKU tidak boleh kosong.");
+
+  if (!Number.isFinite(input.price) || input.price < 0) {
+    throw new Error(`Harga SKU "${sku}" tidak valid.`);
+  }
+
+  if (!Number.isInteger(input.stock) || input.stock < 0) {
+    throw new Error(`Stok SKU "${sku}" harus bilangan bulat >= 0.`);
+  }
+
+  return sku;
+}
 
 export class ProductService {
-  /**
-   * ==========================================================
-   *
-   * PRODUCT LIST
-   *
-   * ==========================================================
-   */
-
-  static async getProducts(
-    filters: ProductFilters = {}
-  ) {
-    return ProductRepository.findMany(
-      filters
-    );
+  static async getProducts(filters: ProductFilters = {}) {
+    return ProductRepository.findMany(filters);
   }
 
-  /**
-   * ==========================================================
-   *
-   * PRODUCT DETAIL
-   *
-   * ==========================================================
-   */
-
-  static async getProductById(
-    id: string
-  ) {
-    return ProductRepository.findById(
-      id
-    );
+  static async getProductById(id: string) {
+    return ProductRepository.findById(id);
   }
 
-  /**
-   * ==========================================================
-   *
-   * PRODUCT BY SLUG
-   *
-   * ==========================================================
-   */
-
-  static async getProductBySlug(
-    slug: string
-  ) {
-    return ProductRepository.findBySlug(
-      slug
-    );
+  static async getProductForAdmin(id: string) {
+    return ProductRepository.findByIdForAdmin(id);
   }
 
-  /**
-   * ==========================================================
-   *
-   * CREATE PRODUCT
-   *
-   * ==========================================================
-   */
+  static async getProductBySlug(slug: string) {
+    return ProductRepository.findBySlug(slug);
+  }
 
-  static async createProduct(
-    input: CreateProductInput
-  ) {
-    const slugExists =
-      await ProductRepository.existsBySlug(
-        input.slug
-      );
+    static async createProduct(input: CreateProductInput) {
+    const slug = input.slug.trim();
 
-    if (slugExists) {
-      throw new Error(
-        "Slug produk sudah digunakan."
-      );
+    if (!slug) {
+      throw new Error("Slug produk wajib diisi.");
     }
 
-    if (input.sku) {
-      const skuExists =
-        await ProductRepository.existsBySku(
-          input.sku
-        );
-
-      if (skuExists) {
-        throw new Error(
-          "SKU produk sudah digunakan."
-        );
-      }
+    if (await ProductRepository.existsBySlug(slug)) {
+      throw new Error("Slug produk sudah digunakan.");
     }
 
-    const variantOptions =
-      normalizeVariantOptions(
-        input.variantOptions
-      ) ?? [];
+    const parentSku = input.sku?.trim() || null;
 
-    const weightOptions =
-      normalizeWeightOptions(
-        input.weightOptions
-      ) ?? [];
+    if (
+      parentSku &&
+      (await ProductRepository.existsByProductSku(parentSku))
+    ) {
+      throw new Error("SKU produk sudah digunakan.");
+    }
 
-    const weightVariantPrices =
-      normalizeWeightVariantPrices(
-        input.weightVariantPrices
-      ) ?? [];
+    const hasVariantPayload =
+      input.variantGroups !== undefined;
+
+    const groups = hasVariantPayload
+      ? validateVariantGroups(
+          input.variantGroups ?? []
+        )
+      : [];
+
+    if (
+  input.skus &&
+  input.skus.length > 0 &&
+  groups.length === 0 &&
+  input.skus.length !== 1
+) {
+  throw new Error(
+    "Produk tanpa variant hanya boleh memiliki satu SKU."
+  );
+}
 
     /**
      * ==========================================================
-     * CREATE PRODUCT + WEIGHTS + VARIANTS + MATRIX
+     * CREATE PRODUCT + SKU + OPTIONS
      * ==========================================================
      *
-     * Semua perubahan dilakukan dalam satu transaction.
+     * SEMUA operasi CREATE dilakukan di dalam transaction.
+     *
+     * PENTING:
+     *
+     * Jangan memanggil:
+     *
+     * ProductRepository.findByIdForAdmin()
+     *
+     * dari dalam transaction karena method tersebut menggunakan
+     * Prisma client biasa, bukan transaction client (tx).
+     *
+     * Transaction hanya mengembalikan product.id.
+     * Setelah transaction COMMIT, product dibaca kembali
+     * menggunakan ProductRepository biasa.
+     *
+     * ==========================================================
      */
 
-    return ProductRepository.transaction(
-      async (tx: Prisma.TransactionClient) => {
-        const product =
-          await tx.product.create({
-            data: {
-              categoryId:
-                input.categoryId,
+    const createdProductId =
+      await ProductRepository.transaction(
+        async (tx) => {
+          /**
+           * ======================================================
+           * CREATE PRODUCT
+           * ======================================================
+           */
 
-              name:
-                input.name,
+          const product =
+            await tx.product.create({
+              data: {
+                categoryId:
+                  input.categoryId,
 
-              slug:
-                input.slug,
+                name:
+                  input.name.trim(),
 
-              description:
-                input.description?.trim() ||
-                null,
+                slug,
 
-              sku:
-                input.sku?.trim() ||
-                null,
+                description:
+                  input.description?.trim() ||
+                  null,
 
-              price:
-                input.price,
+                sku:
+                  parentSku,
 
-              isDiscountActive:
-                input.isDiscountActive ??
-                false,
+                price:
+                  input.price,
 
-              discountType:
-                input.isDiscountActive
-                  ? input.discountType ??
-                    null
-                  : null,
+                /**
+                 * Jika product mempunyai variant,
+                 * stock Product = 0.
+                 *
+                 * Stock sebenarnya berada di ProductSku.
+                 */
+                stock:
+                  groups.length > 0
+                    ? 0
+                    : input.stock,
 
-              discountValue:
-                input.isDiscountActive
-                  ? input.discountValue ??
-                    null
-                  : null,
+                isDiscountActive:
+                  input.isDiscountActive ??
+                  false,
 
-              discountStartAt:
-                input.isDiscountActive
-                  ? input.discountStartAt ??
-                    null
-                  : null,
+                discountType:
+                  input.isDiscountActive
+                    ? input.discountType ??
+                      null
+                    : null,
 
-              discountEndAt:
-                input.isDiscountActive
-                  ? input.discountEndAt ??
-                    null
-                  : null,
+                discountValue:
+                  input.isDiscountActive
+                    ? input.discountValue ??
+                      null
+                    : null,
 
-              stock:
-                input.stock,
+                discountStartAt:
+                  input.isDiscountActive
+                    ? input.discountStartAt ??
+                      null
+                    : null,
 
-              isPublished:
-                input.isPublished ??
-                true,
+                discountEndAt:
+                  input.isDiscountActive
+                    ? input.discountEndAt ??
+                      null
+                    : null,
 
-              featured:
-                input.featured ??
-                false,
+                isPublished:
+                  input.isPublished ??
+                  true,
 
-              variantOptions: {
-                create:
-                  variantOptions.map(
-                    (
-                      option,
-                      index
-                    ) => ({
-                      label:
-                        option.label,
-
-                      priceAdjustment:
-                        option.priceAdjustment,
-
-                      sortOrder:
-                        index,
-
-                      isActive:
-                        true,
-                    })
-                  ),
+                featured:
+                  input.featured ??
+                  false,
               },
+            });
 
-              weightOptions: {
-                create:
-                  weightOptions.map(
-                    (
-                      option,
-                      index
-                    ) => ({
-                      label:
-                        option.label,
+          /**
+           * ======================================================
+           * PRODUCT TANPA VARIANT
+           * ======================================================
+           */
 
-                      price:
-                        option.price,
+          if (groups.length === 0) {
+            const skuInput =
+              input.skus?.[0];
 
-                      sortOrder:
-                        index,
+            const sku =
+              skuInput
+                ? validateSkuNumbers(
+                    skuInput
+                  )
+                : parentSku ||
+                  buildGeneratedSku(
+                    product.sku ||
+                      product.slug,
+                    [],
+                    0
+                  );
 
-                      isActive:
-                        true,
-                    })
-                  ),
-              },
-            },
+            /**
+             * Pastikan SKU belum digunakan.
+             */
 
-            include: {
-              weightOptions: {
+            const skuExists =
+              await tx.productSku.findUnique({
+                where: {
+                  sku,
+                },
+
                 select: {
                   id: true,
-                  label: true,
                 },
+              });
+
+            if (skuExists) {
+              throw new Error(
+                `SKU "${sku}" sudah digunakan.`
+              );
+            }
+
+            /**
+             * CREATE PRODUCT SKU
+             */
+
+            await tx.productSku.create({
+              data: {
+                productId:
+                  product.id,
+
+                sku,
+
+                price:
+                  skuInput?.price ??
+                  input.price,
+
+                stock:
+                  skuInput?.stock ??
+                  input.stock,
+
+                isActive:
+                  skuInput?.isActive ??
+                  true,
               },
+            });
 
-              variantOptions: {
-                select: {
-                  id: true,
-                  label: true,
-                },
-              },
-            },
-          });
+            /**
+             * PENTING:
+             *
+             * Jangan:
+             *
+             * return ProductRepository.findByIdForAdmin(...)
+             *
+             * karena kita masih berada di transaction.
+             *
+             * Cukup return ID.
+             */
 
-        /**
-         * ========================================================
-         * CREATE WEIGHT × VARIANT PRICES
-         * ========================================================
-         */
+            return product.id;
+          }
 
-        if (
-          weightVariantPrices.length > 0
-        ) {
-          const matrix =
-            buildWeightVariantPriceCreateData(
-              weightVariantPrices,
+          /**
+           * ======================================================
+           * CREATE VARIANT GROUPS + OPTIONS
+           * ======================================================
+           */
 
-              product.weightOptions,
-
-              product.variantOptions
+          const createdGroups =
+            await createGroupsAndOptions(
+              tx,
+              product.id,
+              groups
             );
 
-          if (matrix.length > 0) {
-            await tx.productWeightVariantPrice.createMany({
-              data: matrix.map(
-                (item) => ({
-                  productId:
-                    product.id,
+          /**
+           * ======================================================
+           * BUILD OPTION MAP
+           * ======================================================
+           */
 
-                  weightOptionId:
-                    item.weightOptionId,
+          const maps =
+            buildOptionMaps(
+              createdGroups
+            );
 
-                  variantOptionId:
-                    item.variantOptionId,
+          /**
+           * ======================================================
+           * BUILD COMBINATIONS
+           * ======================================================
+           */
 
-                  price:
-                    item.price,
-                })
-              ),
-            });
+          const combinations =
+            cartesian(
+              createdGroups.map(
+                (group) =>
+                  group.options
+              )
+            );
+
+          /**
+           * ======================================================
+           * PREPARE SKU INPUT
+           * ======================================================
+           */
+
+          const skuInputs:
+            ProductSkuInput[] =
+            input.skus &&
+            input.skus.length > 0
+              ? input.skus
+              : combinations.map(
+                  (
+                    options,
+                    index
+                  ) => ({
+                    sku:
+                      buildGeneratedSku(
+                        input.sku?.trim() ||
+                          product.slug,
+
+                        options.map(
+                          (option) =>
+                            option.label
+                        ),
+
+                        index
+                      ),
+
+                    price:
+                      input.price,
+
+                    stock:
+                      0,
+
+                    optionRefs:
+                      options.map(
+                        (option) =>
+                          option.id
+                      ),
+
+                    isActive:
+                      true,
+                  })
+                );
+
+          /**
+           * ======================================================
+           * DUPLICATE DETECTION
+           * ======================================================
+           */
+
+          const seenCombinationKeys =
+            new Set<string>();
+
+          const seenSkus =
+            new Set<string>();
+
+          /**
+           * ======================================================
+           * CREATE EACH SKU
+           * ======================================================
+           */
+
+          for (
+            const skuInput of skuInputs
+          ) {
+            const sku =
+              validateSkuNumbers(
+                skuInput
+              );
+
+            /**
+             * Resolve option IDs
+             */
+
+            const optionIds =
+              resolveSkuOptionIds(
+                skuInput,
+                createdGroups,
+                maps
+              );
+
+            /**
+             * Combination key
+             */
+
+            const combinationKey =
+              skuKey(optionIds);
+
+            if (
+              seenCombinationKeys.has(
+                combinationKey
+              )
+            ) {
+              throw new Error(
+                `Kombinasi option untuk SKU "${sku}" duplikat.`
+              );
+            }
+
+            seenCombinationKeys.add(
+              combinationKey
+            );
+
+            /**
+             * SKU duplicate dalam request
+             */
+
+            const skuKeyNormalized =
+              sku.toLowerCase();
+
+            if (
+              seenSkus.has(
+                skuKeyNormalized
+              )
+            ) {
+              throw new Error(
+                `SKU "${sku}" duplikat dalam request.`
+              );
+            }
+
+            seenSkus.add(
+              skuKeyNormalized
+            );
+
+            /**
+             * Cek SKU di database
+             */
+
+            const existingSku =
+              await tx.productSku.findUnique(
+                {
+                  where: {
+                    sku,
+                  },
+
+                  select: {
+                    id: true,
+                  },
+                }
+              );
+
+            if (existingSku) {
+              throw new Error(
+                `SKU "${sku}" sudah digunakan.`
+              );
+            }
+
+            /**
+             * CREATE PRODUCT SKU
+             */
+
+            const createdSku =
+              await tx.productSku.create(
+                {
+                  data: {
+                    productId:
+                      product.id,
+
+                    sku,
+
+                    price:
+                      skuInput.price,
+
+                    stock:
+                      skuInput.stock,
+
+                    isActive:
+                      skuInput.isActive ??
+                      true,
+                  },
+
+                  select: {
+                    id: true,
+                  },
+                }
+              );
+
+            /**
+             * ==================================================
+             * CONNECT SKU ↔ VARIANT OPTIONS
+             * ==================================================
+             */
+
+            await tx.productSkuOption.createMany(
+              {
+                data:
+                  optionIds.map(
+                    (
+                      variantOptionId
+                    ) => ({
+                      skuId:
+                        createdSku.id,
+
+                      variantOptionId,
+                    })
+                  ),
+
+                skipDuplicates:
+                  true,
+              }
+            );
           }
-        }
 
-        return product;
-      }
-    );
+          /**
+           * ======================================================
+           * TRANSACTION HANYA RETURN PRODUCT ID
+           * ======================================================
+           */
+
+          return product.id;
+        }
+      );
+
+    /**
+     * ==========================================================
+     * TRANSACTION SUDAH COMMIT
+     * ==========================================================
+     *
+     * Sekarang aman menggunakan ProductRepository biasa.
+     *
+     * Ini adalah bagian yang memperbaiki bug sebelumnya.
+     *
+     * ==========================================================
+     */
+
+    const createdProduct =
+      await ProductRepository.findByIdForAdmin(
+        createdProductId
+      );
+
+    /**
+     * ==========================================================
+     * FINAL SAFETY CHECK
+     * ==========================================================
+     */
+
+    if (!createdProduct) {
+      throw new Error(
+        "Produk berhasil disimpan tetapi gagal dibaca kembali setelah transaction."
+      );
+    }
+
+    /**
+     * ==========================================================
+     * RETURN CREATED PRODUCT
+     * ==========================================================
+     */
+
+    return createdProduct;
   }
 
-  /**
-   * ==========================================================
-   *
-   * UPDATE PRODUCT
-   *
-   * ==========================================================
-   */
-
-  static async updateProduct(
+    static async updateProduct(
     id: string,
     input: UpdateProductInput
   ) {
-    const product =
-      await ProductRepository.findById(
+    /**
+     * ==========================================================
+     * GET EXISTING PRODUCT
+     * ==========================================================
+     */
+
+    const existing =
+      await ProductRepository.findByIdForAdmin(
         id
       );
 
-    if (!product) {
+    if (!existing) {
       throw new Error(
         "Produk tidak ditemukan."
       );
     }
 
-    if (
-      input.slug &&
-      input.slug !== product.slug
-    ) {
-      const slugExists =
-        await ProductRepository.existsBySlug(
-          input.slug
-        );
-
-      if (slugExists) {
-        throw new Error(
-          "Slug produk sudah digunakan."
-        );
-      }
-    }
+    /**
+     * ==========================================================
+     * VALIDATE SLUG
+     * ==========================================================
+     */
 
     if (
-      input.sku &&
-      input.sku !== product.sku
+      input.slug !== undefined &&
+      input.slug.trim() !== existing.slug &&
+      (await ProductRepository.existsBySlug(
+        input.slug.trim()
+      ))
     ) {
-      const skuExists =
-        await ProductRepository.existsBySku(
-          input.sku
-        );
-
-      if (skuExists) {
-        throw new Error(
-          "SKU produk sudah digunakan."
-        );
-      }
+      throw new Error(
+        "Slug produk sudah digunakan."
+      );
     }
 
-    const variantOptions =
-      normalizeVariantOptions(
-        input.variantOptions
-      );
+    /**
+ * ==========================================================
+ * VALIDATE PRODUCT SKU
+ * ==========================================================
+ *
+ * input.sku dapat berupa:
+ * - undefined -> tidak mengubah SKU parent
+ * - null      -> mengosongkan SKU parent
+ * - ""        -> mengosongkan SKU parent
+ * - string    -> set SKU parent baru
+ */
 
-    const weightOptions =
-      normalizeWeightOptions(
-        input.weightOptions
-      );
+const normalizedSku =
+  input.sku?.trim() || null;
 
-    const weightVariantPrices =
-      normalizeWeightVariantPrices(
-        input.weightVariantPrices
+if (
+  normalizedSku !== null &&
+  normalizedSku !== existing.sku &&
+  (await ProductRepository.existsByProductSku(
+    normalizedSku
+  ))
+) {
+  throw new Error(
+    "SKU produk sudah digunakan."
+  );
+}
+
+    /**
+     * ==========================================================
+     * VARIANT PAYLOAD SEMANTICS
+     * ==========================================================
+     *
+     * undefined
+     * = jangan mengubah konfigurasi variant.
+     *
+     * []
+     * = produk sengaja tidak memiliki variant.
+     *
+     * [...]
+     * = konfigurasi variant dikirim dan harus disinkronkan.
+     */
+
+    const variantGroupsProvided =
+      input.variantGroups !==
+      undefined;
+
+    const groups =
+      variantGroupsProvided
+        ? validateVariantGroups(
+            input.variantGroups ?? []
+          )
+        : undefined;
+
+        if (
+  groups !== undefined
+) {
+  const groupNames =
+    new Set<string>();
+
+  for (
+    const group of groups
+  ) {
+    const normalizedGroupName =
+      group.name
+        .trim()
+        .toLowerCase();
+
+    if (
+      groupNames.has(
+        normalizedGroupName
+      )
+    ) {
+      throw new Error(
+        `Variant group "${group.name}" duplikat.`
       );
+    }
+
+    groupNames.add(
+      normalizedGroupName
+    );
+
+    const optionLabels =
+      new Set<string>();
+
+    for (
+      const option of group.options
+    ) {
+      const normalizedOptionLabel =
+        option.label
+          .trim()
+          .toLowerCase();
+
+      if (
+        optionLabels.has(
+          normalizedOptionLabel
+        )
+      ) {
+        throw new Error(
+          `Option "${option.label}" duplikat pada variant "${group.name}".`
+        );
+      }
+
+      optionLabels.add(
+        normalizedOptionLabel
+      );
+    }
+  }
+}
+
+    /**
+     * ==========================================================
+     * TRANSACTION
+     * ==========================================================
+     */
 
     return ProductRepository.transaction(
-      async (tx: Prisma.TransactionClient) => {
+      async (tx) => {
         /**
          * ========================================================
          * UPDATE PRODUCT CORE
          * ========================================================
          */
 
-        await tx.product.update({
-          where: {
+        const product =
+          await tx.product.update({
+            where: {
+              id,
+            },
+
+            data: {
+              /**
+               * --------------------------------------------------
+               * BASIC PRODUCT DATA
+               * --------------------------------------------------
+               */
+
+              ...(input.categoryId !==
+                undefined && {
+                categoryId:
+                  input.categoryId,
+              }),
+
+              ...(input.name !==
+                undefined && {
+                name:
+                  input.name.trim(),
+              }),
+
+              ...(input.slug !==
+                undefined && {
+                slug:
+                  input.slug.trim(),
+              }),
+
+              ...(input.description !==
+                undefined && {
+                description:
+                  input.description?.trim() ||
+                  null,
+              }),
+
+              ...(input.sku !==
+                undefined && {
+                sku:
+                  input.sku?.trim() ||
+                  null,
+              }),
+
+              /**
+               * --------------------------------------------------
+               * BASE PRICE
+               * --------------------------------------------------
+               */
+
+              ...(input.price !==
+                undefined && {
+                price:
+                  input.price,
+              }),
+
+              /**
+               * --------------------------------------------------
+               * LEGACY PRODUCT STOCK
+               * --------------------------------------------------
+               *
+               * Product.stock hanya boleh diubah langsung
+               * jika konfigurasi variant tidak sedang dikirim.
+               *
+               * Untuk produk variant:
+               *
+               * ProductSku.stock
+               *
+               * adalah canonical stock.
+               */
+
+              ...(input.stock !==
+                undefined &&
+                groups === undefined && {
+                  stock:
+                    input.stock,
+                }),
+
+              /**
+               * --------------------------------------------------
+               * DISCOUNT
+               * --------------------------------------------------
+               */
+
+              ...(input.isDiscountActive !==
+                undefined && {
+                isDiscountActive:
+                  input.isDiscountActive,
+              }),
+
+              ...(input.discountType !==
+                undefined && {
+                discountType:
+                  input.isDiscountActive ===
+                  false
+                    ? null
+                    : input.discountType,
+              }),
+
+              ...(input.discountValue !==
+                undefined && {
+                discountValue:
+                  input.isDiscountActive ===
+                  false
+                    ? null
+                    : input.discountValue,
+              }),
+
+              ...(input.discountStartAt !==
+                undefined && {
+                discountStartAt:
+                  input.isDiscountActive ===
+                  false
+                    ? null
+                    : input.discountStartAt,
+              }),
+
+              ...(input.discountEndAt !==
+                undefined && {
+                discountEndAt:
+                  input.isDiscountActive ===
+                  false
+                    ? null
+                    : input.discountEndAt,
+              }),
+
+              /**
+               * --------------------------------------------------
+               * STATUS
+               * --------------------------------------------------
+               */
+
+              ...(input.isPublished !==
+                undefined && {
+                isPublished:
+                  input.isPublished,
+              }),
+
+              ...(input.featured !==
+                undefined && {
+                featured:
+                  input.featured,
+              }),
+            },
+          });
+
+        /**
+         * ========================================================
+         * CASE 1
+         * ========================================================
+         *
+         * variantGroups === undefined
+         *
+         * Artinya caller hanya ingin mengubah data product
+         * biasa atau SKU tanpa mengubah struktur variant group.
+         *
+         * Contoh:
+         *
+         * - ubah nama
+         * - ubah harga
+         * - ubah stock produk non-variant
+         * - ubah discount
+         * - update SKU existing
+         *
+         * Struktur variant lama harus dipertahankan.
+         */
+
+        if (
+          !variantGroupsProvided
+        ) {
+          if (
+            input.skus !==
+            undefined
+          ) {
+            await this.syncSkus(
+              tx,
+              id,
+              input.skus,
+              mapExistingVariantGroups(
+                existing.variantGroups
+              )
+            );
+          }
+
+          /**
+ * ============================================================
+ * SYNC PRODUCT STOCK FROM SKU STOCK
+ * ============================================================
+ *
+ * Untuk product dengan variant, Product.stock adalah
+ * agregasi seluruh stock SKU aktif.
+ *
+ * Contoh:
+ *
+ * SKU A = 20
+ * SKU B = 15
+ * SKU C = 10
+ *
+ * Product.stock = 45
+ */
+
+const stockAggregate =
+  await tx.productSku.aggregate({
+    where: {
+      productId:
+        product.id,
+
+      isActive:
+        true,
+    },
+
+    _sum: {
+      stock:
+        true,
+    },
+  });
+
+const totalSkuStock =
+  stockAggregate._sum.stock ??
+  0;
+
+await tx.product.update({
+  where: {
+    id:
+      product.id,
+  },
+
+  data: {
+    stock:
+      totalSkuStock,
+  },
+});
+
+          return ProductRepository.findByIdForAdmin(
+            product.id
+          );
+        }
+
+        /**
+         * ========================================================
+         * CASE 2
+         * ========================================================
+         *
+         * Explicit []
+         *
+         * Artinya product sengaja diubah menjadi
+         * product tanpa variant.
+         *
+         * Variant lama TIDAK dihapus secara fisik.
+         * Hanya dinonaktifkan agar histori OrderItem,
+         * StockLedger, Cart, FlashSale, dll tetap aman.
+         */
+
+        if (
+          groups!.length ===
+          0
+        ) {
+          /**
+           * ------------------------------------------------------
+           * DEACTIVATE VARIANT GROUP
+           * ------------------------------------------------------
+           */
+
+          await tx.productVariantGroup.updateMany({
+            where: {
+              productId:
+                id,
+            },
+
+            data: {
+              isActive:
+                false,
+            },
+          });
+
+          /**
+           * ------------------------------------------------------
+           * DEACTIVATE VARIANT OPTION
+           * ------------------------------------------------------
+           */
+
+          await tx.productVariantOption.updateMany({
+            where: {
+              group: {
+                productId:
+                  id,
+              },
+            },
+
+            data: {
+              isActive:
+                false,
+            },
+          });
+
+          /**
+           * ------------------------------------------------------
+           * DEACTIVATE SKU
+           * ------------------------------------------------------
+           */
+
+          await tx.productSku.updateMany({
+            where: {
+              productId:
+                id,
+            },
+
+            data: {
+              isActive:
+                false,
+            },
+          });
+
+          /**
+           * ------------------------------------------------------
+           * DEFAULT SKU
+           * ------------------------------------------------------
+           *
+           * Prioritas:
+           *
+           * 1. SKU dari request
+           * 2. Product.sku dari request
+           * 3. Product.sku existing
+           * 4. Generated SKU
+           */
+
+          const defaultSkuInput =
+            input.skus?.[0];
+
+          const defaultSku =
+            defaultSkuInput
+              ? validateSkuNumbers(
+                  defaultSkuInput
+                )
+              : input.sku?.trim() ||
+                existing.sku ||
+                buildGeneratedSku(
+                  product.slug,
+                  [],
+                  0
+                );
+
+          /**
+           * ------------------------------------------------------
+           * DEFAULT PRICE
+           * ------------------------------------------------------
+           */
+
+          const defaultPrice =
+            defaultSkuInput?.price ??
+            input.price ??
+            Number(
+              product.price
+            );
+
+          /**
+           * ------------------------------------------------------
+           * DEFAULT STOCK
+           * ------------------------------------------------------
+           */
+
+          const defaultStock =
+            defaultSkuInput?.stock ??
+            input.stock ??
+            0;
+
+          /**
+           * ------------------------------------------------------
+           * FIND EXISTING DEFAULT SKU
+           * ------------------------------------------------------
+           */
+
+          const existingDefaultSku =
+            await tx.productSku.findFirst({
+              where: {
+                productId:
+                  id,
+
+                sku:
+                  defaultSku,
+              },
+
+              select: {
+                id: true,
+              },
+            });
+
+          /**
+           * ------------------------------------------------------
+           * UPDATE EXISTING DEFAULT SKU
+           * ------------------------------------------------------
+           */
+
+          if (
+            existingDefaultSku
+          ) {
+            await tx.productSku.update({
+              where: {
+                id:
+                  existingDefaultSku.id,
+              },
+
+              data: {
+                price:
+                  defaultPrice,
+
+                stock:
+                  defaultStock,
+
+                isActive:
+                  true,
+              },
+            });
+          } else {
+            /**
+             * ----------------------------------------------------
+             * CHECK SKU CONFLICT WITH OTHER PRODUCT
+             * ----------------------------------------------------
+             */
+
+            const conflictingSku =
+              await tx.productSku.findUnique({
+                where: {
+                  sku:
+                    defaultSku,
+                },
+
+                select: {
+                  id: true,
+
+                  productId:
+                    true,
+                },
+              });
+
+            if (
+              conflictingSku &&
+              conflictingSku.productId !==
+                id
+            ) {
+              throw new Error(
+                `SKU "${defaultSku}" sudah digunakan produk lain.`
+              );
+            }
+
+            /**
+             * ----------------------------------------------------
+             * CREATE DEFAULT SKU
+             * ----------------------------------------------------
+             */
+
+            await tx.productSku.create({
+              data: {
+                productId:
+                  id,
+
+                sku:
+                  defaultSku,
+
+                price:
+                  defaultPrice,
+
+                stock:
+                  defaultStock,
+
+                isActive:
+                  true,
+              },
+            });
+          }
+
+          /**
+           * ------------------------------------------------------
+           * UPDATE LEGACY PRODUCT STOCK
+           * ------------------------------------------------------
+           */
+
+          if (
+            input.stock !==
+            undefined
+          ) {
+            await tx.product.update({
+              where: {
+                id,
+              },
+
+              data: {
+                stock:
+                  input.stock,
+              },
+            });
+          }
+
+          return ProductRepository.findByIdForAdmin(
+            product.id
+          );
+        }
+
+        /**
+         * ========================================================
+         * CASE 3
+         * ========================================================
+         *
+         * Variant groups dikirim.
+         *
+         * Kita melakukan UPSERT terhadap:
+         *
+         * ProductVariantGroup
+         * ProductVariantOption
+         *
+         * Existing ID akan dipertahankan.
+         * Data baru akan dibuat.
+         * Data yang sudah tidak dikirim akan dinonaktifkan.
+         */
+
+        const activeGroupIds =
+          new Set<string>();
+
+        const activeOptionIds =
+          new Set<string>();
+
+        const optionMaps =
+          new Map<
+            string,
+            string
+          >();
+
+        const groupRecords:
+          CreatedGroup[] = [];
+
+        /**
+         * ========================================================
+         * UPSERT VARIANT GROUPS
+         * ========================================================
+         */
+
+        for (
+          let groupIndex = 0;
+          groupIndex <
+          groups!.length;
+          groupIndex++
+        ) {
+          const groupInput =
+            groups![
+              groupIndex
+            ];
+
+          let groupId =
+            groupInput.id;
+
+          /**
+           * ------------------------------------------------------
+           * EXISTING GROUP
+           * ------------------------------------------------------
+           */
+
+          if (groupId) {
+            const ownedGroup =
+              await tx.productVariantGroup.findFirst({
+                where: {
+                  id:
+                    groupId,
+
+                  productId:
+                    id,
+                },
+
+                select: {
+                  id: true,
+                },
+              });
+
+            if (
+              !ownedGroup
+            ) {
+              throw new Error(
+                `Variant group "${groupInput.name}" memiliki ID yang tidak valid.`
+              );
+            }
+
+            await tx.productVariantGroup.update({
+              where: {
+                id:
+                  groupId,
+              },
+
+              data: {
+                name:
+                  groupInput.name,
+
+                sortOrder:
+                  groupInput.sortOrder ??
+                  groupIndex,
+
+                isActive:
+                  true,
+              },
+            });
+          } else {
+  /**
+   * ----------------------------------------------------
+   * FIND EXISTING GROUP BY PRODUCT + NAME
+   * ----------------------------------------------------
+   *
+   * Frontend seharusnya mengirim ID untuk group lama.
+   *
+   * Tetapi jika ID tidak ikut terkirim, jangan langsung
+   * melakukan CREATE karena database memiliki unique
+   * constraint:
+   *
+   * @@unique([productId, name])
+   *
+   * Cari terlebih dahulu group existing berdasarkan:
+   *
+   * productId + name
+   *
+   * Jika ditemukan:
+   * - gunakan ID existing
+   * - aktifkan kembali
+   * - update sortOrder
+   *
+   * Jika tidak ditemukan:
+   * - create group baru
+   */
+
+  const existingGroup =
+    await tx.productVariantGroup.findFirst({
+      where: {
+        productId:
+          id,
+
+        name:
+          groupInput.name,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  if (existingGroup) {
+    /**
+     * ------------------------------------------------------
+     * REUSE EXISTING GROUP
+     * ------------------------------------------------------
+     */
+
+    groupId =
+      existingGroup.id;
+
+    await tx.productVariantGroup.update({
+      where: {
+        id:
+          groupId,
+      },
+
+      data: {
+        name:
+          groupInput.name,
+
+        sortOrder:
+          groupInput.sortOrder ??
+          groupIndex,
+
+        isActive:
+          true,
+      },
+    });
+  } else {
+    /**
+     * ------------------------------------------------------
+     * CREATE BRAND NEW GROUP
+     * ------------------------------------------------------
+     */
+
+    const created =
+      await tx.productVariantGroup.create({
+        data: {
+          productId:
             id,
+
+          name:
+            groupInput.name,
+
+          sortOrder:
+            groupInput.sortOrder ??
+            groupIndex,
+
+          isActive:
+            true,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    groupId =
+      created.id;
+  }
+}
+
+          activeGroupIds.add(
+            groupId
+          );
+
+          const optionRecords:
+            CreatedOption[] = [];
+
+          /**
+           * ======================================================
+           * UPSERT OPTIONS
+           * ======================================================
+           */
+
+          for (
+            let optionIndex = 0;
+            optionIndex <
+            groupInput.options.length;
+            optionIndex++
+          ) {
+            const optionInput =
+              groupInput.options[
+                optionIndex
+              ];
+
+            let optionId =
+              optionInput.id;
+
+            /**
+             * ----------------------------------------------------
+             * EXISTING OPTION
+             * ----------------------------------------------------
+             */
+
+            if (optionId) {
+              const ownedOption =
+                await tx.productVariantOption.findFirst({
+                  where: {
+                    id:
+                      optionId,
+
+                    groupId:
+                      groupId,
+                  },
+
+                  select: {
+                    id: true,
+                  },
+                });
+
+              if (
+                !ownedOption
+              ) {
+                throw new Error(
+                  `Option "${optionInput.label}" memiliki ID yang tidak valid.`
+                );
+              }
+
+              await tx.productVariantOption.update({
+                where: {
+                  id:
+                    optionId,
+                },
+
+                data: {
+                  label:
+                    optionInput.label,
+
+                  sortOrder:
+                    optionInput.sortOrder ??
+                    optionIndex,
+
+                  isActive:
+                    true,
+                },
+              });
+           } else {
+  /**
+   * --------------------------------------------------
+   * FIND EXISTING OPTION BY GROUP + LABEL
+   * --------------------------------------------------
+   *
+   * Sama seperti VariantGroup:
+   *
+   * jika frontend tidak mengirim option.id,
+   * jangan langsung CREATE.
+   *
+   * Cari terlebih dahulu berdasarkan:
+   *
+   * groupId + label
+   */
+
+  const existingOption =
+    await tx.productVariantOption.findFirst({
+      where: {
+        groupId:
+          groupId,
+
+        label:
+          optionInput.label,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  if (existingOption) {
+    /**
+     * ------------------------------------------------
+     * REUSE EXISTING OPTION
+     * ------------------------------------------------
+     */
+
+    optionId =
+      existingOption.id;
+
+    await tx.productVariantOption.update({
+      where: {
+        id:
+          optionId,
+      },
+
+      data: {
+        label:
+          optionInput.label,
+
+        sortOrder:
+          optionInput.sortOrder ??
+          optionIndex,
+
+        isActive:
+          true,
+      },
+    });
+  } else {
+    /**
+     * ------------------------------------------------
+     * CREATE BRAND NEW OPTION
+     * ------------------------------------------------
+     */
+
+    const created =
+      await tx.productVariantOption.create({
+        data: {
+          groupId:
+            groupId,
+
+          label:
+            optionInput.label,
+
+          sortOrder:
+            optionInput.sortOrder ??
+            optionIndex,
+
+          isActive:
+            true,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    optionId =
+      created.id;
+  }
+}
+
+            activeOptionIds.add(
+              optionId
+            );
+
+            const optionRecord =
+              {
+                id:
+                  optionId,
+
+                groupId:
+                  groupId,
+
+                label:
+                  optionInput.label,
+
+                key:
+                  optionInput.key,
+              };
+
+            optionRecords.push(
+              optionRecord
+            );
+
+            optionMaps.set(
+              optionKey(
+                groupInput.name,
+                optionInput.label
+              ),
+              optionId
+            );
+          }
+
+          groupRecords.push({
+            id:
+              groupId,
+
+            name:
+              groupInput.name,
+
+            options:
+              optionRecords,
+          });
+        }
+
+        /**
+         * ========================================================
+         * ARCHIVE REMOVED OPTIONS
+         * ========================================================
+         */
+
+        await tx.productVariantOption.updateMany({
+          where: {
+            group: {
+              productId:
+                id,
+            },
+
+            id: {
+              notIn:
+                [
+                  ...activeOptionIds,
+                ],
+            },
           },
 
           data: {
-            categoryId:
-              input.categoryId,
-
-            name:
-              input.name,
-
-            slug:
-              input.slug,
-
-            description:
-              input.description !==
-              undefined
-                ? input.description?.trim() ||
-                  null
-                : undefined,
-
-            sku:
-              input.sku !== undefined
-                ? input.sku?.trim() ||
-                  null
-                : undefined,
-
-            price:
-              input.price,
-
-            isDiscountActive:
-              input.isDiscountActive,
-
-            discountType:
-              input.isDiscountActive ===
-              false
-                ? null
-                : input.discountType,
-
-            discountValue:
-              input.isDiscountActive ===
-              false
-                ? null
-                : input.discountValue,
-
-            discountStartAt:
-              input.isDiscountActive ===
-              false
-                ? null
-                : input.discountStartAt,
-
-            discountEndAt:
-              input.isDiscountActive ===
-              false
-                ? null
-                : input.discountEndAt,
-
-            stock:
-              input.stock,
-
-            isPublished:
-              input.isPublished,
-
-            featured:
-              input.featured,
+            isActive:
+              false,
           },
         });
 
         /**
          * ========================================================
-         * UPDATE WEIGHT + VARIANT + MATRIX
-         * ========================================================
-         *
-         * Matrix hanya direbuild ketika weightOptions atau
-         * variantOptions dikirim oleh caller.
-         *
-         * Jika hanya field produk biasa yang diubah,
-         * matrix lama tetap aman.
-         */
-
-                /**
-         * ========================================================
-         * UPDATE WEIGHT + VARIANT + MATRIX
-         * ========================================================
-         *
-         * IMPORTANT:
-         *
-         * Jangan menggunakan:
-         *
-         *   deleteMany() + createMany()
-         *
-         * untuk seluruh option.
-         *
-         * Alasannya:
-         *
-         * - ProductWeightOption.id direferensikan FlashSaleItem
-         * - ProductWeightVariantPrice mereferensikan
-         *   WeightOption + VariantOption
-         * - ID existing harus dipertahankan.
-         *
-         * Strategi:
-         *
-         * 1. Hapus matrix lama.
-         * 2. Update option existing berdasarkan ID.
-         * 3. Create option baru.
-         * 4. Hapus option lama yang sudah tidak digunakan.
-         * 5. Rebuild matrix menggunakan ID option terbaru.
-         *
+         * ARCHIVE REMOVED GROUPS
          * ========================================================
          */
 
-        const shouldRebuildOptions =
-          variantOptions !==
-            undefined ||
-          weightOptions !==
-            undefined;
+        await tx.productVariantGroup.updateMany({
+          where: {
+            productId:
+              id,
 
-        if (shouldRebuildOptions) {
-          /**
-           * ======================================================
-           * LOAD EXISTING OPTIONS
-           * ======================================================
-           */
-
-          const existingVariants =
-            await tx.productVariantOption.findMany({
-              where: {
-                productId:
-                  id,
-              },
-
-              select: {
-                id: true,
-                label: true,
-              },
-            });
-
-          const existingWeights =
-            await tx.productWeightOption.findMany({
-              where: {
-                productId:
-                  id,
-              },
-
-              select: {
-                id: true,
-                label: true,
-              },
-            });
-
-          /**
-           * ======================================================
-           * DELETE MATRIX FIRST
-           * ======================================================
-           *
-           * Matrix mereferensikan:
-           *
-           * - ProductWeightOption
-           * - ProductVariantOption
-           *
-           * sehingga matrix lama harus dihapus sebelum option
-           * yang tidak lagi digunakan dihapus.
-           */
-
-          await tx.productWeightVariantPrice.deleteMany({
-            where: {
-              productId:
-                id,
+            id: {
+              notIn:
+                [
+                  ...activeGroupIds,
+                ],
             },
-          });
+          },
 
-          /**
-           * ======================================================
-           * TRACK ACTIVE IDS
-           * ======================================================
-           */
+          data: {
+            isActive:
+              false,
+          },
+        });
 
-          const activeVariantIds =
-            new Set<string>();
+        /**
+         * ========================================================
+         * BUILD OPTION MAPS
+         * ========================================================
+         */
 
-          const activeWeightIds =
-            new Set<string>();
+        const maps =
+          buildOptionMaps(
+            groupRecords
+          );
 
-          /**
-           * ======================================================
-           * SYNCHRONIZE VARIANTS
-           * ======================================================
-           */
+        /**
+         * ========================================================
+         * PREPARE SKU INPUT
+         * ========================================================
+         *
+         * Jika SKU dikirim dari form:
+         * gunakan SKU tersebut.
+         *
+         * Jika tidak:
+         * generate SKU berdasarkan Cartesian combination.
+         */
 
-          if (
-            variantOptions !==
-            undefined
-          ) {
-            for (
-              let index = 0;
-              index <
-              variantOptions.length;
-              index++
-            ) {
-              const option =
-                variantOptions[index];
-
-              /**
-               * --------------------------------------------------
-               * EXISTING VARIANT
-               * --------------------------------------------------
-               */
-
-              if (
-                option.id
-              ) {
-                const existing =
-                  existingVariants.find(
-                    (
-                      item
-                    ) =>
-                      item.id ===
-                      option.id
-                  );
-
-                /**
-                 * ID harus benar-benar milik product ini.
-                 */
-
-                if (!existing) {
-                  throw new Error(
-                    `Variant "${option.label}" memiliki ID yang tidak valid untuk produk ini.`
-                  );
-                }
-
-                await tx.productVariantOption.update({
-                  where: {
-                    id:
-                      option.id,
-                  },
-
-                  data: {
-                    label:
-                      option.label,
-
-                    priceAdjustment:
-                      option.priceAdjustment,
-
-                    sortOrder:
-                      index,
-
-                    isActive:
-                      true,
-                  },
-                });
-
-                activeVariantIds.add(
-                  option.id
-                );
-              }
-
-              /**
-               * --------------------------------------------------
-               * NEW VARIANT
-               * --------------------------------------------------
-               */
-
-              else {
-                const created =
-                  await tx.productVariantOption.create({
-                    data: {
-                      productId:
-                        id,
-
-                      label:
-                        option.label,
-
-                      priceAdjustment:
-                        option.priceAdjustment,
-
-                      sortOrder:
-                        index,
-
-                      isActive:
-                        true,
-                    },
-
-                    select: {
-                      id: true,
-                    },
-                  });
-
-                activeVariantIds.add(
-                  created.id
-                );
-              }
-            }
-          }
-
-          /**
-           * ======================================================
-           * SYNCHRONIZE WEIGHTS
-           * ======================================================
-           */
-
-          if (
-            weightOptions !==
-            undefined
-          ) {
-            for (
-              let index = 0;
-              index <
-              weightOptions.length;
-              index++
-            ) {
-              const option =
-                weightOptions[index];
-
-              /**
-               * --------------------------------------------------
-               * EXISTING WEIGHT
-               * --------------------------------------------------
-               */
-
-              if (
-                option.id
-              ) {
-                const existing =
-                  existingWeights.find(
-                    (
-                      item
-                    ) =>
-                      item.id ===
-                      option.id
-                  );
-
-                /**
-                 * ID harus benar-benar milik product ini.
-                 */
-
-                if (!existing) {
-                  throw new Error(
-                    `Pilihan berat "${option.label}" memiliki ID yang tidak valid untuk produk ini.`
-                  );
-                }
-
-                await tx.productWeightOption.update({
-                  where: {
-                    id:
-                      option.id,
-                  },
-
-                  data: {
-                    label:
-                      option.label,
-
-                    price:
-                      option.price,
-
-                    sortOrder:
-                      index,
-
-                    isActive:
-                      true,
-                  },
-                });
-
-                activeWeightIds.add(
-                  option.id
-                );
-              }
-
-              /**
-               * --------------------------------------------------
-               * NEW WEIGHT
-               * --------------------------------------------------
-               */
-
-              else {
-                const created =
-                  await tx.productWeightOption.create({
-                    data: {
-                      productId:
-                        id,
-
-                      label:
-                        option.label,
-
-                      price:
-                        option.price,
-
-                      sortOrder:
-                        index,
-
-                      isActive:
-                        true,
-                    },
-
-                    select: {
-                      id: true,
-                    },
-                  });
-
-                activeWeightIds.add(
-                  created.id
-                );
-              }
-            }
-          }
-
-          /**
-           * ======================================================
-           * DELETE REMOVED VARIANTS
-           * ======================================================
-           *
-           * Hanya variant yang memang tidak dikirim lagi
-           * yang akan dihapus.
-           *
-           * Matrix lama sudah dihapus sebelumnya sehingga
-           * FK ProductWeightVariantPrice tidak menghalangi.
-           */
-
-          if (
-            variantOptions !==
-            undefined
-          ) {
-            const removedVariantIds =
-              existingVariants
-                .map(
+        const skuInputs:
+          ProductSkuInput[] =
+          input.skus &&
+          input.skus.length > 0
+            ? input.skus
+            : cartesian(
+                groupRecords.map(
                   (
-                    item
+                    group
                   ) =>
-                    item.id
+                    group.options
                 )
-                .filter(
-                  (
-                    existingId
-                  ) =>
-                    !activeVariantIds.has(
-                      existingId
-                    )
-                );
+              ).map(
+                (
+                  options,
+                  index
+                ): ProductSkuInput => ({
+                  sku:
+                    buildGeneratedSku(
+                      input.sku?.trim() ||
+                        existing.sku ||
+                        product.slug,
 
-            if (
-              removedVariantIds.length >
-              0
-            ) {
-              await tx.productVariantOption.deleteMany({
-                where: {
-                  id: {
-                    in:
-                      removedVariantIds,
-                  },
+                      options.map(
+                        (
+                          option
+                        ) =>
+                          option.label
+                      ),
 
-                  productId:
-                    id,
-                },
-              });
-            }
-          }
+                      index
+                    ),
 
-          /**
-           * ======================================================
-           * DELETE REMOVED WEIGHTS
-           * ======================================================
-           *
-           * IMPORTANT:
-           *
-           * Weight dapat direferensikan oleh FlashSaleItem.
-           *
-           * Jangan pernah menghapus weight yang masih digunakan
-           * Flash Sale.
-           *
-           * Karena FlashSaleItem menggunakan relation:
-           *
-           *   weightOptionId -> ProductWeightOption
-           *
-           * dengan ON DELETE CASCADE.
-           *
-           * Kita memilih FAIL-SAFE:
-           *
-           * jika masih digunakan Flash Sale,
-           * update dibatalkan dan user mendapat error.
-           */
+                  price:
+                    input.price ??
+                    Number(
+                      product.price
+                    ),
 
-          if (
-            weightOptions !==
-            undefined
-          ) {
-            const removedWeightIds =
-              existingWeights
-                .map(
-                  (
-                    item
-                  ) =>
-                    item.id
-                )
-                .filter(
-                  (
-                    existingId
-                  ) =>
-                    !activeWeightIds.has(
-                      existingId
-                    )
-                );
+                  stock:
+                    0,
 
-            if (
-              removedWeightIds.length >
-              0
-            ) {
-              const flashSaleReferences =
-                await tx.flashSaleItem.findMany({
-                  where: {
-                    weightOptionId: {
-                      in:
-                        removedWeightIds,
-                    },
-                  },
+                  optionRefs:
+                    options.map(
+                      (
+                        option
+                      ) =>
+                        option.id
+                    ),
 
-                  select: {
-                    id: true,
-                    weightOptionId:
-                      true,
-                  },
-                });
-
-              if (
-                flashSaleReferences.length >
-                0
-              ) {
-                throw new Error(
-                  "Pilihan berat tidak dapat dihapus karena masih digunakan oleh Flash Sale. Hapus atau ubah item Flash Sale terlebih dahulu."
-                );
-              }
-
-              await tx.productWeightOption.deleteMany({
-                where: {
-                  id: {
-                    in:
-                      removedWeightIds,
-                  },
-
-                  productId:
-                    id,
-                },
-              });
-            }
-          }
-
-          /**
-           * ======================================================
-           * REBUILD MATRIX
-           * ======================================================
-           *
-           * Matrix hanya direbuild jika:
-           *
-           * - weightOptions dikirim
-           * - variantOptions dikirim
-           * - weightVariantPrices tersedia
-           */
-
-          if (
-            weightVariantPrices &&
-            weightVariantPrices.length >
-              0 &&
-            weightOptions &&
-            variantOptions
-          ) {
-            const createdWeights =
-              await tx.productWeightOption.findMany({
-                where: {
-                  productId:
-                    id,
-                },
-
-                select: {
-                  id: true,
-                  label: true,
-                },
-              });
-
-            const createdVariants =
-              await tx.productVariantOption.findMany({
-                where: {
-                  productId:
-                    id,
-                },
-
-                select: {
-                  id: true,
-                  label: true,
-                },
-              });
-
-            const matrix =
-              buildWeightVariantPriceCreateData(
-                weightVariantPrices,
-
-                createdWeights,
-
-                createdVariants
+                  isActive:
+                    true,
+                })
               );
 
-            if (
-              matrix.length > 0
-            ) {
-              await tx.productWeightVariantPrice.createMany({
-                data:
-                  matrix.map(
-                    (
-                      item
-                    ) => ({
-                      productId:
-                        id,
+        /**
+         * ========================================================
+         * SYNC SKU
+         * ========================================================
+         */
 
-                      weightOptionId:
-                        item.weightOptionId,
+        await this.syncSkus(
+          tx,
+          id,
+          skuInputs,
+          groupRecords,
+          maps
+        );
 
-                      variantOptionId:
-                        item.variantOptionId,
+        /**
+ * ============================================================
+ * SYNC PRODUCT STOCK FROM ACTIVE SKU STOCK
+ * ============================================================
+ *
+ * Product dengan variant tidak menggunakan input.stock
+ * sebagai sumber stock.
+ *
+ * Product.stock selalu mengikuti total stock seluruh SKU aktif.
+ *
+ * Contoh:
+ *
+ * SKU 1 = 20
+ * SKU 2 = 10
+ * SKU 3 = 15
+ *
+ * Product.stock = 45
+ */
 
-                      price:
-                        item.price,
-                    })
-                  ),
-              });
-            }
-          }
-        }
+const stockAggregate =
+  await tx.productSku.aggregate({
+    where: {
+      productId:
+        id,
+
+      isActive:
+        true,
+    },
+
+    _sum: {
+      stock:
+        true,
+    },
+  });
+
+const totalSkuStock =
+  stockAggregate._sum.stock ??
+  0;
+
+await tx.product.update({
+  where: {
+    id,
+  },
+
+  data: {
+    stock:
+      totalSkuStock,
+  },
+});
 
         /**
          * ========================================================
@@ -1688,176 +2234,234 @@ export class ProductService {
          * ========================================================
          */
 
-        return tx.product.findUnique({
-          where: {
-            id,
-          },
+        return ProductRepository.findByIdForAdmin(
+          product.id
+        );
+      }
+    );
+  }
 
-          include: {
-            weightOptions: true,
+  private static async syncSkus(
+  tx: Tx,
+  productId: string,
+  skuInputs: ProductSkuInput[],
+  groups: CreatedGroup[],
+  maps?: ReturnType<typeof buildOptionMaps>
+) {
+    const optionMaps =
+      maps || buildOptionMaps(groups);
 
-            variantOptions: true,
+    const seenCombinationKeys = new Set<string>();
+    const seenSkuValues = new Set<string>();
+    const activeSkuIds = new Set<string>();
 
-            weightVariantPrices: true,
+    for (const rawInput of skuInputs) {
+      const sku = validateSkuNumbers(rawInput);
+
+      const optionIds = resolveSkuOptionIds(
+        rawInput,
+        groups,
+        optionMaps
+      );
+
+      const combinationKey = skuKey(optionIds);
+
+      if (seenCombinationKeys.has(combinationKey)) {
+        throw new Error(
+          `Kombinasi option untuk SKU "${sku}" duplikat.`
+        );
+      }
+
+      seenCombinationKeys.add(combinationKey);
+
+      const skuNormalized = sku.toLowerCase();
+
+      if (seenSkuValues.has(skuNormalized)) {
+        throw new Error(`SKU "${sku}" duplikat dalam request.`);
+      }
+
+      seenSkuValues.add(skuNormalized);
+
+      let skuId = rawInput.id;
+
+      if (skuId) {
+        const owned =
+          await tx.productSku.findFirst({
+            where: {
+              id: skuId,
+              productId,
+            },
+            select: { id: true },
+          });
+
+        if (!owned) {
+          throw new Error(
+            `SKU "${sku}" memiliki ID yang tidak valid untuk produk ini.`
+          );
+        }
+
+        const conflicting =
+          await tx.productSku.findFirst({
+            where: {
+              sku,
+              NOT: { id: skuId },
+            },
+            select: { id: true },
+          });
+
+        if (conflicting) {
+          throw new Error(`SKU "${sku}" sudah digunakan.`);
+        }
+
+        await tx.productSku.update({
+          where: { id: skuId },
+          data: {
+            sku,
+            price: rawInput.price,
+            stock: rawInput.stock,
+            isActive: rawInput.isActive ?? true,
           },
         });
+      } else {
+        const existingByCombination =
+          await tx.productSku.findFirst({
+            where: {
+              productId,
+              isActive: true,
+              skuOptions: {
+                every: {
+                  variantOptionId: {
+                    in: optionIds,
+                  },
+                },
+              },
+            },
+            select: { id: true },
+          });
+
+        if (existingByCombination) {
+          skuId = existingByCombination.id;
+
+          await tx.productSku.update({
+            where: { id: skuId },
+            data: {
+              sku,
+              price: rawInput.price,
+              stock: rawInput.stock,
+              isActive: rawInput.isActive ?? true,
+            },
+          });
+        } else {
+          const conflicting =
+            await tx.productSku.findUnique({
+              where: { sku },
+              select: { id: true },
+            });
+
+          if (conflicting) {
+            throw new Error(`SKU "${sku}" sudah digunakan.`);
+          }
+
+          const created =
+            await tx.productSku.create({
+              data: {
+                productId,
+                sku,
+                price: rawInput.price,
+                stock: rawInput.stock,
+                isActive: rawInput.isActive ?? true,
+              },
+              select: { id: true },
+            });
+
+          skuId = created.id;
+        }
       }
-    );
+
+      activeSkuIds.add(skuId);
+
+      await tx.productSkuOption.deleteMany({
+        where: { skuId },
+      });
+
+      await tx.productSkuOption.createMany({
+        data: optionIds.map((variantOptionId) => ({
+          skuId,
+          variantOptionId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    /**
+     * Removed SKU combinations are archived rather than deleted.
+     * This preserves OrderItem / StockLedger / Cart / FlashSale history.
+     */
+    await tx.productSku.updateMany({
+      where: {
+        productId,
+        id: { notIn: [...activeSkuIds] },
+      },
+      data: {
+        isActive: false,
+      },
+    });
   }
 
-  /**
-   * ==========================================================
-   *
-   * SOFT DELETE PRODUCT
-   *
-   * ==========================================================
-   */
-
-  static async deleteProduct(
-    id: string
-  ) {
-    const product =
-      await ProductRepository.findById(
-        id
-      );
+  static async deleteProduct(id: string) {
+    const product = await ProductRepository.findById(id);
 
     if (!product) {
-      throw new Error(
-        "Produk tidak ditemukan."
-      );
+      throw new Error("Produk tidak ditemukan.");
     }
 
-    return ProductRepository.softDelete(
-      id
-    );
+    return ProductRepository.softDelete(id);
   }
 
-  /**
-   * ==========================================================
-   *
-   * PUBLISH PRODUCT
-   *
-   * ==========================================================
-   */
-
-  static async publishProduct(
-    id: string
-  ) {
-    const product =
-      await ProductRepository.findById(
-        id
-      );
+  static async publishProduct(id: string) {
+    const product = await ProductRepository.findById(id);
 
     if (!product) {
-      throw new Error(
-        "Produk tidak ditemukan."
-      );
+      throw new Error("Produk tidak ditemukan.");
     }
 
-    return ProductRepository.update(
-      id,
-      {
-        isPublished:
-          true,
-      }
-    );
+    return ProductRepository.update(id, {
+      isPublished: true,
+    });
   }
 
-  /**
-   * ==========================================================
-   *
-   * UNPUBLISH PRODUCT
-   *
-   * ==========================================================
-   */
-
-  static async unpublishProduct(
-    id: string
-  ) {
-    const product =
-      await ProductRepository.findById(
-        id
-      );
+  static async unpublishProduct(id: string) {
+    const product = await ProductRepository.findById(id);
 
     if (!product) {
-      throw new Error(
-        "Produk tidak ditemukan."
-      );
+      throw new Error("Produk tidak ditemukan.");
     }
 
-    return ProductRepository.update(
-      id,
-      {
-        isPublished:
-          false,
-      }
-    );
+    return ProductRepository.update(id, {
+      isPublished: false,
+    });
   }
 
-  /**
-   * ==========================================================
-   *
-   * TOGGLE PUBLISH
-   *
-   * ==========================================================
-   */
-
-  static async togglePublish(
-    id: string
-  ) {
-    const product =
-      await ProductRepository.findById(
-        id
-      );
+  static async togglePublish(id: string) {
+    const product = await ProductRepository.findById(id);
 
     if (!product) {
-      throw new Error(
-        "Produk tidak ditemukan."
-      );
+      throw new Error("Produk tidak ditemukan.");
     }
 
-    if (
-      product.isPublished
-    ) {
-      return this.unpublishProduct(
-        id
-      );
-    }
-
-    return this.publishProduct(
-      id
-    );
+    return product.isPublished
+      ? this.unpublishProduct(id)
+      : this.publishProduct(id);
   }
 
-  /**
-   * ==========================================================
-   *
-   * SET FEATURED
-   *
-   * ==========================================================
-   */
-
-  static async setFeatured(
-    id: string,
-    featured: boolean
-  ) {
-    const product =
-      await ProductRepository.findById(
-        id
-      );
+  static async setFeatured(id: string, featured: boolean) {
+    const product = await ProductRepository.findById(id);
 
     if (!product) {
-      throw new Error(
-        "Produk tidak ditemukan."
-      );
+      throw new Error("Produk tidak ditemukan.");
     }
 
-    return ProductRepository.update(
-      id,
-      {
-        featured,
-      }
-    );
+    return ProductRepository.update(id, { featured });
   }
 }
 

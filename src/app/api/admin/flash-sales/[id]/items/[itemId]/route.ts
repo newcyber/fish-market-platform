@@ -18,7 +18,6 @@ import FlashSaleItemService from "@/services/flash-sale/flash-sale-item.service"
 interface RouteContext {
   params: Promise<{
     id: string;
-
     itemId: string;
   }>;
 }
@@ -54,7 +53,6 @@ function getErrorResponse(
     return NextResponse.json(
       {
         success: false,
-
         message,
       },
       {
@@ -72,7 +70,6 @@ function getErrorResponse(
   return NextResponse.json(
     {
       success: false,
-
       message,
     },
     {
@@ -103,7 +100,6 @@ export async function PATCH(
 
     const {
       id: flashSaleId,
-
       itemId,
     } = await context.params;
 
@@ -114,7 +110,6 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-
           message:
             "Flash Sale ID dan Item ID wajib diisi.",
         },
@@ -142,7 +137,6 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-
           message:
             "Request body tidak valid.",
         },
@@ -154,19 +148,12 @@ export async function PATCH(
 
     const {
       productId,
-
-      weightOptionId,
-
+      skuId,
       originalPrice,
-
       flashPrice,
-
       stockLimit,
-
       perUserLimit,
-
       sortOrder,
-
       isActive,
     } =
       body as Record<
@@ -182,26 +169,19 @@ export async function PATCH(
 
     const input: {
       productId?: string;
-
-      weightOptionId?:
-        | string
-        | null;
-
+      skuId?: string;
       originalPrice?: number;
-
       flashPrice?: number;
-
       stockLimit?: number;
-
       perUserLimit?: number;
-
       sortOrder?: number;
-
       isActive?: boolean;
     } = {};
 
     /**
+     * --------------------------------------------------------
      * PRODUCT
+     * --------------------------------------------------------
      */
 
     if (
@@ -215,7 +195,6 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-
             message:
               "Product ID tidak valid.",
           },
@@ -225,30 +204,17 @@ export async function PATCH(
         );
       }
 
-      input.productId =
+      const normalizedProductId =
         productId.trim();
-    }
 
-    /**
-     * WEIGHT
-     */
-
-    if (
-      weightOptionId !==
-      undefined
-    ) {
       if (
-        weightOptionId !==
-          null &&
-        typeof weightOptionId !==
-          "string"
+        !normalizedProductId
       ) {
         return NextResponse.json(
           {
             success: false,
-
             message:
-              "Weight option ID tidak valid.",
+              "Product ID tidak boleh kosong.",
           },
           {
             status: 400,
@@ -256,16 +222,77 @@ export async function PATCH(
         );
       }
 
-      input.weightOptionId =
-        weightOptionId ===
-          null
-          ? null
-          : weightOptionId.trim() ||
-            null;
+      input.productId =
+        normalizedProductId;
     }
 
     /**
+     * --------------------------------------------------------
+     * SKU
+     * --------------------------------------------------------
+     *
+     * Canonical sellable SKU.
+     *
+     * Jika skuId tidak dikirim:
+     * - Service akan mempertahankan SKU existing.
+     *
+     * Jika skuId dikirim:
+     * - Service akan mengganti SKU setelah
+     *   memastikan SKU tersebut milik product.
+     *
+     * SKU tidak boleh null.
+     */
+
+    if (
+      skuId !==
+      undefined
+    ) {
+      if (
+        typeof skuId !==
+        "string"
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "SKU ID tidak valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      const normalizedSkuId =
+        skuId.trim();
+
+      if (
+        !normalizedSkuId
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "SKU ID tidak boleh kosong.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      input.skuId =
+        normalizedSkuId;
+    }
+
+    /**
+     * --------------------------------------------------------
      * ORIGINAL PRICE
+     * --------------------------------------------------------
+     *
+     * Field ini hanya compatibility/audit.
+     * Harga canonical tetap ditentukan oleh service
+     * berdasarkan ProductSku.
      */
 
     if (
@@ -285,7 +312,6 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-
             message:
               "Harga normal tidak valid.",
           },
@@ -300,7 +326,9 @@ export async function PATCH(
     }
 
     /**
+     * --------------------------------------------------------
      * FLASH PRICE
+     * --------------------------------------------------------
      */
 
     if (
@@ -320,7 +348,6 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-
             message:
               "Harga Flash Sale tidak valid.",
           },
@@ -335,7 +362,9 @@ export async function PATCH(
     }
 
     /**
+     * --------------------------------------------------------
      * STOCK LIMIT
+     * --------------------------------------------------------
      */
 
     if (
@@ -355,7 +384,6 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-
             message:
               "Stock limit harus berupa angka bulat.",
           },
@@ -370,7 +398,9 @@ export async function PATCH(
     }
 
     /**
+     * --------------------------------------------------------
      * PER USER LIMIT
+     * --------------------------------------------------------
      */
 
     if (
@@ -390,7 +420,6 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-
             message:
               "Per user limit harus berupa angka bulat.",
           },
@@ -405,7 +434,9 @@ export async function PATCH(
     }
 
     /**
+     * --------------------------------------------------------
      * SORT ORDER
+     * --------------------------------------------------------
      */
 
     if (
@@ -425,7 +456,6 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-
             message:
               "Sort order harus berupa angka bulat.",
           },
@@ -440,7 +470,9 @@ export async function PATCH(
     }
 
     /**
+     * --------------------------------------------------------
      * ACTIVE
+     * --------------------------------------------------------
      */
 
     if (
@@ -454,7 +486,6 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-
             message:
               "Status aktif item tidak valid.",
           },
@@ -484,10 +515,8 @@ export async function PATCH(
     return NextResponse.json(
       {
         success: true,
-
         message:
           "Item Flash Sale berhasil diperbarui.",
-
         data: item,
       },
       {
@@ -530,7 +559,6 @@ export async function DELETE(
 
     const {
       id: flashSaleId,
-
       itemId,
     } = await context.params;
 
@@ -541,7 +569,6 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-
           message:
             "Flash Sale ID dan Item ID wajib diisi.",
         },
@@ -572,7 +599,6 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: true,
-
         message:
           "Item Flash Sale berhasil dihapus.",
       },

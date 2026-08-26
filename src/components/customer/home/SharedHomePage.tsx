@@ -136,19 +136,15 @@ function serializeFlashSale(
               ),
           },
 
-          weightOption:
-            item.weightOption
-              ? {
-                  id:
-                    item.weightOption.id,
-
-                  label:
-                    item.weightOption.label,
-
-                  price:
-                    item.weightOption.price.toNumber(),
-                }
-              : null,
+          sku:
+  item.sku
+    ? {
+        id: item.sku.id,
+        sku: item.sku.sku,
+        price: item.sku.price.toNumber(),
+        stock: item.sku.stock,
+      }
+    : null,
         })
       ),
   };

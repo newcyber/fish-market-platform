@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type FormEvent,
 } from "react";
 
 import Link from "next/link";
@@ -68,134 +69,71 @@ interface CategoryOption {
 
 /**
  * ============================================================
- * PRODUCT VARIANT OPTION
+ * PRODUCT VARIANT / SKU V3
  * ============================================================
  *
- * Contoh:
+ * Tidak ada lagi konsep khusus Weight.
  *
- * {
- *   label: "Utuh",
- *   priceAdjustment: 0
- * }
- *
- * {
- *   label: "Dibersihkan",
- *   priceAdjustment: 5000
- * }
+ * Berat, kondisi, grade, ukuran, warna, dll semuanya
+ * diperlakukan sebagai VariantGroup.
  */
 
 export interface ProductVariantOptionValue {
   id?: string;
-
+  key?: string;
   label: string;
-
-  priceAdjustment: number;
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
-/**
- * ============================================================
- * PRODUCT WEIGHT OPTION
- * ============================================================
- *
- * Contoh:
- *
- * {
- *   label: "500gr",
- *   price: 30000
- * }
- */
-
-export interface ProductWeightOptionValue {
+export interface ProductVariantGroupValue {
   id?: string;
-
-  label: string;
-
-  price: number;
+  name: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  /**
+   * clientKey hanya dipakai frontend untuk menjaga reference
+   * option baru tetap stabil sebelum mempunyai database ID.
+   * Tidak dikirim ke server.
+   */
+  clientKey: string;
+  options: ProductVariantOptionValue[];
 }
 
-/**
- * ============================================================
- * PRODUCT WEIGHT × VARIANT PRICE
- * ============================================================
- */
-
-export interface ProductWeightVariantPriceValue {
-  weightLabel: string;
-  variantLabel: string;
+export interface ProductSkuValue {
+  id?: string;
+  sku: string;
   price: number;
+  stock: number;
+  optionRefs: string[];
+  isActive?: boolean;
 }
-
-/**
- * ============================================================
- * PRODUCT FORM VALUES
- * ============================================================
- */
 
 export interface ProductFormValues {
   categoryId: string;
-
   name: string;
-
   slug: string;
-
   description: string;
-
   sku: string;
-
-  /**
-   * Harga dasar produk.
-   */
-
   price: number;
 
-    /**
-   * ============================================================
-   * PRODUCT DISCOUNT
-   * ============================================================
-   */
-
   isDiscountActive: boolean;
-
   discountType:
     | "PERCENTAGE"
     | "FIXED_AMOUNT"
     | "";
-
   discountValue: number | "";
-
   discountStartAt: string;
-
   discountEndAt: string;
 
   stock: number;
 
-  /**
-   * Varian produk.
-   */
-
-  variantOptions:
-    ProductVariantOptionValue[];
-
-  /**
-   * Pilihan berat produk.
-   */
-
-  weightOptions:
-    ProductWeightOptionValue[];
-
-  weightVariantPrices:
-    ProductWeightVariantPriceValue[];
+  variantGroups: ProductVariantGroupValue[];
+  skus: ProductSkuValue[];
 
   isPublished: boolean;
-
   featured: boolean;
 }
-
-/**
- * ============================================================
- * PRODUCT FORM PROPS
- * ============================================================
- */
 
 interface ProductFormProps {
   categories: CategoryOption[];
@@ -203,67 +141,33 @@ interface ProductFormProps {
   defaultValues?: Partial<
     Omit<
       ProductFormValues,
-      | "variantOptions"
-      | "weightOptions"
-      | "weightVariantPrices"
+      "variantGroups" | "skus"
     >
   > & {
-    /**
-     * Support format lama:
-     *
-     * ["Utuh", "Dibersihkan"]
-     *
-     * dan format baru:
-     *
-     * [
-     *   {
-     *     label: "Utuh",
-     *     priceAdjustment: 0
-     *   }
-     * ]
-     */
-
-    variantOptions?:
-      | ProductVariantOptionValue[]
-      | string[];
-
-    /**
-     * Support format lama:
-     *
-     * ["500gr", "1kg"]
-     *
-     * dan format baru:
-     *
-     * [
-     *   {
-     *     label: "500gr",
-     *     price: 30000
-     *   }
-     * ]
-     */
-
-    weightOptions?:
-      | ProductWeightOptionValue[]
-      | string[];
-
-    weightVariantPrices?:
-      | ProductWeightVariantPriceValue[]
-      | Array<{
-          weightLabel: string;
-          variantLabel: string;
-          price: number;
-        }>;
+    variantGroups?: Array<{
+      id?: string;
+      name: string;
+      sortOrder?: number;
+      isActive?: boolean;
+      options: Array<{
+        id?: string;
+        key?: string;
+        label: string;
+        sortOrder?: number;
+        isActive?: boolean;
+      }>;
+    }>;
+    skus?: Array<{
+      id?: string;
+      sku: string;
+      price: number;
+      stock: number;
+      optionRefs?: string[];
+      isActive?: boolean;
+    }>;
   };
 
   submitLabel?: string;
-
-  /**
-   * Tampilkan upload gambar di dalam ProductForm.
-   *
-   * Create Product  -> true (default)
-   * Edit Product    -> false karena gallery ditangani
-   *                    oleh ProductGallery.
-   */
   showImageUpload?: boolean;
 
   action: (
@@ -272,12 +176,6 @@ interface ProductFormProps {
   ) => Promise<ActionResult>;
 }
 
-/**
- * ============================================================
- * INITIAL ACTION STATE
- * ============================================================
- */
-
 const initialState: ActionResult = {
   success: false,
   message: "",
@@ -285,217 +183,416 @@ const initialState: ActionResult = {
 
 /**
  * ============================================================
- * DEFAULT VARIANT OPTIONS
+ * VARIANT HELPERS
  * ============================================================
  */
 
-const defaultVariantOptions:
-  ProductVariantOptionValue[] = [
-    {
-      label: "Utuh",
-      priceAdjustment: 0,
-    },
-    {
-      label: "Dibersihkan",
-      priceAdjustment: 0,
-    },
-  ];
-
-/**
- * ============================================================
- * DEFAULT WEIGHT OPTIONS
- * ============================================================
- */
-
-const defaultWeightOptions:
-  ProductWeightOptionValue[] = [
-    {
-      label: "250gr",
-      price: 0,
-    },
-    {
-      label: "500gr",
-      price: 0,
-    },
-    {
-      label: "1kg",
-      price: 0,
-    },
-  ];
-
-/**
- * ============================================================
- * NORMALIZE VARIANT OPTIONS
- * ============================================================
- *
- * Tujuan:
- *
- * - Mempertahankan ID option lama dari database.
- * - Mendukung option baru tanpa ID.
- * - Mendukung format lama berupa string.
- * - Membersihkan label.
- * - Menormalisasi priceAdjustment.
- */
-
-function normalizeVariantOptions(
-  options:
-    | ProductVariantOptionValue[]
-    | string[]
-    | undefined
-): ProductVariantOptionValue[] {
-  if (
-    !options ||
-    options.length === 0
-  ) {
-    return defaultVariantOptions.map(
-      (option) => ({
-        ...option,
-      })
-    );
-  }
-
-  return options.map(
-    (option) => {
-      if (
-        typeof option === "string"
-      ) {
-        return {
-          label: option,
-          priceAdjustment: 0,
-        };
-      }
-
-      return {
-        id: option.id,
-
-        label:
-          String(
-            option.label ?? ""
-          ).trim(),
-
-        priceAdjustment:
-          Number(
-            option.priceAdjustment ?? 0
-          ),
-      };
-    }
-  );
+function normalizeKeyPart(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-/**
- * ============================================================
- * NORMALIZE WEIGHT OPTIONS
- * ============================================================
- *
- * Tujuan:
- *
- * - Mempertahankan ID weight lama dari database.
- * - Mendukung weight baru tanpa ID.
- * - Mendukung format lama berupa string.
- * - Membersihkan label.
- * - Menormalisasi harga.
- */
-
-function normalizeWeightOptions(
-  options:
-    | ProductWeightOptionValue[]
-    | string[]
-    | undefined
-): ProductWeightOptionValue[] {
+function createClientKey(prefix: string): string {
   if (
-    !options ||
-    options.length === 0
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
   ) {
-    return defaultWeightOptions.map(
-      (option) => ({
-        ...option,
-      })
-    );
+    return `${prefix}-${crypto.randomUUID()}`;
   }
 
-  return options.map(
-    (option) => {
-      if (
-        typeof option === "string"
-      ) {
-        return {
-          label: option,
-          price: 0,
-        };
-      }
-
-      return {
-        id: option.id,
-
-        label:
-          String(
-            option.label ?? ""
-          ).trim(),
-
-        price:
-          Number(
-            option.price ?? 0
-          ),
-      };
-    }
-  );
+  return `${prefix}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
 }
 
-/**
- * ============================================================
- * NORMALIZE WEIGHT × VARIANT PRICES
- * ============================================================
- */
+function getOptionRef(
+  option: ProductVariantOptionValue
+): string {
+  return option.id ?? option.key ?? "";
+}
 
-function normalizeWeightVariantPrices(
-  options:
-    | ProductWeightVariantPriceValue[]
+function normalizeVariantGroups(
+  groups:
+    | NonNullable<ProductFormProps["defaultValues"]>["variantGroups"]
     | undefined
-): ProductWeightVariantPriceValue[] {
-  if (!options || options.length === 0) {
+): ProductVariantGroupValue[] {
+  if (!groups || groups.length === 0) {
     return [];
   }
 
-  return options
-    .map((option) => {
-      const price = Number(option.price ?? 0);
+  return groups.map(
+    (group, groupIndex) => {
+      const clientKey =
+        group.id ??
+        `group-${groupIndex}`;
 
       return {
-        weightLabel: String(
-          option.weightLabel ?? ""
+        id: group.id,
+        name: String(
+          group.name ?? ""
         ).trim(),
-        variantLabel: String(
-          option.variantLabel ?? ""
-        ).trim(),
-        price:
-          Number.isFinite(price)
-            ? Math.max(0, price)
-            : 0,
+        sortOrder:
+          group.sortOrder ??
+          groupIndex,
+        isActive:
+          group.isActive ??
+          true,
+        clientKey,
+        options: (
+          group.options ?? []
+        ).map(
+          (option, optionIndex) => ({
+            id: option.id,
+            key:
+              option.key ??
+              option.id ??
+              `${clientKey}::option-${optionIndex}`,
+            label: String(
+              option.label ?? ""
+            ).trim(),
+            sortOrder:
+              option.sortOrder ??
+              optionIndex,
+            isActive:
+              option.isActive ??
+              true,
+          })
+        ),
       };
+    }
+  );
+}
+
+function normalizeSkus(
+  skus:
+    | NonNullable<ProductFormProps["defaultValues"]>["skus"]
+    | undefined
+): ProductSkuValue[] {
+  if (!skus || skus.length === 0) {
+    return [];
+  }
+
+  return skus.map(
+    (sku) => ({
+      id: sku.id,
+      sku: String(
+        sku.sku ?? ""
+      ).trim(),
+      price: Number.isFinite(
+        Number(sku.price)
+      )
+        ? Math.max(
+            0,
+            Number(sku.price)
+          )
+        : 0,
+      stock: Number.isFinite(
+        Number(sku.stock)
+      )
+        ? Math.max(
+            0,
+            Math.trunc(
+              Number(sku.stock)
+            )
+          )
+        : 0,
+      optionRefs:
+        Array.isArray(
+          sku.optionRefs
+        )
+          ? sku.optionRefs.filter(
+              Boolean
+            )
+          : [],
+      isActive:
+        sku.isActive ??
+        true,
     })
-    .filter(
-      (option) =>
-        option.weightLabel.length > 0 &&
-        option.variantLabel.length > 0
-    );
+  );
+}
+
+function combinationKey(
+  optionRefs: string[]
+): string {
+  return [...optionRefs]
+    .sort()
+    .join("|");
+}
+
+function generateSkuCode(
+  baseSku: string,
+  labels: string[],
+  fallbackIndex: number
+): string {
+  const base =
+    normalizeKeyPart(
+      baseSku
+    ).toUpperCase();
+
+  const suffix = labels
+    .map(normalizeKeyPart)
+    .filter(Boolean)
+    .join("-")
+    .toUpperCase();
+
+  if (base && suffix) {
+    return `${base}-${suffix}`;
+  }
+
+  if (base) {
+    return `${base}-${fallbackIndex + 1}`;
+  }
+
+  if (suffix) {
+    return suffix;
+  }
+
+  return `SKU-${fallbackIndex + 1}`;
 }
 
 /**
- * ============================================================
- * PRICE FORMATTER
- * ============================================================
+ * Generate Cartesian Product SKU.
+ *
+ * Existing SKU:
+ * - id dipertahankan
+ * - sku dipertahankan
+ * - price dipertahankan
+ * - stock dipertahankan
+ *
+ * SKU baru:
+ * - sku dibuat otomatis
+ * - price = 0
+ * - stock = 0
  */
+function syncSkusForGroups(
+  groups: ProductVariantGroupValue[],
+  previousSkus: ProductSkuValue[],
+  baseSku: string
+): ProductSkuValue[] {
+  const usableGroups =
+    groups
+      .map((group) => ({
+        ...group,
+        options:
+          group.options.filter(
+            (option) =>
+              option.label.trim()
+          ),
+      }))
+      .filter(
+        (group) =>
+          group.name.trim() &&
+          group.options.length > 0
+      );
 
-function formatRupiah(value: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
+  if (
+    usableGroups.length !==
+    groups.length
+  ) {
+    return previousSkus;
+  }
+
+  if (usableGroups.length === 0) {
+    return [];
+  }
+
+  const combinations: ProductVariantOptionValue[][] =
+    [[]];
+
+  for (const group of usableGroups) {
+    const next: ProductVariantOptionValue[][] =
+      [];
+
+    for (const combination of combinations) {
+      for (const option of group.options) {
+        next.push([
+          ...combination,
+          option,
+        ]);
+      }
+    }
+
+    combinations.splice(
+      0,
+      combinations.length,
+      ...next
+    );
+  }
+
+  const previousByCombination =
+    new Map<string, ProductSkuValue>();
+
+  previousSkus.forEach(
+    (sku) => {
+      previousByCombination.set(
+        combinationKey(
+          sku.optionRefs
+        ),
+        sku
+      );
+    }
+  );
+
+  return combinations.map(
+    (combination, index) => {
+      const optionRefs =
+        combination
+          .map(getOptionRef)
+          .filter(Boolean);
+
+      const key =
+        combinationKey(
+          optionRefs
+        );
+
+      const previous =
+        previousByCombination.get(
+          key
+        );
+
+      if (previous) {
+        return {
+          ...previous,
+          optionRefs,
+        };
+      }
+
+      return {
+        sku: generateSkuCode(
+          baseSku,
+          combination.map(
+            (option) =>
+              option.label
+          ),
+          index
+        ),
+        price: 0,
+        stock: 0,
+        optionRefs,
+        isActive: true,
+      };
+    }
+  );
 }
 
+function serializeVariantGroups(
+  groups: ProductVariantGroupValue[]
+) {
+  return groups.map(
+    (group, groupIndex) => ({
+      ...(group.id
+        ? { id: group.id }
+        : {}),
+      name: group.name.trim(),
+      sortOrder:
+        group.sortOrder ??
+        groupIndex,
+      isActive:
+        group.isActive ??
+        true,
+      options:
+        group.options
+          .filter(
+            (option) =>
+              option.label.trim()
+          )
+          .map(
+            (option, optionIndex) => ({
+              ...(option.id
+                ? { id: option.id }
+                : {}),
+              ...(option.id
+                ? {}
+                : {
+                    key:
+                      option.key ??
+                      `${group.clientKey}::option-${optionIndex}`,
+                  }),
+              label:
+                option.label.trim(),
+              sortOrder:
+                option.sortOrder ??
+                optionIndex,
+              isActive:
+                option.isActive ??
+                true,
+            })
+          ),
+    })
+  );
+}
+
+function serializeSkus(
+  skus: ProductSkuValue[]
+) {
+  return skus.map(
+    (sku) => ({
+      ...(sku.id
+        ? { id: sku.id }
+        : {}),
+      sku: sku.sku.trim(),
+      price: Math.max(
+        0,
+        Number(sku.price) || 0
+      ),
+      stock: Math.max(
+        0,
+        Math.trunc(
+          Number(sku.stock) || 0
+        )
+      ),
+      optionRefs:
+        sku.optionRefs.filter(
+          Boolean
+        ),
+      isActive:
+        sku.isActive ??
+        true,
+    })
+  );
+}
+
+function calculateTotalSkuStock(
+  skus: ProductSkuValue[]
+): number {
+  return skus.reduce(
+    (total, sku) => {
+      if (
+        sku.isActive === false
+      ) {
+        return total;
+      }
+
+      return (
+        total +
+        Math.max(
+          0,
+          Math.trunc(
+            Number(sku.stock) || 0
+          )
+        )
+      );
+    },
+    0
+  );
+}
+
+function formatRupiah(
+  value: number
+): string {
+  return new Intl.NumberFormat(
+    "id-ID",
+    {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }
+  ).format(value || 0);
+}
 /**
- * ============================================================
  * SLUG GENERATOR
  * ============================================================
  *
@@ -684,26 +781,14 @@ const slugManuallyEditedRef =
           defaultValues?.stock ?? 0
         ),
 
-      /**
-       * IMPORTANT:
-       *
-       * variantOptions sekarang selalu
-       * berbentuk object.
-       */
-
-      variantOptions:
-        normalizeVariantOptions(
-          defaultValues?.variantOptions
+      variantGroups:
+        normalizeVariantGroups(
+          defaultValues?.variantGroups
         ),
 
-      weightOptions:
-        normalizeWeightOptions(
-          defaultValues?.weightOptions
-        ),
-
-      weightVariantPrices:
-        normalizeWeightVariantPrices(
-          defaultValues?.weightVariantPrices
+      skus:
+        normalizeSkus(
+          defaultValues?.skus
         ),
 
       isPublished:
@@ -847,340 +932,342 @@ const slugManuallyEditedRef =
 
   /**
    * ==========================================================
-   * VARIANT HANDLERS
-   * ==========================================================
-   */
-
-  const updateVariantLabel = (
-    index: number,
-    value: string
-  ) => {
-    setForm((previous) => {
-      const oldLabel =
-        previous.variantOptions[index]
-          ?.label ?? "";
-
-      return {
-        ...previous,
-        variantOptions:
-          previous.variantOptions.map(
-            (item, itemIndex) =>
-              itemIndex === index
-                ? {
-                    ...item,
-                    label: value,
-                  }
-                : item
-          ),
-        weightVariantPrices:
-          previous.weightVariantPrices.map(
-            (entry) =>
-              entry.variantLabel === oldLabel
-                ? {
-                    ...entry,
-                    variantLabel: value,
-                  }
-                : entry
-          ),
-      };
-    });
-  };
-
-  const updateVariantPriceAdjustment = (
-    index: number,
-    value: string
-  ) => {
-    const normalizedValue =
-      value.trim();
-
-    const parsedValue =
-      normalizedValue === ""
-        ? 0
-        : Number(
-            normalizedValue
-          );
-
-    const priceAdjustment =
-      Number.isFinite(
-        parsedValue
-      )
-        ? Math.max(
-            0,
-            parsedValue
-          )
-        : 0;
-
-    setForm(
-      (previous) => ({
-        ...previous,
-
-        variantOptions:
-          previous.variantOptions.map(
-            (
-              item,
-              itemIndex
-            ) =>
-              itemIndex === index
-                ? {
-                    ...item,
-
-                    priceAdjustment,
-                  }
-                : item
-          ),
-      })
-    );
-  };
-
-  const removeVariant = (
-    index: number
-  ) => {
-    setForm((previous) => {
-      const removedLabel =
-        previous.variantOptions[index]
-          ?.label ?? "";
-
-      return {
-        ...previous,
-        variantOptions:
-          previous.variantOptions.filter(
-            (_item, itemIndex) =>
-              itemIndex !== index
-          ),
-        weightVariantPrices:
-          previous.weightVariantPrices.filter(
-            (entry) =>
-              entry.variantLabel !==
-              removedLabel
-          ),
-      };
-    });
-  };
-
-  const addVariant = () => {
-    setForm(
-      (previous) => ({
-        ...previous,
-
-        variantOptions: [
-          ...previous.variantOptions,
-          {
-            label: "",
-            priceAdjustment: 0,
-          },
-        ],
-      })
-    );
-  };
-
   /**
    * ==========================================================
-   * WEIGHT HANDLERS
+   * VARIANT GROUP HANDLERS
    * ==========================================================
    */
 
-  const updateWeightLabel = (
-    index: number,
-    value: string
+  const updateVariantGroups = (
+    updater: (
+      previous: ProductVariantGroupValue[]
+    ) => ProductVariantGroupValue[]
   ) => {
     setForm((previous) => {
-      const oldLabel =
-        previous.weightOptions[index]
-          ?.label ?? "";
-
-      return {
-        ...previous,
-        weightOptions:
-          previous.weightOptions.map(
-            (item, itemIndex) =>
-              itemIndex === index
-                ? {
-                    ...item,
-                    label: value,
-                  }
-                : item
-          ),
-        weightVariantPrices:
-          previous.weightVariantPrices.map(
-            (entry) =>
-              entry.weightLabel === oldLabel
-                ? {
-                    ...entry,
-                    weightLabel: value,
-                  }
-                : entry
-          ),
-      };
-    });
-  };
-
-  const updateWeightPrice = (
-    index: number,
-    value: string
-  ) => {
-    const normalizedValue =
-      value.trim();
-
-    const parsedPrice =
-      normalizedValue === ""
-        ? 0
-        : Number(
-            normalizedValue
-          );
-
-    const price =
-      Number.isFinite(
-        parsedPrice
-      )
-        ? Math.max(
-            0,
-            parsedPrice
-          )
-        : 0;
-
-    setForm(
-      (previous) => ({
-        ...previous,
-
-        weightOptions:
-          previous.weightOptions.map(
-            (
-              item,
-              itemIndex
-            ) =>
-              itemIndex === index
-                ? {
-                    ...item,
-                    price,
-                  }
-                : item
-          ),
-      })
-    );
-  };
-
-  const removeWeight = (
-    index: number
-  ) => {
-    setForm((previous) => {
-      const removedLabel =
-        previous.weightOptions[index]
-          ?.label ?? "";
-
-      return {
-        ...previous,
-        weightOptions:
-          previous.weightOptions.filter(
-            (_item, itemIndex) =>
-              itemIndex !== index
-          ),
-        weightVariantPrices:
-          previous.weightVariantPrices.filter(
-            (entry) =>
-              entry.weightLabel !==
-              removedLabel
-          ),
-      };
-    });
-  };
-
-  const addWeight = () => {
-    setForm(
-      (previous) => ({
-        ...previous,
-
-        weightOptions: [
-          ...previous.weightOptions,
-          {
-            label: "",
-            price: 0,
-          },
-        ],
-      })
-    );
-  };
-
-  /**
-   * ==========================================================
-   * WEIGHT × VARIANT PRICE HELPERS
-   * ==========================================================
-   */
-
-  const getMatrixPrice = (
-    weightLabel: string,
-    variantLabel: string
-  ): number => {
-    const item =
-      form.weightVariantPrices.find(
-        (entry) =>
-          entry.weightLabel === weightLabel &&
-          entry.variantLabel === variantLabel
-      );
-
-    return item?.price ?? 0;
-  };
-
-  const updateMatrixPrice = (
-    weightLabel: string,
-    variantLabel: string,
-    value: string
-  ) => {
-    const normalized = value.trim();
-
-    const parsed =
-      normalized === ""
-        ? 0
-        : Number(normalized);
-
-    const price =
-      Number.isFinite(parsed)
-        ? Math.max(0, parsed)
-        : 0;
-
-    setForm((previous) => {
-      const existingIndex =
-        previous.weightVariantPrices.findIndex(
-          (entry) =>
-            entry.weightLabel === weightLabel &&
-            entry.variantLabel === variantLabel
+      const nextGroups =
+        updater(
+          previous.variantGroups
         );
 
-      const nextPrices = [
-        ...previous.weightVariantPrices,
-      ];
-
-      if (existingIndex >= 0) {
-        nextPrices[existingIndex] = {
-          ...nextPrices[existingIndex],
-          price,
-        };
-      } else {
-        nextPrices.push({
-          weightLabel,
-          variantLabel,
-          price,
-        });
-      }
-
       return {
         ...previous,
-        weightVariantPrices:
-          nextPrices,
+        variantGroups:
+          nextGroups,
+        skus:
+          syncSkusForGroups(
+            nextGroups,
+            previous.skus,
+            previous.sku
+          ),
       };
     });
   };
 
-  const buildWeightVariantPricesPayload =
-    (): ProductWeightVariantPriceValue[] => {
-      return form.weightVariantPrices.filter(
-        (entry) =>
-          entry.weightLabel.trim() &&
-          entry.variantLabel.trim()
+  const addVariantGroup = () => {
+    updateVariantGroups(
+      (previous) => [
+        ...previous,
+        {
+          name: "",
+          sortOrder:
+            previous.length,
+          isActive: true,
+          clientKey:
+            createClientKey(
+              "group"
+            ),
+          options: [],
+        },
+      ]
+    );
+  };
+
+  const updateVariantGroupName = (
+    groupIndex: number,
+    value: string
+  ) => {
+    updateVariantGroups(
+      (previous) =>
+        previous.map(
+          (group, index) =>
+            index === groupIndex
+              ? {
+                  ...group,
+                  name: value,
+                }
+              : group
+        )
+    );
+  };
+
+  const removeVariantGroup = (
+    groupIndex: number
+  ) => {
+    updateVariantGroups(
+      (previous) =>
+        previous
+          .filter(
+            (_group, index) =>
+              index !== groupIndex
+          )
+          .map(
+            (group, index) => ({
+              ...group,
+              sortOrder: index,
+            })
+          )
+    );
+  };
+
+  const addVariantOption = (
+    groupIndex: number
+  ) => {
+    updateVariantGroups(
+      (previous) =>
+        previous.map(
+          (group, index) => {
+            if (
+              index !== groupIndex
+            ) {
+              return group;
+            }
+
+            const optionKey =
+              `${group.clientKey}::${createClientKey(
+                "option"
+              )}`;
+
+            return {
+              ...group,
+              options: [
+                ...group.options,
+                {
+                  key: optionKey,
+                  label: "",
+                  sortOrder:
+                    group.options.length,
+                  isActive: true,
+                },
+              ],
+            };
+          }
+        )
+    );
+  };
+
+  const updateVariantOptionLabel = (
+    groupIndex: number,
+    optionIndex: number,
+    value: string
+  ) => {
+    updateVariantGroups(
+      (previous) =>
+        previous.map(
+          (group, groupPosition) =>
+            groupPosition ===
+            groupIndex
+              ? {
+                  ...group,
+                  options:
+                    group.options.map(
+                      (
+                        option,
+                        position
+                      ) =>
+                        position ===
+                        optionIndex
+                          ? {
+                              ...option,
+                              label: value,
+                            }
+                          : option
+                    ),
+                }
+              : group
+        )
+    );
+  };
+
+  const removeVariantOption = (
+    groupIndex: number,
+    optionIndex: number
+  ) => {
+    updateVariantGroups(
+      (previous) =>
+        previous.map(
+          (group, groupPosition) =>
+            groupPosition ===
+            groupIndex
+              ? {
+                  ...group,
+                  options:
+                    group.options
+                      .filter(
+                        (
+                          _option,
+                          position
+                        ) =>
+                          position !==
+                          optionIndex
+                      )
+                      .map(
+                        (
+                          option,
+                          position
+                        ) => ({
+                          ...option,
+                          sortOrder:
+                            position,
+                        })
+                      ),
+                }
+              : group
+        )
+    );
+  };
+
+  const updateSku = (
+    index: number,
+    field:
+      | "sku"
+      | "price"
+      | "stock",
+    value: string
+  ) => {
+    setForm(
+      (previous) => ({
+        ...previous,
+        skus:
+          previous.skus.map(
+            (sku, skuIndex) => {
+              if (
+                skuIndex !== index
+              ) {
+                return sku;
+              }
+
+              if (
+                field === "sku"
+              ) {
+                return {
+                  ...sku,
+                  sku: value,
+                };
+              }
+
+              const numeric =
+                Number(value);
+
+              return {
+                ...sku,
+                [field]:
+                  Number.isFinite(
+                    numeric
+                  )
+                    ? Math.max(
+                        0,
+                        field ===
+                          "stock"
+                          ? Math.trunc(
+                              numeric
+                            )
+                          : numeric
+                      )
+                    : 0,
+              };
+            }
+          ),
+      })
+    );
+  };
+
+  const getSkuCombinationLabel = (
+    sku: ProductSkuValue
+  ): string => {
+    return sku.optionRefs
+      .map((ref) => {
+        for (
+          const group of
+          form.variantGroups
+        ) {
+          const option =
+            group.options.find(
+              (candidate) =>
+                getOptionRef(
+                  candidate
+                ) === ref
+            );
+
+          if (option) {
+            return `${group.name}: ${option.label}`;
+          }
+        }
+
+        return ref;
+      })
+      .join(" × ");
+  };
+
+  const variantGroupsPayload =
+    serializeVariantGroups(
+      form.variantGroups
+    );
+
+  const skusPayload =
+    serializeSkus(
+      form.skus
+    );
+
+    const hasVariants =
+  form.variantGroups.length > 0;
+
+const totalSkuStock =
+  calculateTotalSkuStock(
+    form.skus
+  );
+
+  const handleFormSubmit = (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    const groups =
+      form.variantGroups;
+
+    if (groups.length === 0) {
+      return;
+    }
+
+    const invalidGroup =
+      groups.find(
+        (group) =>
+          !group.name.trim() ||
+          group.options.filter(
+            (option) =>
+              option.label.trim()
+          ).length === 0
       );
-    };
+
+    if (invalidGroup) {
+      event.preventDefault();
+
+      window.alert(
+        "Setiap group varian wajib memiliki nama dan minimal satu option."
+      );
+
+      return;
+    }
+
+    if (
+      form.skus.length === 0
+    ) {
+      event.preventDefault();
+
+      window.alert(
+        "Belum ada kombinasi SKU yang dapat disimpan."
+      );
+    }
+  };
 
   /**
-   * ==========================================================
    * IMAGE HANDLERS
    * ==========================================================
    */
@@ -1347,6 +1434,7 @@ const slugManuallyEditedRef =
   return (
     <form
       action={formAction}
+      onSubmit={handleFormSubmit}
       className="space-y-5 sm:space-y-6"
     >
       {/* ====================================================== */}
@@ -1658,9 +1746,8 @@ const slugManuallyEditedRef =
           </h2>
 
           <p className="text-sm text-muted-foreground">
-            Harga dasar digunakan sebagai fallback.
-            Harga pilihan berat dan varian dapat
-            menyesuaikan total harga produk.
+            Harga dasar dan stok produk digunakan
+            sebagai fallback untuk produk tanpa varian.
           </p>
         </div>
 
@@ -1702,44 +1789,52 @@ const slugManuallyEditedRef =
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="stock">
-              Stok Produk
-            </Label>
+  <Label htmlFor="stock">
+    Stok Produk
+  </Label>
 
-            <Input
-              id="stock"
-              name="stock"
-              type="number"
-              min="0"
-              step="1"
-              value={form.stock}
-              onChange={(
-                event
-              ) =>
-                setForm(
-                  (
-                    previous
-                  ) => ({
-                    ...previous,
+  <Input
+    id="stock"
+    name="stock"
+    type="number"
+    min="0"
+    step="1"
+    value={
+      hasVariants
+        ? totalSkuStock
+        : form.stock
+    }
+    onChange={
+      hasVariants
+        ? undefined
+        : (event) =>
+            setForm(
+              (previous) => ({
+                ...previous,
 
-                    stock:
-                      Math.max(
-                        0,
-                        Number(
-                          event.target
-                            .value
-                        ) || 0
-                      ),
-                  })
-                )
-              }
-              required
-            />
+                stock:
+                  Math.max(
+                    0,
+                    Number(
+                      event.target
+                        .value
+                    ) || 0
+                  ),
+              })
+            )
+    }
+    readOnly={
+      hasVariants
+    }
+    required
+  />
 
-            <p className="text-xs text-muted-foreground">
-              Masukkan jumlah stok produk yang tersedia.
-            </p>
-          </div>
+  <p className="text-xs text-muted-foreground">
+    {hasVariants
+      ? "Stok otomatis dihitung dari total stok seluruh SKU."
+      : "Masukkan jumlah stok produk yang tersedia."}
+  </p>
+</div>
         </div>
       </Card>
 
@@ -1755,8 +1850,8 @@ const slugManuallyEditedRef =
 
           <p className="text-sm text-muted-foreground">
             Atur diskon khusus untuk produk ini.
-            Diskon akan dihitung setelah harga berat
-            dan tambahan harga varian diterapkan.
+            Untuk produk dengan SKU, harga promo
+            mengikuti harga SKU yang digunakan customer.
           </p>
         </div>
 
@@ -2032,7 +2127,8 @@ const slugManuallyEditedRef =
       </Card>
 
       {/* ====================================================== */}
-      {/* VARIAN PRODUK */}
+      {/* ====================================================== */}
+      {/* VARIANT GROUPS & SKU */}
       {/* ====================================================== */}
 
       <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
@@ -2043,8 +2139,9 @@ const slugManuallyEditedRef =
             </h2>
 
             <p className="text-sm text-muted-foreground">
-              Tambahkan varian dan biaya tambahan
-              apabila diperlukan.
+              Buat group varian tanpa batas. Berat,
+              kondisi, grade, ukuran, warna, dan pilihan
+              lain diperlakukan dengan struktur yang sama.
             </p>
           </div>
 
@@ -2052,535 +2149,333 @@ const slugManuallyEditedRef =
             type="button"
             variant="outline"
             onClick={
-              addVariant
+              addVariantGroup
             }
           >
             <Plus className="mr-2 h-4 w-4" />
-
-            Tambah Varian
+            Tambah Group
           </Button>
         </div>
 
-        <div className="space-y-3">
-          {form.variantOptions
-            .length === 0 ? (
-            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Belum ada varian.
-              Klik Tambah Varian untuk menambahkan
-              pilihan.
-            </div>
-          ) : (
-            form.variantOptions.map(
-              (
-                variant,
-                index
-              ) => (
-                <div
-                  key={`variant-${index}`}
-                  className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
-                >
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor={`variant-label-${index}`}
-                    >
-                      Nama Varian
-                    </Label>
-{variant.id && (
-  <input
-    type="hidden"
-    name="variantOptionIds"
-    value={variant.id}
-  />
-)}
-                    <Input
-                      id={`variant-label-${index}`}
-                      name="variantOptions"
-                      value={
-                        variant.label
-                      }
-                      placeholder="Contoh: Utuh"
-                      onChange={(
-                        event
-                      ) =>
-                        updateVariantLabel(
-                          index,
-                          event.target
-                            .value
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor={`variant-price-${index}`}
-                    >
-                      Tambahan Harga
-                    </Label>
-
-                    <Input
-                      id={`variant-price-${index}`}
-                      name="variantOptionPrices"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={
-                        variant.priceAdjustment
-                      }
-                      placeholder="Contoh: 5000"
-                      onChange={(
-                        event
-                      ) =>
-                        updateVariantPriceAdjustment(
-                          index,
-                          event.target
-                            .value
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        removeVariant(
-                          index
-                        )
-                      }
-                      aria-label={`Hapus varian ${
-                        variant.label ||
-                        index + 1
-                      }`}
-                      title="Hapus varian"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )
-            )
-          )}
-        </div>
-      </Card>
-
-      {/* ====================================================== */}
-      {/* PILIHAN BERAT DAN HARGA */}
-      {/* ====================================================== */}
-
-      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">
-              Pilihan Berat & Harga
-            </h2>
-
-            <p className="text-sm text-muted-foreground">
-              Setiap produk dapat memiliki harga
-              berbeda untuk setiap pilihan berat.
-            </p>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={
-              addWeight
-            }
-          >
-            <Plus className="mr-2 h-4 w-4" />
-
-            Tambah Berat
-          </Button>
-        </div>
-
-        <div className="space-y-3">
-          {form.weightOptions
-            .length === 0 ? (
-            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Belum ada pilihan berat.
-              Klik Tambah Berat untuk menambahkan
-              pilihan.
-            </div>
-          ) : (
-            form.weightOptions.map(
-              (
-                weight,
-                index
-              ) => (
-                <div
-                  key={`weight-${index}`}
-                  className="grid gap-3 md:grid-cols-[1fr_1fr_auto]"
-                >
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor={`weight-label-${index}`}
-                    >
-                      Berat
-                    </Label>
-{weight.id && (
-  <input
-    type="hidden"
-    name="weightOptionIds"
-    value={weight.id}
-  />
-)}
-                    <Input
-                      id={`weight-label-${index}`}
-                      name="weightOptions"
-                      value={
-                        weight.label
-                      }
-                      placeholder="Contoh: 500gr"
-                      onChange={(
-                        event
-                      ) =>
-                        updateWeightLabel(
-                          index,
-                          event.target
-                            .value
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor={`weight-price-${index}`}
-                    >
-                      Harga
-                    </Label>
-
-                    <Input
-                      id={`weight-price-${index}`}
-                      name="weightOptionPrices"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={
-                        weight.price
-                      }
-                      placeholder="Contoh: 30000"
-                      onChange={(
-                        event
-                      ) =>
-                        updateWeightPrice(
-                          index,
-                          event.target
-                            .value
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        removeWeight(
-                          index
-                        )
-                      }
-                      aria-label={`Hapus pilihan berat ${
-                        weight.label ||
-                        index + 1
-                      }`}
-                      title="Hapus pilihan berat"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )
-            )
-          )}
-        </div>
-      </Card>
-
-      {/* ====================================================== */}
-      {/* HARGA BERAT × VARIAN */}
-      {/* ====================================================== */}
-
-      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
-        <div>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">
-                Harga Berat × Varian
-              </h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Atur harga khusus untuk setiap kombinasi
-                berat dan varian. Kosongkan kombinasi
-                jika ingin menggunakan harga fallback.
-              </p>
-            </div>
-
-            <div className="hidden rounded-full border bg-muted/40 px-3 py-1 text-xs font-medium sm:block">
-              {form.weightOptions.length} berat ×{" "}
-              {form.variantOptions.length} varian
-            </div>
-          </div>
-        </div>
-
-        {form.weightOptions.length === 0 ||
-        form.variantOptions.length === 0 ? (
+        {form.variantGroups.length === 0 ? (
           <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Tambahkan minimal satu pilihan berat dan
-            satu varian untuk mengatur harga kombinasi.
+            Produk ini belum memiliki varian.
+            <br />
+            Jika tidak ada varian, harga dan stok di
+            bagian Harga & Stok digunakan sebagai fallback
+            produk.
           </div>
         ) : (
-          <>
-            {/* Desktop / tablet matrix */}
-            <div className="hidden overflow-x-auto rounded-xl border md:block">
-              <table className="w-full min-w-[680px] border-collapse">
-                <thead>
-                  <tr className="bg-muted/40">
-                    <th className="sticky left-0 z-10 min-w-[150px] border-b border-r bg-muted/40 px-4 py-3 text-left text-sm font-semibold">
-                      Berat
-                    </th>
-
-                    {form.variantOptions.map(
-                      (variant, variantIndex) => (
-                        <th
-                          key={`matrix-header-${variantIndex}`}
-                          className="min-w-[210px] border-b px-4 py-3 text-left text-sm font-semibold"
-                        >
-                          <div className="truncate">
-                            {variant.label ||
-                              `Varian ${variantIndex + 1}`}
-                          </div>
-
-                          <div className="mt-0.5 text-xs font-normal text-muted-foreground">
-                            Harga khusus
-                          </div>
-                        </th>
-                      )
-                    )}
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {form.weightOptions.map(
-                    (weight, weightIndex) => (
-                      <tr
-                        key={`matrix-row-${weightIndex}`}
-                        className="transition-colors hover:bg-muted/20"
+          <div className="space-y-5">
+            {form.variantGroups.map(
+              (group, groupIndex) => (
+                <div
+                  key={group.clientKey}
+                  className="rounded-xl border p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label
+                        htmlFor={`variant-group-${groupIndex}`}
                       >
-                        <td className="sticky left-0 z-10 border-r bg-background px-4 py-4 align-top">
-                          <div className="font-medium">
-                            {weight.label ||
-                              `Berat ${weightIndex + 1}`}
-                          </div>
+                        Nama Group
+                      </Label>
 
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            Fallback:{" "}
-                            {formatRupiah(
-                              weight.price
-                            )}
-                          </div>
-                        </td>
-
-                        {form.variantOptions.map(
-                          (
-                            variant,
-                            variantIndex
-                          ) => {
-                            const matrixPrice =
-                              getMatrixPrice(
-                                weight.label,
-                                variant.label
-                              );
-
-                            return (
-                              <td
-                                key={`matrix-cell-${weightIndex}-${variantIndex}`}
-                                className="border-b px-4 py-4 align-top"
-                              >
-                                <div className="space-y-2">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    value={
-                                      matrixPrice || ""
-                                    }
-                                    placeholder={String(
-                                      weight.price
-                                    )}
-                                    onChange={(
-                                      event
-                                    ) =>
-                                      updateMatrixPrice(
-                                        weight.label,
-                                        variant.label,
-                                        event.target
-                                          .value
-                                      )
-                                    }
-                                    aria-label={`Harga ${weight.label} ${variant.label}`}
-                                  />
-
-                                  <div className="text-xs text-muted-foreground">
-                                    {matrixPrice > 0
-                                      ? formatRupiah(
-                                          matrixPrice
-                                        )
-                                      : "Fallback aktif"}
-                                  </div>
-                                </div>
-                              </td>
-                            );
-                          }
-                        )}
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile matrix */}
-            <div className="space-y-4 md:hidden">
-              {form.weightOptions.map(
-                (weight, weightIndex) => (
-                  <div
-                    key={`mobile-matrix-${weightIndex}`}
-                    className="rounded-xl border bg-background p-4 shadow-sm"
-                  >
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-semibold">
-                          {weight.label ||
-                            `Berat ${weightIndex + 1}`}
-                        </div>
-
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Fallback:{" "}
-                          {formatRupiah(
-                            weight.price
-                          )}
-                        </div>
-                      </div>
-
-                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium">
-                        {form.variantOptions.length} varian
-                      </span>
+                      <Input
+                        id={`variant-group-${groupIndex}`}
+                        value={
+                          group.name
+                        }
+                        placeholder="Contoh: Berat, Kondisi, Grade"
+                        onChange={(
+                          event
+                        ) =>
+                          updateVariantGroupName(
+                            groupIndex,
+                            event.target.value
+                          )
+                        }
+                      />
                     </div>
 
-                    <div className="space-y-3">
-                      {form.variantOptions.map(
-                        (
-                          variant,
-                          variantIndex
-                        ) => {
-                          const matrixPrice =
-                            getMatrixPrice(
-                              weight.label,
-                              variant.label
-                            );
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        removeVariantGroup(
+                          groupIndex
+                        )
+                      }
+                      aria-label={`Hapus group ${
+                        group.name ||
+                        groupIndex + 1
+                      }`}
+                      title="Hapus group"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-                          return (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium">
+                          Options
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Minimal satu option per group.
+                        </p>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          addVariantOption(
+                            groupIndex
+                          )
+                        }
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Tambah Option
+                      </Button>
+                    </div>
+
+                    {group.options.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                        Belum ada option.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {group.options.map(
+                          (
+                            option,
+                            optionIndex
+                          ) => (
                             <div
-                              key={`mobile-matrix-cell-${weightIndex}-${variantIndex}`}
-                              className="rounded-lg border bg-muted/20 p-3"
+                              key={
+                                option.id ??
+                                option.key ??
+                                `${group.clientKey}-${optionIndex}`
+                              }
+                              className="flex gap-2"
                             >
-                              <div className="mb-2 flex items-center justify-between gap-3">
-                                <span className="text-sm font-medium">
-                                  {variant.label ||
-                                    `Varian ${
-                                      variantIndex + 1
-                                    }`}
-                                </span>
-
-                                <span className="text-[11px] text-muted-foreground">
-                                  {matrixPrice > 0
-                                    ? "Harga khusus"
-                                    : "Fallback"}
-                                </span>
-                              </div>
-
                               <Input
-                                type="number"
-                                min="0"
-                                step="1"
                                 value={
-                                  matrixPrice || ""
+                                  option.label
                                 }
-                                placeholder={String(
-                                  weight.price
-                                )}
+                                placeholder={`Option ${
+                                  optionIndex + 1
+                                }`}
                                 onChange={(
                                   event
                                 ) =>
-                                  updateMatrixPrice(
-                                    weight.label,
-                                    variant.label,
-                                    event.target
-                                      .value
+                                  updateVariantOptionLabel(
+                                    groupIndex,
+                                    optionIndex,
+                                    event.target.value
                                   )
                                 }
-                                aria-label={`Harga ${weight.label} ${variant.label}`}
                               />
 
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                {matrixPrice > 0
-                                  ? formatRupiah(
-                                      matrixPrice
-                                    )
-                                  : `Fallback ${formatRupiah(
-                                      weight.price
-                                    )}`}
-                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() =>
+                                  removeVariantOption(
+                                    groupIndex,
+                                    optionIndex
+                                  )
+                                }
+                                aria-label="Hapus option"
+                                title="Hapus option"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                          );
-                        }
-                      )}
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* ====================================================== */}
+      {/* SKU COMBINATIONS */}
+      {/* ====================================================== */}
+
+      {form.variantGroups.length > 0 && (
+        <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+          <div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  SKU & Harga
+                </h2>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Sistem membuat Cartesian Product dari
+                  seluruh group. Harga dan stok disimpan
+                  per SKU.
+                </p>
+              </div>
+
+              <div className="rounded-full border bg-muted/40 px-3 py-1 text-xs font-medium">
+                {form.skus.length} kombinasi SKU
+              </div>
+            </div>
+          </div>
+
+          {form.skus.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Lengkapi nama group dan minimal satu option
+              pada setiap group untuk membentuk kombinasi SKU.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {form.skus.map(
+                (sku, skuIndex) => (
+                  <div
+                    key={
+                      sku.id ??
+                      `${combinationKey(
+                        sku.optionRefs
+                      )}-${skuIndex}`
+                    }
+                    className="rounded-xl border p-4"
+                  >
+                    <div className="mb-4">
+                      <p className="font-medium">
+                        {getSkuCombinationLabel(
+                          sku
+                        )}
+                      </p>
+
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Setiap kombinasi memiliki SKU,
+                        harga, dan stok sendiri.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor={`sku-code-${skuIndex}`}
+                        >
+                          SKU
+                        </Label>
+
+                        <Input
+                          id={`sku-code-${skuIndex}`}
+                          value={
+                            sku.sku
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateSku(
+                              skuIndex,
+                              "sku",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor={`sku-price-${skuIndex}`}
+                        >
+                          Harga
+                        </Label>
+
+                        <Input
+                          id={`sku-price-${skuIndex}`}
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={
+                            sku.price
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateSku(
+                              skuIndex,
+                              "price",
+                              event.target.value
+                            )
+                          }
+                        />
+
+                        <p className="text-xs text-muted-foreground">
+                          {formatRupiah(
+                            sku.price
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor={`sku-stock-${skuIndex}`}
+                        >
+                          Stok
+                        </Label>
+
+                        <Input
+                          id={`sku-stock-${skuIndex}`}
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={
+                            sku.stock
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateSku(
+                              skuIndex,
+                              "stock",
+                              event.target.value
+                            )
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                 )
               )}
             </div>
-
-            <div className="rounded-xl border bg-muted/30 p-4">
-              <div className="flex gap-3">
-                <div className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
-
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <p>
-                    <strong className="text-foreground">
-                      Harga khusus
-                    </strong>{" "}
-                    akan digunakan jika nilainya diisi.
-                  </p>
-
-                  <p>
-                    Jika kosong, sistem menggunakan
-                    harga berat sebagai fallback dan
-                    kemudian menerapkan penyesuaian
-                    varian sesuai pricing engine.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        <input
-          type="hidden"
-          name="weightVariantPrices"
-          value={JSON.stringify(
-            buildWeightVariantPricesPayload()
           )}
-          readOnly
-        />
-      </Card>
 
-      {/* ====================================================== */}
+          <input
+            type="hidden"
+            name="variantGroups"
+            value={JSON.stringify(
+              variantGroupsPayload
+            )}
+            readOnly
+          />
+
+          <input
+            type="hidden"
+            name="skus"
+            value={JSON.stringify(
+              skusPayload
+            )}
+            readOnly
+          />
+        </Card>
+      )}
+
       {/* STATUS PRODUK */}
       {/* ====================================================== */}
 

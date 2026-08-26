@@ -104,118 +104,47 @@ function normalizePrice(
 
 /**
  * ============================================================
- * PARSE WEIGHT × VARIANT PRICES
- * ============================================================
- *
- * ProductForm mengirim satu field JSON:
- *
- * weightVariantPrices = [
- *   {
- *     weightLabel: "1 KG",
- *     variantLabel: "Utuh",
- *     price: 100000,
- *   },
- * ]
- *
- * Cell matrix yang kosong tidak dikirim sebagai record.
+ * PARSE JSON PAYLOAD
  * ============================================================
  */
-function parseWeightVariantPrices(
-  value: FormDataEntryValue | null
-): Array<{
-  weightLabel: string;
-  variantLabel: string;
-  price: number;
-}> {
-  if (
-    value === null ||
-    String(value).trim() === ""
-  ) {
+
+function parseJsonArray(
+  value: FormDataEntryValue | null,
+  fieldName: string
+): unknown[] {
+  if (value === null || String(value).trim() === "") {
     return [];
   }
 
   let parsed: unknown;
-
   try {
-    parsed = JSON.parse(
-      String(value)
-    );
+    parsed = JSON.parse(String(value));
   } catch {
-    throw new Error(
-      "Data harga berat × varian tidak valid."
-    );
+    throw new Error(`Data ${fieldName} tidak valid.`);
   }
 
   if (!Array.isArray(parsed)) {
-    throw new Error(
-      "Data harga berat × varian harus berupa array."
-    );
+    throw new Error(`Data ${fieldName} harus berupa array.`);
   }
 
-  return parsed.map((item, index) => {
-    if (
-      typeof item !== "object" ||
-      item === null ||
-      Array.isArray(item)
-    ) {
-      throw new Error(
-        `Data harga kombinasi pada index ${index} tidak valid.`
-      );
-    }
+  return parsed;
+}
 
-    const record =
-      item as Record<string, unknown>;
+function parseVariantGroups(value: FormDataEntryValue | null) {
+  return parseJsonArray(value, "variantGroups");
+}
 
-    const weightLabel =
-      String(record.weightLabel ?? "").trim();
+function parseSkus(value: FormDataEntryValue | null) {
+  return parseJsonArray(value, "skus");
+}
 
-    const variantLabel =
-      String(record.variantLabel ?? "").trim();
-
-    const rawPrice =
-      String(record.price ?? "").trim();
-
-    if (!weightLabel) {
-      throw new Error(
-        `Label berat pada kombinasi index ${index} wajib diisi.`
-      );
-    }
-
-    if (!variantLabel) {
-      throw new Error(
-        `Label varian pada kombinasi index ${index} wajib diisi.`
-      );
-    }
-
-    if (!rawPrice) {
-      throw new Error(
-        `Harga pada kombinasi "${weightLabel} × ${variantLabel}" wajib diisi.`
-      );
-    }
-
-    const normalizedPrice =
-      rawPrice.replace(/[^0-9]/g, "");
-
-    const price =
-      normalizedPrice.length > 0
-        ? Number(normalizedPrice)
-        : NaN;
-
-    if (
-      !Number.isFinite(price) ||
-      price < 0
-    ) {
-      throw new Error(
-        `Harga pada kombinasi "${weightLabel} × ${variantLabel}" tidak valid.`
-      );
-    }
-
-    return {
-      weightLabel,
-      variantLabel,
-      price,
-    };
-  });
+function normalizeBoolean(
+  value: FormDataEntryValue | null,
+  fallback = false
+): boolean {
+  if (value === null) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "true" || normalized === "on" || normalized === "1";
 }
 
 /**
@@ -273,203 +202,17 @@ export async function createProductAction(
 
     /**
      * ========================================================
-     *
-     * VARIANT OPTIONS
-     *
-     * ProductForm mengirim:
-     *
-     * variantOptions = "Utuh"
-     * variantOptions = "Dibersihkan"
-     *
+     * PRODUCT VARIANTS / SKUS
      * ========================================================
+     * ProductForm v3 mengirim variantGroups dan skus sebagai JSON.
      */
-
-    /**
- * ========================================================
- *
- * VARIANT OPTIONS
- *
- * ProductForm mengirim:
- *
- * variantOptions[]
- * variantOptionPrices[]
- *
- * Contoh:
- *
- * variantOptions:
- * ["Utuh", "Dibersihkan"]
- *
- * variantOptionPrices:
- * ["0", "5000"]
- *
- * Hasil:
- *
- * [
- *   {
- *     label: "Utuh",
- *     priceAdjustment: 0,
- *   },
- *   {
- *     label: "Dibersihkan",
- *     priceAdjustment: 5000,
- *   },
- * ]
- *
- * ========================================================
- */
-
-const variantLabels =
-  formData
-    .getAll("variantOptions")
-    .map(
-      (value) =>
-        String(value).trim()
+    const variantGroups = parseVariantGroups(
+      formData.get("variantGroups")
     );
 
-const variantPrices =
-  formData
-    .getAll("variantOptionPrices")
-    .map(
-      (value) =>
-        String(value)
+    const skus = parseSkus(
+      formData.get("skus")
     );
-
-const variantOptions =
-  variantLabels.reduce<
-    Array<{
-      label: string;
-      priceAdjustment: number;
-    }>
-  >(
-    (
-      result,
-      label,
-      index
-    ) => {
-      if (!label) {
-        return result;
-      }
-
-      const alreadyExists =
-        result.some(
-          (item) =>
-            item.label.toLowerCase() ===
-            label.toLowerCase()
-        );
-
-      if (alreadyExists) {
-        return result;
-      }
-
-      const rawPrice =
-        variantPrices[index] ??
-        "";
-
-      const normalizedPrice =
-        rawPrice.replace(
-          /[^0-9]/g,
-          ""
-        );
-
-      const priceAdjustment =
-        normalizedPrice.length > 0
-          ? Number(
-              normalizedPrice
-            )
-          : 0;
-
-      result.push({
-        label,
-
-        priceAdjustment:
-          Number.isFinite(
-            priceAdjustment
-          )
-            ? Math.max(
-                0,
-                priceAdjustment
-              )
-            : 0,
-      });
-
-      return result;
-    },
-    []
-  );
-
-    /**
-     * ========================================================
-     *
-     * WEIGHT OPTIONS
-     *
-     * ProductForm mengirim:
-     *
-     * weightOptions = "500gr"
-     * weightOptionPrices = "25000"
-     *
-     * ========================================================
-     */
-
-    const weightLabels =
-      formData
-        .getAll("weightOptions")
-        .map(
-          (value) =>
-            String(value).trim()
-        );
-
-    const weightPrices =
-      formData
-        .getAll(
-          "weightOptionPrices"
-        )
-        .map(
-          (value) =>
-            String(value)
-        );
-
-    const weightOptions =
-      weightLabels.reduce<
-        Array<{
-          label: string;
-          price: number;
-        }>
-      >(
-        (
-          result,
-          label,
-          index
-        ) => {
-          if (!label) {
-            return result;
-          }
-
-          const rawPrice =
-            weightPrices[index] ??
-            "";
-
-          const normalizedPrice =
-            rawPrice.replace(
-              /[^0-9]/g,
-              ""
-            );
-
-          const price =
-            normalizedPrice.length > 0
-              ? Number(
-                  normalizedPrice
-                )
-              : 0;
-
-          result.push({
-            label,
-            price,
-          });
-
-          return result;
-        },
-        []
-      );
 
     /**
      * ========================================================
@@ -504,131 +247,53 @@ const variantOptions =
      * ========================================================
      */
 
-    const parsed =
-  ProductSchema.safeParse({
-    categoryId:
-      formData.get("categoryId"),
+    const parsed = ProductSchema.safeParse({
+      categoryId: formData.get("categoryId"),
+      name: formData.get("name"),
+      slug: formData.get("slug"),
+      description: formData.get("description"),
+      sku: formData.get("sku"),
+      price: formData.get("price"),
 
-    name:
-      formData.get("name"),
-
-    slug:
-      formData.get("slug"),
-
-    description:
-      formData.get("description"),
-
-    sku:
-      formData.get("sku"),
-
-    unit:
-      formData.get("unit"),
-
-    /**
-     * ========================================================
-     * PRODUCT PRICE
-     * ========================================================
-     */
-
-    price:
-      formData.get("price"),
-
-    /**
-     * ========================================================
-     * PRODUCT DISCOUNT
-     * ========================================================
-     */
-
-    isDiscountActive:
-      formData.get(
-        "isDiscountActive"
-      ) === "true" ||
-      formData.get(
-        "isDiscountActive"
-      ) === "on",
-
-    discountType: (() => {
-      const value =
-        formData.get(
-          "discountType"
-        );
-
-      if (
-        value === null ||
-        String(value).trim() === ""
-      ) {
-        return null;
-      }
-
-      return String(value);
-    })(),
-
-    discountValue:
-      normalizePrice(
-        formData.get(
-          "discountValue"
-        )
+      isDiscountActive: normalizeBoolean(
+        formData.get("isDiscountActive"),
+        false
       ),
 
-    discountStartAt:
-      normalizeOptionalDate(
-        formData.get(
-          "discountStartAt"
-        )
+      discountType: (() => {
+        const value = formData.get("discountType");
+        if (value === null || String(value).trim() === "") {
+          return null;
+        }
+        return String(value);
+      })(),
+
+      discountValue: normalizePrice(
+        formData.get("discountValue")
       ),
 
-    discountEndAt:
-      normalizeOptionalDate(
-        formData.get(
-          "discountEndAt"
-        )
+      discountStartAt: normalizeOptionalDate(
+        formData.get("discountStartAt")
       ),
 
-    /**
-     * ========================================================
-     * PRODUCT STOCK
-     * ========================================================
-     */
-
-    stock:
-      formData.get("stock"),
-
-    weight:
-      formData.get("weight"),
-
-    /**
-     * ========================================================
-     * PRODUCT OPTIONS
-     * ========================================================
-     */
-
-    variantOptions,
-
-    weightOptions,
-
-    weightVariantPrices:
-      parseWeightVariantPrices(
-        formData.get(
-          "weightVariantPrices"
-        )
+      discountEndAt: normalizeOptionalDate(
+        formData.get("discountEndAt")
       ),
 
-    /**
-     * ========================================================
-     * PRODUCT STATUS
-     * ========================================================
-     */
+      stock: formData.get("stock"),
+      variantGroups,
+      skus,
 
-    isPublished:
-      formData.get(
-        "isPublished"
+      isPublished: normalizeBoolean(
+        formData.get("isPublished"),
+        true
       ),
 
-    featured:
-      formData.get(
-        "featured"
+      featured: normalizeBoolean(
+        formData.get("featured"),
+        false
       ),
-  });
+    });
 
     /**
      * ========================================================
@@ -694,6 +359,12 @@ const variantOptions =
       await ProductService.createProduct(
         parsed.data
       );
+
+    if (!product) {
+      throw new Error(
+        "Produk gagal dibuat atau tidak dapat ditemukan setelah proses create."
+      );
+    }
 
     /**
      * ========================================================

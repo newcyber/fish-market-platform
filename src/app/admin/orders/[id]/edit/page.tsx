@@ -126,22 +126,68 @@ export default async function EditOrderPage({
   );
 
   const productOptions =
-    products.map(
-      (product) => ({
-        id: product.id,
+  products.map(
+    (product) => ({
+      id:
+        product.id,
 
-        name: product.name,
+      name:
+        product.name,
 
-        sku: product.sku,
+      sku:
+        product.sku,
 
-        price: Number(
-          product.price
+      price:
+        Number(product.price),
+
+      stock:
+        product.stock,
+
+      skus:
+        product.skus.map(
+          (sku) => ({
+            id:
+              sku.id,
+
+            sku:
+              sku.sku,
+
+            price:
+              Number(sku.price),
+
+            stock:
+              sku.stock,
+
+            isActive:
+              sku.isActive,
+
+            skuOptions:
+              sku.skuOptions.map(
+                (skuOption) => ({
+                  id:
+                    skuOption.id,
+
+                  variantOption: {
+                    id:
+                      skuOption.variantOption.id,
+
+                    label:
+                      skuOption.variantOption.label,
+
+                    group: {
+                      id:
+                        skuOption.variantOption.group.id,
+
+                      name:
+                        skuOption.variantOption.group.name,
+                    },
+                  },
+                })
+              ),
+          })
         ),
-
-        stock: product.stock,
-
-      })
-    );
+    })
+  );
 
   return (
     <div className="space-y-6">
@@ -187,16 +233,24 @@ export default async function EditOrderPage({
           notes:
             order.notes ?? "",
 
-          items:
-            order.items.map(
+         items:
+            order.items
+              .filter(
+              (item) =>
+                item.skuId !== null
+            )
+            .map(
               (item) => ({
-                productId:
-                  item.productId,
+        productId:
+          item.productId,
 
-                quantity:
-                  item.quantity,
-              })
-            ),
+        skuId:
+          item.skuId!,
+
+        quantity:
+          item.quantity,
+      })
+    ),
         }}
         customers={
           customerOptions

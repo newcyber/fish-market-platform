@@ -3212,6 +3212,7 @@ static async cancelOrder(
         const stockAfter =
         updatedProduct.stock;
 
+        
         /**
           * ======================================================
           * CREATE STOCK LEDGER
@@ -4592,10 +4593,20 @@ static async createCheckoutOrder(
 
         include: {
           items: {
-            include: {
-              product: true,
-            },
+  include: {
+    product: true,
+
+    sku: {
+      include: {
+        skuOptions: {
+          include: {
+            variantOption: true,
           },
+        },
+      },
+    },
+  },
+},
         },
       });
 
@@ -4659,7 +4670,6 @@ static async createCheckoutOrder(
               id: true,
               name: true,
               price: true,
-              stock: true,
             },
           });
 
@@ -4675,8 +4685,14 @@ static async createCheckoutOrder(
 
         /**
           * ====================================================
-          * VALIDATE PRODUCT EXISTENCE
+          * VALIDATE PRODUCT EXISTENCE + CANONICAL SKU
           * ====================================================
+          *
+          * Checkout customer menggunakan skuId yang tersimpan
+          * di CartItem sebagai source of truth.
+          *
+          * Product.stock TIDAK lagi digunakan untuk stock checkout.
+          * Stock canonical berada pada ProductSku.stock.
         */
 
         for (
@@ -4693,11 +4709,30 @@ static async createCheckoutOrder(
             );
           }
 
+          if (!item.skuId || !item.sku) {
+            throw new Error(
+              `SKU untuk produk "${product.name}" tidak ditemukan. Silakan hapus produk tersebut dari keranjang dan tambahkan kembali.`
+            );
+          }
+
+          if (item.sku.productId !== product.id) {
+            throw new Error(
+              `SKU "${item.sku.sku}" tidak sesuai dengan produk "${product.name}".`
+            );
+          }
+
+          if (!item.sku.isActive) {
+            throw new Error(
+              `SKU "${item.sku.sku}" sedang tidak aktif.`
+            );
+          }
+
           if (
-            product.stock <= 0
+            !Number.isInteger(item.quantity) ||
+            item.quantity <= 0
           ) {
             throw new Error(
-              `Stok ${product.name} sedang habis.`
+              `Quantity produk "${product.name}" tidak valid.`
             );
           }
         }
@@ -4729,94 +4764,111 @@ static async createCheckoutOrder(
           }
 
           /**
-            * Resolve harga berdasarkan:
+            * Resolve harga menggunakan canonical SKU.
             *
-            * - Product Variant
-            * - Product Weight
-            * - Pricing Rule
-            * - Product Discount
-            * - Fallback Product Price
+            * productVariant / productWeight bukan lagi source
+            * of truth untuk harga checkout.
           */
 
-          const pricing =
-  await ProductPricingService.resolve(
-    tx,
-    {
-      productId:
-        product.id,
+         const { sku } = item;
 
-      productVariant:
-        item.productVariant,
-
-      productWeight:
-        item.productWeight,
-
-      fallbackPrice:
-        product.price,
-    }
+if (!sku) {
+  throw new Error(
+    `SKU untuk produk "${product.name}" tidak ditemukan.`
   );
-
-
-/**
- * ========================================================
- * COLLECT FLASH SALE REQUIREMENT
- * ========================================================
- */
-
-if (
-  pricing.isFlashSaleApplied &&
-  pricing.flashSaleItemId
-) {
-  flashSaleRequirements.push({
-    flashSaleItemId:
-      pricing.flashSaleItemId,
-
-    quantity:
-      item.quantity,
-
-    price:
-      pricing.finalPrice,
-  });
 }
 
+if (sku.stock < item.quantity) {
+  throw new Error(
+    `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${sku.stock}.`
+  );
+}
 
-const price =
-  pricing.finalPrice;
-
-          const quantity =
-          new Prisma.Decimal(
-            item.quantity
-          );
-
-          const itemSubtotal =
-          price.mul(
-            quantity
-          );
-
-          normalizedItems.push({
+          const pricing =
+          await ProductPricingService.resolve(
+            tx,
+            {
               productId:
-              product.id,
+                product.id,
 
-              productName:
-              product.name,
+              skuId:
+                sku.id,
 
-              productVariant:
-              item.productVariant,
+              fallbackPrice:
+                product.price,
+            }
+          );
 
-              productWeight:
-              item.productWeight,
+          /**
+            * ========================================================
+            * COLLECT FLASH SALE REQUIREMENT
+            * ========================================================
+          */
 
-              customerNote:
-              item.customerNote,
-
-              price,
+          if (
+            pricing.isFlashSaleApplied &&
+            pricing.flashSaleItemId
+          ) {
+            flashSaleRequirements.push({
+              flashSaleItemId:
+                pricing.flashSaleItemId,
 
               quantity:
+                item.quantity,
+
+              price:
+                pricing.finalPrice,
+            });
+          }
+
+          const price =
+            pricing.finalPrice;
+
+          const quantity =
+            new Prisma.Decimal(
+              item.quantity
+            );
+
+          const itemSubtotal =
+            price.mul(
+              quantity
+            );
+
+          normalizedItems.push({
+            productId:
+              product.id,
+
+            skuId:
+              sku.id,
+
+            productName:
+              product.name,
+
+            /**
+              * Legacy snapshot fields tetap dipertahankan
+              * untuk kompatibilitas data lama, tetapi tidak
+              * digunakan sebagai source of truth transaksi.
+            */
+            productVariant:
+              item.productVariant,
+
+            productWeight:
+              item.productWeight,
+
+            weightSku:
+              item.weightSku,
+
+            customerNote:
+              item.customerNote,
+
+            price,
+
+            quantity:
               item.quantity,
 
-              subtotal:
+            subtotal:
               itemSubtotal,
-            });
+          });
         }
 
         /**
@@ -5051,6 +5103,9 @@ const price =
                       productId:
                       item.productId,
 
+                      skuId:
+                      item.skuId,
+
                       productName:
                       item.productName,
 
@@ -5247,29 +5302,35 @@ if (
 
         /**
           * ====================================================
-          * AGGREGATE STOCK REQUIREMENTS
+          * AGGREGATE STOCK REQUIREMENTS PER SKU
           * ====================================================
           *
-          * Product yang sama dapat muncul beberapa kali
-          * karena variant, weight, atau customerNote berbeda.
-          *
-          * Stock tetap berada pada level Product.
+          * Stock canonical berada pada ProductSku.stock.
+          * Product yang sama boleh memiliki beberapa SKU dengan
+          * stock terpisah, sehingga aggregation WAJIB berdasarkan
+          * skuId, bukan productId.
         */
 
         const stockRequirements =
         new Map<
-        string,
-        number
+          string,
+          number
         >();
 
         for (
           const item of normalizedItems
         ) {
+          if (!item.skuId) {
+            throw new Error(
+              `SKU untuk produk "${item.productName}" tidak valid.`
+            );
+          }
+
           stockRequirements.set(
-            item.productId,
+            item.skuId,
             (
               stockRequirements.get(
-                item.productId
+                item.skuId
               ) ?? 0
             ) +
             item.quantity
@@ -5278,14 +5339,18 @@ if (
 
         /**
           * ====================================================
-          * ATOMIC STOCK DECREMENT
+          * ATOMIC SKU STOCK DECREMENT
           * + CREATE STOCK LEDGER
           * ====================================================
+          *
+          * Product.stock TIDAK lagi diubah oleh checkout.
+          * Guard stock >= quantity dilakukan di query UPDATE
+          * agar aman terhadap checkout bersamaan.
         */
 
         for (
           const [
-            productId,
+            skuId,
             quantity,
           ] of stockRequirements
         ) {
@@ -5295,39 +5360,47 @@ if (
             continue;
           }
 
-          const currentProduct =
-          await tx.product.findUnique({
+          const currentSku =
+          await tx.productSku.findUnique({
               where: {
                 id:
-                productId,
+                skuId,
               },
 
               select: {
                 id: true,
-                name: true,
+                sku: true,
+                productId: true,
                 stock: true,
+                isActive: true,
               },
             });
 
-          if (!currentProduct) {
+          if (!currentSku) {
             throw new Error(
-              "Produk tidak ditemukan saat checkout."
+              "SKU tidak ditemukan saat checkout."
+            );
+          }
+
+          if (!currentSku.isActive) {
+            throw new Error(
+              `SKU "${currentSku.sku}" sedang tidak aktif.`
             );
           }
 
           const stockBefore =
-          currentProduct.stock;
+          currentSku.stock;
 
           const stockResult =
-          await tx.product.updateMany({
+          await tx.productSku.updateMany({
               where: {
                 id:
-                productId,
+                currentSku.id,
 
-                deletedAt:
-                null,
+                productId:
+                currentSku.productId,
 
-                isPublished:
+                isActive:
                 true,
 
                 stock: {
@@ -5348,7 +5421,7 @@ if (
             stockResult.count !== 1
           ) {
             throw new Error(
-              `Stok ${currentProduct.name} tidak mencukupi atau berubah sebelum checkout selesai.`
+              `Stok SKU "${currentSku.sku}" tidak mencukupi atau berubah sebelum checkout selesai.`
             );
           }
 
@@ -5356,15 +5429,13 @@ if (
           stockBefore -
           quantity;
 
-          /**
-            * ==================================================
-            * CREATE STOCK LEDGER
-            * ==================================================
-          */
-
           await tx.stockLedger.create({
               data: {
-                productId,
+                productId:
+                currentSku.productId,
+
+                skuId:
+                currentSku.id,
 
                 orderId:
                 createdOrder.id,
@@ -5380,7 +5451,7 @@ if (
                 stockAfter,
 
                 note:
-                `Penjualan ${createdOrder.orderNumber}`,
+                `Penjualan ${createdOrder.orderNumber} - SKU ${currentSku.sku}`,
               },
             });
         }

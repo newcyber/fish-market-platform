@@ -133,7 +133,7 @@ export async function GET(
  *
  * {
  *   "productId": "...",
- *   "weightOptionId": "...",
+ *   "skuId": "...",
  *   "originalPrice": 50000,
  *   "flashPrice": 40000,
  *   "stockLimit": 100,
@@ -181,16 +181,15 @@ export async function POST(
     }
 
     const {
-      productId,
-      weightOptionId,
-      originalPrice,
-      flashPrice,
-      stockLimit,
-      perUserLimit,
-      isActive,
-      sortOrder,
-    } =
-      body;
+  productId,
+  skuId,
+  originalPrice,
+  flashPrice,
+  stockLimit,
+  perUserLimit,
+  isActive,
+  sortOrder,
+} = body;
 
     /**
      * --------------------------------------------------------
@@ -215,22 +214,19 @@ export async function POST(
     }
 
     if (
-      weightOptionId !== undefined &&
-      weightOptionId !== null &&
-      typeof weightOptionId !== "string"
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            "Weight option ID tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
+  typeof skuId !== "string" ||
+  !skuId.trim()
+) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: "SKU ID wajib diisi.",
+    },
+    {
+      status: 400,
     }
+  );
+}
 
     if (
       typeof originalPrice !== "number"
@@ -338,29 +334,26 @@ export async function POST(
      */
 
     const item =
-      await FlashSaleItemService.create(
-        id,
-        {
-          productId,
+  await FlashSaleItemService.create(
+    id,
+    {
+      productId,
 
-          weightOptionId:
-            weightOptionId === undefined
-              ? undefined
-              : weightOptionId,
+      skuId: skuId.trim(),
 
-          originalPrice,
+      originalPrice,
 
-          flashPrice,
+      flashPrice,
 
-          stockLimit,
+      stockLimit,
 
-          perUserLimit,
+      perUserLimit,
 
-          isActive,
+      isActive,
 
-          sortOrder,
-        }
-      );
+      sortOrder,
+    }
+  );
 
     return NextResponse.json(
       {

@@ -34,7 +34,7 @@ import { prisma } from "@/lib/prisma";
 export interface FindActiveFlashSaleItemInput {
   productId: string;
 
-  weightOptionId?: string | null;
+  skuId?: string | null;
 
   now?: Date;
 }
@@ -77,24 +77,22 @@ export default class FlashSaleRepository {
     tx: Prisma.TransactionClient,
     {
       productId,
-      weightOptionId,
+      skuId,
       now = new Date(),
     }: FindActiveFlashSaleItemInput
   ) {
     const commonWhere = {
       productId,
-
       isActive: true,
-
+      stockLimit: {
+        gt: 0,
+      },
       flashSale: {
         status: FlashSaleStatus.ACTIVE,
-
         deletedAt: null,
-
         startAt: {
           lte: now,
         },
-
         endAt: {
           gt: now,
         },
@@ -104,33 +102,35 @@ export default class FlashSaleRepository {
     /**
      * ==========================================================
      * PRIORITY 1
-     * WEIGHT-SPECIFIC FLASH SALE
+     * SKU-SPECIFIC FLASH SALE
      * ==========================================================
      */
-
-    if (weightOptionId) {
-      const weightSpecificItem =
+    if (skuId) {
+      const skuSpecificItem =
         await tx.flashSaleItem.findFirst({
           where: {
             ...commonWhere,
-
-            weightOptionId,
+            skuId,
           },
 
           include: {
             flashSale: {
               select: {
                 id: true,
-
                 name: true,
-
                 slug: true,
-
                 startAt: true,
-
                 endAt: true,
-
                 status: true,
+              },
+            },
+            sku: {
+              include: {
+                skuOptions: {
+                  include: {
+                    variantOption: true,
+                  },
+                },
               },
             },
           },
@@ -139,29 +139,30 @@ export default class FlashSaleRepository {
             {
               sortOrder: "asc",
             },
-
             {
               createdAt: "asc",
             },
           ],
         });
 
-      if (weightSpecificItem) {
-        return weightSpecificItem;
+      if (skuSpecificItem) {
+        return skuSpecificItem;
       }
     }
 
     /**
      * ==========================================================
      * PRIORITY 2
-     * PRODUCT-WIDE FLASH SALE
+     * PRODUCT-WIDE LEGACY FLASH SALE
      * ==========================================================
+     *
+     * Tetap dipertahankan sementara untuk compatibility dengan
+     * data lama selama proses migration.
      */
-
     return tx.flashSaleItem.findFirst({
       where: {
         ...commonWhere,
-
+        skuId: null,
         weightOptionId: null,
       },
 
@@ -169,25 +170,20 @@ export default class FlashSaleRepository {
         flashSale: {
           select: {
             id: true,
-
             name: true,
-
             slug: true,
-
             startAt: true,
-
             endAt: true,
-
             status: true,
           },
         },
+        sku: true,
       },
 
       orderBy: [
         {
           sortOrder: "asc",
         },
-
         {
           createdAt: "asc",
         },
@@ -306,7 +302,7 @@ export default class FlashSaleRepository {
     },
   },
 
-  weightOption: true,
+  sku: true,
 
   _count: {
     select: {
@@ -456,55 +452,66 @@ export default class FlashSaleRepository {
   }
 
   /**
-   * ============================================================
-   * ADMIN - FIND FLASH SALE BY ID
-   * ============================================================
-   */
+ * ============================================================
+ * ADMIN - FIND FLASH SALE BY ID
+ * ============================================================
+ */
 
-  static async findById(
-    id: string
-  ) {
-    return prisma.flashSale.findFirst({
-      where: {
-        id,
+static async findById(
+  id: string
+) {
+  return prisma.flashSale.findFirst({
+    where: {
+      id,
 
-        deletedAt:
-          null,
-      },
+      deletedAt:
+        null,
+    },
 
-      include: {
-        items: {
-          orderBy: [
-            {
-              sortOrder:
-                "asc",
-            },
+    include: {
+      items: {
+        orderBy: [
+          {
+            sortOrder:
+              "asc",
+          },
 
-            {
-              createdAt:
-                "asc",
-            },
-          ],
+          {
+            createdAt:
+              "asc",
+          },
+        ],
 
-          include: {
-            product:
-              true,
+        include: {
+          product:
+            true,
 
-            weightOption:
-              true,
-
-            _count: {
-              select: {
-                purchases:
-                  true,
+          sku: {
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption: {
+                    include: {
+                      group:
+                        true,
+                    },
+                  },
+                },
               },
+            },
+          },
+
+          _count: {
+            select: {
+              purchases:
+                true,
             },
           },
         },
       },
-    });
-  }
-
+    },
+  });
+}
   /**
    * ============================================================
    * ADMIN - FIND FLASH SALE BY SLUG
@@ -684,7 +691,7 @@ static async softDelete(
         product:
           true,
 
-        weightOption:
+        sku:
           true,
 
         _count: {
@@ -725,7 +732,7 @@ static async softDelete(
         product:
           true,
 
-        weightOption:
+        sku:
           true,
 
         _count: {
@@ -738,49 +745,50 @@ static async softDelete(
     });
   }
 
-  /**
-   * ============================================================
-   * FLASH SALE ITEM - FIND DUPLICATE
-   * ============================================================
-   *
-   * Mencegah produk / weight option yang sama dimasukkan
-   * lebih dari satu kali ke campaign yang sama.
-   */
+/**
+ * ============================================================
+ * FLASH SALE ITEM - FIND DUPLICATE
+ * ============================================================
+ *
+ * Canonical uniqueness:
+ *
+ *   flashSaleId + skuId
+ *
+ * ProductId tetap digunakan sebagai filter tambahan untuk
+ * memastikan SKU berasal dari product yang benar.
+ *
+ * Legacy weightOptionId sudah tidak digunakan dalam
+ * duplicate protection.
+ */
+static async findDuplicateItem({
+  flashSaleId,
+  productId,
+  skuId,
+  excludeItemId,
+}: {
+  flashSaleId: string;
+  productId: string;
+  skuId: string;
+  excludeItemId?: string;
+}) {
+  return prisma.flashSaleItem.findFirst({
+    where: {
+      flashSaleId,
 
-  static async findDuplicateItem({
-    flashSaleId,
-    productId,
-    weightOptionId,
-    excludeItemId,
-  }: {
-    flashSaleId: string;
+      productId,
 
-    productId: string;
+      skuId,
 
-    weightOptionId?: string | null;
-
-    excludeItemId?: string;
-  }) {
-    return prisma.flashSaleItem.findFirst({
-      where: {
-        flashSaleId,
-
-        productId,
-
-        weightOptionId:
-          weightOptionId ?? null,
-
-        ...(excludeItemId
-          ? {
-              id: {
-                not:
-                  excludeItemId,
-              },
-            }
-          : {}),
-      },
-    });
-  }
+      ...(excludeItemId
+        ? {
+            id: {
+              not: excludeItemId,
+            },
+          }
+        : {}),
+    },
+  });
+}
 
   /**
    * ============================================================
@@ -798,7 +806,7 @@ static async softDelete(
         product:
           true,
 
-        weightOption:
+        sku:
           true,
       },
     });
@@ -827,7 +835,7 @@ static async softDelete(
         product:
           true,
 
-        weightOption:
+        sku:
           true,
       },
     });

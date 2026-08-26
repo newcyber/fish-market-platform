@@ -9,7 +9,7 @@ import {
 } from "@/services/product/product.service";
 
 import {
-  ProductSchema,
+  ProductUpdateSchema,
 } from "@/validators/product/product.schema";
 
 import type {
@@ -105,6 +105,72 @@ function normalizePrice(
   );
 }
 
+/**
+ * ============================================================
+ * PARSE JSON ARRAY
+ * ============================================================
+ *
+ * Membaca hidden input JSON dari ProductForm.
+ *
+ * Contoh:
+ *
+ * variantGroups = [
+ *   {
+ *     id: "...",
+ *     name: "Berat",
+ *     options: [...]
+ *   }
+ * ]
+ *
+ * skus = [
+ *   {
+ *     id: "...",
+ *     sku: "...",
+ *     price: 50000,
+ *     stock: 10,
+ *     optionRefs: [...]
+ *   }
+ * ]
+ *
+ * Jika field tidak dikirim / kosong:
+ * return []
+ *
+ * Jika JSON tidak valid:
+ * throw error agar action tidak melanjutkan
+ * proses update.
+ * ============================================================
+ */
+function parseJsonArray(
+  value: FormDataEntryValue | null,
+  fieldName: string
+): unknown[] {
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return [];
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(
+      String(value)
+    );
+  } catch {
+    throw new Error(
+      `Data ${fieldName} tidak valid.`
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      `Data ${fieldName} harus berupa array.`
+    );
+  }
+
+  return parsed;
+}
 
 /**
  * ============================================================
@@ -759,6 +825,48 @@ const imageFiles =
       "stock"
     ),
 
+    /**
+   * ==========================================================
+   * CANONICAL VARIANT / SKU PAYLOAD
+   * ==========================================================
+   *
+   * ProductForm mengirim konfigurasi variant dan SKU
+   * melalui hidden input dalam bentuk JSON.
+   *
+   * variantGroups:
+   * - undefined tidak boleh terjadi untuk form edit
+   * - [] berarti user memang menghapus semua variant
+   * - [...] berarti konfigurasi variant harus disinkronkan
+   *
+   * skus:
+   * - berisi SKU canonical beserta optionRefs
+   */
+
+  variantGroups:
+    parseJsonArray(
+      formData.get(
+        "variantGroups"
+      ),
+      "variantGroups"
+    ),
+
+  skus:
+    parseJsonArray(
+      formData.get(
+        "skus"
+      ),
+      "skus"
+    ),
+
+  /**
+   * ==========================================================
+   * LEGACY VARIANT PAYLOAD
+   * ==========================================================
+   *
+   * Tetap dipertahankan sementara untuk compatibility dengan
+   * field lama yang masih digunakan oleh form/migration.
+   */
+
   variantOptions,
 
   weightOptions,
@@ -791,9 +899,9 @@ const imageFiles =
      */
 
     const parsed =
-      ProductSchema.safeParse(
-        rawData
-      );
+  ProductUpdateSchema.safeParse(
+    rawData
+  );
 
     /**
      * ==========================================================

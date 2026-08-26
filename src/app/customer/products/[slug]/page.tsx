@@ -1,3 +1,5 @@
+import type React from "react";
+
 import Link from "next/link";
 
 import {
@@ -143,69 +145,70 @@ export default async function ProductDetailPage({
    * ==========================================================
    */
 
-  const variantOptions =
-    (
-      product.variantOptions ??
-      []
+  const variantGroups =
+  product.variantGroups
+    .filter(
+      (group) =>
+        group.isActive &&
+        group.options.some(
+          (option) => option.isActive
+        )
     )
-      .filter(
-        (option) =>
-          option.isActive
-      )
-      .sort(
-        (a, b) =>
-          a.sortOrder -
-          b.sortOrder
-      )
-      .map(
-        (option) => ({
-          id:
-            option.id,
+    .sort(
+      (a, b) =>
+        a.sortOrder -
+        b.sortOrder
+    )
+    .map((group) => ({
+      id: group.id,
+      name: group.name,
+      sortOrder: group.sortOrder,
+      isActive: group.isActive,
 
-          label:
-            option.label,
-
-          priceAdjustment:
-            Number(
-              option.priceAdjustment ??
-              0
-            ),
-        })
-      );
+      options: group.options
+        .filter(
+          (option) =>
+            option.isActive
+        )
+        .sort(
+          (a, b) =>
+            a.sortOrder -
+            b.sortOrder
+        )
+        .map((option) => ({
+          id: option.id,
+          groupId: option.groupId,
+          label: option.label,
+          sortOrder: option.sortOrder,
+          isActive: option.isActive,
+        })),
+    }));
 
   /**
    * ==========================================================
-   * PRODUCT WEIGHT OPTIONS
+   * ACTIVE SKU DATA
    * ==========================================================
+   *
+   * SKU adalah canonical sellable unit.
+   * Harga dan stok untuk product yang sudah menggunakan SKU
+   * berasal dari SKU, bukan dari legacy weight data.
    */
 
-  const weightOptions =
-    (
-      product.weightOptions ??
-      []
-    )
+  const activeSkus =
+    product.skus
       .filter(
-        (option) =>
-          option.isActive
-      )
-      .sort(
-        (a, b) =>
-          a.sortOrder -
-          b.sortOrder
-      )
-      .map(
-        (option) => ({
-          id:
-            option.id,
+        (sku) =>
+          sku.isActive &&
+          sku.productId === product.id
+      );
 
-          label:
-            option.label,
-
-          price:
-            Number(
-              option.price
-            ),
-        })
+  const skuPriceList: number[] =
+    activeSkus
+      .map((sku) => Number(sku.price))
+      .filter(
+        (price) =>
+          Number.isFinite(price) &&
+          price >= 0
       );
 
   /**
@@ -213,14 +216,9 @@ export default async function ProductDetailPage({
    * ACTIVE FLASH SALE ITEMS
    * ==========================================================
    *
-   * Ambil seluruh Flash Sale Item aktif
-   * untuk produk yang sedang dibuka.
-   *
-   * Data ini digunakan untuk display pricing
-   * di Product Detail dan Add To Cart.
-   *
-   * Backend Cart dan Checkout tetap melakukan
-   * validasi ulang melalui Pricing Engine.
+   * Flash Sale sekarang diarahkan ke SKU.
+   * Harga promo tidak boleh dianggap sebagai harga product-wide
+   * sebelum customer memilih kombinasi variant.
    */
 
   const flashSaleNow =
@@ -255,7 +253,7 @@ export default async function ProductDetailPage({
         id:
           true,
 
-        weightOptionId:
+        skuId:
           true,
 
         originalPrice:
@@ -286,9 +284,6 @@ export default async function ProductDetailPage({
    * ==========================================================
    * NORMALIZE FLASH SALE ITEMS
    * ==========================================================
-   *
-   * Prisma Decimal tidak boleh diteruskan
-   * langsung ke Client Component.
    */
 
   const normalizedFlashSaleItems =
@@ -303,8 +298,8 @@ export default async function ProductDetailPage({
           id:
             item.id,
 
-          weightOptionId:
-            item.weightOptionId,
+          skuId:
+            item.skuId,
 
           originalPrice:
             Number(
@@ -332,25 +327,9 @@ export default async function ProductDetailPage({
 
   /**
    * ==========================================================
-   * PRODUCT DETAIL DISPLAY PRICING
+   * PRODUCT BASE PRICE
    * ==========================================================
-   *
-   * Untuk harga utama Product Detail:
-   *
-   * 1. Prioritaskan Flash Sale product-wide.
-   * 2. Jika tidak ada, gunakan Product Discount.
-   * 3. Jika tidak ada, gunakan harga normal.
-   *
-   * Flash Sale khusus weight tidak dipilih secara otomatis
-   * karena customer belum memilih weight option.
    */
-
-  const productWideFlashSale =
-    normalizedFlashSaleItems.find(
-      (item) =>
-        item.weightOptionId ===
-        null
-    ) ?? null;
 
   const baseProductPrice =
     Number(
@@ -427,86 +406,27 @@ export default async function ProductDetailPage({
 
   /**
    * ==========================================================
-   * PRODUCT PRICE RANGE
+   * SKU PRICE LIST
    * ==========================================================
    *
-   * PRIORITAS:
-   *
-   * 1. weightVariantPrices
-   * 2. weightOptions
-   * 3. product.price
-   *
-   * Contoh matrix:
-   *
-   * 500g  + Utuh          = 30000
-   * 500g  + Dibersihkan   = 35000
-   * 1kg   + Utuh          = 45000
-   * 1kg   + Dibersihkan   = 50000
-   *
-   * Maka Product Detail:
-   *
-   * Rp 30.000 - Rp 50.000
-   *
-   * Ini adalah harga sebelum product discount.
+   * Harga range berasal dari SKU.price.
+   * Product.price hanya menjadi fallback untuk product legacy.
    */
 
-  const matrixPriceList =
-    (
-      product.weightVariantPrices ??
-      []
-    )
-      .map(
-        (item) =>
-          Number(item.price)
-      )
-      .filter(
-        (value) =>
-          Number.isFinite(value) &&
-          value >= 0
-      );
-
-  /**
-   * ==========================================================
-   * FALLBACK PRICE LIST
-   * ==========================================================
-   *
-   * Jika belum ada Weight × Variant Price,
-   * gunakan harga dari weightOptions.
-   */
-
-  const originalPriceList =
-    matrixPriceList.length > 0
-      ? matrixPriceList
-      : weightOptions.length > 0
-        ? weightOptions.map(
-            (option) =>
-              option.price
-          )
-        : [baseProductPrice];
+  const originalPriceList: number[] =
+    skuPriceList.length > 0
+      ? skuPriceList
+      : [baseProductPrice];
 
   /**
    * ==========================================================
    * REMOVE DUPLICATE PRICES
    * ==========================================================
-   *
-   * Contoh:
-   *
-   * 30000
-   * 30000
-   * 50000
-   *
-   * menjadi:
-   *
-   * 30000
-   * 50000
-   *
-   * Ini tidak mengubah range,
-   * tetapi membuat perhitungan lebih bersih.
    */
 
-  const uniqueOriginalPriceList =
+  const uniqueOriginalPriceList: number[] =
     Array.from(
-      new Set(
+      new Set<number>(
         originalPriceList
       )
     );
@@ -628,12 +548,9 @@ export default async function ProductDetailPage({
    * ==========================================================
    * FINAL PRICE LIST
    * ==========================================================
-   *
-   * Discount dihitung terhadap SETIAP harga
-   * pada Weight × Variant matrix.
    */
 
-  const finalPriceList =
+  const finalPriceList: number[] =
     uniqueOriginalPriceList.map(
       (originalPrice) =>
         applyProductDiscount(
@@ -644,7 +561,7 @@ export default async function ProductDetailPage({
   /**
    * ==========================================================
    * FINAL PRICE RANGE
-   * ============================================================
+   * ==========================================================
    */
 
   const minimumFinalPrice =
@@ -703,56 +620,27 @@ export default async function ProductDetailPage({
    * PRODUCT DISPLAY PRICE
    * ==========================================================
    *
-   * Jika Flash Sale product-wide:
-   *
-   * gunakan harga Flash Sale.
-   *
-   * Jika tidak:
-   *
-   * gunakan range hasil Weight × Variant.
+   * Flash Sale SKU baru ditentukan setelah customer memilih
+   * variant di AddToCartButton.
    */
 
-  const isFlashSaleDisplay =
-    productWideFlashSale !==
-    null;
-
   const displayOriginalPrice =
-    isFlashSaleDisplay
-      ? productWideFlashSale.originalPrice
-      : minimumOriginalPrice;
+    minimumOriginalPrice;
 
   const displayOriginalPriceMax =
-    isFlashSaleDisplay
-      ? productWideFlashSale.originalPrice
-      : maximumOriginalPrice;
+    maximumOriginalPrice;
 
   const displayFinalPrice =
-    isFlashSaleDisplay
-      ? productWideFlashSale.flashPrice
-      : minimumFinalPrice;
+    minimumFinalPrice;
 
   const displayFinalPriceMax =
-    isFlashSaleDisplay
-      ? productWideFlashSale.flashPrice
-      : maximumFinalPrice;
+    maximumFinalPrice;
 
   const displaySaving =
-    isFlashSaleDisplay
-      ? Math.max(
-          0,
-          productWideFlashSale.originalPrice -
-            productWideFlashSale.flashPrice
-        )
-      : minimumSaving;
+    minimumSaving;
 
   const displaySavingMax =
-    isFlashSaleDisplay
-      ? Math.max(
-          0,
-          productWideFlashSale.originalPrice -
-            productWideFlashSale.flashPrice
-        )
-      : maximumSaving;
+    maximumSaving;
 
   const displayDiscountPercentage =
     displayOriginalPrice > 0
@@ -770,16 +658,12 @@ export default async function ProductDetailPage({
 
   /**
    * ==========================================================
-   * WEIGHT SPECIFIC FLASH SALE EXISTS
+   * FLASH SALE AVAILABILITY
    * ==========================================================
    */
 
-  const hasWeightSpecificFlashSale =
-    normalizedFlashSaleItems.some(
-      (item) =>
-        item.weightOptionId !==
-        null
-    );
+  const hasFlashSale =
+    normalizedFlashSaleItems.length > 0;
 
   /**
    * ==========================================================
@@ -1025,8 +909,7 @@ export default async function ProductDetailPage({
 
                 <div className="mt-5">
 
-                  {isFlashSaleDisplay ? (
-
+                  {hasFlashSale ? (
                     <div
                       className="
                         overflow-hidden
@@ -1037,11 +920,6 @@ export default async function ProductDetailPage({
                         shadow-sm
                       "
                     >
-
-                      {/* ================================================== */}
-                      {/* FLASH SALE HEADER */}
-                      {/* ================================================== */}
-
                       <div
                         className="
                           flex
@@ -1057,9 +935,7 @@ export default async function ProductDetailPage({
                           sm:justify-between
                         "
                       >
-
                         <div className="flex items-center gap-2">
-
                           <div
                             className="
                               flex
@@ -1076,97 +952,26 @@ export default async function ProductDetailPage({
                           </div>
 
                           <div>
-
-                            <div className="flex items-center gap-2">
-
-                              <span
-                                className="
-                                  text-base
-                                  font-black
-                                  tracking-wide
-                                  text-white
-                                  sm:text-lg
-                                "
-                              >
-                                FLASH SALE
-                              </span>
-
-                              {displayDiscountPercentage > 0 && (
-                                <span
-                                  className="
-                                    rounded-md
-                                    bg-white/20
-                                    px-2
-                                    py-0.5
-                                    text-[11px]
-                                    font-bold
-                                    text-white
-                                  "
-                                >
-                                  -{displayDiscountPercentage}%
-                                </span>
-                              )}
-
-                            </div>
+                            <span
+                              className="
+                                text-base
+                                font-black
+                                tracking-wide
+                                text-white
+                                sm:text-lg
+                              "
+                            >
+                              FLASH SALE
+                            </span>
 
                             <p className="mt-0.5 text-xs text-white/75">
-                              Promo terbatas untuk waktu tertentu
+                              Promo tersedia untuk SKU tertentu
                             </p>
-
                           </div>
-
                         </div>
-
-                        {/* COUNTDOWN */}
-
-                        <div
-                          className="
-                            flex
-                            items-center
-                            gap-2
-                            rounded-lg
-                            bg-black/10
-                            px-3
-                            py-2
-                            sm:justify-end
-                          "
-                        >
-
-                          <span
-                            className="
-                              text-[11px]
-                              font-semibold
-                              uppercase
-                              tracking-wide
-                              text-white/80
-                            "
-                          >
-                            Berakhir dalam
-                          </span>
-
-                          <FlashSaleCountdown
-                            endsAt={
-                              productWideFlashSale.endsAt
-                            }
-                          />
-
-                        </div>
-
                       </div>
 
-                      {/* ================================================== */}
-                      {/* FLASH SALE PRICE */}
-                      {/* ================================================== */}
-
-                      <div
-                        className="
-                          px-4
-                          py-5
-                          sm:px-5
-                          sm:py-6
-                        "
-                      >
-
+                      <div className="px-4 py-5 sm:px-5 sm:py-6">
                         <p
                           className="
                             mb-3
@@ -1177,79 +982,49 @@ export default async function ProductDetailPage({
                             text-slate-400
                           "
                         >
-                          {productWideFlashSale.campaignName}
+                          Harga Produk
                         </p>
 
-                        <div
-                          className="
-                            flex
-                            flex-wrap
-                            items-end
-                            gap-x-3
-                            gap-y-2
-                          "
-                        >
-
+                        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
                           <div
                             className="
                               text-3xl
                               font-bold
                               tracking-tight
-                              text-[#ff2a00]
+                              text-slate-950
                               sm:text-4xl
                             "
                           >
-                            {formatRupiah(
-                              displayFinalPrice
+                            {formatPriceRange(
+                              displayFinalPrice,
+                              displayFinalPriceMax
                             )}
                           </div>
 
-                          <div
-                            className="
-                              pb-1
-                              text-sm
-                              text-slate-400
-                              line-through
-                            "
-                          >
-                            {formatRupiah(
-                              displayOriginalPrice
-                            )}
-                          </div>
-
-                        </div>
-
-                        {displaySaving > 0 && (
-                          <div className="mt-4">
-
-                            <span
+                          {hasPriceDiscount && (
+                            <div
                               className="
-                                inline-flex
-                                items-center
-                                rounded-lg
-                                bg-orange-50
-                                px-3
-                                py-1.5
-                                text-xs
-                                font-semibold
-                                text-[#ff2a00]
+                                pb-1
+                                text-sm
+                                text-slate-400
+                                line-through
                               "
                             >
-                              Hemat{" "}
-                              {formatRupiah(
-                                displaySaving
+                              {formatPriceRange(
+                                displayOriginalPrice,
+                                displayOriginalPriceMax
                               )}
-                            </span>
+                            </div>
+                          )}
+                        </div>
 
-                          </div>
-                        )}
-
+                        <p className="mt-3 text-xs leading-5 text-slate-500">
+                          Pilih varian produk untuk melihat harga dan
+                          Flash Sale yang berlaku pada SKU tersebut.
+                        </p>
                       </div>
-
                     </div>
-
                   ) : (
-
                     <div
                       className="
                         rounded-2xl
@@ -1261,15 +1036,8 @@ export default async function ProductDetailPage({
                         sm:px-5
                       "
                     >
-
-                      {/* ================================================ */}
-                      {/* PRODUCT DISCOUNT */}
-                      {/* ================================================ */}
-
                       {hasPriceDiscount ? (
-
                         <div>
-
                           <p
                             className="
                               mb-2
@@ -1284,7 +1052,6 @@ export default async function ProductDetailPage({
                           </p>
 
                           <div className="flex flex-wrap items-end gap-3">
-
                             <div
                               className="
                                 text-3xl
@@ -1313,12 +1080,10 @@ export default async function ProductDetailPage({
                                 displayOriginalPriceMax
                               )}
                             </div>
-
                           </div>
 
                           {displaySaving > 0 && (
                             <div className="mt-4">
-
                               <span
                                 className="
                                   inline-flex
@@ -1338,20 +1103,11 @@ export default async function ProductDetailPage({
                                   displaySavingMax
                                 )}
                               </span>
-
                             </div>
                           )}
-
                         </div>
-
                       ) : (
-
-                        /* ============================================== */
-                        /* NORMAL PRICE */
-                        /* ============================================== */
-
                         <div>
-
                           <p
                             className="
                               mb-2
@@ -1379,48 +1135,38 @@ export default async function ProductDetailPage({
                               displayFinalPriceMax
                             )}
                           </div>
-
                         </div>
-
                       )}
-
                     </div>
-
                   )}
 
-                  {/* ==================================================== */}
-                  {/* WEIGHT SPECIFIC FLASH SALE */}
-                  {/* ==================================================== */}
-
-                  {hasWeightSpecificFlashSale &&
-                    !isFlashSaleDisplay && (
-                      <div
+                  {hasFlashSale && (
+                    <div
+                      className="
+                        mt-3
+                        rounded-xl
+                        border
+                        border-orange-100
+                        border-l-4
+                        border-l-[#fc3e18]
+                        bg-[#fff8f5]
+                        px-4
+                        py-3
+                      "
+                    >
+                      <p
                         className="
-                          mt-3
-                          rounded-xl
-                          border
-                          border-orange-100
-                          border-l-4
-                          border-l-[#fc3e18]
-                          bg-[#fff8f5]
-                          px-4
-                          py-3
+                          text-xs
+                          font-medium
+                          leading-5
+                          text-[#ff2a00]
                         "
                       >
-
-                        <p
-                          className="
-                            text-xs
-                            font-medium
-                            leading-5
-                            text-[#ff2a00]
-                          "
-                        >
-                          ⚡ Tersedia harga Flash Sale untuk pilihan berat tertentu.
-                        </p>
-
-                      </div>
-                    )}
+                        ⚡ Flash Sale tersedia untuk pilihan SKU tertentu.
+                        Pilih varian untuk mendapatkan harga promo yang sesuai.
+                      </p>
+                    </div>
+                  )}
 
                 </div>
 
@@ -1659,12 +1405,30 @@ export default async function ProductDetailPage({
                       )
                     }
 
-                    variantOptions={
-                      variantOptions
+                    variantGroups={
+                      variantGroups
                     }
 
-                    weightOptions={
-                      weightOptions
+                    skus={
+                      activeSkus.map(
+                        (sku) => ({
+                          id: sku.id,
+                          sku: sku.sku,
+                          productId: sku.productId,
+                          price: Number(sku.price),
+                          stock: sku.stock,
+                          isActive: sku.isActive,
+                          skuOptions:
+                            sku.skuOptions.map(
+                              (skuOption) => ({
+                                id: skuOption.id,
+                                skuId: skuOption.skuId,
+                                variantOptionId:
+                                  skuOption.variantOptionId,
+                              })
+                            ),
+                        })
+                      )
                     }
 
                     flashSaleItems={

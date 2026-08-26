@@ -85,7 +85,48 @@ const productOptions =
 
     stock:
       product.stock,
-      
+
+    skus:
+      product.skus.map((sku) => ({
+        id:
+          sku.id,
+
+        sku:
+          sku.sku,
+
+        price:
+          Number(sku.price),
+
+        stock:
+          sku.stock,
+
+        isActive:
+          sku.isActive,
+
+        skuOptions:
+          sku.skuOptions.map(
+            (skuOption) => ({
+              id:
+                skuOption.id,
+
+              variantOption: {
+                id:
+                  skuOption.variantOption.id,
+
+                label:
+                  skuOption.variantOption.label,
+
+                group: {
+                  id:
+                    skuOption.variantOption.group.id,
+
+                  name:
+                    skuOption.variantOption.group.name,
+                },
+              },
+            })
+          ),
+      })),
   }));
 
   return (

@@ -160,46 +160,76 @@ export default async function FlashSaleDetailPage({
    * NORMALIZE PRODUCTS
    * ==========================================================
    *
-   * Prisma Decimal tidak dapat langsung
-   * dikirim ke Client Component.
+   * Prisma Decimal tidak dapat langsung dikirim
+   * ke Client Component.
    */
 
   const normalizedProducts =
-    products.map(
-      (product) => ({
-        id:
-          product.id,
+  products.map(
+    (product) => ({
+      id:
+        product.id,
 
-        name:
-          product.name,
+      name:
+        product.name,
 
-        price:
-          Number(
-            product.price
-          ),
+      price:
+        Number(
+          product.price
+        ),
 
-        stock:
-          Number(
-            product.stock ?? 0
-          ),
+      stock:
+        Number(
+          product.stock ?? 0
+        ),
 
-        weightOptions:
-          product.weightOptions.map(
-            (weightOption) => ({
-              id:
-                weightOption.id,
+      skus:
+        product.skus.map(
+          (sku) => ({
+            id:
+              sku.id,
 
-              label:
-                weightOption.label,
+            sku:
+              sku.sku,
 
-              price:
-                Number(
-                  weightOption.price
-                ),
-            })
-          ),
-      })
-    );
+            price:
+              Number(
+                sku.price
+              ),
+
+            stock:
+              sku.stock,
+
+            isActive:
+              sku.isActive,
+
+            skuOptions:
+              sku.skuOptions.map(
+                (skuOption) => ({
+                  id:
+                    skuOption.id,
+
+                  variantOption: {
+                    id:
+                      skuOption.variantOption.id,
+
+                    label:
+                      skuOption.variantOption.label,
+
+                    group: {
+                      id:
+                        skuOption.variantOption.group.id,
+
+                      name:
+                        skuOption.variantOption.group.name,
+                    },
+                  },
+                })
+              ),
+          })
+        ),
+    })
+  );
 
   /**
    * ==========================================================
@@ -246,16 +276,51 @@ export default async function FlashSaleDetailPage({
             item.product.name,
         },
 
-        weightOption:
-          item.weightOption
-            ? {
+        sku:
+  item.sku
+    ? {
+        id:
+          item.sku.id,
+
+        sku:
+          item.sku.sku,
+
+        price:
+          Number(
+            item.sku.price
+          ),
+
+        stock:
+          item.sku.stock,
+
+        isActive:
+          item.sku.isActive,
+
+        skuOptions:
+          item.sku.skuOptions.map(
+            (skuOption) => ({
+              id:
+                skuOption.id,
+
+              variantOption: {
                 id:
-                  item.weightOption.id,
+                  skuOption.variantOption.id,
 
                 label:
-                  item.weightOption.label,
-              }
-            : null,
+                  skuOption.variantOption.label,
+
+                group: {
+                  id:
+                    skuOption.variantOption.group.id,
+
+                  name:
+                    skuOption.variantOption.group.name,
+                },
+              },
+            })
+          ),
+      }
+    : null,
       })
     );
 

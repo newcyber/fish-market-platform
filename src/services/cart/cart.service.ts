@@ -12,94 +12,69 @@ import ProductPricingService from "@/services/pricing/product-pricing.service";
 
 /**
  * ============================================================
- * ADD CART ITEM INPUT
+ * CART SERVICE - SKU BASED
  * ============================================================
+ *
+ * Canonical cart identity:
+ *
+ *   Product
+ *      ↓
+ *   ProductSku
+ *      ↓
+ *   CartItem.skuId
+ *
+ * Untuk product TANPA variant/SKU, skuId boleh null selama
+ * migration dan Product.stock/Product.price tetap digunakan.
+ *
+ * Untuk product YANG MEMILIKI active SKU, skuId WAJIB.
+ *
+ * Legacy fields:
+ *   productVariant
+ *   productWeight
+ *   weightSku
+ *
+ * tidak lagi menjadi sumber kebenaran.
  */
 
 export interface AddCartItemInput {
   userId: string;
-
   productId: string;
-
+  skuId?: string | null;
   quantity: number;
-
-  productVariant?: string | null;
-
-  productWeight?: string | null;
-
   customerNote?: string | null;
 }
 
-/**
- * ============================================================
- * UPDATE CART ITEM INPUT
- * ============================================================
- */
-
 export interface UpdateCartItemInput {
   userId: string;
-
   cartItemId: string;
-
   quantity: number;
 }
 
-/**
- * ============================================================
- * REMOVE CART ITEM INPUT
- * ============================================================
- */
-
 export interface RemoveCartItemInput {
   userId: string;
-
   cartItemId: string;
 }
 
-/**
- * ============================================================
- * CART SERVICE
- * ============================================================
- */
-
 export default class CartService {
-  /**
-   * ============================================================
-   * VALIDATE USER ID
-   * ============================================================
-   */
-
   private static validateUserId(
     userId: string
   ) {
-    if (!userId) {
+    if (!userId?.trim()) {
       throw new Error(
         "Customer tidak valid."
       );
     }
   }
 
-  /**
-   * ============================================================
-   * VALIDATE CART ITEM ID
-   * ============================================================
-   */
-
   private static validateCartItemId(
     cartItemId: string
   ) {
-    if (!cartItemId) {
+    if (!cartItemId?.trim()) {
       throw new Error(
         "Item keranjang tidak valid."
       );
     }
   }
-
-  /**
-   * ============================================================
-   * VALIDATE QUANTITY
-   * ============================================================
-   */
 
   private static validateQuantity(
     quantity: number
@@ -114,27 +89,6 @@ export default class CartService {
     }
   }
 
-  /**
-   * ============================================================
-   * NORMALIZE OPTION
-   * ============================================================
-   */
-
-  private static normalizeOption(
-    value?: string | null
-  ) {
-    const normalized =
-      value?.trim();
-
-    return normalized || null;
-  }
-
-  /**
-   * ============================================================
-   * NORMALIZE CUSTOMER NOTE
-   * ============================================================
-   */
-
   private static normalizeCustomerNote(
     value?: string | null
   ) {
@@ -148,18 +102,56 @@ export default class CartService {
    * ============================================================
    * GET CART
    * ============================================================
+   *
+   * Repository lama belum include ProductSku pada CartItem.
+   * Karena SKU sekarang menjadi data penting untuk cart,
+   * query canonical dilakukan di sini.
    */
-
   static async getCart(
     userId: string
   ) {
-    this.validateUserId(
-      userId
-    );
+    this.validateUserId(userId);
 
-    return CartRepository.findByUserId(
-      userId
-    );
+    return prisma.cart.findUnique({
+      where: {
+        userId,
+      },
+      include: {
+        items: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          include: {
+            product: {
+              include: {
+                category: true,
+                images: {
+                  orderBy: {
+                    sortOrder: "asc",
+                  },
+                },
+              },
+            },
+            sku: {
+              include: {
+                skuOptions: {
+                  include: {
+                    variantOption: {
+                      include: {
+                        group: true,
+                      },
+                    },
+                  },
+                  orderBy: {
+                    createdAt: "asc",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   /**
@@ -167,57 +159,46 @@ export default class CartService {
    * GET OR CREATE CART
    * ============================================================
    */
-
   static async getOrCreateCart(
     userId: string
   ) {
-    this.validateUserId(
-      userId
-    );
+    this.validateUserId(userId);
 
     const existingCart =
-      await CartRepository.findByUserId(
-        userId
-      );
+      await this.getCart(userId);
 
     if (existingCart) {
       return existingCart;
     }
 
     try {
-      return await CartRepository.create(
+      await CartRepository.create(
         userId
       );
     } catch (error) {
       if (
-        error instanceof
-        Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
+        !(
+          error instanceof
+          Prisma.PrismaClientKnownRequestError
+        ) ||
+        error.code !== "P2002"
       ) {
-        const cart =
-          await CartRepository.findByUserId(
-            userId
-          );
-
-        if (cart) {
-          return cart;
-        }
+        throw error;
       }
-
-      throw error;
     }
+
+    return this.getCart(userId);
   }
 
   /**
    * ============================================================
-   * GET ITEM COUNT
+   * ITEM COUNT
    * ============================================================
    */
-
   static async getItemCount(
     userId: string
   ) {
-    if (!userId) {
+    if (!userId?.trim()) {
       return 0;
     }
 
@@ -228,107 +209,40 @@ export default class CartService {
 
   /**
    * ============================================================
-   * VALIDATE PRODUCT OPTIONS
+   * GET ACTIVE PRODUCT
    * ============================================================
+   *
+   * Product.stock hanya dipakai jika product tidak mempunyai
+   * active SKU.
    */
-
-  private static async validateProductOptions(
-    tx: Prisma.TransactionClient,
-    input: {
-      productId: string;
-
-      productVariant?: string | null;
-
-      productWeight?: string | null;
-    }
-  ) {
-    const {
-      productId,
-      productVariant,
-      productWeight,
-    } = input;
-
-    if (productVariant) {
-      const variantOption =
-        await tx.productVariantOption.findFirst({
-          where: {
-            productId,
-
-            label:
-              productVariant,
-
-            isActive:
-              true,
-          },
-
-          select: {
-            id: true,
-          },
-        });
-
-      if (!variantOption) {
-        throw new Error(
-          "Varian produk yang dipilih tidak valid atau sudah tidak tersedia."
-        );
-      }
-    }
-
-    if (productWeight) {
-      const weightOption =
-        await tx.productWeightOption.findFirst({
-          where: {
-            productId,
-
-            label:
-              productWeight,
-
-            isActive:
-              true,
-          },
-
-          select: {
-            id: true,
-          },
-        });
-
-      if (!weightOption) {
-        throw new Error(
-          "Pilihan berat produk tidak valid atau sudah tidak tersedia."
-        );
-      }
-    }
-  }
-
-  /**
-   * ============================================================
-   * VALIDATE PRODUCT AVAILABILITY
-   * ============================================================
-   */
-
   private static async getAvailableProduct(
+    tx: Prisma.TransactionClient,
     productId: string
   ) {
     const product =
-      await prisma.product.findFirst({
+      await tx.product.findFirst({
         where: {
-          id:
-            productId,
-
-          deletedAt:
-            null,
-
-          isPublished:
-            true,
+          id: productId,
+          deletedAt: null,
+          isPublished: true,
         },
-
         select: {
           id: true,
-
           name: true,
-
           price: true,
-
           stock: true,
+          skus: {
+            where: {
+              isActive: true,
+            },
+            select: {
+              id: true,
+              sku: true,
+              price: true,
+              stock: true,
+              isActive: true,
+            },
+          },
         },
       });
 
@@ -343,41 +257,256 @@ export default class CartService {
 
   /**
    * ============================================================
+   * RESOLVE SELLABLE STOCK / SKU
+   * ============================================================
+   */
+  private static async resolveSku(
+    tx: Prisma.TransactionClient,
+    input: {
+      productId: string;
+      skuId?: string | null;
+    }
+  ) {
+    const {
+      productId,
+      skuId,
+    } = input;
+
+    const product =
+      await this.getAvailableProduct(
+        tx,
+        productId
+      );
+
+    /**
+     * Product dengan active SKU wajib memilih SKU.
+     */
+    if (
+      product.skus.length > 0 &&
+      !skuId
+    ) {
+      throw new Error(
+        "Silakan pilih varian produk terlebih dahulu."
+      );
+    }
+
+    /**
+     * Product tanpa SKU tetap didukung selama migration.
+     */
+    if (!skuId) {
+      return {
+        product,
+        sku: null,
+      };
+    }
+
+    const sku =
+      await tx.productSku.findFirst({
+        where: {
+          id: skuId,
+          productId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          sku: true,
+          price: true,
+          stock: true,
+          isActive: true,
+        },
+      });
+
+    if (!sku) {
+      throw new Error(
+        "SKU produk tidak ditemukan atau sudah tidak tersedia."
+      );
+    }
+
+    return {
+      product,
+      sku,
+    };
+  }
+
+  /**
+   * ============================================================
+   * FIND ACTIVE FLASH SALE
+   * ============================================================
+   *
+   * Priority:
+   *
+   * 1. SKU-specific Flash Sale
+   * 2. Product-wide Flash Sale
+   *
+   * weightOptionId tidak lagi menjadi sumber kebenaran.
+   */
+  private static async findActiveFlashSaleItem(
+  tx: Prisma.TransactionClient,
+  input: {
+    productId: string;
+    skuId?: string | null;
+  }
+) {
+  const {
+    productId,
+    skuId,
+  } = input;
+
+  const now = new Date();
+
+  /**
+   * ==========================================================
+   * SKU-BASED FLASH SALE
+   * ==========================================================
+   */
+  if (skuId) {
+    return tx.flashSaleItem.findFirst({
+      where: {
+        productId,
+        skuId,
+        isActive: true,
+
+        flashSale: {
+          status: "ACTIVE" as const,
+
+          startAt: {
+            lte: now,
+          },
+
+          endAt: {
+            gt: now,
+          },
+        },
+      },
+
+      select: {
+        id: true,
+        flashSaleId: true,
+        stockLimit: true,
+        soldQuantity: true,
+        perUserLimit: true,
+      },
+
+      orderBy: {
+        sortOrder: "asc",
+      },
+    });
+  }
+
+  /**
+   * ==========================================================
+   * LEGACY PRODUCT-WIDE FLASH SALE
+   * ==========================================================
+   */
+  return tx.flashSaleItem.findFirst({
+    where: {
+      productId,
+      skuId: null,
+      weightOptionId: null,
+      isActive: true,
+
+      flashSale: {
+        status: "ACTIVE" as const,
+
+        startAt: {
+          lte: now,
+        },
+
+        endAt: {
+          gt: now,
+        },
+      },
+    },
+
+    select: {
+      id: true,
+      flashSaleId: true,
+      stockLimit: true,
+      soldQuantity: true,
+      perUserLimit: true,
+    },
+
+    orderBy: {
+      sortOrder: "asc",
+    },
+  });
+}
+
+  /**
+   * ============================================================
+   * VALIDATE FLASH SALE QUOTA
+   * ============================================================
+   */
+  private static validateFlashSaleQuota(
+    flashSaleItem: {
+      stockLimit: number;
+      soldQuantity: number;
+      perUserLimit: number | null;
+    } | null,
+    quantity: number,
+    messagePrefix = "Flash Sale"
+  ) {
+    if (!flashSaleItem) {
+      return;
+    }
+
+    const remainingQuota =
+      Math.max(
+        0,
+        flashSaleItem.stockLimit -
+          flashSaleItem.soldQuantity
+      );
+
+    if (remainingQuota <= 0) {
+      throw new Error(
+        `Maaf, kuota ${messagePrefix} sudah habis.`
+      );
+    }
+
+    if (
+      quantity >
+      remainingQuota
+    ) {
+      throw new Error(
+        `Kuota ${messagePrefix} tidak mencukupi. Sisa kuota: ${remainingQuota}.`
+      );
+    }
+
+    if (
+      flashSaleItem.perUserLimit !== null &&
+      quantity >
+        flashSaleItem.perUserLimit
+    ) {
+      throw new Error(
+        `Batas pembelian ${messagePrefix} untuk satu customer adalah ${flashSaleItem.perUserLimit} produk.`
+      );
+    }
+  }
+
+  /**
+   * ============================================================
    * ADD ITEM
    * ============================================================
    */
-
   static async addItem({
     userId,
     productId,
+    skuId,
     quantity,
-    productVariant,
-    productWeight,
     customerNote,
   }: AddCartItemInput) {
-    this.validateUserId(
-      userId
-    );
+    this.validateUserId(userId);
 
-    if (!productId) {
+    if (!productId?.trim()) {
       throw new Error(
         "Produk tidak valid."
       );
     }
 
-    this.validateQuantity(
-      quantity
-    );
+    this.validateQuantity(quantity);
 
-    const normalizedVariant =
-      this.normalizeOption(
-        productVariant
-      );
-
-    const normalizedWeight =
-      this.normalizeOption(
-        productWeight
-      );
+    const normalizedSkuId =
+      skuId?.trim() || null;
 
     const normalizedCustomerNote =
       this.normalizeCustomerNote(
@@ -387,16 +516,10 @@ export default class CartService {
     const user =
       await prisma.user.findFirst({
         where: {
-          id:
-            userId,
-
-          deletedAt:
-            null,
-
-          isActive:
-            true,
+          id: userId,
+          deletedAt: null,
+          isActive: true,
         },
-
         select: {
           id: true,
         },
@@ -408,1022 +531,343 @@ export default class CartService {
       );
     }
 
-    const product =
-      await this.getAvailableProduct(
-        productId
-      );
-
-    if (
-      product.stock <= 0
-    ) {
-      throw new Error(
-        `Stok ${product.name} sedang habis.`
-      );
-    }
-
-    if (
-      quantity >
-      product.stock
-    ) {
-      throw new Error(
-        `Jumlah melebihi stok tersedia. Stok ${product.name} hanya ${product.stock}.`
-      );
-    }
-
-        return prisma.$transaction(
+    return prisma.$transaction(
       async (tx) => {
-        const currentProduct =
-          await tx.product.findFirst({
+        const {
+          product,
+          sku,
+        } =
+          await this.resolveSku(
+            tx,
+            {
+              productId,
+              skuId:
+                normalizedSkuId,
+            }
+          );
+
+        const availableStock =
+          sku?.stock ??
+          product.stock;
+
+        if (
+          availableStock <= 0
+        ) {
+          throw new Error(
+            `Stok ${product.name} sedang habis.`
+          );
+        }
+
+        /**
+         * Existing cart item diidentifikasi oleh SKU.
+         *
+         * customerNote BUKAN identitas item.
+         */
+        const currentCart =
+          await tx.cart.upsert({
             where: {
-              id: productId,
-
-              deletedAt: null,
-
-              isPublished: true,
+              userId,
             },
+            create: {
+              userId,
+            },
+            update: {},
+          });
 
-            select: {
-              id: true,
-
-              name: true,
-
-              price: true,
-
-              stock: true,
+        const existingItem =
+          await tx.cartItem.findFirst({
+            where: {
+              cartId:
+                currentCart.id,
+              productId:
+                product.id,
+              skuId:
+                normalizedSkuId,
             },
           });
 
-        if (!currentProduct) {
+        const newQuantity =
+          (existingItem?.quantity ?? 0) +
+          quantity;
+
+        if (
+          newQuantity >
+          availableStock
+        ) {
           throw new Error(
-            "Produk tidak ditemukan atau tidak tersedia."
+            `Jumlah melebihi stok tersedia. Stok ${
+              sku?.sku ??
+              product.name
+            } hanya ${availableStock}.`
+          );
+        }
+
+        const activeFlashSaleItem =
+          await this.findActiveFlashSaleItem(
+            tx,
+            {
+              productId:
+                product.id,
+              skuId:
+                normalizedSkuId,
+            }
+          );
+
+        /**
+         * Flash Sale quota harus divalidasi terhadap FINAL quantity
+         * di cart.
+         */
+        this.validateFlashSaleQuota(
+          activeFlashSaleItem,
+          newQuantity
+        );
+
+        /**
+         * Harga canonical berasal dari SKU.
+         *
+         * Untuk product tanpa SKU, fallback Product.price masih
+         * diperbolehkan selama migration.
+         */
+        const pricing =
+          await ProductPricingService.resolve(
+            tx,
+            {
+              productId:
+                product.id,
+              skuId:
+                normalizedSkuId,
+              fallbackPrice:
+                product.price,
+            }
+          );
+
+        if (existingItem) {
+          return tx.cartItem.update({
+            where: {
+              id:
+                existingItem.id,
+            },
+            data: {
+              quantity:
+                newQuantity,
+
+              /**
+               * Note baru hanya menggantikan note jika dikirim.
+               * Note lama tidak dihapus hanya karena request tidak
+               * membawa note.
+               */
+              ...(normalizedCustomerNote !==
+              null
+                ? {
+                    customerNote:
+                      normalizedCustomerNote,
+                  }
+                : {}),
+
+              price:
+                pricing.finalPrice,
+
+              isFlashSaleApplied:
+                pricing.isFlashSaleApplied,
+
+              flashSaleId:
+                pricing.flashSaleId,
+
+              flashSaleItemId:
+                pricing.flashSaleItemId,
+            },
+          });
+        }
+
+        return tx.cartItem.create({
+          data: {
+            cartId:
+              currentCart.id,
+
+            productId:
+              product.id,
+
+            /**
+             * Canonical SKU.
+             */
+            skuId:
+              normalizedSkuId,
+
+            /**
+             * Legacy fields sengaja tidak diisi.
+             *
+             * productVariant
+             * productWeight
+             * weightSku
+             *
+             * bukan lagi sumber kebenaran.
+             */
+
+            customerNote:
+              normalizedCustomerNote,
+
+            quantity,
+
+            price:
+              pricing.finalPrice,
+
+            isFlashSaleApplied:
+              pricing.isFlashSaleApplied,
+
+            flashSaleId:
+              pricing.flashSaleId,
+
+            flashSaleItemId:
+              pricing.flashSaleItemId,
+          },
+        });
+      }
+    );
+  }
+
+  /**
+   * ============================================================
+   * UPDATE ITEM QUANTITY
+   * ============================================================
+   *
+   * quantity adalah FINAL quantity.
+   *
+   * Harga dihitung ulang karena Product Discount / Flash Sale
+   * dapat berubah sejak item masuk cart.
+   */
+  static async updateItem({
+    userId,
+    cartItemId,
+    quantity,
+  }: UpdateCartItemInput) {
+    this.validateUserId(userId);
+    this.validateCartItemId(cartItemId);
+    this.validateQuantity(quantity);
+
+    const cartItem =
+      await CartRepository.findItemById(
+        cartItemId
+      );
+
+    if (!cartItem) {
+      throw new Error(
+        "Item keranjang tidak ditemukan."
+      );
+    }
+
+    if (
+      cartItem.cart.userId !==
+      userId
+    ) {
+      throw new Error(
+        "Anda tidak memiliki akses ke item keranjang ini."
+      );
+    }
+
+    await prisma.$transaction(
+      async (tx) => {
+        const {
+          product,
+          sku,
+        } =
+          await this.resolveSku(
+            tx,
+            {
+              productId:
+                cartItem.productId,
+              skuId:
+                cartItem.skuId,
+            }
+          );
+
+        const availableStock =
+          sku?.stock ??
+          product.stock;
+
+        if (
+          availableStock <= 0
+        ) {
+          throw new Error(
+            `Stok ${
+              sku?.sku ??
+              product.name
+            } sedang habis.`
           );
         }
 
         if (
-          currentProduct.stock <= 0
+          quantity >
+          availableStock
         ) {
           throw new Error(
-            `Stok ${currentProduct.name} sedang habis.`
+            `Jumlah melebihi stok tersedia. Stok ${
+              sku?.sku ??
+              product.name
+            } hanya ${availableStock}.`
           );
         }
 
-        /**
-         * ==========================================================
-         * FLASH SALE SERVER-SIDE PROTECTION
-         * ==========================================================
-         *
-         * Priority:
-         *
-         * 1. Flash Sale khusus weight yang dipilih
-         * 2. Flash Sale product-wide
-         *
-         * Backend wajib melakukan validasi ulang agar request dari
-         * client tidak dapat melewati quota Flash Sale.
-         */
-
-        /**
-         * ==========================================================
-         * GET SELECTED WEIGHT OPTION
-         * ==========================================================
-         */
-
-        const selectedWeightOption =
-          normalizedWeight
-            ? await tx.productWeightOption.findFirst({
-                where: {
-                  productId:
-                    currentProduct.id,
-
-                  label:
-                    normalizedWeight,
-
-                  isActive:
-                    true,
-                },
-
-                select: {
-                  id: true,
-                },
-              })
-            : null;
-
-        /**
-         * ==========================================================
-         * CURRENT TIME
-         * ==========================================================
-         */
-
-        const now =
-          new Date();
-
-        /**
-         * ==========================================================
-         * FIND WEIGHT-SPECIFIC FLASH SALE
-         * ==========================================================
-         */
-
-        const weightFlashSaleItem =
-          selectedWeightOption
-            ? await tx.flashSaleItem.findFirst({
-                where: {
-                  productId:
-                    currentProduct.id,
-
-                  weightOptionId:
-                    selectedWeightOption.id,
-
-                  isActive:
-                    true,
-
-                  stockLimit: {
-                    gt:
-                      0,
-                  },
-
-                  flashSale: {
-                    status:
-                      "ACTIVE",
-
-                    startAt: {
-                      lte:
-                        now,
-                    },
-
-                    endAt: {
-                      gt:
-                        now,
-                    },
-                  },
-                },
-
-                select: {
-                  id: true,
-
-                  stockLimit: true,
-
-                  soldQuantity: true,
-
-                  perUserLimit: true,
-                },
-
-                orderBy: {
-                  sortOrder:
-                    "asc",
-                },
-              })
-            : null;
-
-        /**
-         * ==========================================================
-         * FIND PRODUCT-WIDE FLASH SALE
-         * ==========================================================
-         */
-
-        const productFlashSaleItem =
-          await tx.flashSaleItem.findFirst({
-            where: {
-              productId:
-                currentProduct.id,
-
-              weightOptionId:
-                null,
-
-              isActive:
-                true,
-
-              stockLimit: {
-                gt:
-                  0,
-              },
-
-              flashSale: {
-                status:
-                  "ACTIVE",
-
-                startAt: {
-                  lte:
-                    now,
-                },
-
-                endAt: {
-                  gt:
-                    now,
-                },
-              },
-            },
-
-            select: {
-              id: true,
-
-              stockLimit: true,
-
-              soldQuantity: true,
-
-              perUserLimit: true,
-            },
-
-            orderBy: {
-              sortOrder:
-                "asc",
-            },
-          });
-
-        /**
-         * ==========================================================
-         * RESOLVE ACTIVE FLASH SALE
-         * ==========================================================
-         *
-         * Weight-specific memiliki prioritas dibanding
-         * product-wide.
-         */
-
         const activeFlashSaleItem =
-          weightFlashSaleItem ??
-          productFlashSaleItem;
+          await this.findActiveFlashSaleItem(
+            tx,
+            {
+              productId:
+                product.id,
+              skuId:
+                cartItem.skuId,
+            }
+          );
 
-        /**
-         * ==========================================================
-         * VALIDATE FLASH SALE QUOTA
-         * ==========================================================
-         */
-
-        if (activeFlashSaleItem) {
-          const remainingQuota =
-            Math.max(
-              0,
-              activeFlashSaleItem.stockLimit -
-                activeFlashSaleItem.soldQuantity
-            );
-
-          if (
-            remainingQuota <= 0
-          ) {
-            throw new Error(
-              "Maaf, kuota Flash Sale untuk produk ini sudah habis."
-            );
-          }
-
-          if (
-            quantity >
-            remainingQuota
-          ) {
-            throw new Error(
-              `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
-            );
-          }
-
-          /**
-           * ========================================================
-           * VALIDATE PER USER LIMIT
-           * ========================================================
-           */
-
-          if (
-            activeFlashSaleItem.perUserLimit !== null &&
-            quantity >
-              activeFlashSaleItem.perUserLimit
-          ) {
-            throw new Error(
-              `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
-            );
-          }
-        }
-
-
-        /**
-         * ==========================================================
-         * PRODUCT PRICING
-         * ==========================================================
-         */
+        this.validateFlashSaleQuota(
+          activeFlashSaleItem,
+          quantity
+        );
 
         const pricing =
           await ProductPricingService.resolve(
             tx,
             {
               productId:
-                currentProduct.id,
-
-              productVariant:
-                normalizedVariant,
-
-              productWeight:
-                normalizedWeight,
-
+                product.id,
+              skuId:
+                cartItem.skuId,
               fallbackPrice:
-                currentProduct.price,
+                product.price,
             }
           );
 
-        let cart =
-          await tx.cart.findUnique({
-            where: {
-              userId,
-            },
-          });
-
-        if (!cart) {
-          try {
-            cart =
-              await tx.cart.create({
-                data: {
-                  userId,
-                },
-              });
-          } catch (error) {
-            if (
-              error instanceof
-              Prisma.PrismaClientKnownRequestError &&
-              error.code === "P2002"
-            ) {
-              cart =
-                await tx.cart.findUnique({
-                  where: {
-                    userId,
-                  },
-                });
-            }
-
-            if (!cart) {
-              throw error;
-            }
-          }
-        }
-
-        const existingItem =
-          await tx.cartItem.findFirst({
-            where: {
-              cartId:
-                cart.id,
-
-              productId:
-                currentProduct.id,
-
-              productVariant:
-                normalizedVariant,
-
-              productWeight:
-                normalizedWeight,
-
-              customerNote:
-                normalizedCustomerNote,
-            },
-          });
-
-        if (existingItem) {
-          /**
-           * ========================================================
-           * CALCULATE NEW QUANTITY
-           * ========================================================
-           */
-
-          const newQuantity =
-            existingItem.quantity +
-            quantity;
-
-
-          /**
-           * ========================================================
-           * VALIDATE PRODUCT STOCK
-           * ========================================================
-           */
-
-          if (
-            newQuantity >
-            currentProduct.stock
-          ) {
-            throw new Error(
-              `Jumlah di keranjang melebihi stok tersedia. Stok ${currentProduct.name} hanya ${currentProduct.stock}.`
-            );
-          }
-
-
-          /**
-           * ========================================================
-           * VALIDATE FLASH SALE QUOTA
-           * ========================================================
-           *
-           * Quantity existing item +
-           * quantity baru
-           * tidak boleh melebihi
-           * sisa quota Flash Sale.
-           */
-
-          if (activeFlashSaleItem) {
-            const remainingQuota =
-              Math.max(
-                0,
-                activeFlashSaleItem.stockLimit -
-                activeFlashSaleItem.soldQuantity
-              );
-
-            if (
-              newQuantity >
-              remainingQuota
-            ) {
-              throw new Error(
-                `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
-              );
-            }
-
-
-            /**
-             * ======================================================
-             * PER USER LIMIT
-             * ======================================================
-             */
-
-            if (
-              activeFlashSaleItem.perUserLimit !== null &&
-              newQuantity >
-              activeFlashSaleItem.perUserLimit
-            ) {
-              throw new Error(
-                `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
-              );
-            }
-          }
-
-
-          /**
-         * ========================================================
-         * UPDATE CART ITEM
-         * ========================================================
-         */
-
-          await tx.cartItem.update({
-            where: {
-              id: existingItem.id,
-            },
-
-            data: {
-              quantity: newQuantity,
-
-              price:
-                pricing.finalPrice,
-
-              isFlashSaleApplied:
-                pricing.isFlashSaleApplied,
-
-              flashSaleId:
-                pricing.flashSaleId,
-
-              flashSaleItemId:
-                pricing.flashSaleItemId,
-            },
-          });
-        } else {
-
-          /**
- * ========================================================
- * PER USER LIMIT
- * ========================================================
- */
-
-          if (
-            activeFlashSaleItem &&
-            activeFlashSaleItem.perUserLimit !== null &&
-            quantity >
-            activeFlashSaleItem.perUserLimit
-          ) {
-            throw new Error(
-              `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
-            );
-          }
-
-          /**
-            * ========================================================
-            * CREATE CART ITEM
-            * ========================================================
-            */
-
-          await tx.cartItem.create({
-            data: {
-              cartId:
-                cart.id,
-
-              productId:
-                currentProduct.id,
-
-              productVariant:
-                normalizedVariant,
-
-              productWeight:
-                normalizedWeight,
-
-              customerNote:
-                normalizedCustomerNote,
-
-              quantity,
-
-              price:
-                pricing.finalPrice,
-
-              /**
-* ========================================================
-* FLASH SALE SNAPSHOT
-* ========================================================
-*/
-
-              isFlashSaleApplied:
-                pricing.isFlashSaleApplied,
-
-              flashSaleId:
-                pricing.flashSaleId,
-
-              flashSaleItemId:
-                pricing.flashSaleItemId,
-            },
-          });
-        }
-
-        return tx.cart.findUnique({
+        await tx.cartItem.update({
           where: {
             id:
-              cart.id,
+              cartItemId,
           },
+          data: {
+            quantity,
 
-          include: {
-            items: {
-              orderBy: {
-                createdAt:
-                  "asc",
-              },
+            price:
+              pricing.finalPrice,
 
-              include: {
-                product: {
-                  include: {
-                    category:
-                      true,
+            isFlashSaleApplied:
+              pricing.isFlashSaleApplied,
 
-                    images: {
-                      orderBy: {
-                        sortOrder:
-                          "asc",
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            flashSaleId:
+              pricing.flashSaleId,
+
+            flashSaleItemId:
+              pricing.flashSaleItemId,
           },
         });
       }
     );
+
+    return this.getCart(userId);
   }
-
- /**
- * ============================================================
- * UPDATE ITEM
- * ============================================================
- */
-
-static async updateItem({
-  userId,
-  cartItemId,
-  quantity,
-}: UpdateCartItemInput) {
-  this.validateUserId(
-    userId
-  );
-
-  this.validateCartItemId(
-    cartItemId
-  );
-
-  this.validateQuantity(
-    quantity
-  );
-
-  const cartItem =
-    await CartRepository.findItemById(
-      cartItemId
-    );
-
-  if (!cartItem) {
-    throw new Error(
-      "Item keranjang tidak ditemukan."
-    );
-  }
-
-  if (
-    cartItem.cart.userId !==
-    userId
-  ) {
-    throw new Error(
-      "Anda tidak memiliki akses ke item keranjang ini."
-    );
-  }
-
-  if (
-    cartItem.product.deletedAt ||
-    !cartItem.product.isPublished
-  ) {
-    throw new Error(
-      "Produk sudah tidak tersedia."
-    );
-  }
-
-  if (
-    cartItem.product.stock <= 0
-  ) {
-    throw new Error(
-      `Stok ${cartItem.product.name} sedang habis.`
-    );
-  }
-
-  if (
-    quantity >
-    cartItem.product.stock
-  ) {
-    throw new Error(
-      `Jumlah melebihi stok tersedia. Stok ${cartItem.product.name} hanya ${cartItem.product.stock}.`
-    );
-  }
-
-  await prisma.$transaction(
-    async (tx) => {
-      /**
-       * ========================================================
-       * NORMALIZE PRODUCT OPTIONS
-       * ========================================================
-       */
-
-      const normalizedVariant =
-        this.normalizeOption(
-          cartItem.productVariant
-        );
-
-      const normalizedWeight =
-        this.normalizeOption(
-          cartItem.productWeight
-        );
-
-      /**
-       * ========================================================
-       * GET CURRENT PRODUCT
-       * ========================================================
-       */
-
-      const currentProduct =
-        await tx.product.findUnique({
-          where: {
-            id:
-              cartItem.productId,
-          },
-
-          select: {
-            id: true,
-
-            name: true,
-
-            price: true,
-
-            stock: true,
-
-            deletedAt: true,
-
-            isPublished: true,
-          },
-        });
-
-      if (
-        !currentProduct ||
-        currentProduct.deletedAt ||
-        !currentProduct.isPublished
-      ) {
-        throw new Error(
-          "Produk sudah tidak tersedia."
-        );
-      }
-
-      /**
-       * ========================================================
-       * VALIDATE CURRENT STOCK
-       * ========================================================
-       */
-
-      if (
-        currentProduct.stock <= 0
-      ) {
-        throw new Error(
-          `Stok ${currentProduct.name} sedang habis.`
-        );
-      }
-
-      if (
-        quantity >
-        currentProduct.stock
-      ) {
-        throw new Error(
-          `Jumlah melebihi stok tersedia. Stok ${currentProduct.name} hanya ${currentProduct.stock}.`
-        );
-      }
-
-      /**
-       * ========================================================
-       * GET SELECTED WEIGHT OPTION
-       * ========================================================
-       */
-
-      const selectedWeightOption =
-        normalizedWeight
-          ? await tx.productWeightOption.findFirst({
-              where: {
-                productId:
-                  currentProduct.id,
-
-                label:
-                  normalizedWeight,
-
-                isActive:
-                  true,
-              },
-
-              select: {
-                id: true,
-              },
-            })
-          : null;
-
-      /**
-       * ========================================================
-       * CURRENT TIME
-       * ========================================================
-       */
-
-      const now =
-        new Date();
-
-      /**
-       * ========================================================
-       * FIND WEIGHT-SPECIFIC FLASH SALE
-       * ========================================================
-       */
-
-      const weightFlashSaleItem =
-        selectedWeightOption
-          ? await tx.flashSaleItem.findFirst({
-              where: {
-                productId:
-                  currentProduct.id,
-
-                weightOptionId:
-                  selectedWeightOption.id,
-
-                isActive:
-                  true,
-
-                stockLimit: {
-                  gt:
-                    0,
-                },
-
-                flashSale: {
-                  status:
-                    "ACTIVE",
-
-                  startAt: {
-                    lte:
-                      now,
-                  },
-
-                  endAt: {
-                    gt:
-                      now,
-                  },
-                },
-              },
-
-              select: {
-                id: true,
-
-                stockLimit: true,
-
-                soldQuantity: true,
-
-                perUserLimit: true,
-              },
-
-              orderBy: {
-                sortOrder:
-                  "asc",
-              },
-            })
-          : null;
-
-      /**
-       * ========================================================
-       * FIND PRODUCT-WIDE FLASH SALE
-       * ========================================================
-       */
-
-      const productFlashSaleItem =
-        await tx.flashSaleItem.findFirst({
-          where: {
-            productId:
-              currentProduct.id,
-
-            weightOptionId:
-              null,
-
-            isActive:
-              true,
-
-            stockLimit: {
-              gt:
-                0,
-            },
-
-            flashSale: {
-              status:
-                "ACTIVE",
-
-              startAt: {
-                lte:
-                  now,
-              },
-
-              endAt: {
-                gt:
-                  now,
-              },
-            },
-          },
-
-          select: {
-            id: true,
-
-            stockLimit: true,
-
-            soldQuantity: true,
-
-            perUserLimit: true,
-          },
-
-          orderBy: {
-            sortOrder:
-              "asc",
-          },
-        });
-
-      /**
-       * ========================================================
-       * RESOLVE ACTIVE FLASH SALE
-       * ========================================================
-       *
-       * Weight-specific memiliki prioritas
-       * dibanding product-wide.
-       */
-
-      const activeFlashSaleItem =
-        weightFlashSaleItem ??
-        productFlashSaleItem;
-
-      /**
-       * ========================================================
-       * VALIDATE FLASH SALE QUOTA
-       * ========================================================
-       *
-       * IMPORTANT:
-       *
-       * `quantity` di updateItem() adalah
-       * FINAL QUANTITY.
-       *
-       * Jangan menggunakan:
-       *
-       * existingItem.quantity + quantity
-       *
-       * karena UI mengirim quantity akhir.
-       */
-
-      if (activeFlashSaleItem) {
-        const remainingQuota =
-          Math.max(
-            0,
-            activeFlashSaleItem.stockLimit -
-              activeFlashSaleItem.soldQuantity
-          );
-
-        if (
-          remainingQuota <= 0
-        ) {
-          throw new Error(
-            "Maaf, kuota Flash Sale untuk produk ini sudah habis."
-          );
-        }
-
-        if (
-          quantity >
-          remainingQuota
-        ) {
-          throw new Error(
-            `Kuota Flash Sale tidak mencukupi. Sisa kuota: ${remainingQuota}.`
-          );
-        }
-
-        /**
-         * ======================================================
-         * VALIDATE PER USER LIMIT
-         * ======================================================
-         */
-
-        if (
-          activeFlashSaleItem.perUserLimit !== null &&
-          quantity >
-            activeFlashSaleItem.perUserLimit
-        ) {
-          throw new Error(
-            `Batas pembelian Flash Sale untuk satu customer adalah ${activeFlashSaleItem.perUserLimit} produk.`
-          );
-        }
-      }
-
-      /**
-       * ========================================================
-       * PRODUCT PRICING
-       * ========================================================
-       *
-       * Harga tetap dihitung ulang oleh pricing engine.
-       */
-
-      const pricing =
-        await ProductPricingService.resolve(
-          tx,
-          {
-            productId:
-              currentProduct.id,
-
-            productVariant:
-              normalizedVariant,
-
-            productWeight:
-              normalizedWeight,
-
-            fallbackPrice:
-              currentProduct.price,
-          }
-        );
-
-      /**
-       * ========================================================
-       * UPDATE CART ITEM
-       * ========================================================
-       */
-
-      await tx.cartItem.update({
-        where: {
-          id:
-            cartItemId,
-        },
-
-        data: {
-          /**
-           * ======================================================
-           * QUANTITY
-           * ======================================================
-           */
-
-          quantity,
-
-          /**
-           * ======================================================
-           * PRICE SNAPSHOT
-           * ======================================================
-           */
-
-          price:
-            pricing.finalPrice,
-
-          /**
-           * ======================================================
-           * FLASH SALE SNAPSHOT
-           * ======================================================
-           */
-
-          isFlashSaleApplied:
-            pricing.isFlashSaleApplied,
-
-          flashSaleId:
-            pricing.flashSaleId,
-
-          flashSaleItemId:
-            pricing.flashSaleItemId,
-        },
-      });
-    }
-  );
-
-  return this.getCart(
-    userId
-  );
-}
 
   /**
    * ============================================================
    * UPDATE ITEM QUANTITY
    * ============================================================
    */
-
   static async updateItemQuantity(
     userId: string,
     cartItemId: string,
@@ -1438,7 +882,6 @@ static async updateItem({
 
       return {
         success: true,
-
         message:
           "Jumlah produk berhasil diperbarui.",
       };
@@ -1450,7 +893,6 @@ static async updateItem({
 
       return {
         success: false,
-
         message:
           error instanceof Error
             ? error.message
@@ -1464,15 +906,11 @@ static async updateItem({
    * REMOVE ITEM
    * ============================================================
    */
-
   static async removeItem({
     userId,
     cartItemId,
   }: RemoveCartItemInput) {
-    this.validateUserId(
-      userId
-    );
-
+    this.validateUserId(userId);
     this.validateCartItemId(
       cartItemId
     );
@@ -1501,17 +939,14 @@ static async updateItem({
       cartItemId
     );
 
-    return this.getCart(
-      userId
-    );
+    return this.getCart(userId);
   }
 
   /**
    * ============================================================
-   * DELETE CART ITEM
+   * DELETE ITEM
    * ============================================================
    */
-
   static async deleteItem(
     userId: string,
     cartItemId: string
@@ -1524,7 +959,6 @@ static async updateItem({
 
       return {
         success: true,
-
         message:
           "Produk berhasil dihapus dari keranjang.",
       };
@@ -1536,7 +970,6 @@ static async updateItem({
 
       return {
         success: false,
-
         message:
           error instanceof Error
             ? error.message
@@ -1550,18 +983,20 @@ static async updateItem({
    * CLEAR CART
    * ============================================================
    */
-
   static async clearCart(
     userId: string
   ) {
-    this.validateUserId(
-      userId
-    );
+    this.validateUserId(userId);
 
     const cart =
-      await CartRepository.findByUserId(
-        userId
-      );
+      await prisma.cart.findUnique({
+        where: {
+          userId,
+        },
+        select: {
+          id: true,
+        },
+      });
 
     if (!cart) {
       return null;
@@ -1571,9 +1006,7 @@ static async updateItem({
       cart.id
     );
 
-    return this.getCart(
-      userId
-    );
+    return this.getCart(userId);
   }
 
   /**
@@ -1581,42 +1014,31 @@ static async updateItem({
    * CALCULATE CART TOTAL
    * ============================================================
    */
-
   static calculateTotal(
     cart:
       | {
-        items: Array<{
-          quantity: number;
-
-          price:
-          Prisma.Decimal;
-        }>;
-      }
+          items: Array<{
+            quantity: number;
+            price: Prisma.Decimal;
+          }>;
+        }
       | null
   ) {
     if (!cart) {
-      return new Prisma.Decimal(
-        0
-      );
+      return new Prisma.Decimal(0);
     }
 
     return cart.items.reduce(
       (
         total,
         item
-      ) => {
-        const itemTotal =
+      ) =>
+        total.add(
           item.price.mul(
             item.quantity
-          );
-
-        return total.add(
-          itemTotal
-        );
-      },
-      new Prisma.Decimal(
-        0
-      )
+          )
+        ),
+      new Prisma.Decimal(0)
     );
   }
 }

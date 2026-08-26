@@ -157,6 +157,18 @@ const categoryMap = {
 // ============================
 // PRODUCT SEEDER
 // ============================
+//
+// Seed ini menggunakan produk sederhana tanpa variant group.
+// Setiap produk dibuatkan satu ProductSku default.
+//
+// Untuk produk dengan varian, jangan gunakan unit/weight di Product.
+// Gunakan:
+// ProductVariantGroup
+//   -> ProductVariantOption
+//   -> ProductSku
+//   -> ProductSkuOption
+//
+// ============================
 
 const products = [
   {
@@ -164,10 +176,8 @@ const products = [
     name: "Ikan Tuna Segar",
     slug: "ikan-tuna-segar",
     sku: "IKN-001",
-    unit: "Kg",
     price: 120000,
     stock: 100,
-    weight: 1,
     featured: true,
   },
 
@@ -176,10 +186,8 @@ const products = [
     name: "Ikan Salmon Fillet",
     slug: "ikan-salmon-fillet",
     sku: "IKN-002",
-    unit: "Kg",
     price: 225000,
     stock: 40,
-    weight: 1,
     featured: true,
   },
 
@@ -188,10 +196,8 @@ const products = [
     name: "Ikan Lele",
     slug: "ikan-lele",
     sku: "IKN-003",
-    unit: "Kg",
     price: 32000,
     stock: 200,
-    weight: 1,
     featured: false,
   },
 
@@ -200,10 +206,8 @@ const products = [
     name: "Udang Vaname",
     slug: "udang-vaname",
     sku: "UDG-001",
-    unit: "Kg",
     price: 85000,
     stock: 80,
-    weight: 1,
     featured: true,
   },
 
@@ -212,10 +216,8 @@ const products = [
     name: "Kepiting Bakau",
     slug: "kepiting-bakau",
     sku: "KPT-001",
-    unit: "Kg",
     price: 180000,
     stock: 25,
-    weight: 1,
     featured: true,
   },
 
@@ -224,10 +226,8 @@ const products = [
     name: "Cumi Segar",
     slug: "cumi-segar",
     sku: "CMI-001",
-    unit: "Kg",
     price: 78000,
     stock: 60,
-    weight: 1,
     featured: false,
   },
 
@@ -236,10 +236,8 @@ const products = [
     name: "Kerang Hijau",
     slug: "kerang-hijau",
     sku: "KRG-001",
-    unit: "Kg",
     price: 35000,
     stock: 70,
-    weight: 1,
     featured: false,
   },
 
@@ -248,10 +246,8 @@ const products = [
     name: "Fish Nugget",
     slug: "fish-nugget",
     sku: "FRZ-001",
-    unit: "Pack",
     price: 45000,
     stock: 120,
-    weight: 0.5,
     featured: false,
   },
 
@@ -260,35 +256,81 @@ const products = [
     name: "Otak-Otak Ikan",
     slug: "otak-otak-ikan",
     sku: "OLH-001",
-    unit: "Pack",
     price: 28000,
     stock: 150,
-    weight: 0.5,
     featured: false,
   },
 ];
 
 for (const product of products) {
-  await prisma.product.upsert({
+  const savedProduct = await prisma.product.upsert({
     where: {
       slug: product.slug,
     },
 
     update: {
-      ...product,
+      categoryId: product.categoryId,
+      name: product.name,
+      sku: product.sku,
+      price: product.price,
+      stock: product.stock,
+      featured: product.featured,
       description: product.name,
       isPublished: true,
     },
 
     create: {
-      ...product,
+      categoryId: product.categoryId,
+      name: product.name,
+      slug: product.slug,
+      sku: product.sku,
+      price: product.price,
+      stock: product.stock,
+      featured: product.featured,
       description: product.name,
       isPublished: true,
     },
   });
+
+  // ============================================================
+  // DEFAULT SKU
+  // ============================================================
+  //
+  // Produk-produk seed saat ini belum menggunakan varian.
+  // Karena stok/harga canonical ke depan berada di ProductSku,
+  // setiap simple product tetap dibuatkan satu SKU default.
+  //
+  // Contoh:
+  // IKN-001 -> ProductSku IKN-001
+  //
+  // Jangan membuat VariantGroup "Berat" di sini hanya karena
+  // data lama mempunyai unit/weight. Berat adalah varian hanya
+  // jika produk memang dikonfigurasi memiliki varian berat.
+  // ============================================================
+
+  await prisma.productSku.upsert({
+    where: {
+      sku: product.sku,
+    },
+
+    update: {
+      productId: savedProduct.id,
+      price: product.price,
+      stock: product.stock,
+      isActive: true,
+    },
+
+    create: {
+      productId: savedProduct.id,
+      sku: product.sku,
+      price: product.price,
+      stock: product.stock,
+      isActive: true,
+    },
+  });
 }
 
-console.log("✅ Products seeded.");
+console.log("✅ Products and default SKUs seeded.");
 
 // ============================
 // CUSTOMER SEEDER
