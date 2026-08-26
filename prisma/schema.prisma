@@ -78,6 +78,24 @@ enum FlashSaleStatus {
   CANCELLED
 }
 
+enum PromotionStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum PromotionType {
+  MARKETING
+  PRICE_DISCOUNT
+}
+
+enum PromotionDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
 model User {
   id                String    @id @default(uuid())
   name              String
@@ -1085,6 +1103,7 @@ model ProductSku {
   orderItems       OrderItem[]          @relation("OrderItemSku")
   stockLedgers     StockLedger[]        @relation("StockLedgerSku")
   flashSaleItems   FlashSaleItem[]      @relation("FlashSaleItemSku")
+  promotionItems   PromotionItem[]
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
@@ -2179,4 +2198,56 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@index([type])
+}
+
+model Promotion {
+  id          String  @id @default(uuid())
+  name        String
+  slug        String  @unique
+  description String?
+
+  banner String?
+
+  status PromotionStatus @default(DRAFT)
+
+  startAt DateTime?
+  endAt   DateTime?
+
+  type PromotionType @default(MARKETING)
+
+  discountType  PromotionDiscountType?
+  discountValue Decimal?               @db.Decimal(12, 2)
+
+  sortOrder  Int     @default(0)
+  isFeatured Boolean @default(false)
+
+  items PromotionItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([startAt])
+  @@index([endAt])
+  @@index([sortOrder])
+  @@index([isFeatured])
+  @@index([deletedAt])
+  @@index([status, startAt, endAt])
+}
+
+model PromotionItem {
+  id String @id @default(uuid())
+
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  skuId String
+  sku   ProductSku @relation(fields: [skuId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([promotionId, skuId])
+  @@index([promotionId])
+  @@index([skuId])
 }

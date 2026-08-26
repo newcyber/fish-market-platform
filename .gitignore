@@ -70,7 +70,7 @@ coverage/
 # VERCEL
 # ============================================================
 
-.vercel
+.vercel/
 
 
 # ============================================================
@@ -126,17 +126,28 @@ temp/
 prisma/*.db
 prisma/*.db-journal
 
+
+# ============================================================
+# SQL / DATABASE DUMPS
+# ============================================================
+
+# Ignore standalone SQL dump/export files.
+# IMPORTANT:
+# Prisma migration SQL under prisma/migrations/ remains tracked
+# because of the exceptions above.
+*.sql
+*.sqlite
+*.sqlite3
+
 # ============================================================
 # PRISMA MIGRATIONS MUST BE TRACKED
 # ============================================================
 
-# Migration SQL files are required by Prisma migrate deploy.
+# Prisma migration SQL files MUST be committed.
+# These exceptions override the global *.sql rule above.
 !prisma/migrations/
 !prisma/migrations/**/
 !prisma/migrations/**/*.sql
-
-
-
 
 # ============================================================
 # USER / PRODUCT UPLOADS
@@ -162,9 +173,7 @@ public/uploads/*
 # OPTIONAL LOCAL BACKUP FILES
 # ============================================================
 
-*.sql
-*.sqlite
-*.sqlite3
+backup/
 
 
 # ============================================================
