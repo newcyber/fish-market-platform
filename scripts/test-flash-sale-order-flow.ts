@@ -110,7 +110,12 @@ async function main() {
   // Dipisahkan dari campaign TEST 12 agar TEST 16 tidak
   // bergantung pada state quota / per-user limit test lain.
   let expirationFlashSaleId: string | null = null;
-  let expirationFlashSaleItemId: string | null = null;
+let expirationFlashSaleItemId: string | null = null;
+
+// Dedicated Flash Sale untuk TEST 18
+// Payment vs Cancellation Concurrency.
+let paymentCancelFlashSaleId: string | null = null;
+let paymentCancelFlashSaleItemId: string | null = null;
 
   let skuId: string | null = null;
 
@@ -3739,6 +3744,1058 @@ console.log(
       "PASS: Payment vs expiration concurrency berhasil diverifikasi."
     );
 
+     /**
+ * ========================================================
+ * TEST 18
+ * VERIFY PAYMENT VS CANCELLATION CONCURRENCY
+ * ========================================================
+ *
+ * Menguji race condition antara:
+ *
+ *   OrderService.markAsPaid()
+ *             VS
+ *   OrderService.cancelOrder()
+ *
+ * TEST 18 sengaja menggunakan dedicated Flash Sale
+ * agar pricing tidak bergantung pada state TEST 4,
+ * TEST 12, atau TEST 16.
+ *
+ * VALID TERMINAL STATE:
+ *
+ * A. PAYMENT MENANG
+ *
+ *    paymentStatus = VERIFIED
+ *    status != CANCELLED
+ *    paidAt != null
+ *    stock tetap terpakai
+ *    FlashSalePurchase tetap ada
+ *    soldQuantity tetap
+ *    tidak ada CANCEL ledger
+ *
+ * B. CANCELLATION MENANG
+ *
+ *    status = CANCELLED
+ *    paymentStatus != VERIFIED
+ *    paidAt = null
+ *    stock dikembalikan
+ *    FlashSalePurchase dilepas
+ *    soldQuantity dikembalikan
+ *    terdapat tepat satu CANCEL ledger
+ *
+ * INVALID:
+ *
+ *    paymentStatus = VERIFIED
+ *    status = CANCELLED
+ *
+ * karena order yang sudah VERIFIED tidak boleh
+ * menjadi CANCELLED.
+ */
+
+section(
+  18,
+  "VERIFY PAYMENT VS CANCELLATION CONCURRENCY"
+);
+
+// ========================================================
+// ISOLATE TEST 18 FROM OTHER FLASH SALES
+// ========================================================
+
+/**
+ * TEST 18 harus memiliki pricing candidate sendiri.
+ *
+ * Flash Sale lain yang dibuat oleh test sebelumnya
+ * tidak boleh ikut dipilih oleh ProductPricingService.
+ *
+ * Karena semua campaign tersebut adalah bagian dari
+ * integration test yang sama, kita boleh menonaktifkannya
+ * sebelum membuat dedicated campaign TEST 18.
+ */
+
+const flashSalesToDisable = [
+  flashSaleId,
+  concurrencyFlashSaleId,
+  expirationFlashSaleId,
+].filter(
+  (id): id is string => id !== null
+);
+
+if (flashSalesToDisable.length > 0) {
+  await prisma.flashSale.updateMany({
+    where: {
+      id: {
+        in: flashSalesToDisable,
+      },
+    },
+    data: {
+      status: FlashSaleStatus.ENDED,
+    },
+  });
+
+  console.log(
+    "PASS: Flash Sale dari test sebelumnya dinonaktifkan untuk TEST 18."
+  );
+}
+
+// ========================================================
+// CREATE DEDICATED FLASH SALE FOR TEST 18
+// ========================================================
+
+const paymentCancelNow = new Date();
+
+const paymentCancelFlashSale =
+  await prisma.flashSale.create({
+    data: {
+      name:
+        `TEST PAYMENT CANCEL ${Date.now()}`,
+
+      slug:
+        `test-payment-cancel-${Date.now()}`,
+
+      description:
+        "Dedicated Flash Sale for payment vs cancellation concurrency integration test.",
+
+      status:
+        FlashSaleStatus.ACTIVE,
+
+      startAt:
+        new Date(
+          paymentCancelNow.getTime() - 60_000
+        ),
+
+      endAt:
+        new Date(
+          paymentCancelNow.getTime() + 10 * 60_000
+        ),
+
+      /**
+       * Priority paling tinggi untuk TEST 18.
+       *
+       * Campaign lain sudah di-END di atas, tetapi
+       * priority ini tetap membuat intent test jelas.
+       */
+      sortOrder: 0,
+
+      items: {
+        create: {
+          productId:
+            sku.productId,
+
+          skuId:
+            sku.id,
+
+          originalPrice:
+            sku.price,
+
+          flashPrice:
+            new Prisma.Decimal(13000),
+
+          /**
+           * Quota 1 cukup karena hanya satu order
+           * yang digunakan dalam payment/cancellation race.
+           */
+          stockLimit: 1,
+
+          soldQuantity: 0,
+
+          perUserLimit: 1,
+
+          isActive: true,
+
+          sortOrder: 0,
+        },
+      },
+    },
+
+    include: {
+      items: true,
+    },
+  });
+
+paymentCancelFlashSaleId =
+  paymentCancelFlashSale.id;
+
+assert(
+  paymentCancelFlashSale.items.length === 1,
+  "FAIL: TEST 18 Flash Sale harus memiliki tepat 1 item."
+);
+
+paymentCancelFlashSaleItemId =
+  paymentCancelFlashSale.items[0].id;
+
+assert(
+  paymentCancelFlashSale.items[0].stockLimit === 1,
+  "FAIL: TEST 18 Flash Sale stockLimit harus 1."
+);
+
+assert(
+  paymentCancelFlashSale.items[0].soldQuantity === 0,
+  "FAIL: TEST 18 Flash Sale soldQuantity awal harus 0."
+);
+
+console.log({
+  paymentCancelFlashSaleId:
+    paymentCancelFlashSaleId,
+
+  paymentCancelFlashSaleItemId:
+    paymentCancelFlashSaleItemId,
+
+  flashPrice:
+    paymentCancelFlashSale.items[0].flashPrice.toString(),
+
+  stockLimit:
+    paymentCancelFlashSale.items[0].stockLimit,
+
+  soldQuantity:
+    paymentCancelFlashSale.items[0].soldQuantity,
+
+  perUserLimit:
+    paymentCancelFlashSale.items[0].perUserLimit,
+});
+
+console.log(
+  "PASS: Dedicated Flash Sale TEST 18 berhasil dibuat."
+);
+
+// ========================================================
+// VERIFY PRICING RESOLVER CANDIDATE
+// ========================================================
+
+const paymentCancelPricingCandidates =
+  await prisma.flashSaleItem.findMany({
+    where: {
+      productId:
+        sku.productId,
+
+      skuId:
+        sku.id,
+
+      isActive: true,
+
+      flashSale: {
+        status:
+          FlashSaleStatus.ACTIVE,
+
+        deletedAt: null,
+
+        startAt: {
+          lte: new Date(),
+        },
+
+        endAt: {
+          gt: new Date(),
+        },
+      },
+    },
+
+    select: {
+      id: true,
+      productId: true,
+      skuId: true,
+      stockLimit: true,
+      soldQuantity: true,
+      flashPrice: true,
+      isActive: true,
+      sortOrder: true,
+
+      flashSale: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          sortOrder: true,
+          startAt: true,
+          endAt: true,
+        },
+      },
+    },
+
+    orderBy: [
+      {
+        flashSale: {
+          sortOrder: "asc",
+        },
+      },
+      {
+        sortOrder: "asc",
+      },
+      {
+        createdAt: "asc",
+      },
+    ],
+  });
+
+console.log(
+  "DEBUG TEST 18 - PRICING CANDIDATES:",
+  JSON.stringify(
+    paymentCancelPricingCandidates,
+    (_, value) =>
+      value instanceof Prisma.Decimal
+        ? value.toString()
+        : value instanceof Date
+          ? value.toISOString()
+          : value,
+    2
+  )
+);
+
+assert(
+  paymentCancelPricingCandidates.length > 0,
+  "FAIL: Tidak ada FlashSaleItem eligible untuk TEST 18."
+);
+
+assert(
+  paymentCancelPricingCandidates[0].id ===
+    paymentCancelFlashSaleItemId,
+  `FAIL: TEST 18 resolver memilih FlashSaleItem yang salah. Expected ${paymentCancelFlashSaleItemId}, actual ${paymentCancelPricingCandidates[0].id}.`
+);
+
+console.log(
+  "PASS: Dedicated Flash Sale TEST 18 menjadi pricing candidate pertama."
+);
+
+// ========================================================
+// CREATE RACE ORDER THROUGH PRODUCTION FLOW
+// ========================================================
+
+const paymentCancelRaceOrder =
+  await OrderService.createOrder({
+    userId:
+      TEST_USER_ID,
+
+    addressId:
+      TEST_ADDRESS_ID,
+
+    paymentMethod:
+      PaymentMethod.QRIS,
+
+    shippingCost:
+      0,
+
+    items: [
+      {
+        productId:
+          sku.productId,
+
+        skuId:
+          sku.id,
+
+        quantity:
+          1,
+
+        customerNote:
+          "Payment vs cancellation concurrency integration test.",
+      },
+    ],
+  });
+
+assert(
+  paymentCancelRaceOrder !== null,
+  "FAIL: Payment/cancellation race order gagal dibuat."
+);
+
+const paymentCancelRaceOrderId =
+  paymentCancelRaceOrder.id;
+
+additionalOrderIds.push(
+  paymentCancelRaceOrderId
+);
+
+console.log({
+  orderId:
+    paymentCancelRaceOrder.id,
+
+  orderNumber:
+    paymentCancelRaceOrder.orderNumber,
+
+  status:
+    paymentCancelRaceOrder.status,
+
+  paymentStatus:
+    paymentCancelRaceOrder.paymentStatus,
+});
+
+console.log(
+  "PASS: Payment/cancellation race order berhasil dibuat melalui production flow."
+);
+
+// ========================================================
+// VERIFY ORDER USED TEST 18 FLASH SALE
+// ========================================================
+
+assert(
+  paymentCancelRaceOrder.items.length === 1,
+  "FAIL: TEST 18 race order harus memiliki tepat 1 item."
+);
+
+assert(
+  paymentCancelRaceOrder.items[0].price.toString() ===
+    "13000",
+  `FAIL: TEST 18 order tidak menggunakan harga Flash Sale 13000. Actual ${paymentCancelRaceOrder.items[0].price.toString()}.`
+);
+
+console.log(
+  "PASS: TEST 18 order menggunakan harga dedicated Flash Sale."
+);
+
+// ========================================================
+// VERIFY FLASH SALE PURCHASE
+// ========================================================
+
+const paymentCancelPurchaseBefore =
+  await prisma.flashSalePurchase.findFirst({
+    where: {
+      orderId:
+        paymentCancelRaceOrderId,
+
+      flashSaleItemId:
+        paymentCancelFlashSaleItemId,
+    },
+
+    select: {
+      id: true,
+      orderId: true,
+      flashSaleItemId: true,
+      userId: true,
+      quantity: true,
+      price: true,
+    },
+  });
+
+assert(
+  paymentCancelPurchaseBefore !== null,
+  "FAIL: TEST 18 order tidak memiliki FlashSalePurchase."
+);
+
+assert(
+  paymentCancelPurchaseBefore.quantity === 1,
+  `FAIL: TEST 18 FlashSalePurchase quantity harus 1, actual ${paymentCancelPurchaseBefore.quantity}.`
+);
+
+assert(
+  paymentCancelPurchaseBefore.price.toString() ===
+    "13000",
+  `FAIL: TEST 18 FlashSalePurchase price harus 13000, actual ${paymentCancelPurchaseBefore.price.toString()}.`
+);
+
+console.log({
+  purchaseId:
+    paymentCancelPurchaseBefore.id,
+
+  flashSaleItemId:
+    paymentCancelPurchaseBefore.flashSaleItemId,
+
+  quantity:
+    paymentCancelPurchaseBefore.quantity,
+
+  price:
+    paymentCancelPurchaseBefore.price.toString(),
+});
+
+console.log(
+  "PASS: TEST 18 FlashSalePurchase valid."
+);
+
+// ========================================================
+// VERIFY FLASH SALE STATE BEFORE RACE
+// ========================================================
+
+const paymentCancelFlashSaleBefore =
+  await prisma.flashSaleItem.findUnique({
+    where: {
+      id:
+        paymentCancelFlashSaleItemId,
+    },
+
+    select: {
+      id: true,
+      stockLimit: true,
+      soldQuantity: true,
+      perUserLimit: true,
+      flashPrice: true,
+    },
+  });
+
+assert(
+  paymentCancelFlashSaleBefore !== null,
+  "FAIL: TEST 18 FlashSaleItem tidak ditemukan."
+);
+
+assert(
+  paymentCancelFlashSaleBefore.stockLimit === 1,
+  "FAIL: TEST 18 stockLimit harus tetap 1."
+);
+
+assert(
+  paymentCancelFlashSaleBefore.soldQuantity === 1,
+  `FAIL: TEST 18 soldQuantity setelah createOrder harus 1, actual ${paymentCancelFlashSaleBefore.soldQuantity}.`
+);
+
+console.log({
+  stockLimit:
+    paymentCancelFlashSaleBefore.stockLimit,
+
+  soldQuantity:
+    paymentCancelFlashSaleBefore.soldQuantity,
+
+  perUserLimit:
+    paymentCancelFlashSaleBefore.perUserLimit,
+});
+
+console.log(
+  "PASS: Flash Sale quota TEST 18 terpakai tepat 1."
+);
+
+// ========================================================
+// VERIFY INITIAL ORDER STATE
+// ========================================================
+
+const paymentCancelInitialOrder =
+  await prisma.order.findUnique({
+    where: {
+      id:
+        paymentCancelRaceOrderId,
+    },
+
+    select: {
+      id: true,
+      status: true,
+      paymentStatus: true,
+      paidAt: true,
+    },
+  });
+
+assert(
+  paymentCancelInitialOrder !== null,
+  "FAIL: Payment/cancellation race order tidak ditemukan."
+);
+
+assert(
+  paymentCancelInitialOrder.status !==
+    OrderStatus.CANCELLED,
+  "FAIL: Race order sudah CANCELLED sebelum concurrency test."
+);
+
+assert(
+  paymentCancelInitialOrder.paymentStatus ===
+    PaymentStatus.PENDING,
+  `FAIL: Race order seharusnya PENDING, actual ${paymentCancelInitialOrder.paymentStatus}.`
+);
+
+assert(
+  paymentCancelInitialOrder.paidAt ===
+    null,
+  "FAIL: Race order sudah memiliki paidAt sebelum concurrency test."
+);
+
+console.log(
+  "PASS: Initial payment/cancellation state valid."
+);
+
+// ========================================================
+// SNAPSHOT STOCK + LEDGER
+// ========================================================
+
+const paymentCancelSkuBefore =
+  await prisma.productSku.findUnique({
+    where: {
+      id:
+        sku.id,
+    },
+
+    select: {
+      stock: true,
+    },
+  });
+
+assert(
+  paymentCancelSkuBefore !== null,
+  "FAIL: SKU payment/cancellation race tidak ditemukan."
+);
+
+const paymentCancelSaleLedgerBefore =
+  await prisma.stockLedger.count({
+    where: {
+      orderId:
+        paymentCancelRaceOrderId,
+
+      skuId:
+        sku.id,
+
+      type:
+        "SALE",
+    },
+  });
+
+const paymentCancelCancelLedgerBefore =
+  await prisma.stockLedger.count({
+    where: {
+      orderId:
+        paymentCancelRaceOrderId,
+
+      skuId:
+        sku.id,
+
+      type:
+        "CANCEL",
+    },
+  });
+
+assert(
+  paymentCancelSaleLedgerBefore === 1,
+  `FAIL: Race order seharusnya memiliki 1 SALE ledger, actual ${paymentCancelSaleLedgerBefore}.`
+);
+
+assert(
+  paymentCancelCancelLedgerBefore === 0,
+  `FAIL: Race order belum boleh memiliki CANCEL ledger, actual ${paymentCancelCancelLedgerBefore}.`
+);
+
+console.log({
+  skuStockBefore:
+    paymentCancelSkuBefore.stock,
+
+  saleLedger:
+    paymentCancelSaleLedgerBefore,
+
+  cancelLedger:
+    paymentCancelCancelLedgerBefore,
+});
+
+console.log(
+  "PASS: Initial stock ledger state payment/cancellation valid."
+);
+
+// ========================================================
+// RUN CONCURRENT PAYMENT + CANCELLATION
+// ========================================================
+
+const [
+  paymentCancelPaymentResult,
+  paymentCancelCancellationResult,
+] =
+  await Promise.all([
+    OrderService.markAsPaid(
+      paymentCancelRaceOrderId
+    )
+      .then((order) => ({
+        success:
+          true as const,
+
+        order,
+      }))
+      .catch((error) => ({
+        success:
+          false as const,
+
+        error:
+          getErrorMessage(error),
+      })),
+
+    OrderService.cancelOrder(
+      paymentCancelRaceOrderId
+    )
+      .then((order) => ({
+        success:
+          true as const,
+
+        order,
+      }))
+      .catch((error) => ({
+        success:
+          false as const,
+
+        error:
+          getErrorMessage(error),
+      })),
+  ]);
+
+console.log(
+  "RACE PAYMENT RESULT:",
+  paymentCancelPaymentResult.success
+    ? {
+        success: true,
+
+        status:
+          paymentCancelPaymentResult.order.status,
+
+        paymentStatus:
+          paymentCancelPaymentResult.order.paymentStatus,
+
+        paidAt:
+          paymentCancelPaymentResult.order.paidAt,
+      }
+    : {
+        success: false,
+
+        error:
+          paymentCancelPaymentResult.error,
+      }
+);
+
+console.log(
+  "RACE CANCELLATION RESULT:",
+  paymentCancelCancellationResult.success
+    ? {
+        success: true,
+
+        status:
+          paymentCancelCancellationResult.order.status,
+
+        paymentStatus:
+          paymentCancelCancellationResult.order.paymentStatus,
+      }
+    : {
+        success: false,
+
+        error:
+          paymentCancelCancellationResult.error,
+      }
+);
+
+// ========================================================
+// READ FINAL ORDER STATE
+// ========================================================
+
+const paymentCancelFinalOrder =
+  await prisma.order.findUnique({
+    where: {
+      id:
+        paymentCancelRaceOrderId,
+    },
+
+    select: {
+      id: true,
+      status: true,
+      paymentStatus: true,
+      paidAt: true,
+    },
+  });
+
+assert(
+  paymentCancelFinalOrder !== null,
+  "FAIL: Race order tidak ditemukan setelah payment/cancellation concurrency."
+);
+
+// ========================================================
+// DETERMINE WINNER
+// ========================================================
+
+const paymentCancelWon =
+  paymentCancelFinalOrder.paymentStatus ===
+    PaymentStatus.VERIFIED &&
+  paymentCancelFinalOrder.status !==
+    OrderStatus.CANCELLED;
+
+const cancellationWon =
+  paymentCancelFinalOrder.status ===
+    OrderStatus.CANCELLED &&
+  paymentCancelFinalOrder.paymentStatus !==
+    PaymentStatus.VERIFIED;
+
+assert(
+  paymentCancelWon ||
+    cancellationWon,
+  `FAIL: Invalid payment/cancellation terminal state. status=${paymentCancelFinalOrder.status}, paymentStatus=${paymentCancelFinalOrder.paymentStatus}, paidAt=${paymentCancelFinalOrder.paidAt}`
+);
+
+console.log({
+  finalStatus:
+    paymentCancelFinalOrder.status,
+
+  finalPaymentStatus:
+    paymentCancelFinalOrder.paymentStatus,
+
+  paidAt:
+    paymentCancelFinalOrder.paidAt,
+
+  winner:
+    paymentCancelWon
+      ? "PAYMENT"
+      : "CANCELLATION",
+});
+
+// ========================================================
+// READ FINAL FLASH SALE STATE
+// ========================================================
+
+const paymentCancelFlashSaleAfter =
+  await prisma.flashSaleItem.findUnique({
+    where: {
+      id:
+        paymentCancelFlashSaleItemId,
+    },
+
+    select: {
+      stockLimit: true,
+      soldQuantity: true,
+      perUserLimit: true,
+    },
+  });
+
+assert(
+  paymentCancelFlashSaleAfter !== null,
+  "FAIL: TEST 18 FlashSaleItem hilang setelah race."
+);
+
+// ========================================================
+// READ FINAL PURCHASE
+// ========================================================
+
+const paymentCancelPurchaseAfter =
+  await prisma.flashSalePurchase.findFirst({
+    where: {
+      orderId:
+        paymentCancelRaceOrderId,
+
+      flashSaleItemId:
+        paymentCancelFlashSaleItemId,
+    },
+
+    select: {
+      id: true,
+      quantity: true,
+      price: true,
+    },
+  });
+
+// ========================================================
+// READ FINAL STOCK
+// ========================================================
+
+const paymentCancelSkuAfter =
+  await prisma.productSku.findUnique({
+    where: {
+      id:
+        sku.id,
+    },
+
+    select: {
+      stock: true,
+    },
+  });
+
+assert(
+  paymentCancelSkuAfter !== null,
+  "FAIL: SKU tidak ditemukan setelah payment/cancellation race."
+);
+
+// ========================================================
+// READ FINAL LEDGER
+// ========================================================
+
+const paymentCancelSaleLedgerAfter =
+  await prisma.stockLedger.count({
+    where: {
+      orderId:
+        paymentCancelRaceOrderId,
+
+      skuId:
+        sku.id,
+
+      type:
+        "SALE",
+    },
+  });
+
+const paymentCancelCancelLedgerAfter =
+  await prisma.stockLedger.count({
+    where: {
+      orderId:
+        paymentCancelRaceOrderId,
+
+      skuId:
+        sku.id,
+
+      type:
+        "CANCEL",
+    },
+  });
+
+// ========================================================
+// PAYMENT WON
+// ========================================================
+
+if (paymentCancelWon) {
+  assert(
+    paymentCancelFinalOrder.paidAt !== null,
+    "FAIL: Payment VERIFIED tetapi paidAt null."
+  );
+
+  assert(
+    paymentCancelFinalOrder.status !==
+      OrderStatus.CANCELLED,
+    "FAIL: Payment VERIFIED tetapi order CANCELLED."
+  );
+
+  /**
+   * Payment menang berarti cancellation tidak boleh
+   * mengembalikan Flash Sale quota.
+   */
+  assert(
+    paymentCancelFlashSaleAfter.soldQuantity === 1,
+    `FAIL: Payment memenangkan race tetapi soldQuantity berubah. Expected 1, actual ${paymentCancelFlashSaleAfter.soldQuantity}.`
+  );
+
+  assert(
+    paymentCancelPurchaseAfter !== null,
+    "FAIL: Payment memenangkan race tetapi FlashSalePurchase hilang."
+  );
+
+  assert(
+    paymentCancelPurchaseAfter.quantity === 1,
+    "FAIL: FlashSalePurchase quantity berubah ketika payment memenangkan race."
+  );
+
+  assert(
+    paymentCancelSkuAfter.stock ===
+      paymentCancelSkuBefore.stock,
+    `FAIL: Payment memenangkan race tetapi stock berubah. Expected ${paymentCancelSkuBefore.stock}, actual ${paymentCancelSkuAfter.stock}.`
+  );
+
+  assert(
+    paymentCancelCancelLedgerAfter === 0,
+    `FAIL: Payment memenangkan race tetapi CANCEL ledger ditemukan. Count: ${paymentCancelCancelLedgerAfter}.`
+  );
+
+  assert(
+    paymentCancelSaleLedgerAfter === 1,
+    `FAIL: SALE ledger seharusnya tetap 1. Actual ${paymentCancelSaleLedgerAfter}.`
+  );
+
+  console.log(
+    "PASS: Payment memenangkan race secara valid."
+  );
+
+  console.log(
+    "PASS: FlashSalePurchase tetap ada."
+  );
+
+  console.log(
+    "PASS: Flash Sale soldQuantity tetap 1."
+  );
+
+  console.log(
+    "PASS: Stock tetap terpakai."
+  );
+
+  console.log(
+    "PASS: Tidak ada CANCEL ledger."
+  );
+}
+
+// ========================================================
+// CANCELLATION WON
+// ========================================================
+
+if (cancellationWon) {
+  assert(
+    paymentCancelFinalOrder.status ===
+      OrderStatus.CANCELLED,
+    "FAIL: Cancellation seharusnya menghasilkan CANCELLED."
+  );
+
+  assert(
+    paymentCancelFinalOrder.paymentStatus !==
+      PaymentStatus.VERIFIED,
+    "FAIL: Cancellation memenangkan race tetapi paymentStatus VERIFIED."
+  );
+
+  assert(
+    paymentCancelFinalOrder.paidAt === null,
+    "FAIL: Cancellation memenangkan race tetapi paidAt terisi."
+  );
+
+  /**
+   * Cancellation harus melepaskan Flash Sale purchase.
+   */
+  assert(
+    paymentCancelPurchaseAfter === null,
+    "FAIL: Cancellation memenangkan race tetapi FlashSalePurchase masih ada."
+  );
+
+  /**
+   * soldQuantity harus kembali dari 1 menjadi 0.
+   */
+  assert(
+    paymentCancelFlashSaleAfter.soldQuantity === 0,
+    `FAIL: Cancellation memenangkan race tetapi soldQuantity tidak kembali 0. Actual ${paymentCancelFlashSaleAfter.soldQuantity}.`
+  );
+
+  assert(
+    paymentCancelFlashSaleAfter.stockLimit === 1,
+    "FAIL: stockLimit berubah setelah cancellation."
+  );
+
+  /**
+   * Stock harus kembali tepat 1.
+   */
+  assert(
+    paymentCancelSkuAfter.stock ===
+      paymentCancelSkuBefore.stock + 1,
+    `FAIL: Stock tidak dikembalikan ketika cancellation memenangkan race. Expected ${paymentCancelSkuBefore.stock + 1}, actual ${paymentCancelSkuAfter.stock}.`
+  );
+
+  /**
+   * Tepat satu CANCEL ledger.
+   */
+  assert(
+    paymentCancelCancelLedgerAfter === 1,
+    `FAIL: Cancellation memenangkan race tetapi CANCEL ledger bukan 1. Actual ${paymentCancelCancelLedgerAfter}.`
+  );
+
+  /**
+   * SALE ledger original tetap ada sebagai histori
+   * transaksi penjualan.
+   */
+  assert(
+    paymentCancelSaleLedgerAfter === 1,
+    `FAIL: SALE ledger seharusnya tetap 1. Actual ${paymentCancelSaleLedgerAfter}.`
+  );
+
+  console.log(
+    "PASS: Cancellation memenangkan race secara valid."
+  );
+
+  console.log(
+    "PASS: FlashSalePurchase berhasil dilepas."
+  );
+
+  console.log(
+    "PASS: Flash Sale soldQuantity kembali 0."
+  );
+
+  console.log(
+    "PASS: Stock dikembalikan tepat 1."
+  );
+
+  console.log(
+    "PASS: Tepat 1 CANCEL ledger dibuat."
+  );
+}
+
+// ========================================================
+// FINAL TEST 18 ASSERTIONS
+// ========================================================
+
+assert(
+  paymentCancelFlashSaleAfter.stockLimit === 1,
+  "FAIL: TEST 18 stockLimit berubah."
+);
+
+assert(
+  paymentCancelSaleLedgerAfter === 1,
+  `FAIL: TEST 18 harus memiliki tepat 1 SALE ledger. Actual ${paymentCancelSaleLedgerAfter}.`
+);
+
+assert(
+  paymentCancelCancelLedgerAfter <= 1,
+  `FAIL: TEST 18 menghasilkan lebih dari satu CANCEL ledger. Actual ${paymentCancelCancelLedgerAfter}.`
+);
+
+console.log(
+  "PASS: Payment vs cancellation concurrency berhasil diverifikasi."
+);
+
     /**
      * ========================================================
      * FINAL SUCCESS
@@ -3923,6 +4980,36 @@ console.log(
           "PASS: Expiration FlashSale dihapus."
         );
       }
+
+      /**
+ * Hapus dedicated Flash Sale TEST 18.
+ * FlashSaleItem harus dihapus terlebih dahulu.
+ */
+if (paymentCancelFlashSaleItemId) {
+  await prisma.flashSaleItem.delete({
+    where: {
+      id:
+        paymentCancelFlashSaleItemId,
+    },
+  });
+
+  console.log(
+    "PASS: Payment/cancellation FlashSaleItem dihapus."
+  );
+}
+
+if (paymentCancelFlashSaleId) {
+  await prisma.flashSale.delete({
+    where: {
+      id:
+        paymentCancelFlashSaleId,
+    },
+  });
+
+  console.log(
+    "PASS: Payment/cancellation FlashSale dihapus."
+  );
+}
 
       /**
        * Hapus concurrency Flash Sale.
