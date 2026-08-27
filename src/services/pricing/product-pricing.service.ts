@@ -380,7 +380,7 @@ export default class ProductPricingService {
      */
     const now = new Date();
 
-    /**
+        /**
      * ==========================================================
      * FIND ACTIVE FLASH SALE
      * ==========================================================
@@ -391,13 +391,26 @@ export default class ProductPricingService {
      * 2. Legacy/product-wide Flash Sale.
      *
      * Flash Sale memiliki priority tertinggi.
+     *
+     * IMPORTANT:
+     *
+     * Pricing hanya boleh menggunakan Flash Sale yang
+     * benar-benar masih memiliki quota.
+     *
+     * Formula:
+     *
+     *     soldQuantity < stockLimit
+     *
+     * ProductSku.stock TIDAK digunakan untuk menentukan
+     * quota Flash Sale.
      */
+
     const flashSaleScope = {
       isActive: true,
 
       flashSale: {
-        status:
-          "ACTIVE" as const,
+        status: "ACTIVE" as const,
+
         deletedAt: null,
 
         startAt: {
@@ -415,6 +428,8 @@ export default class ProductPricingService {
           id: string;
           flashSaleId: string;
           flashPrice: Prisma.Decimal;
+          stockLimit: number;
+          soldQuantity: number;
         }
       | null = null;
 
@@ -423,80 +438,138 @@ export default class ProductPricingService {
        * --------------------------------------------------------
        * SKU-SPECIFIC FLASH SALE
        * --------------------------------------------------------
+       *
+       * Ambil semua kandidat yang masih mungkin tersedia.
+       *
+       * Prisma tidak melakukan perbandingan:
+       *
+       *     stockLimit > soldQuantity
+       *
+       * secara langsung pada query biasa.
+       *
+       * Karena itu filtering final dilakukan di application
+       * layer.
        */
-      flashSaleItem =
-        await tx.flashSaleItem.findFirst({
+
+      const skuFlashSaleItems =
+        await tx.flashSaleItem.findMany({
           where: {
             ...flashSaleScope,
+
             productId,
+
             skuId,
+
+            stockLimit: {
+              gt: 0,
+            },
           },
 
           select: {
             id: true,
+
             flashSaleId: true,
+
             flashPrice: true,
+
+            stockLimit: true,
+
+            soldQuantity: true,
           },
 
           orderBy: [
             {
-            flashSale: {
-              sortOrder: "asc",
-                },
-              },
-            {
+              flashSale: {
                 sortOrder: "asc",
               },
-                {
-          createdAt: "asc",
-        },
-],
+            },
+
+            {
+              sortOrder: "asc",
+            },
+
+            {
+              createdAt: "asc",
+            },
+          ],
         });
 
       /**
-       * --------------------------------------------------------
-       * PRODUCT-WIDE LEGACY FALLBACK
-       * --------------------------------------------------------
+       * Hanya Flash Sale yang:
        *
-       * Dipakai hanya sebagai compatibility path selama
-       * Flash Sale lama masih ada.
+       *     soldQuantity < stockLimit
        *
-       * Item SKU-specific tetap memiliki prioritas.
+       * yang boleh menjadi pricing source.
        */
+
+      flashSaleItem =
+        skuFlashSaleItems.find(
+          (item) =>
+            item.soldQuantity <
+            item.stockLimit
+        ) ?? null;
+
+      /**
+       * --------------------------------------------------------
+       * LEGACY PRODUCT-WIDE FALLBACK
+       * --------------------------------------------------------
+       *
+       * Hanya digunakan jika tidak ditemukan Flash Sale
+       * SKU-specific yang tersedia.
+       */
+
       if (!flashSaleItem) {
-        flashSaleItem =
-          await tx.flashSaleItem.findFirst({
+        const legacyFlashSaleItems =
+          await tx.flashSaleItem.findMany({
             where: {
               ...flashSaleScope,
+
               productId,
 
-              /**
-               * Legacy product-wide Flash Sale.
-               */
               skuId: null,
+
               weightOptionId: null,
+
+              stockLimit: {
+                gt: 0,
+              },
             },
 
             select: {
               id: true,
+
               flashSaleId: true,
+
               flashPrice: true,
+
+              stockLimit: true,
+
+              soldQuantity: true,
             },
 
             orderBy: [
               {
                 flashSale: {
                   sortOrder: "asc",
-                  },
-                    },
-                      {
-                    sortOrder: "asc",
-                    },
-                  {
+                },
+              },
+
+              {
+                sortOrder: "asc",
+              },
+
+              {
                 createdAt: "asc",
               },
             ],
-        });
+          });
+
+        flashSaleItem =
+          legacyFlashSaleItems.find(
+            (item) =>
+              item.soldQuantity <
+              item.stockLimit
+          ) ?? null;
       }
     }
 
