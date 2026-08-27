@@ -616,11 +616,6 @@ static async softDelete(
        * Semuanya masih berada dalam transaction yang sama.
        */
 
-      await FlashSaleRepository.releasePurchasesByOrderId(
-        tx,
-        id
-      );
-
       /**
         * --------------------------------------------------------
        * DEACTIVATE ALL ITEMS
@@ -657,6 +652,628 @@ static async softDelete(
       });
     }
   );
+}
+
+/**
+ * ============================================================
+ * CUSTOMER - FIND ACTIVE FLASH SALE
+ * ============================================================
+ *
+ * Digunakan untuk:
+ *
+ * - Homepage
+ * - Promo page customer
+ * - Customer-facing Flash Sale section
+ *
+ * Rules:
+ *
+ * 1. Campaign harus ACTIVE
+ * 2. Campaign belum mulai tidak boleh tampil
+ * 3. Campaign yang sudah berakhir tidak boleh tampil
+ * 4. Campaign soft-deleted tidak boleh tampil
+ * 5. Item harus aktif
+ * 6. Item harus memiliki SKU canonical
+ * 7. Item yang quota-nya sudah habis tidak boleh tampil
+ *
+ * Catatan:
+ *
+ * remainingQuantity dihitung dari:
+ *
+ *   stockLimit - soldQuantity
+ *
+ * Bukan dari ProductSku.stock.
+ *
+ * ProductSku.stock adalah stock fisik.
+ * FlashSaleItem.stockLimit adalah quota promo.
+ */
+static async findActiveForCustomer() {
+  const now =
+    new Date();
+
+  /**
+   * ==========================================================
+   * FIND ACTIVE CAMPAIGNS
+   * ==========================================================
+   */
+
+  const flashSales =
+    await prisma.flashSale.findMany({
+      where: {
+        status:
+          FlashSaleStatus.ACTIVE,
+
+        deletedAt:
+          null,
+
+        startAt: {
+          lte:
+            now,
+        },
+
+        endAt: {
+          gt:
+            now,
+        },
+
+        /**
+         * Pastikan campaign memiliki minimal
+         * satu FlashSaleItem yang berpotensi
+         * masih tersedia.
+         */
+        items: {
+          some: {
+            isActive:
+              true,
+
+            skuId: {
+              not:
+                null,
+            },
+
+            stockLimit: {
+              gt:
+                0,
+            },
+          },
+        },
+      },
+
+      /**
+       * ========================================================
+       * CAMPAIGN ORDER
+       * ========================================================
+       *
+       * Priority:
+       *
+       * 1. sortOrder terkecil
+       * 2. startAt terdekat
+       * 3. campaign terbaru
+       */
+      orderBy: [
+        {
+          sortOrder:
+            "asc",
+        },
+
+        {
+          startAt:
+            "asc",
+        },
+
+        {
+          createdAt:
+            "desc",
+        },
+      ],
+
+      /**
+       * ========================================================
+       * INCLUDE CUSTOMER DATA
+       * ========================================================
+       */
+      include: {
+        items: {
+          where: {
+            isActive:
+              true,
+
+            /**
+             * Customer hanya menggunakan
+             * canonical SKU.
+             */
+            skuId: {
+              not:
+                null,
+            },
+
+            /**
+             * Quota awal harus lebih dari 0.
+             *
+             * Sold-out akan difilter setelah query
+             * karena Prisma tidak dapat melakukan
+             * perbandingan:
+             *
+             * stockLimit > soldQuantity
+             */
+            stockLimit: {
+              gt:
+                0,
+            },
+          },
+
+          orderBy: [
+            {
+              sortOrder:
+                "asc",
+            },
+
+            {
+              createdAt:
+                "asc",
+            },
+          ],
+
+          include: {
+            /**
+             * ==================================================
+             * PRODUCT
+             * ==================================================
+             *
+             * Ambil gambar agar customer page dapat
+             * menampilkan thumbnail produk tanpa query
+             * tambahan.
+             */
+            product: {
+              include: {
+                images: {
+                  orderBy: [
+                    {
+                      isThumbnail:
+                        "desc",
+                    },
+
+                    {
+                      sortOrder:
+                        "asc",
+                    },
+                  ],
+                },
+              },
+            },
+
+            /**
+             * ==================================================
+             * SKU
+             * ==================================================
+             *
+             * SKU diperlukan untuk:
+             *
+             * - memastikan SKU aktif
+             * - menampilkan informasi SKU
+             * - menjaga canonical product variant
+             */
+            sku: {
+              include: {
+                skuOptions: {
+                  include: {
+                    variantOption: {
+                      include: {
+                        group:
+                          true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+  /**
+   * ==========================================================
+   * FILTER + SERIALIZE CUSTOMER DATA
+   * ==========================================================
+   *
+   * Prisma tidak mendukung perbandingan dua kolom secara
+   * langsung pada filter biasa:
+   *
+   *   stockLimit > soldQuantity
+   *
+   * Karena itu sold-out item difilter di memory.
+   */
+  return flashSales
+    .map(
+      (flashSale) => {
+        /**
+         * ======================================================
+         * FILTER AVAILABLE ITEMS
+         * ======================================================
+         */
+
+        const availableItems =
+          flashSale.items
+            .filter(
+              (item) =>
+                item.stockLimit >
+                  item.soldQuantity &&
+                item.sku !== null &&
+                item.sku.isActive
+            )
+            .map(
+              (item) => {
+                /**
+                 * ==================================================
+                 * REMAINING QUANTITY
+                 * ==================================================
+                 */
+
+                const remainingQuantity =
+                  Math.max(
+                    0,
+                    item.stockLimit -
+                      item.soldQuantity
+                  );
+
+                /**
+                 * ==================================================
+                 * PRICE
+                 * ==================================================
+                 */
+
+                const originalPrice =
+                  Number(
+                    item.originalPrice
+                  );
+
+                const flashPrice =
+                  Number(
+                    item.flashPrice
+                  );
+
+                /**
+                 * ==================================================
+                 * DISCOUNT PERCENT
+                 * ==================================================
+                 */
+
+                const discountPercent =
+                  originalPrice > 0
+                    ? Math.round(
+                        (
+                          (
+                            originalPrice -
+                            flashPrice
+                          ) /
+                          originalPrice
+                        ) *
+                          100
+                      )
+                    : 0;
+
+                return {
+                  ...item,
+
+                  remainingQuantity,
+
+                  discountPercent,
+                };
+              }
+            );
+
+        /**
+         * ======================================================
+         * RETURN CAMPAIGN
+         * ======================================================
+         */
+
+        return {
+          ...flashSale,
+
+          items:
+            availableItems,
+        };
+      }
+    )
+    /**
+     * ========================================================
+     * REMOVE EMPTY CAMPAIGNS
+     * ========================================================
+     *
+     * Campaign yang seluruh item-nya sudah sold-out
+     * tidak boleh dikirim ke customer.
+     */
+    .filter(
+      (flashSale) =>
+        flashSale.items.length >
+        0
+    );
+}
+
+/**
+ * ============================================================
+ * CUSTOMER - FIND ACTIVE FLASH SALE BY SLUG
+ * ============================================================
+ *
+ * Digunakan untuk:
+ *
+ * - Flash Sale detail page
+ * - Customer campaign detail
+ *
+ * Rules:
+ *
+ * 1. Campaign harus ACTIVE
+ * 2. Campaign belum mulai tidak boleh tampil
+ * 3. Campaign sudah berakhir tidak boleh tampil
+ * 4. Campaign soft-deleted tidak boleh tampil
+ * 5. Item harus aktif
+ * 6. Item harus menggunakan canonical SKU
+ * 7. SKU harus aktif
+ * 8. Item yang quota-nya habis tidak ditampilkan
+ *
+ * Method ini READ-ONLY.
+ *
+ * Tidak melakukan:
+ *
+ * - consume quota
+ * - update stock
+ * - create order
+ * - create FlashSalePurchase
+ */
+static async findActiveBySlugForCustomer(
+  slug: string
+) {
+  if (!slug?.trim()) {
+    return null;
+  }
+
+  const now =
+    new Date();
+
+  /**
+   * ==========================================================
+   * FIND CAMPAIGN
+   * ==========================================================
+   */
+
+  const flashSale =
+    await prisma.flashSale.findFirst({
+      where: {
+        slug:
+          slug.trim(),
+
+        status:
+          FlashSaleStatus.ACTIVE,
+
+        deletedAt:
+          null,
+
+        startAt: {
+          lte:
+            now,
+        },
+
+        endAt: {
+          gt:
+            now,
+        },
+
+        items: {
+          some: {
+            isActive:
+              true,
+
+            skuId: {
+              not:
+                null,
+            },
+
+            stockLimit: {
+              gt:
+                0,
+            },
+          },
+        },
+      },
+
+      include: {
+        items: {
+          where: {
+            isActive:
+              true,
+
+            skuId: {
+              not:
+                null,
+            },
+
+            stockLimit: {
+              gt:
+                0,
+            },
+          },
+
+          orderBy: [
+            {
+              sortOrder:
+                "asc",
+            },
+
+            {
+              createdAt:
+                "asc",
+            },
+          ],
+
+          include: {
+            /**
+             * ==================================================
+             * PRODUCT
+             * ==================================================
+             */
+
+            product: {
+              include: {
+                images: {
+                  orderBy: [
+                    {
+                      isThumbnail:
+                        "desc",
+                    },
+
+                    {
+                      sortOrder:
+                        "asc",
+                    },
+                  ],
+                },
+              },
+            },
+
+            /**
+             * ==================================================
+             * SKU
+             * ==================================================
+             */
+
+            sku: {
+              include: {
+                skuOptions: {
+                  include: {
+                    variantOption: {
+                      include: {
+                        group:
+                          true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+  /**
+   * ==========================================================
+   * CAMPAIGN NOT FOUND
+   * ==========================================================
+   */
+
+  if (!flashSale) {
+    return null;
+  }
+
+  /**
+   * ==========================================================
+   * FILTER AVAILABLE ITEMS
+   * ==========================================================
+   */
+
+  const availableItems =
+    flashSale.items
+      .filter(
+        (item) =>
+          item.stockLimit >
+            item.soldQuantity &&
+          item.sku !== null &&
+          item.sku.isActive &&
+          item.product.deletedAt === null
+      )
+      .map(
+        (item) => {
+          /**
+           * ================================================
+           * REMAINING QUANTITY
+           * ================================================
+           */
+
+          const remainingQuantity =
+            Math.max(
+              0,
+              item.stockLimit -
+                item.soldQuantity
+            );
+
+          /**
+           * ================================================
+           * PRICE
+           * ================================================
+           */
+
+          const originalPrice =
+            Number(
+              item.originalPrice
+            );
+
+          const flashPrice =
+            Number(
+              item.flashPrice
+            );
+
+          /**
+           * ================================================
+           * DISCOUNT
+           * ================================================
+           */
+
+          const discountPercent =
+            originalPrice > 0
+              ? Math.round(
+                  (
+                    (
+                      originalPrice -
+                      flashPrice
+                    ) /
+                    originalPrice
+                  ) *
+                    100
+                )
+              : 0;
+
+          return {
+            ...item,
+
+            remainingQuantity,
+
+            discountPercent,
+          };
+        }
+      );
+
+  /**
+   * ==========================================================
+   * CAMPAIGN SOLD OUT
+   * ==========================================================
+   *
+   * Campaign masih ACTIVE secara database tetapi seluruh
+   * item sudah habis quota.
+   *
+   * Customer tidak boleh melihat campaign tersebut sebagai
+   * promo aktif.
+   */
+
+  if (
+    availableItems.length ===
+    0
+  ) {
+    return null;
+  }
+
+  /**
+   * ==========================================================
+   * RETURN CUSTOMER READ MODEL
+   * ==========================================================
+   */
+
+  return {
+    ...flashSale,
+
+    items:
+      availableItems,
+  };
 }
 
   /**

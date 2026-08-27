@@ -1039,6 +1039,7 @@ model FlashSalePurchase {
    * ============================================================
    */
 
+  @@unique([orderId, flashSaleItemId])
   @@index([flashSaleItemId])
   @@index([userId])
   @@index([orderId])

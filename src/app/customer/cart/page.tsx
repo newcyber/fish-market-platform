@@ -536,14 +536,13 @@ export default async function CartPage() {
                       <div className="flex items-center justify-between gap-6 sm:flex-col sm:items-end">
 
                         <CartQuantityControl
-                          cartItemId={item.id}
-                          initialQuantity={
-                            item.quantity
-                          }
-                          maxQuantity={
-                            item.product.stock
-                          }
-                        />
+                              cartItemId={item.id}
+                              initialQuantity={item.quantity}
+                                  maxQuantity={
+                                item.sku?.stock ??
+                              item.product.stock
+                              }
+                            />
 
                         <p
   className="

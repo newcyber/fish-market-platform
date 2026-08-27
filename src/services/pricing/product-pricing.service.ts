@@ -440,12 +440,17 @@ export default class ProductPricingService {
 
           orderBy: [
             {
+            flashSale: {
               sortOrder: "asc",
-            },
+                },
+              },
             {
-              createdAt: "asc",
-            },
-          ],
+                sortOrder: "asc",
+              },
+                {
+          createdAt: "asc",
+        },
+],
         });
 
       /**
@@ -480,13 +485,18 @@ export default class ProductPricingService {
 
             orderBy: [
               {
-                sortOrder: "asc",
-              },
-              {
+                flashSale: {
+                  sortOrder: "asc",
+                  },
+                    },
+                      {
+                    sortOrder: "asc",
+                    },
+                  {
                 createdAt: "asc",
               },
             ],
-          });
+        });
       }
     }
 

@@ -436,23 +436,53 @@ export default class PromotionRepository {
    * SOFT DELETE
    * ============================================================
    */
-  static async softDelete(
-    id: string,
-    tx?: Prisma.TransactionClient
-  ) {
-    const client = tx ?? prisma;
+  /**
+ * ============================================================
+ * SOFT DELETE
+ * ============================================================
+ *
+ * Soft delete hanya menandai record sebagai deleted.
+ *
+ * Lifecycle status TIDAK diubah di sini.
+ *
+ * Contoh:
+ *
+ * ENDED
+ *   ↓ delete()
+ * ENDED + deletedAt
+ *
+ * SCHEDULED
+ *   ↓ delete()
+ * SCHEDULED + deletedAt
+ *
+ * CANCELLED
+ *   ↓ delete()
+ * CANCELLED + deletedAt
+ *
+ * Perubahan lifecycle wajib dilakukan melalui
+ * method lifecycle:
+ *
+ * - schedule()
+ * - activate()
+ * - end()
+ * - cancel()
+ */
+static async softDelete(
+  id: string,
+  tx?: Prisma.TransactionClient
+) {
+  const client = tx ?? prisma;
 
-    return client.promotion.update({
-      where: {
-        id,
-      },
+  return client.promotion.update({
+    where: {
+      id,
+    },
 
-      data: {
-        deletedAt: new Date(),
-        status: PromotionStatus.CANCELLED,
-      },
-    });
-  }
+    data: {
+      deletedAt: new Date(),
+    },
+  });
+}
 
   /**
    * ============================================================
@@ -468,6 +498,46 @@ export default class PromotionRepository {
    *
    * MARKETING tidak dianggap conflict karena tidak mengubah harga.
    */
+    /**
+   * ============================================================
+   * FIND PRICE DISCOUNT CONFLICTS FOR SKU
+   * ============================================================
+   *
+   * Mencari PRICE_DISCOUNT lain yang:
+   *
+   * - belum soft deleted
+   * - berstatus DRAFT, SCHEDULED, atau ACTIVE
+   * - memiliki SKU yang sama
+   * - memiliki periode yang overlap
+   *
+   * DRAFT hanya dianggap conflict apabila sudah memiliki
+   * periode (startAt / endAt).
+   *
+   * Promotion MARKETING tidak pernah dianggap conflict
+   * karena tidak mengubah harga.
+   *
+   * Status terminal:
+   * - ENDED
+   * - CANCELLED
+   *
+   * tidak dianggap conflict.
+   */
+    /**
+   * ============================================================
+   * FIND PRICE DISCOUNT CONFLICTS FOR SKU
+   * ============================================================
+   *
+   * Mencari promotion PRICE_DISCOUNT lain yang:
+   *
+   * - belum soft deleted
+   * - status DRAFT, SCHEDULED, atau ACTIVE
+   * - memiliki SKU yang sama
+   * - memiliki periode yang overlap
+   *
+   * DRAFT tanpa periode tidak dianggap conflict.
+   *
+   * ENDED dan CANCELLED tidak dianggap conflict.
+   */
   static async findPriceDiscountConflictsForSku(
     skuId: string,
     startAt: Date | null,
@@ -477,83 +547,130 @@ export default class PromotionRepository {
   ) {
     const client = tx ?? prisma;
 
-    return client.promotion.findMany({
-      where: {
-        deletedAt: null,
-
-        type: PromotionType.PRICE_DISCOUNT,
-
-        status: {
-          in: [
-            PromotionStatus.SCHEDULED,
-            PromotionStatus.ACTIVE,
-          ],
-        },
-
-        items: {
-          some: {
-            skuId,
+    /**
+     * ----------------------------------------------------------
+     * STATUS
+     * ----------------------------------------------------------
+     *
+     * DRAFT hanya dianggap conflict apabila sudah memiliki
+     * startAt atau endAt.
+     */
+    const statusFilter: Prisma.PromotionWhereInput = {
+      OR: [
+        {
+          status: {
+            in: [
+              PromotionStatus.SCHEDULED,
+              PromotionStatus.ACTIVE,
+            ],
           },
         },
-
-        ...(excludePromotionId
-          ? {
-              id: {
-                not: excludePromotionId,
+        {
+          status: PromotionStatus.DRAFT,
+          OR: [
+            {
+              startAt: {
+                not: null,
               },
-            }
-          : {}),
+            },
+            {
+              endAt: {
+                not: null,
+              },
+            },
+          ],
+        },
+      ],
+    };
 
-        AND: [
-          /**
-           * Existing promotion harus dimulai
-           * sebelum proposed promotion berakhir.
-           *
-           * Jika proposed endAt null,
-           * tidak ada batas akhir.
-           */
-          ...(endAt !== null
-            ? [
-                {
-                  OR: [
-                    {
-                      startAt: null,
-                    },
-                    {
-                      startAt: {
-                        lt: endAt,
-                      },
-                    },
-                  ],
-                },
-              ]
-            : []),
+    /**
+     * ----------------------------------------------------------
+     * PERIOD CONDITIONS
+     * ----------------------------------------------------------
+     */
+    const periodConditions: Prisma.PromotionWhereInput[] = [];
 
-          /**
-           * Existing promotion harus berakhir
-           * setelah proposed promotion dimulai.
-           *
-           * Jika existing endAt null,
-           * dianggap tidak terbatas.
-           */
-          ...(startAt !== null
-            ? [
-                {
-                  OR: [
-                    {
-                      endAt: null,
-                    },
-                    {
-                      endAt: {
-                        gt: startAt,
-                      },
-                    },
-                  ],
-                },
-              ]
-            : []),
+    /**
+     * Existing promotion harus dimulai sebelum
+     * proposed promotion berakhir.
+     *
+     * Jika endAt proposed null, tidak ada batas akhir.
+     */
+    if (endAt !== null) {
+      periodConditions.push({
+        OR: [
+          {
+            startAt: null,
+          },
+          {
+            startAt: {
+              lt: endAt,
+            },
+          },
         ],
+      });
+    }
+
+    /**
+     * Existing promotion harus berakhir setelah
+     * proposed promotion dimulai.
+     *
+     * Jika existing endAt null, dianggap tidak terbatas.
+     *
+     * Boundary sama tidak dianggap overlap.
+     */
+    if (startAt !== null) {
+      periodConditions.push({
+        OR: [
+          {
+            endAt: null,
+          },
+          {
+            endAt: {
+              gt: startAt,
+            },
+          },
+        ],
+      });
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * WHERE
+     * ----------------------------------------------------------
+     */
+    const where: Prisma.PromotionWhereInput = {
+      deletedAt: null,
+
+      type: PromotionType.PRICE_DISCOUNT,
+
+      ...statusFilter,
+
+      items: {
+        some: {
+          skuId,
+        },
       },
+
+      ...(excludePromotionId
+        ? {
+            id: {
+              not: excludePromotionId,
+            },
+          }
+        : {}),
+    };
+
+    /**
+     * Tambahkan period condition hanya jika
+     * memang ada batas periode yang bisa dibandingkan.
+     */
+    if (periodConditions.length > 0) {
+      where.AND = periodConditions;
+    }
+
+    return client.promotion.findMany({
+      where,
 
       orderBy: [
         {

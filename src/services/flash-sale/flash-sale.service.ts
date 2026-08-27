@@ -403,6 +403,35 @@ export default class FlashSaleService {
     return flashSale;
   }
 
+    /**
+   * ==========================================================
+   * GET ACTIVE FLASH SALES FOR CUSTOMER
+   * ==========================================================
+   *
+   * Digunakan untuk:
+   *
+   * - /flash-sale
+   * - Homepage Flash Sale section
+   * - Customer-facing Flash Sale
+   *
+   * Repository bertanggung jawab terhadap:
+   *
+   * - ACTIVE campaign
+   * - periode campaign
+   * - item aktif
+   * - SKU canonical
+   * - quota
+   * - remainingQuantity
+   * - discountPercent
+   *
+   * Service hanya menjadi business boundary
+   * antara UI customer dan repository.
+   */
+
+  static async getActiveForCustomer() {
+    return FlashSaleRepository.findActiveForCustomer();
+  }
+
   /**
    * ==========================================================
    * CREATE

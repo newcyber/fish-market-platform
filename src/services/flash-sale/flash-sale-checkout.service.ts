@@ -298,9 +298,9 @@ export default class FlashSaleCheckoutService {
        * ========================================================
        */
 
-      const remainingQuantity =
-        flashSaleItem.stockLimit -
-        flashSaleItem.soldQuantity;
+const remainingQuantity =
+  flashSaleItem.stockLimit -
+  flashSaleItem.soldQuantity;
 
       if (
         remainingQuantity <
@@ -420,7 +420,7 @@ export default class FlashSaleCheckoutService {
             requirement.quantity,
 
           price:
-            requirement.price,
+            flashSaleItem.flashPrice,
         },
       });
     }
