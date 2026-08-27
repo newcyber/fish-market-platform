@@ -1,6 +1,9 @@
 import {
   Prisma,
   ProductDiscountType,
+  PromotionDiscountType,
+  PromotionStatus,
+  PromotionType,
 } from "@prisma/client";
 
 /**
@@ -8,15 +11,31 @@ import {
  * PRODUCT PRICING SERVICE V2 - SKU BASED
  * ============================================================
  *
- * Canonical pricing flow:
+ * Canonical pricing priority:
  *
  * ProductSku.price
  *       ↓
- * Product Discount
+ * Flash Sale
  *       ↓
- * Flash Sale (if active)
+ * Promotion PRICE_DISCOUNT
+ *       ↓
+ * ProductSku Discount
  *       ↓
  * Final Price
+ *
+ * IMPORTANT:
+ *
+ * Pricing tidak melakukan stacking discount.
+ *
+ * Priority:
+ *
+ * 1. Flash Sale
+ * 2. Promotion PRICE_DISCOUNT
+ * 3. ProductSku Discount
+ * 4. Normal Price
+ *
+ * Flash Sale dan Promotion sama-sama merupakan
+ * pricing override.
  *
  * VariantOption tidak lagi memiliki:
  * - productId
@@ -29,10 +48,12 @@ import {
  * `skuId` adalah canonical input.
  *
  * `productVariant` / `productWeight` dipertahankan sementara
- * hanya agar consumer lama tetap dapat dikompilasi. Jika caller
- * masih mengirim variant/weight tanpa skuId, service akan menolak
- * dengan error yang jelas. Jangan deploy sebelum caller lama
- * dimigrasikan ke skuId.
+ * hanya agar consumer lama tetap dapat dikompilasi.
+ *
+ * Jika caller masih mengirim variant/weight tanpa skuId,
+ * service akan menolak dengan error yang jelas.
+ *
+ * Legacy product tanpa SKU masih didukung sementara.
  */
 
 export interface ResolveProductPriceInput {
@@ -51,14 +72,22 @@ export interface ResolveProductPriceInput {
 
   /**
    * Legacy fallback for products without SKU.
-   * Untuk product dengan SKU, canonical price berasal dari SKU.
+   *
+   * Untuk product dengan SKU, canonical price berasal
+   * dari ProductSku.price.
    */
   fallbackPrice?: Prisma.Decimal | number;
 }
 
+export type ProductDiscountSource =
+  | "NONE"
+  | "PRODUCT_DISCOUNT"
+  | "PROMOTION"
+  | "FLASH_SALE";
+
 export interface ProductPricingResult {
   /**
-   * Harga SKU sebelum Product Discount / Flash Sale.
+   * Harga SKU/Product sebelum pricing override.
    */
   originalPrice: Prisma.Decimal;
 
@@ -72,9 +101,42 @@ export interface ProductPricingResult {
    */
   finalPrice: Prisma.Decimal;
 
+  /**
+   * Backward compatibility.
+   *
+   * true jika discount berasal dari ProductSku/Product
+   * atau Promotion.
+   *
+   * Flash Sale menggunakan flag tersendiri.
+   */
   isDiscountApplied: boolean;
+
+  /**
+   * True jika Flash Sale menjadi pricing source.
+   */
   isFlashSaleApplied: boolean;
 
+  /**
+   * True jika Promotion PRICE_DISCOUNT menjadi
+   * pricing source.
+   */
+  promotionDiscountApplied: boolean;
+
+  /**
+   * Promotion yang menghasilkan harga final.
+   *
+   * null jika tidak ada Promotion yang diterapkan.
+   */
+  promotionId: string | null;
+
+  /**
+   * Sumber pricing final.
+   */
+  discountSource: ProductDiscountSource;
+
+  /**
+   * Flash Sale metadata.
+   */
   flashSaleItemId: string | null;
   flashSaleId: string | null;
 }
@@ -102,9 +164,11 @@ export default class ProductPricingService {
      * LEGACY GUARD
      * ----------------------------------------------------------
      *
-     * Kita sengaja tidak mencoba menebak SKU dari label variant
-     * lama. Pada sistem baru satu produk bisa memiliki lebih dari
-     * dua VariantGroup, sehingga pasangan:
+     * Kita sengaja tidak mencoba menebak SKU dari label
+     * variant lama.
+     *
+     * Pada sistem baru satu product dapat memiliki lebih
+     * dari dua VariantGroup sehingga pasangan:
      *
      * productVariant + productWeight
      *
@@ -123,6 +187,14 @@ export default class ProductPricingService {
      * ==========================================================
      * GET PRODUCT
      * ==========================================================
+     *
+     * Product tetap diambil karena masih diperlukan untuk
+     * compatibility path produk legacy tanpa SKU.
+     *
+     * Untuk product dengan SKU:
+     *
+     * - price menggunakan ProductSku.price
+     * - discount menggunakan ProductSku.discount*
      */
     const product =
       await tx.product.findUnique({
@@ -132,6 +204,12 @@ export default class ProductPricingService {
         select: {
           id: true,
           price: true,
+
+          /**
+           * Legacy product discount.
+           *
+           * Hanya digunakan ketika skuId tidak tersedia.
+           */
           isDiscountActive: true,
           discountType: true,
           discountValue: true,
@@ -148,12 +226,36 @@ export default class ProductPricingService {
 
     /**
      * ==========================================================
-     * RESOLVE CANONICAL SKU
+     * RESOLVE CANONICAL PRICE + DISCOUNT SOURCE
      * ==========================================================
      */
+
     let originalPrice: Prisma.Decimal;
 
+    let discountIsActive: boolean;
+
+    let discountType:
+      | ProductDiscountType
+      | null;
+
+    let discountValue:
+      | Prisma.Decimal
+      | null;
+
+    let discountStartAt:
+      | Date
+      | null;
+
+    let discountEndAt:
+      | Date
+      | null;
+
     if (skuId) {
+      /**
+       * --------------------------------------------------------
+       * CANONICAL SKU PATH
+       * --------------------------------------------------------
+       */
       const sku =
         await tx.productSku.findFirst({
           where: {
@@ -165,6 +267,15 @@ export default class ProductPricingService {
             price: true,
             stock: true,
             isActive: true,
+
+            /**
+             * Canonical SKU Product Discount.
+             */
+            isDiscountActive: true,
+            discountType: true,
+            discountValue: true,
+            discountStartAt: true,
+            discountEndAt: true,
           },
         });
 
@@ -180,6 +291,9 @@ export default class ProductPricingService {
         );
       }
 
+      /**
+       * ProductSku adalah canonical price source.
+       */
       originalPrice =
         new Prisma.Decimal(sku.price);
 
@@ -188,12 +302,38 @@ export default class ProductPricingService {
           "Harga SKU tidak valid."
         );
       }
+
+      /**
+       * ProductSku adalah canonical discount source.
+       */
+      discountIsActive =
+        sku.isDiscountActive;
+
+      discountType =
+        sku.discountType;
+
+      discountValue =
+        sku.discountValue !== null
+          ? new Prisma.Decimal(
+              sku.discountValue
+            )
+          : null;
+
+      discountStartAt =
+        sku.discountStartAt;
+
+      discountEndAt =
+        sku.discountEndAt;
     } else {
       /**
-       * Product tanpa variant/SKU lama.
+       * --------------------------------------------------------
+       * LEGACY PRODUCT PATH
+       * --------------------------------------------------------
        *
-       * Setelah seluruh consumer dimigrasikan, fallback ini dapat
-       * dihapus dan skuId dibuat wajib.
+       * Dipakai hanya untuk product tanpa SKU.
+       *
+       * Setelah seluruh consumer legacy dimigrasikan,
+       * fallback ini dapat dihapus dan skuId dibuat wajib.
        */
       originalPrice =
         fallbackPrice !== undefined
@@ -209,7 +349,36 @@ export default class ProductPricingService {
           "Harga produk tidak valid."
         );
       }
+
+      /**
+       * Legacy Product discount.
+       */
+      discountIsActive =
+        product.isDiscountActive;
+
+      discountType =
+        product.discountType;
+
+      discountValue =
+        product.discountValue !== null
+          ? new Prisma.Decimal(
+              product.discountValue
+            )
+          : null;
+
+      discountStartAt =
+        product.discountStartAt;
+
+      discountEndAt =
+        product.discountEndAt;
     }
+
+    /**
+     * ==========================================================
+     * CURRENT TIME
+     * ==========================================================
+     */
+    const now = new Date();
 
     /**
      * ==========================================================
@@ -218,21 +387,23 @@ export default class ProductPricingService {
      *
      * Canonical priority:
      *
-     * 1. Flash Sale yang menunjuk SKU ini.
-     * 2. Legacy/product-wide Flash Sale tanpa skuId.
+     * 1. SKU-specific Flash Sale.
+     * 2. Legacy/product-wide Flash Sale.
      *
-     * Kita tidak lagi menggunakan weightOptionId.
+     * Flash Sale memiliki priority tertinggi.
      */
-    const now = new Date();
-
     const flashSaleScope = {
       isActive: true,
+
       flashSale: {
-        status: "ACTIVE" as const,
+        status:
+          "ACTIVE" as const,
         deletedAt: null,
+
         startAt: {
           lte: now,
         },
+
         endAt: {
           gt: now,
         },
@@ -248,6 +419,11 @@ export default class ProductPricingService {
       | null = null;
 
     if (skuId) {
+      /**
+       * --------------------------------------------------------
+       * SKU-SPECIFIC FLASH SALE
+       * --------------------------------------------------------
+       */
       flashSaleItem =
         await tx.flashSaleItem.findFirst({
           where: {
@@ -255,11 +431,13 @@ export default class ProductPricingService {
             productId,
             skuId,
           },
+
           select: {
             id: true,
             flashSaleId: true,
             flashPrice: true,
           },
+
           orderBy: [
             {
               sortOrder: "asc",
@@ -271,10 +449,14 @@ export default class ProductPricingService {
         });
 
       /**
-       * Product-wide fallback.
+       * --------------------------------------------------------
+       * PRODUCT-WIDE LEGACY FALLBACK
+       * --------------------------------------------------------
        *
-       * Dipakai hanya sebagai compatibility path selama Flash Sale
-       * lama masih ada. Item SKU-specific tetap memiliki prioritas.
+       * Dipakai hanya sebagai compatibility path selama
+       * Flash Sale lama masih ada.
+       *
+       * Item SKU-specific tetap memiliki prioritas.
        */
       if (!flashSaleItem) {
         flashSaleItem =
@@ -282,14 +464,20 @@ export default class ProductPricingService {
             where: {
               ...flashSaleScope,
               productId,
+
+              /**
+               * Legacy product-wide Flash Sale.
+               */
               skuId: null,
               weightOptionId: null,
             },
+
             select: {
               id: true,
               flashSaleId: true,
               flashPrice: true,
             },
+
             orderBy: [
               {
                 sortOrder: "asc",
@@ -304,11 +492,20 @@ export default class ProductPricingService {
 
     /**
      * ==========================================================
-     * FLASH SALE
+     * FLASH SALE OVERRIDE
      * ==========================================================
      *
-     * Flash Sale memiliki prioritas lebih tinggi daripada
-     * Product Discount.
+     * Flash Sale memiliki priority tertinggi.
+     *
+     * Jika Flash Sale aktif:
+     *
+     * Flash Sale
+     *     >
+     * Promotion
+     *     >
+     * ProductSku Discount
+     *
+     * tidak terjadi stacking.
      */
     if (flashSaleItem) {
       const flashPrice =
@@ -341,10 +538,26 @@ export default class ProductPricingService {
         originalPrice,
         discountAmount,
         finalPrice: flashPrice,
+
+        /**
+         * ProductSku/Product Discount
+         * tidak diterapkan ketika Flash Sale aktif.
+         */
         isDiscountApplied: false,
+
         isFlashSaleApplied: true,
+
+        promotionDiscountApplied:
+          false,
+
+        promotionId: null,
+
+        discountSource:
+          "FLASH_SALE",
+
         flashSaleItemId:
           flashSaleItem.id,
+
         flashSaleId:
           flashSaleItem.flashSaleId,
       };
@@ -352,21 +565,275 @@ export default class ProductPricingService {
 
     /**
      * ==========================================================
-     * PRODUCT DISCOUNT
+     * FIND ACTIVE PROMOTION
+     * ==========================================================
+     *
+     * Promotion hanya mempengaruhi harga jika:
+     *
+     * - skuId tersedia
+     * - promotion belum soft deleted
+     * - type = PRICE_DISCOUNT
+     * - status = ACTIVE
+     * - startAt null atau sudah dimulai
+     * - endAt null atau belum berakhir
+     * - SKU termasuk dalam PromotionItem
+     *
+     * MARKETING tidak pernah masuk pricing engine.
+     */
+    let activePromotion:
+      | {
+          id: string;
+          discountType:
+            | PromotionDiscountType
+            | null;
+          discountValue:
+            | Prisma.Decimal
+            | null;
+        }
+      | null = null;
+
+    if (skuId) {
+      activePromotion =
+        await tx.promotion.findFirst({
+          where: {
+            deletedAt: null,
+
+            type:
+              PromotionType.PRICE_DISCOUNT,
+
+            status:
+              PromotionStatus.ACTIVE,
+
+            items: {
+              some: {
+                skuId,
+              },
+            },
+
+            AND: [
+              {
+                OR: [
+                  {
+                    startAt: null,
+                  },
+                  {
+                    startAt: {
+                      lte: now,
+                    },
+                  },
+                ],
+              },
+              {
+                OR: [
+                  {
+                    endAt: null,
+                  },
+                  {
+                    endAt: {
+                      gt: now,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+
+          select: {
+            id: true,
+            discountType: true,
+            discountValue: true,
+          },
+
+          /**
+           * Conflict prevention pada PromotionService
+           * seharusnya memastikan hanya satu pricing campaign
+           * yang aktif untuk SKU/periode yang sama.
+           *
+           * Sorting tetap dibuat deterministic sebagai
+           * defensive fallback.
+           */
+          orderBy: [
+            {
+              sortOrder: "asc",
+            },
+            {
+              isFeatured: "desc",
+            },
+            {
+              createdAt: "asc",
+            },
+          ],
+        });
+    }
+
+    /**
+     * ==========================================================
+     * PROMOTION PRICE DISCOUNT
      * ==========================================================
      */
+    if (activePromotion) {
+      if (
+        activePromotion.discountType ===
+          null ||
+        activePromotion.discountValue ===
+          null
+      ) {
+        throw new Error(
+          "Promotion PRICE_DISCOUNT aktif memiliki konfigurasi discount yang tidak lengkap."
+        );
+      }
+
+      const promotionDiscountValue =
+        new Prisma.Decimal(
+          activePromotion.discountValue
+        );
+
+      if (
+        !promotionDiscountValue.greaterThan(
+          0
+        )
+      ) {
+        throw new Error(
+          "Nilai discount promotion harus lebih besar dari 0."
+        );
+      }
+
+      let promotionDiscountAmount =
+        new Prisma.Decimal(0);
+
+      /**
+       * --------------------------------------------------------
+       * PROMOTION PERCENTAGE
+       * --------------------------------------------------------
+       */
+      if (
+        activePromotion.discountType ===
+        PromotionDiscountType.PERCENTAGE
+      ) {
+        if (
+          promotionDiscountValue.greaterThan(
+            100
+          )
+        ) {
+          throw new Error(
+            "Discount percentage promotion tidak boleh lebih dari 100%."
+          );
+        }
+
+        promotionDiscountAmount =
+          originalPrice
+            .mul(
+              promotionDiscountValue
+            )
+            .div(100);
+      }
+
+      /**
+       * --------------------------------------------------------
+       * PROMOTION FIXED AMOUNT
+       * --------------------------------------------------------
+       */
+      if (
+        activePromotion.discountType ===
+        PromotionDiscountType.FIXED_AMOUNT
+      ) {
+        promotionDiscountAmount =
+          promotionDiscountValue;
+      }
+
+      /**
+       * Defensive clamp.
+       *
+       * Discount tidak boleh melebihi harga original.
+       */
+      promotionDiscountAmount =
+        Prisma.Decimal.max(
+          new Prisma.Decimal(0),
+          promotionDiscountAmount
+        );
+
+      promotionDiscountAmount =
+        Prisma.Decimal.min(
+          promotionDiscountAmount,
+          originalPrice
+        );
+
+      const promotionFinalPrice =
+        originalPrice.minus(
+          promotionDiscountAmount
+        );
+
+      if (
+        promotionFinalPrice.lessThan(0)
+      ) {
+        throw new Error(
+          "Harga final promotion tidak boleh kurang dari nol."
+        );
+      }
+
+      return {
+        originalPrice,
+
+        discountAmount:
+          promotionDiscountAmount,
+
+        finalPrice:
+          promotionFinalPrice,
+
+        /**
+         * Backward compatibility:
+         *
+         * Promotion juga merupakan discount.
+         */
+        isDiscountApplied:
+          promotionDiscountAmount.greaterThan(
+            0
+          ),
+
+        isFlashSaleApplied:
+          false,
+
+        promotionDiscountApplied:
+          promotionDiscountAmount.greaterThan(
+            0
+          ),
+
+        promotionId:
+          activePromotion.id,
+
+        discountSource:
+          "PROMOTION",
+
+        flashSaleItemId: null,
+        flashSaleId: null,
+      };
+    }
+
+    /**
+     * ==========================================================
+     * PRODUCT DISCOUNT
+     * ==========================================================
+     *
+     * Promotion tidak aktif/tidak ditemukan.
+     *
+     * Maka fallback ke:
+     *
+     * ProductSku.discount*
+     *
+     * atau legacy Product.discount*.
+     */
     const hasDiscountConfiguration =
-      product.isDiscountActive &&
-      product.discountType !== null &&
-      product.discountValue !== null;
+      discountIsActive &&
+      discountType !== null &&
+      discountValue !== null;
 
     const hasStarted =
-      !product.discountStartAt ||
-      now >= product.discountStartAt;
+      !discountStartAt ||
+      now >= discountStartAt;
 
     const hasNotEnded =
-      !product.discountEndAt ||
-      now < product.discountEndAt;
+      !discountEndAt ||
+      now < discountEndAt;
 
     const isDiscountCurrentlyActive =
       hasDiscountConfiguration &&
@@ -381,18 +848,24 @@ export default class ProductPricingService {
 
     if (
       isDiscountCurrentlyActive &&
-      product.discountValue !== null &&
-      product.discountType !== null
+      discountValue !== null &&
+      discountType !== null
     ) {
-      const discountValue =
-        new Prisma.Decimal(
-          product.discountValue
-        );
-
+      /**
+       * --------------------------------------------------------
+       * PERCENTAGE DISCOUNT
+       * --------------------------------------------------------
+       */
       if (
-        product.discountType ===
+        discountType ===
         ProductDiscountType.PERCENTAGE
       ) {
+        /**
+         * Defensive clamp.
+         *
+         * Business validation tetap dilakukan ketika
+         * discount dikonfigurasi oleh admin.
+         */
         const percentage =
           Prisma.Decimal.max(
             new Prisma.Decimal(0),
@@ -408,8 +881,13 @@ export default class ProductPricingService {
             .div(100);
       }
 
+      /**
+       * --------------------------------------------------------
+       * FIXED AMOUNT DISCOUNT
+       * --------------------------------------------------------
+       */
       if (
-        product.discountType ===
+        discountType ===
         ProductDiscountType.FIXED_AMOUNT
       ) {
         discountAmount =
@@ -419,6 +897,9 @@ export default class ProductPricingService {
           );
       }
 
+      /**
+       * Discount tidak boleh melebihi harga original.
+       */
       discountAmount =
         Prisma.Decimal.min(
           discountAmount,
@@ -445,12 +926,33 @@ export default class ProductPricingService {
       );
     }
 
+    /**
+     * ==========================================================
+     * RESULT
+     * ==========================================================
+     */
     return {
       originalPrice,
+
       discountAmount,
+
       finalPrice,
+
       isDiscountApplied,
-      isFlashSaleApplied: false,
+
+      isFlashSaleApplied:
+        false,
+
+      promotionDiscountApplied:
+        false,
+
+      promotionId: null,
+
+      discountSource:
+        isDiscountApplied
+          ? "PRODUCT_DISCOUNT"
+          : "NONE",
+
       flashSaleItemId: null,
       flashSaleId: null,
     };

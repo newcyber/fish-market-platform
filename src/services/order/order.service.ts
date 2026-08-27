@@ -3018,65 +3018,95 @@ static async cancelOrder(
     );
   }
 
-  const order =
-  await OrderRepository.findById(
-    id
-  );
-
-  if (!order) {
-    throw new Error(
-      "Order tidak ditemukan."
-    );
-  }
-
-  if (order.deletedAt) {
-    throw new Error(
-      "Order yang berada di Trash tidak dapat dibatalkan."
-    );
-  }
-
-  if (
-    order.status ===
-    OrderStatus.COMPLETED
-  ) {
-    throw new Error(
-      "Order yang sudah selesai tidak dapat dibatalkan."
-    );
-  }
-
-  if (
-    order.status ===
-    OrderStatus.CANCELLED
-  ) {
-    throw new Error(
-      "Order sudah dibatalkan."
-    );
-  }
-
   /**
-    * Gunakan transaction agar:
-    *
-    * 1. Stock dikembalikan
-    * 2. StockLedger dibuat
-    * 3. Status menjadi CANCELLED
-    *
-    * harus berhasil bersama-sama.
-  */
+   * ============================================================
+   * TRANSACTION
+   * ============================================================
+   *
+   * Semua proses cancellation harus atomic:
+   *
+   * 1. Lock order
+   * 2. Validasi lifecycle terbaru
+   * 3. Restore ProductSku.stock
+   * 4. Create StockLedger CANCEL
+   * 5. Release Voucher
+   * 6. Release Flash Sale
+   * 7. Set Order = CANCELLED
+   *
+   * Jika salah satu gagal:
+   *
+   * seluruh transaction rollback.
+   */
+
   return prisma.$transaction(
     async (tx) => {
       /**
-        * Ambil ulang order di dalam
-        * transaction agar data yang
-        * digunakan adalah data terbaru.
-      */
+       * ========================================================
+       * 1. LOCK ORDER ROW
+       * ========================================================
+       *
+       * Penting untuk mencegah dua request cancellation
+       * memproses order yang sama secara bersamaan.
+       *
+       * Tanpa row lock:
+       *
+       * Request A -> baca PENDING
+       * Request B -> baca PENDING
+       * Request A -> restore stock
+       * Request B -> restore stock lagi
+       *
+       * Hasil:
+       *
+       * stock + quantity * 2
+       *
+       * FOR UPDATE membuat cancellation berjalan serial.
+       */
+
+      const lockedOrder =
+        await tx.$queryRaw<
+          Array<{
+            id: string;
+          }>
+        >`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${id}
+          FOR UPDATE
+        `;
+
+      if (
+        lockedOrder.length === 0
+      ) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 2. GET CURRENT ORDER
+       * ========================================================
+       */
+
       const currentOrder =
-      await tx.order.findUnique({
+        await tx.order.findUnique({
           where: {
             id,
           },
 
           include: {
-            items: true,
+            items: {
+              select: {
+                id: true,
+                orderId: true,
+                productId: true,
+                skuId: true,
+                productName: true,
+                quantity: true,
+                price: true,
+                subtotal: true,
+              },
+            },
           },
         });
 
@@ -3085,6 +3115,12 @@ static async cancelOrder(
           "Order tidak ditemukan."
         );
       }
+
+      /**
+       * ========================================================
+       * 3. VALIDATE ORDER LIFECYCLE
+       * ========================================================
+       */
 
       if (
         currentOrder.deletedAt
@@ -3112,223 +3148,335 @@ static async cancelOrder(
         );
       }
 
-      /**
-        * ========================================================
-        * GABUNGKAN QUANTITY BERDASARKAN PRODUCT ID
-        * ========================================================
-        *
-        * Variant dan weight dapat berbeda,
-        * tetapi stock berada pada Product.
-      */
+      if (
+  currentOrder.paymentStatus ===
+  PaymentStatus.VERIFIED
+) {
+  throw new Error(
+    "Order dengan pembayaran VERIFIED tidak dapat dibatalkan."
+  );
+}
 
-      const quantities =
-      new Map<
-      string,
-      number
-      >();
+      /**
+       * ========================================================
+       * 4. VALIDATE CANONICAL SKU
+       * ========================================================
+       *
+       * Stock canonical saat ini adalah:
+       *
+       *     ProductSku.stock
+       *
+       * Karena itu cancellation tidak boleh menebak
+       * mapping legacy:
+       *
+       *     productVariant / productWeight
+       *
+       * menjadi SKU.
+       *
+       * Jika order lama belum mempunyai skuId,
+       * batalkan dengan aman daripada mengembalikan
+       * stock ke SKU yang salah.
+       */
+
+      const legacyItem =
+        currentOrder.items.find(
+          (item) =>
+            !item.skuId
+        );
+
+      if (legacyItem) {
+        throw new Error(
+          `Order ${currentOrder.orderNumber} memiliki OrderItem lama tanpa skuId dan tidak dapat dibatalkan menggunakan stock engine SKU baru.`
+        );
+      }
+
+      /**
+       * ========================================================
+       * 5. AGGREGATE QUANTITY PER SKU
+       * ========================================================
+       *
+       * Stock identity:
+       *
+       *     skuId
+       *
+       * BUKAN:
+       *
+       *     productId
+       *
+       * Ini penting karena satu Product dapat memiliki
+       * beberapa SKU berat / variant.
+       */
+
+      const skuQuantities =
+        new Map<
+          string,
+          number
+        >();
 
       for (
         const item of
         currentOrder.items
       ) {
-        quantities.set(
-          item.productId,
-          (
-            quantities.get(
-              item.productId
-            ) ?? 0
-          ) +
-          item.quantity
-        );
-      }
-
-      /**
-        * ========================================================
-        * KEMBALIKAN STOCK + STOCK LEDGER
-        * ========================================================
-      */
-
-      for (
-        const [
-          productId,
-          quantity,
-        ] of quantities
-      ) {
         if (
-          quantity <= 0
+          !item.skuId
         ) {
           continue;
         }
 
-        /**
-          * Ambil stock sebelum perubahan
-          * untuk snapshot StockLedger.
-        */
-        const product =
-        await tx.product.findUnique({
-            where: {
-              id:
-              productId,
-            },
-
-            select: {
-              id: true,
-              name: true,
-              stock: true,
-            },
-          });
-
-        if (!product) {
+        if (
+          !Number.isInteger(
+            item.quantity
+          ) ||
+          item.quantity <= 0
+        ) {
           throw new Error(
-            `Produk ${productId} tidak ditemukan saat pembatalan order.`
+            `Quantity OrderItem "${item.id}" tidak valid saat pembatalan order.`
+          );
+        }
+
+        skuQuantities.set(
+          item.skuId,
+          (
+            skuQuantities.get(
+              item.skuId
+            ) ?? 0
+          ) +
+            item.quantity
+        );
+      }
+
+      /**
+       * ========================================================
+       * 6. GET CURRENT SKU STOCK
+       * ========================================================
+       */
+
+      const skuIds =
+        Array.from(
+          skuQuantities.keys()
+        );
+
+      const skus =
+        await tx.productSku.findMany({
+          where: {
+            id: {
+              in:
+                skuIds,
+            },
+          },
+
+          select: {
+            id: true,
+            productId: true,
+            sku: true,
+            stock: true,
+            isActive: true,
+          },
+        });
+
+      if (
+        skus.length !==
+        skuIds.length
+      ) {
+        const foundSkuIds =
+          new Set(
+            skus.map(
+              (sku) =>
+                sku.id
+            )
+          );
+
+        const missingSkuId =
+          skuIds.find(
+            (skuId) =>
+              !foundSkuIds.has(
+                skuId
+              )
+          );
+
+        throw new Error(
+          `SKU "${missingSkuId ?? ""}" tidak ditemukan saat pembatalan order.`
+        );
+      }
+
+      const skuMap =
+        new Map(
+          skus.map(
+            (sku) => [
+              sku.id,
+              sku,
+            ]
+          )
+        );
+
+      /**
+       * ========================================================
+       * 7. RESTORE SKU STOCK + CREATE LEDGER
+       * ========================================================
+       *
+       * Canonical stock:
+       *
+       *     ProductSku.stock
+       *
+       * Setiap SKU dibuatkan satu StockLedger CANCEL.
+       */
+
+      for (
+        const [
+          skuId,
+          quantity,
+        ] of skuQuantities
+      ) {
+        const sku =
+          skuMap.get(
+            skuId
+          );
+
+        if (!sku) {
+          throw new Error(
+            `SKU "${skuId}" tidak ditemukan saat restore stock.`
           );
         }
 
         const stockBefore =
-        product.stock;
+          sku.stock;
 
         /**
-          * Increment stock secara atomic.
-        */
-        const updatedProduct =
-        await tx.product.update({
+         * Atomic increment.
+         */
+        const updatedSku =
+          await tx.productSku.updateMany({
             where: {
               id:
-              productId,
+                sku.id,
             },
 
             data: {
               stock: {
                 increment:
-                quantity,
+                  quantity,
               },
             },
-
-            select: {
-              stock: true,
-            },
           });
+
+        if (
+          updatedSku.count !==
+          1
+        ) {
+          throw new Error(
+            `Gagal mengembalikan stock SKU "${sku.sku}".`
+          );
+        }
 
         const stockAfter =
-        updatedProduct.stock;
+          stockBefore +
+          quantity;
 
-        
         /**
-          * ======================================================
-          * CREATE STOCK LEDGER
-          * ======================================================
-        */
+         * ======================================================
+         * STOCK LEDGER
+         * ======================================================
+         */
 
         await tx.stockLedger.create({
-            data: {
-              productId,
+          data: {
+            productId:
+              sku.productId,
 
-              orderId:
+            skuId:
+              sku.id,
+
+            orderId:
               currentOrder.id,
 
-              type:
+            type:
               "CANCEL",
 
-              quantity,
+            quantity,
 
-              stockBefore,
+            stockBefore,
 
-              stockAfter,
+            stockAfter,
 
-              note:
-              `Pembatalan order ${currentOrder.orderNumber}`,
-            },
-          });
+            note:
+              `Pembatalan order ${currentOrder.orderNumber} - SKU ${sku.sku}`,
+          },
+        });
       }
 
       /**
- * ============================================================
- * RELEASE VOUCHER
- * ============================================================
- *
- * Voucher hanya dikembalikan jika pembayaran belum VERIFIED.
- *
- * Jika pembayaran sudah VERIFIED, voucher tetap dianggap
- * consumed meskipun order kemudian dibatalkan.
- *
- * Gunakan currentOrder yang dibaca ulang di dalam transaction
- * agar keputusan lifecycle voucher menggunakan state terbaru.
- *
- * Proses dijalankan dalam transaction yang sama dengan:
- *
- * - stock restoration
- * - StockLedger
- * - VoucherUsage
- * - usageCount
- * - Order cancellation
- * ============================================================
- */
+       * ========================================================
+       * 8. RELEASE VOUCHER
+       * ========================================================
+       *
+       * VoucherLifecycleService menentukan apakah voucher
+       * memang boleh dikembalikan berdasarkan paymentStatus.
+       *
+       * Tetap menggunakan transaction client yang sama.
+       */
 
-await VoucherLifecycleService.releaseForCancelledOrder(
-  currentOrder.id,
-  currentOrder.paymentStatus,
-  tx
-);
+      await VoucherLifecycleService.releaseForCancelledOrder(
+        currentOrder.id,
+        currentOrder.paymentStatus,
+        tx
+      );
 
-/**
- * ============================================================
- * RELEASE FLASH SALE
- * ============================================================
- *
- * Jika order memiliki item Flash Sale:
- *
- * - soldQuantity dikembalikan
- * - FlashSalePurchase dihapus
- * - per-user limit kembali tersedia
- *
- * Operasi menggunakan transaction client yang sama
- * sehingga cancellation Order + stock + voucher +
- * Flash Sale tetap atomic.
- */
+      /**
+       * ========================================================
+       * 9. RELEASE FLASH SALE
+       * ========================================================
+       *
+       * Jika order menggunakan Flash Sale:
+       *
+       * - soldQuantity dikembalikan
+       * - FlashSalePurchase dihapus
+       * - quota customer kembali tersedia
+       *
+       * Semua tetap berada dalam transaction yang sama.
+       */
 
-await FlashSaleRepository.releasePurchasesByOrderId(
-  tx,
-  currentOrder.id
-);
+      await FlashSaleRepository.releasePurchasesByOrderId(
+        tx,
+        currentOrder.id
+      );
 
-/**
- * ============================================================
- * UBAH STATUS MENJADI CANCELLED
- * ============================================================
-        *
-        * Dilakukan setelah:
-        *
-        * - semua stock berhasil dikembalikan
-        * - semua StockLedger berhasil dibuat
-        *
-        * Jika salah satu gagal,
-        * seluruh transaction akan rollback.
-      */
+      /**
+       * ========================================================
+       * 10. SET ORDER = CANCELLED
+       * ========================================================
+       *
+       * Order sudah di-lock dengan FOR UPDATE,
+       * sehingga tidak ada cancellation paralel
+       * yang dapat memproses order ini bersamaan.
+       */
 
       return await tx.order.update({
-          where: {
-            id,
-          },
+  where: {
+    id:
+      currentOrder.id,
+  },
 
-          data: {
-            status:
-            OrderStatus.CANCELLED,
-          },
+  data: {
+    status:
+      OrderStatus.CANCELLED,
+  },
 
-          include: {
-            user: true,
+  include: {
+    user: true,
 
-            address: true,
+    address: true,
 
-            items: {
-              include: {
-                product: true,
-              },
-            },
+    items: {
+      include: {
+        product: true,
 
-            paymentProof: true,
-          },
-        });
+        sku: true,
+      },
+    },
+
+    paymentProof: true,
+  },
+});
     }
   );
 }
@@ -3347,134 +3495,278 @@ static async updatePaymentStatus(
 ) {
   /**
    * ============================================================
-   * FIND ORDER
+   * VALIDATE ORDER ID
    * ============================================================
    */
-  const order =
-    await OrderRepository.findById(id);
-
-  if (!order) {
+  if (!id) {
     throw new Error(
-      "Order tidak ditemukan."
+      "Order ID wajib diisi."
     );
   }
 
   /**
    * ============================================================
-   * PREVENT UPDATE DELETED ORDER
+   * TRANSACTION
    * ============================================================
+   *
+   * Payment update harus berjalan dalam transaction
+   * agar dapat menggunakan row-level lock yang sama
+   * dengan cancelOrder().
+   *
+   * Dengan demikian:
+   *
+   * VERIFY PAYMENT
+   *       ↕
+   *   FOR UPDATE
+   *       ↕
+   * CANCEL ORDER
+   *
+   * tidak dapat memproses order yang sama secara
+   * bersamaan.
    */
-  if (order.deletedAt) {
-    throw new Error(
-      "Order yang sudah dihapus tidak dapat diubah."
-    );
-  }
+  return prisma.$transaction(
+    async (tx) => {
+      /**
+       * ==========================================================
+       * 1. LOCK ORDER ROW
+       * ==========================================================
+       *
+       * Lock row Order sebelum membaca paymentStatus
+       * dan status order.
+       *
+       * Ini penting untuk mencegah race condition:
+       *
+       * Request A:
+       *   VERIFY PAYMENT
+       *
+       * Request B:
+       *   CANCEL ORDER
+       *
+       * Keduanya harus menggunakan state Order terbaru
+       * secara serial.
+       */
+      const lockedOrder =
+        await tx.$queryRaw<
+          Array<{
+            id: string;
+          }>
+        >`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${id}
+          FOR UPDATE
+        `;
 
-  /**
-   * ============================================================
-   * PREVENT UPDATE CANCELLED ORDER
-   * ============================================================
-   */
-  if (
-    order.status ===
-    OrderStatus.CANCELLED
-  ) {
-    throw new Error(
-      "Pembayaran order yang sudah dibatalkan tidak dapat diubah."
-    );
-  }
+      /**
+       * ==========================================================
+       * 2. ORDER NOT FOUND
+       * ==========================================================
+       */
+      if (
+        lockedOrder.length === 0
+      ) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
 
-  /**
- * ============================================================
- * PAYMENT STATUS TRANSITION
- * ============================================================
+      /**
+       * ==========================================================
+       * 3. GET CURRENT ORDER
+       * ==========================================================
+       *
+       * Karena row Order sudah di-lock dengan FOR UPDATE,
+       * data yang dibaca di sini merupakan state terbaru
+       * yang aman untuk diproses.
+       */
+      const order =
+        await tx.order.findUnique({
+          where: {
+            id,
+          },
+          include: {
+            user: true,
+
+            address: true,
+
+            items: {
+              include: {
+                product: true,
+                sku: true,
+              },
+            },
+
+            paymentProof: true,
+          },
+        });
+
+      if (!order) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * 4. PREVENT UPDATE DELETED ORDER
+       * ==========================================================
+       */
+      if (order.deletedAt) {
+        throw new Error(
+          "Order yang sudah dihapus tidak dapat diubah."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * 5. PREVENT UPDATE CANCELLED ORDER
+       * ==========================================================
+       *
+       * Cancellation juga menggunakan FOR UPDATE.
+       *
+       * Jika cancelOrder() berhasil lebih dahulu,
+       * maka ketika proses payment mendapatkan lock,
+       * order.status akan terbaca sebagai CANCELLED
+       * dan proses pembayaran akan ditolak.
+       */
+      if (
+        order.status ===
+        OrderStatus.CANCELLED
+      ) {
+        throw new Error(
+          "Pembayaran order yang sudah dibatalkan tidak dapat diubah."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * 6. PAYMENT STATUS TRANSITION
+       * ==========================================================
+       *
+       * Lifecycle pembayaran:
+       *
+       * PENDING
+       *   ├── VERIFIED
+       *   └── REJECTED
+       *
+       * REJECTED
+       *   └── VERIFIED
+       *
+       * VERIFIED
+       *   └── FINAL / LOCKED
+       */
+      const allowedTransitions:
+        Record<
+          PaymentStatus,
+          PaymentStatus[]
+        > = {
+          [PaymentStatus.PENDING]: [
+            PaymentStatus.VERIFIED,
+            PaymentStatus.REJECTED,
+          ],
+
+          [PaymentStatus.REJECTED]: [
+            PaymentStatus.VERIFIED,
+          ],
+
+          [PaymentStatus.VERIFIED]: [],
+        };
+
+      /**
+       * ==========================================================
+       * 7. IDEMPOTENT UPDATE
+       * ==========================================================
+       *
+       * Jika status tujuan sama dengan status saat ini,
+       * tidak perlu melakukan update.
+       *
+       * Contoh:
+       *
+       * PENDING → PENDING
+       * VERIFIED → VERIFIED
+       *
+       * cukup mengembalikan order saat ini.
+       */
+      if (
+        order.paymentStatus ===
+        paymentStatus
+      ) {
+        return order;
+      }
+
+      /**
+       * ==========================================================
+       * 8. VALIDATE PAYMENT TRANSITION
+       * ==========================================================
+       */
+      const allowedNextStatuses =
+        allowedTransitions[
+          order.paymentStatus
+        ];
+
+      if (
+        !allowedNextStatuses.includes(
+          paymentStatus
+        )
+      ) {
+        throw new Error(
+          `Perubahan status pembayaran dari ${order.paymentStatus} ke ${paymentStatus} tidak diizinkan.`
+        );
+      }
+
+      /**
+ * ==========================================================
+ * 9. UPDATE PAYMENT STATUS
+ * ==========================================================
  *
- * Lifecycle pembayaran:
+ * Payment status dan paidAt harus diperbarui dalam
+ * transaction yang sama.
  *
- * PENDING
- *   ├── VERIFIED
- *   └── REJECTED
+ * Jika paymentStatus menjadi VERIFIED:
+ * - paymentStatus = VERIFIED
+ * - paidAt = waktu verifikasi
  *
- * REJECTED
- *   └── VERIFIED
+ * Jika paymentStatus menjadi REJECTED:
+ * - paymentStatus = REJECTED
+ * - paidAt tidak diubah
  *
- * VERIFIED
- *   └── FINAL / LOCKED
+ * Karena Order sudah di-lock dengan FOR UPDATE,
+ * update ini aman terhadap race condition dengan
+ * cancelOrder().
  */
-const allowedTransitions: Record<
-  PaymentStatus,
-  PaymentStatus[]
-> = {
-  [PaymentStatus.PENDING]: [
-    PaymentStatus.VERIFIED,
-    PaymentStatus.REJECTED,
-  ],
+return await tx.order.update({
+  where: {
+    id: order.id,
+  },
 
-  [PaymentStatus.REJECTED]: [
-    PaymentStatus.VERIFIED,
-  ],
+  data: {
+    paymentStatus,
 
-  [PaymentStatus.VERIFIED]: [],
-};
+    ...(paymentStatus ===
+      PaymentStatus.VERIFIED
+      ? {
+          paidAt: new Date(),
+        }
+      : {}),
+  },
 
-/**
- * Jika status tujuan sama dengan status saat ini,
- * tidak perlu melakukan update.
- */
-if (
-  order.paymentStatus ===
-  paymentStatus
-) {
-  return order;
-}
+  include: {
+    user: true,
 
-/**
- * Validasi perubahan status pembayaran.
- */
-const allowedNextStatuses =
-  allowedTransitions[
-    order.paymentStatus
-  ];
+    address: true,
 
-if (
-  !allowedNextStatuses.includes(
-    paymentStatus
-  )
-) {
-  throw new Error(
-    `Perubahan status pembayaran dari ${order.paymentStatus} ke ${paymentStatus} tidak diizinkan.`
+    items: {
+      include: {
+        product: true,
+        sku: true,
+      },
+    },
+
+    paymentProof: true,
+  },
+});
+    }
   );
-}
-
-  /**
-   * ============================================================
-   * CONDITIONAL PAYMENT UPDATE
-   * ============================================================
-   *
-   * Gunakan payment status yang baru saja dibaca sebagai
-   * expectedPaymentStatus.
-   *
-   * Update hanya berhasil jika status di database belum berubah.
-   */
-  const updatedOrder =
-    await OrderRepository.updatePaymentStatus(
-      id,
-      paymentStatus,
-      order.paymentStatus
-    );
-
-  /**
-   * ============================================================
-   * CONCURRENT UPDATE DETECTION
-   * ============================================================
-   */
-  if (!updatedOrder) {
-    throw new Error(
-      "Status pembayaran telah berubah oleh proses lain. Silakan refresh data dan coba lagi."
-    );
-  }
-
-  return updatedOrder;
 }
 
 /**
@@ -3484,91 +3776,28 @@ if (
  *
  * Menandai pembayaran order sebagai VERIFIED.
  *
- * Method ini menggunakan updatePaymentStatus() agar seluruh
- * aturan lifecycle pembayaran dan concurrency protection tetap
- * digunakan dari satu jalur.
+ * Seluruh validasi lifecycle pembayaran dipusatkan melalui
+ * updatePaymentStatus().
+ *
+ * Dengan demikian:
+ *
+ * markAsPaid()
+ *      ↓
+ * updatePaymentStatus()
+ *      ↓
+ * payment transition validation
+ *      ↓
+ * conditional database update
+ *
+ * Tidak ada duplicate validation / duplicate read.
  */
 static async markAsPaid(
   id: string
 ) {
-  /**
-   * ============================================================
-   * FIND ORDER
-   * ============================================================
-   */
-  const order =
-    await OrderRepository.findById(id);
-
-  if (!order) {
-    throw new Error(
-      "Order tidak ditemukan."
-    );
-  }
-
-  /**
-   * ============================================================
-   * PREVENT UPDATE DELETED ORDER
-   * ============================================================
-   */
-  if (order.deletedAt) {
-    throw new Error(
-      "Order yang sudah dihapus tidak dapat diproses."
-    );
-  }
-
-  /**
-   * ============================================================
-   * PREVENT PAYMENT FOR CANCELLED ORDER
-   * ============================================================
-   */
-  if (
-    order.status ===
-    OrderStatus.CANCELLED
-  ) {
-    throw new Error(
-      "Order yang sudah dibatalkan tidak dapat dibayar."
-    );
-  }
-
-  /**
-   * ============================================================
-   * PREVENT DUPLICATE VERIFICATION
-   * ============================================================
-   */
-  if (
-    order.paymentStatus ===
+  return this.updatePaymentStatus(
+    id,
     PaymentStatus.VERIFIED
-  ) {
-    throw new Error(
-      "Pembayaran order sudah terverifikasi."
-    );
-  }
-
-  /**
-   * ============================================================
-   * CONDITIONAL PAYMENT VERIFICATION
-   * ============================================================
-   *
-   * Update hanya berhasil apabila paymentStatus di database
-   * masih sama dengan status yang baru saja dibaca.
-   *
-   * Ini mencegah request paralel menimpa perubahan payment
-   * yang sudah dilakukan oleh proses lain.
-   */
-  const updatedOrder =
-    await OrderRepository.updatePaymentStatus(
-      id,
-      PaymentStatus.VERIFIED,
-      order.paymentStatus
-    );
-
-  if (!updatedOrder) {
-    throw new Error(
-      "Status pembayaran telah berubah oleh proses lain. Silakan refresh data dan coba lagi."
-    );
-  }
-
-  return updatedOrder;
+  );
 }
 
 /**
