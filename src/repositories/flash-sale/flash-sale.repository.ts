@@ -1543,6 +1543,35 @@ static async findDuplicateItem({
         );
       }
 
+       /**
+   * --------------------------------------------------------
+   * ACQUIRE FLASH SALE ITEM LOCK
+   * --------------------------------------------------------
+   *
+   * Harus menggunakan lock yang SAMA dengan
+   * FlashSaleCheckoutService.consume().
+   *
+   * Lock key:
+   *
+   * flashSaleItemId
+   *
+   * Dengan demikian:
+   *
+   * CHECKOUT
+   *   -> lock FlashSaleItem X
+   *
+   * CANCEL
+   *   -> lock FlashSaleItem X
+   *
+   * Tidak dapat memodifikasi quota Flash Sale
+   * secara bersamaan.
+   */
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(
+      hashtext(${purchase.flashSaleItemId})
+    )
+  `;
+  
       /**
        * --------------------------------------------------------
        * GUARDED SOLD QUANTITY DECREMENT

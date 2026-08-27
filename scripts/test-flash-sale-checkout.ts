@@ -17,6 +17,8 @@ const TEST_USER_ID =
 const TEST_FLASH_SALE_PREFIX =
   "TEST-FS-CHECKOUT-";
 
+  const createdTestOrderIds: string[] = [];
+
 function assert(
   condition: unknown,
   message: string
@@ -37,34 +39,133 @@ function getErrorMessage(
 }
 
 async function cleanup() {
-  await prisma.flashSalePurchase.deleteMany({
-    where: {
-      orderId: {
-        startsWith:
-          "test-order-fs-",
-      },
-    },
-  });
+  /**
+   * ==========================================================
+   * CLEANUP TEST ORDERS
+   * ==========================================================
+   *
+   * FlashSalePurchase memiliki FK ke Order dan FlashSaleItem.
+   *
+   * Karena FlashSalePurchase.flashSaleItemId menggunakan
+   * onDelete: Restrict, purchase harus dihapus terlebih dahulu
+   * sebelum FlashSaleItem dihapus.
+   *
+   * Untuk Order:
+   *
+   *   Order
+   *     └── FlashSalePurchase
+   *
+   * Order menggunakan onDelete: Cascade terhadap
+   * FlashSalePurchase.
+   *
+   * Namun kita tetap menghapus FlashSalePurchase secara eksplisit
+   * agar cleanup deterministic dan tidak bergantung pada cascade.
+   */
 
-  await prisma.flashSaleItem.deleteMany({
-    where: {
-      flashSale: {
+  /**
+   * ----------------------------------------------------------
+   * 1. DELETE TEST FLASH SALE PURCHASES
+   * ----------------------------------------------------------
+   *
+   * Hapus berdasarkan FlashSaleItem milik test campaign.
+   *
+   * Ini jauh lebih aman daripada mencari berdasarkan orderId,
+   * karena orderId sekarang adalah UUID.
+   */
+  try {
+    await prisma.flashSalePurchase.deleteMany({
+      where: {
+        flashSaleItem: {
+          flashSale: {
+            name: {
+              startsWith:
+                TEST_FLASH_SALE_PREFIX,
+            },
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Cleanup FlashSalePurchase gagal:",
+      getErrorMessage(error)
+    );
+
+    throw error;
+  }
+
+  /**
+   * ----------------------------------------------------------
+   * 2. DELETE TEST ORDERS
+   * ----------------------------------------------------------
+   *
+   * Purchase sudah dihapus pada step sebelumnya.
+   */
+  for (
+    const orderId of createdTestOrderIds
+  ) {
+    try {
+      await prisma.order.delete({
+        where: {
+          id:
+            orderId,
+        },
+      });
+    } catch (error) {
+      console.error(
+        `Cleanup Order gagal ${orderId}:`,
+        getErrorMessage(error)
+      );
+    }
+  }
+
+  /**
+   * ----------------------------------------------------------
+   * 3. DELETE TEST FLASH SALE ITEMS
+   * ----------------------------------------------------------
+   */
+  try {
+    await prisma.flashSaleItem.deleteMany({
+      where: {
+        flashSale: {
+          name: {
+            startsWith:
+              TEST_FLASH_SALE_PREFIX,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Cleanup FlashSaleItem gagal:",
+      getErrorMessage(error)
+    );
+
+    throw error;
+  }
+
+  /**
+   * ----------------------------------------------------------
+   * 4. DELETE TEST FLASH SALES
+   * ----------------------------------------------------------
+   */
+  try {
+    await prisma.flashSale.deleteMany({
+      where: {
         name: {
           startsWith:
             TEST_FLASH_SALE_PREFIX,
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.error(
+      "Cleanup FlashSale gagal:",
+      getErrorMessage(error)
+    );
 
-  await prisma.flashSale.deleteMany({
-    where: {
-      name: {
-        startsWith:
-          TEST_FLASH_SALE_PREFIX,
-      },
-    },
-  });
+    throw error;
+  }
 }
 
 async function main() {
@@ -86,6 +187,36 @@ async function main() {
    */
 
   await cleanup();
+
+  /**
+   * ==========================================================
+   * PREPARE TEST ADDRESS
+   * ==========================================================
+   */
+
+  const testAddress =
+    await prisma.address.findFirstOrThrow({
+      where: {
+        userId:
+          TEST_USER_ID,
+      },
+
+      orderBy: {
+        createdAt:
+          "asc",
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  const TEST_ADDRESS_ID =
+    testAddress.id;
+
+  console.log(
+    "PASS: Address test tersedia."
+  );
 
   /**
    * ==========================================================
@@ -139,6 +270,37 @@ async function main() {
 
   console.log(
     "PASS: Customer test tersedia."
+  );
+
+    /**
+   * ==========================================================
+   * 1A. PREPARE ADDRESS
+   * ==========================================================
+   *
+   * Order membutuhkan addressId yang valid.
+   *
+   * Gunakan address milik customer test yang sudah ada.
+   */
+  const address =
+    await prisma.address.findFirstOrThrow({
+      where: {
+        userId:
+          TEST_USER_ID,
+      },
+
+      orderBy: {
+        createdAt:
+          "asc",
+      },
+
+      select: {
+        id: true,
+        userId: true,
+      },
+    });
+
+  console.log(
+    "PASS: Address test tersedia."
   );
 
   /**
@@ -312,8 +474,41 @@ async function main() {
     "TEST 4 - SUCCESSFUL CONSUMPTION"
   );
 
-  const orderA =
-    `test-order-fs-a-${Date.now()}`;
+    const orderA =
+    await prisma.order.create({
+      data: {
+        orderNumber:
+          `TEST-FS-A-${Date.now()}`,
+
+        userId:
+          TEST_USER_ID,
+
+        addressId:
+          address.id,
+
+        paymentMethod:
+          "QRIS",
+
+        subtotal:
+          new Prisma.Decimal(0),
+
+        shippingCost:
+          new Prisma.Decimal(0),
+
+        total:
+          new Prisma.Decimal(0),
+
+        status:
+          "PENDING",
+
+        paymentStatus:
+          "PENDING",
+      },
+    });
+
+  createdTestOrderIds.push(
+    orderA.id
+  );
 
   const requirementA:
     FlashSaleCheckoutRequirement = {
@@ -337,7 +532,7 @@ async function main() {
             TEST_USER_ID,
 
           orderId:
-            orderA,
+            orderA.id,
 
           requirements: [
             requirementA,
@@ -380,7 +575,7 @@ async function main() {
             TEST_USER_ID,
 
           orderId:
-            orderA,
+            orderA.id,
         },
 
         select: {
@@ -414,7 +609,7 @@ async function main() {
     "PASS: Harga FlashSalePurchase = 12.000."
   );
 
-  /**
+     /**
    * ==========================================================
    * 5. PER USER LIMIT
    * ==========================================================
@@ -428,8 +623,46 @@ async function main() {
   let perUserLimitRejected =
     false;
 
+  /**
+   * Order harus benar-benar ada karena
+   * FlashSalePurchase.orderId memiliki FK
+   * ke Order.id.
+   */
   const orderB =
-    `test-order-fs-b-${Date.now()}`;
+    await prisma.order.create({
+      data: {
+        orderNumber:
+          `TEST-FS-B-${Date.now()}`,
+
+        userId:
+          TEST_USER_ID,
+
+        addressId:
+          address.id,
+
+        paymentMethod:
+          "QRIS",
+
+        subtotal:
+          new Prisma.Decimal(0),
+
+        shippingCost:
+          new Prisma.Decimal(0),
+
+        total:
+          new Prisma.Decimal(0),
+
+        status:
+          "PENDING",
+
+        paymentStatus:
+          "PENDING",
+      },
+    });
+
+  createdTestOrderIds.push(
+    orderB.id
+  );
 
   try {
     await prisma.$transaction(
@@ -440,7 +673,7 @@ async function main() {
               TEST_USER_ID,
 
             orderId:
-              orderB,
+              orderB.id,
 
             requirements: [
               requirementA,
@@ -508,7 +741,7 @@ async function main() {
     "PASS: soldQuantity tetap 1 setelah rejection."
   );
 
-  /**
+    /**
    * ==========================================================
    * 6. QUOTA CONSUMPTION
    * ==========================================================
@@ -542,8 +775,44 @@ async function main() {
       },
     });
 
+  /**
+   * Customer kedua membutuhkan Order sendiri.
+   */
   const orderC =
-    `test-order-fs-c-${Date.now()}`;
+    await prisma.order.create({
+      data: {
+        orderNumber:
+          `TEST-FS-C-${Date.now()}`,
+
+        userId:
+          secondUser.id,
+
+        addressId:
+          address.id,
+
+        paymentMethod:
+          "QRIS",
+
+        subtotal:
+          new Prisma.Decimal(0),
+
+        shippingCost:
+          new Prisma.Decimal(0),
+
+        total:
+          new Prisma.Decimal(0),
+
+        status:
+          "PENDING",
+
+        paymentStatus:
+          "PENDING",
+      },
+    });
+
+  createdTestOrderIds.push(
+    orderC.id
+  );
 
   await prisma.$transaction(
     async (tx) => {
@@ -553,7 +822,7 @@ async function main() {
             secondUser.id,
 
           orderId:
-            orderC,
+            orderC.id,
 
           requirements: [
             requirementA,
@@ -585,6 +854,12 @@ async function main() {
     `FAIL: soldQuantity seharusnya 2, tetapi ${afterSecondUser.soldQuantity}.`
   );
 
+  assert(
+    afterSecondUser.soldQuantity <=
+      afterSecondUser.stockLimit,
+    `FAIL: soldQuantity melebihi stockLimit. soldQuantity=${afterSecondUser.soldQuantity}, stockLimit=${afterSecondUser.stockLimit}`
+  );
+
   console.log(
     "PASS: Customer kedua berhasil menggunakan quota terakhir."
   );
@@ -593,7 +868,7 @@ async function main() {
     "Customer kedua:",
     secondUser.email
   );
-
+  
   /**
    * ==========================================================
    * 7. QUOTA EXHAUSTED
@@ -787,8 +1062,41 @@ async function main() {
       },
     });
 
-  const rollbackOrder =
-    `test-order-fs-rollback-${Date.now()}`;
+    const rollbackOrder =
+    await prisma.order.create({
+      data: {
+        orderNumber:
+          `TEST-FS-ROLLBACK-${Date.now()}`,
+
+        userId:
+          TEST_USER_ID,
+
+        addressId:
+          TEST_ADDRESS_ID,
+
+        paymentMethod:
+          "QRIS",
+
+        subtotal:
+          new Prisma.Decimal(0),
+
+        shippingCost:
+          new Prisma.Decimal(0),
+
+        total:
+          new Prisma.Decimal(0),
+
+        status:
+          "PENDING",
+
+        paymentStatus:
+          "PENDING",
+      },
+    });
+
+  createdTestOrderIds.push(
+    rollbackOrder.id
+  );
 
   let rollbackTriggered =
     false;
@@ -802,7 +1110,7 @@ async function main() {
               TEST_USER_ID,
 
             orderId:
-              rollbackOrder,
+              rollbackOrder.id,
 
             requirements: [
               {
@@ -823,6 +1131,15 @@ async function main() {
           tx
         );
 
+        /**
+         * Sengaja trigger error setelah
+         * FlashSaleCheckoutService.consume()
+         * berhasil.
+         *
+         * Tujuan:
+         * memastikan seluruh perubahan
+         * Flash Sale ikut rollback.
+         */
         throw new Error(
           "TEST_ROLLBACK"
         );
@@ -871,7 +1188,7 @@ async function main() {
           rollbackItem.id,
 
         orderId:
-          rollbackOrder,
+          rollbackOrder.id,
       },
     });
 
@@ -951,6 +1268,423 @@ async function main() {
     "PASS: Final FlashSalePurchase count = 2."
   );
 
+    /**
+   * ==========================================================
+   * 10. CONCURRENT CHECKOUT RACE
+   * ==========================================================
+   *
+   * Tujuan:
+   *
+   * Membuktikan bahwa dua checkout yang berjalan
+   * secara bersamaan terhadap FlashSaleItem yang sama
+   * tidak dapat mengonsumsi quota yang sama.
+   *
+   * Kondisi:
+   *
+   * stockLimit = 1
+   * soldQuantity = 0
+   *
+   * Dua customer melakukan checkout bersamaan.
+   *
+   * HASIL YANG WAJIB:
+   *
+   * - tepat 1 checkout berhasil
+   * - tepat 1 checkout ditolak
+   * - soldQuantity = 1
+   * - FlashSalePurchase = 1
+   */
+
+  console.log("");
+  console.log(
+    "TEST 10 - CONCURRENT CHECKOUT RACE"
+  );
+
+  const concurrencyFlashSale =
+    await prisma.flashSale.create({
+      data: {
+        name:
+          `${TEST_FLASH_SALE_PREFIX}CONCURRENCY-${Date.now()}`,
+
+        slug:
+          `${TEST_FLASH_SALE_PREFIX.toLowerCase()}concurrency-${Date.now()}`,
+
+        status:
+          FlashSaleStatus.ACTIVE,
+
+        startAt:
+          new Date(
+            Date.now() - 60_000
+          ),
+
+        endAt:
+          new Date(
+            Date.now() + 3_600_000
+          ),
+      },
+    });
+
+  const concurrencyItem =
+    await prisma.flashSaleItem.create({
+      data: {
+        flashSaleId:
+          concurrencyFlashSale.id,
+
+        productId:
+          sku.productId,
+
+        skuId:
+          sku.id,
+
+        originalPrice:
+          new Prisma.Decimal(
+            sku.price
+          ),
+
+        flashPrice:
+          new Prisma.Decimal(
+            12_000
+          ),
+
+        stockLimit:
+          1,
+
+        soldQuantity:
+          0,
+
+        perUserLimit:
+          1,
+
+        isActive:
+          true,
+
+        sortOrder:
+          0,
+      },
+    });
+
+  /**
+   * ----------------------------------------------------------
+   * CREATE TWO REAL TEST ORDERS
+   * ----------------------------------------------------------
+   *
+   * Order harus benar-benar ada karena
+   * FlashSalePurchase memiliki FK ke Order.
+   */
+
+  const concurrencyOrderA =
+    await prisma.order.create({
+      data: {
+        orderNumber:
+          `TEST-FS-CONC-A-${Date.now()}`,
+
+        userId:
+          TEST_USER_ID,
+
+        addressId:
+          TEST_ADDRESS_ID,
+
+        paymentMethod:
+          "QRIS",
+
+        subtotal:
+          new Prisma.Decimal(0),
+
+        shippingCost:
+          new Prisma.Decimal(0),
+
+        total:
+          new Prisma.Decimal(0),
+
+        status:
+          "PENDING",
+
+        paymentStatus:
+          "PENDING",
+      },
+    });
+
+  createdTestOrderIds.push(
+    concurrencyOrderA.id
+  );
+
+  const concurrencyUserB =
+    secondUser;
+
+  const concurrencyOrderB =
+    await prisma.order.create({
+      data: {
+        orderNumber:
+          `TEST-FS-CONC-B-${Date.now()}`,
+
+        userId:
+          concurrencyUserB.id,
+
+        addressId:
+          TEST_ADDRESS_ID,
+
+        paymentMethod:
+          "QRIS",
+
+        subtotal:
+          new Prisma.Decimal(0),
+
+        shippingCost:
+          new Prisma.Decimal(0),
+
+        total:
+          new Prisma.Decimal(0),
+
+        status:
+          "PENDING",
+
+        paymentStatus:
+          "PENDING",
+      },
+    });
+
+  createdTestOrderIds.push(
+    concurrencyOrderB.id
+  );
+
+  console.log({
+    flashSaleId:
+      concurrencyFlashSale.id,
+
+    flashSaleItemId:
+      concurrencyItem.id,
+
+    stockLimit:
+      concurrencyItem.stockLimit,
+
+    soldQuantity:
+      concurrencyItem.soldQuantity,
+
+    orderA:
+      concurrencyOrderA.id,
+
+    orderB:
+      concurrencyOrderB.id,
+
+    userA:
+      TEST_USER_ID,
+
+    userB:
+      concurrencyUserB.id,
+  });
+
+  /**
+   * ----------------------------------------------------------
+   * START TWO CHECKOUTS AT THE SAME TIME
+   * ----------------------------------------------------------
+   *
+   * Promise.allSettled() digunakan agar:
+   *
+   * - transaction yang berhasil tetap tercatat
+   * - transaction yang ditolak juga tercatat
+   * - satu rejection tidak menghentikan pemeriksaan
+   */
+
+  const concurrencyRequirement = {
+    flashSaleItemId:
+      concurrencyItem.id,
+
+    quantity:
+      1,
+
+    price:
+      new Prisma.Decimal(
+        12_000
+      ),
+  };
+
+  const concurrencyResults =
+    await Promise.allSettled([
+      prisma.$transaction(
+        async (tx) => {
+          await FlashSaleCheckoutService.consume(
+            {
+              userId:
+                TEST_USER_ID,
+
+              orderId:
+                concurrencyOrderA.id,
+
+              requirements: [
+                concurrencyRequirement,
+              ],
+            },
+
+            tx
+          );
+
+          return "A_SUCCESS";
+        }
+      ),
+
+      prisma.$transaction(
+        async (tx) => {
+          await FlashSaleCheckoutService.consume(
+            {
+              userId:
+                concurrencyUserB.id,
+
+              orderId:
+                concurrencyOrderB.id,
+
+              requirements: [
+                concurrencyRequirement,
+              ],
+            },
+
+            tx
+          );
+
+          return "B_SUCCESS";
+        }
+      ),
+    ]);
+
+  /**
+   * ----------------------------------------------------------
+   * ANALYZE RESULTS
+   * ----------------------------------------------------------
+   */
+
+  const successfulTransactions =
+    concurrencyResults.filter(
+      (result) =>
+        result.status ===
+        "fulfilled"
+    );
+
+  const rejectedTransactions =
+    concurrencyResults.filter(
+      (result) =>
+        result.status ===
+        "rejected"
+    );
+
+  console.log(
+    "Concurrent results:"
+  );
+
+  console.dir(
+    concurrencyResults,
+    {
+      depth: null,
+    }
+  );
+
+  /**
+   * Tepat satu transaction harus berhasil.
+   */
+
+  assert(
+    successfulTransactions.length ===
+      1,
+
+    `FAIL: Concurrent checkout seharusnya menghasilkan tepat 1 success, tetapi mendapat ${successfulTransactions.length}.`
+  );
+
+  /**
+   * Tepat satu transaction harus ditolak.
+   */
+
+  assert(
+    rejectedTransactions.length ===
+      1,
+
+    `FAIL: Concurrent checkout seharusnya menghasilkan tepat 1 rejection, tetapi mendapat ${rejectedTransactions.length}.`
+  );
+
+  console.log(
+    "PASS: Tepat 1 concurrent checkout berhasil."
+  );
+
+  console.log(
+    "PASS: Tepat 1 concurrent checkout ditolak."
+  );
+
+  /**
+   * ----------------------------------------------------------
+   * VERIFY FINAL FLASH SALE STATE
+   * ----------------------------------------------------------
+   */
+
+  const concurrencyFinalItem =
+    await prisma.flashSaleItem.findUniqueOrThrow(
+      {
+        where: {
+          id:
+            concurrencyItem.id,
+        },
+
+        select: {
+          soldQuantity:
+            true,
+
+          stockLimit:
+            true,
+        },
+      }
+    );
+
+  const concurrencyPurchaseCount =
+    await prisma.flashSalePurchase.count({
+      where: {
+        flashSaleItemId:
+          concurrencyItem.id,
+      },
+    });
+
+  console.log({
+    soldQuantity:
+      concurrencyFinalItem.soldQuantity,
+
+    stockLimit:
+      concurrencyFinalItem.stockLimit,
+
+    purchaseCount:
+      concurrencyPurchaseCount,
+  });
+
+  /**
+   * stockLimit = 1
+   *
+   * Maka soldQuantity tidak boleh pernah menjadi 2.
+   */
+
+  assert(
+    concurrencyFinalItem.soldQuantity ===
+      1,
+
+    `FAIL: Concurrent checkout menghasilkan soldQuantity ${concurrencyFinalItem.soldQuantity}, seharusnya 1.`
+  );
+
+  /**
+   * Hanya transaction yang menang yang boleh
+   * mempunyai FlashSalePurchase.
+   */
+
+  assert(
+    concurrencyPurchaseCount ===
+      1,
+
+    `FAIL: Concurrent checkout menghasilkan ${concurrencyPurchaseCount} FlashSalePurchase, seharusnya 1.`
+  );
+
+  console.log(
+    "PASS: soldQuantity concurrency = 1."
+  );
+
+  console.log(
+    "PASS: FlashSalePurchase concurrency = 1."
+  );
+
+  console.log(
+    "PASS: Flash Sale concurrency protection berhasil."
+  );
+  
   /**
    * ==========================================================
    * FINAL
