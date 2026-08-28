@@ -12,6 +12,8 @@ import {
   OrderExpirationService,
 } from "@/services/order/order-expiration.service";
 
+import CartService from "@/services/cart/cart.service";
+
 /**
  * FLASH SALE ORDER FLOW INTEGRATION TEST
  *
@@ -110,12 +112,18 @@ async function main() {
   // Dipisahkan dari campaign TEST 12 agar TEST 16 tidak
   // bergantung pada state quota / per-user limit test lain.
   let expirationFlashSaleId: string | null = null;
-let expirationFlashSaleItemId: string | null = null;
+  let expirationFlashSaleItemId: string | null = null;
 
-// Dedicated Flash Sale untuk TEST 18
-// Payment vs Cancellation Concurrency.
-let paymentCancelFlashSaleId: string | null = null;
-let paymentCancelFlashSaleItemId: string | null = null;
+  // Dedicated Flash Sale untuk TEST 18
+  // Payment vs Cancellation Concurrency.
+  let paymentCancelFlashSaleId: string | null = null;
+  let paymentCancelFlashSaleItemId: string | null = null;
+
+  // Dedicated Flash Sale untuk TEST 19
+  // Cart -> Checkout production flow.
+  let cartCheckoutFlashSaleId: string | null = null;
+  let cartCheckoutFlashSaleItemId: string | null = null;
+  let cartCheckoutOrderId: string | null = null;
 
   let skuId: string | null = null;
 
@@ -829,565 +837,947 @@ let paymentCancelFlashSaleItemId: string | null = null;
       "PASS: Tidak ada FlashSalePurchase tambahan setelah limit ditolak."
     );
 
-    // ==========================================================
-    // TEST 12 - GLOBAL QUOTA CONCURRENCY
-    // ==========================================================
+// ==========================================================
+// TEST 12 - GLOBAL QUOTA CONCURRENCY
+// ==========================================================
 
-    section(
-      12,
-      "VERIFY GLOBAL QUOTA CONCURRENCY"
-    );
+section(
+  12,
+  "VERIFY GLOBAL QUOTA CONCURRENCY"
+);
 
-    /**
-     * Customer kedua:
-     * gunakan customer existing yang aktif.
-     * Address dibuat khusus untuk test dan dihapus saat cleanup.
-     */
+/**
+ * ==========================================================
+ * PREPARE SECOND CUSTOMER
+ * ==========================================================
+ *
+ * Customer kedua:
+ * gunakan customer existing yang aktif.
+ * Address dibuat khusus untuk test dan dihapus saat cleanup.
+ */
 
-    const secondUser =
-      await prisma.user.findFirst({
-        where: {
-          role: "CUSTOMER",
-          isActive: true,
-          deletedAt: null,
-          id: {
-            not: TEST_USER_ID,
-          },
-        },
-        select: {
-          id: true,
-          email: true,
-        },
-        orderBy: {
-          id: "asc",
-        },
-      });
+const secondUser =
+  await prisma.user.findFirst({
+    where: {
+      role: "CUSTOMER",
+      isActive: true,
+      deletedAt: null,
+      id: {
+        not: TEST_USER_ID,
+      },
+    },
 
-    assert(
-      secondUser !== null,
-      "FAIL: Customer kedua untuk concurrency test tidak ditemukan."
-    );
+    select: {
+      id: true,
+      email: true,
+    },
 
-    secondUserId = secondUser.id;
+    orderBy: {
+      id: "asc",
+    },
+  });
 
-    const temporaryAddress =
-      await prisma.address.create({
-        data: {
-          userId: secondUser.id,
-          receiverName:
-            "Flash Sale Concurrency Test",
-          receiverPhone:
-            "081234567890",
-          province:
-            "DI Yogyakarta",
-          city: "Bantul",
-          district: "Bantul",
-          village: "Trirenggo",
-          postalCode: "55714",
-          fullAddress:
-            "Temporary address for Flash Sale concurrency integration test.",
-          label:
-            "TEST FLASH SALE CONCURRENCY",
-          notes:
-            "Temporary integration test address.",
-          isDefault: false,
-        },
-        select: {
-          id: true,
-        },
-      });
+assert(
+  secondUser !== null,
+  "FAIL: Customer kedua untuk concurrency test tidak ditemukan."
+);
 
-    secondAddressId =
-      temporaryAddress.id;
+secondUserId =
+  secondUser.id;
 
-    console.log({
-      secondUserId:
+const temporaryAddress =
+  await prisma.address.create({
+    data: {
+      userId:
         secondUser.id,
-      secondUserEmail:
-        secondUser.email,
-      secondAddressId:
-        temporaryAddress.id,
-    });
 
-    /**
-     * Matikan campaign pertama sementara supaya
-     * ProductPricingService tidak memilih campaign lama.
-     *
-     * Setelah concurrency test selesai, status dikembalikan ACTIVE.
-     */
+      receiverName:
+        "Flash Sale Concurrency Test",
 
-    await prisma.flashSale.update({
-      where: {
-        id: flashSaleId!,
-      },
-      data: {
-        status:
-          FlashSaleStatus.ENDED,
-      },
-    });
+      receiverPhone:
+        "081234567890",
 
-    /**
-     * Flash Sale khusus concurrency:
-     *
-     * stockLimit = 1
-     * soldQuantity = 0
-     * perUserLimit = 1
-     *
-     * Hanya satu dari dua checkout yang boleh menang.
-     */
+      province:
+        "DI Yogyakarta",
 
-    const concurrencyNow =
-      new Date();
+      city:
+        "Bantul",
 
-    const concurrencyFlashSale =
-      await prisma.flashSale.create({
-        data: {
-          name:
-            `TEST CONCURRENCY ${Date.now()}`,
-          slug:
-            `test-concurrency-${Date.now()}`,
-          description:
-            "Flash Sale global quota concurrency integration test.",
-          status:
-            FlashSaleStatus.ACTIVE,
-          startAt:
-            new Date(
-              concurrencyNow.getTime() -
-                60_000
-            ),
-          endAt:
-            new Date(
-              concurrencyNow.getTime() +
-                10 * 60_000
-            ),
+      district:
+        "Bantul",
+
+      village:
+        "Trirenggo",
+
+      postalCode:
+        "55714",
+
+      fullAddress:
+        "Temporary address for Flash Sale concurrency integration test.",
+
+      label:
+        "TEST FLASH SALE CONCURRENCY",
+
+      notes:
+        "Temporary integration test address.",
+
+      isDefault:
+        false,
+    },
+
+    select: {
+      id: true,
+    },
+  });
+
+secondAddressId =
+  temporaryAddress.id;
+
+console.log({
+  secondUserId:
+    secondUser.id,
+
+  secondUserEmail:
+    secondUser.email,
+
+  secondAddressId:
+    temporaryAddress.id,
+});
+
+/**
+ * ==========================================================
+ * DISABLE ORIGINAL FLASH SALE
+ * ==========================================================
+ *
+ * Matikan campaign pertama sementara supaya
+ * ProductPricingService tidak memilih campaign lama.
+ *
+ * Setelah concurrency test selesai, status dikembalikan ACTIVE.
+ */
+
+await prisma.flashSale.update({
+  where: {
+    id:
+      flashSaleId!,
+  },
+
+  data: {
+    status:
+      FlashSaleStatus.ENDED,
+  },
+});
+
+/**
+ * ==========================================================
+ * CREATE DEDICATED CONCURRENCY FLASH SALE
+ * ==========================================================
+ *
+ * Flash Sale khusus concurrency:
+ *
+ * stockLimit = 1
+ * soldQuantity = 0
+ * perUserLimit = 1
+ *
+ * Hanya satu dari dua checkout yang boleh menang.
+ */
+
+const concurrencyNow =
+  new Date();
+
+const concurrencyFlashSale =
+  await prisma.flashSale.create({
+    data: {
+      name:
+        `TEST CONCURRENCY ${Date.now()}`,
+
+      slug:
+        `test-concurrency-${Date.now()}`,
+
+      description:
+        "Flash Sale global quota concurrency integration test.",
+
+      status:
+        FlashSaleStatus.ACTIVE,
+
+      startAt:
+        new Date(
+          concurrencyNow.getTime() -
+            60_000
+        ),
+
+      endAt:
+        new Date(
+          concurrencyNow.getTime() +
+            10 * 60_000
+        ),
+
+      sortOrder:
+        1_000_001,
+
+      items: {
+        create: {
+          productId:
+            sku.productId,
+
+          skuId:
+            sku.id,
+
+          originalPrice:
+            sku.price,
+
+          flashPrice:
+            CONCURRENCY_PRICE,
+
+          stockLimit:
+            1,
+
+          soldQuantity:
+            0,
+
+          perUserLimit:
+            1,
+
+          isActive:
+            true,
+
           sortOrder:
-            1_000_001,
-          items: {
-            create: {
-              productId:
-                sku.productId,
-              skuId: sku.id,
-              originalPrice:
-                sku.price,
-              flashPrice:
-                CONCURRENCY_PRICE,
-              stockLimit: 1,
-              soldQuantity: 0,
-              perUserLimit: 1,
-              isActive: true,
-              sortOrder: 0,
-            },
-          },
+            0,
         },
-        include: {
-          items: true,
-        },
-      });
+      },
+    },
 
-    concurrencyFlashSaleId =
-      concurrencyFlashSale.id;
+    include: {
+      items: true,
+    },
+  });
 
-    assert(
-      concurrencyFlashSale.items.length === 1,
-      "FAIL: Concurrency Flash Sale harus memiliki 1 item."
-    );
+concurrencyFlashSaleId =
+  concurrencyFlashSale.id;
 
-    concurrencyFlashSaleItemId =
-      concurrencyFlashSale.items[0].id;
+assert(
+  concurrencyFlashSale.items.length ===
+    1,
+  "FAIL: Concurrency Flash Sale harus memiliki 1 item."
+);
 
-    console.log({
-      concurrencyFlashSaleId:
-        concurrencyFlashSale.id,
-      concurrencyFlashSaleItemId:
-        concurrencyFlashSale.items[0].id,
-      stockLimit:
-        concurrencyFlashSale.items[0]
-          .stockLimit,
-      soldQuantity:
-        concurrencyFlashSale.items[0]
-          .soldQuantity,
-      perUserLimit:
-        concurrencyFlashSale.items[0]
-          .perUserLimit,
-      flashPrice:
-        concurrencyFlashSale.items[0]
-          .flashPrice.toString(),
-    });
+concurrencyFlashSaleItemId =
+  concurrencyFlashSale.items[0].id;
 
-    assert(
-      concurrencyFlashSale.items[0]
-        .stockLimit === 1,
-      "FAIL: Concurrency Flash Sale stockLimit harus 1."
-    );
+console.log({
+  concurrencyFlashSaleId:
+    concurrencyFlashSale.id,
 
-    assert(
-      concurrencyFlashSale.items[0]
-        .soldQuantity === 0,
-      "FAIL: Concurrency Flash Sale soldQuantity awal harus 0."
-    );
+  concurrencyFlashSaleItemId:
+    concurrencyFlashSale.items[0].id,
 
-    console.log(
-      "PASS: Concurrency Flash Sale berhasil dibuat dengan quota 1."
-    );
+  stockLimit:
+    concurrencyFlashSale.items[0]
+      .stockLimit,
 
-    const skuBeforeConcurrency =
-      await prisma.productSku.findUnique({
-        where: {
-          id: sku.id,
-        },
-        select: {
-          stock: true,
-        },
-      });
+  soldQuantity:
+    concurrencyFlashSale.items[0]
+      .soldQuantity,
 
-    assert(
-      skuBeforeConcurrency !== null,
-      "FAIL: SKU tidak ditemukan sebelum concurrency test."
-    );
+  perUserLimit:
+    concurrencyFlashSale.items[0]
+      .perUserLimit,
 
+  flashPrice:
+    concurrencyFlashSale.items[0]
+      .flashPrice.toString(),
+});
+
+assert(
+  concurrencyFlashSale.items[0]
+    .stockLimit ===
+    1,
+
+  "FAIL: Concurrency Flash Sale stockLimit harus 1."
+);
+
+assert(
+  concurrencyFlashSale.items[0]
+    .soldQuantity ===
+    0,
+
+  "FAIL: Concurrency Flash Sale soldQuantity awal harus 0."
+);
+
+console.log(
+  "PASS: Concurrency Flash Sale berhasil dibuat dengan quota 1."
+);
+
+/**
+ * ==========================================================
+ * GET SKU STOCK BEFORE CONCURRENCY
+ * ==========================================================
+ */
+
+const skuBeforeConcurrency =
+  await prisma.productSku.findUnique({
+    where: {
+      id:
+        sku.id,
+    },
+
+    select: {
+      stock: true,
+    },
+  });
+
+assert(
+  skuBeforeConcurrency !== null,
+  "FAIL: SKU tidak ditemukan sebelum concurrency test."
+);
+
+/**
+ * ==========================================================
+ * RUN TWO CHECKOUTS CONCURRENTLY
+ * ==========================================================
+ *
+ * Customer berbeda -> bukan perUserLimit.
+ *
+ * FlashSaleItem SAMA -> menguji global quota.
+ *
+ * IMPORTANT:
+ *
+ * Kedua checkout WAJIB mengirim
+ * preferredFlashSaleItemId yang sama.
+ *
+ * Dengan demikian:
+ *
+ * Checkout A
+ *      ↓
+ * concurrencyFlashSaleItemId
+ *
+ * Checkout B
+ *      ↓
+ * concurrencyFlashSaleItemId
+ *
+ * Keduanya benar-benar menguji FlashSaleItem
+ * yang sama.
+ */
+
+const concurrencyResults =
+  await Promise.allSettled([
     /**
-     * Jalankan dua checkout secara bersamaan.
-     *
-     * Customer berbeda -> bukan perUserLimit.
-     * FlashSaleItem sama -> menguji global quota.
+     * ======================================================
+     * CONCURRENCY CHECKOUT 1
+     * ======================================================
      */
 
-    const concurrencyResults =
-      await Promise.allSettled([
-        OrderService.createOrder({
-          userId: TEST_USER_ID,
-          addressId: TEST_ADDRESS_ID,
-          paymentMethod:
-            PaymentMethod.QRIS,
-          shippingCost: 0,
-          items: [
-            {
-              productId:
-                sku.productId,
-              skuId: sku.id,
-              quantity: 1,
-              customerNote:
-                "Concurrency checkout A.",
-            },
-          ],
-        }),
+    OrderService.createOrder({
+      userId:
+        TEST_USER_ID,
 
-        OrderService.createOrder({
-          userId:
-            secondUser.id,
-          addressId:
-            temporaryAddress.id,
-          paymentMethod:
-            PaymentMethod.QRIS,
-          shippingCost: 0,
-          items: [
-            {
-              productId:
-                sku.productId,
-              skuId: sku.id,
-              quantity: 1,
-              customerNote:
-                "Concurrency checkout B.",
-            },
-          ],
-        }),
-      ]);
+      addressId:
+        TEST_ADDRESS_ID,
 
-    const successfulResults =
-      concurrencyResults.filter(
-        (
-          result
-        ): result is PromiseFulfilledResult<
-          Awaited<
-            ReturnType<
-              typeof OrderService.createOrder
-            >
-          >
-        > =>
-          result.status ===
-          "fulfilled"
-      );
+      paymentMethod:
+        PaymentMethod.QRIS,
 
-    const rejectedResults =
-      concurrencyResults.filter(
-        (result) =>
-          result.status ===
-          "rejected"
-      );
+      shippingCost:
+        0,
 
-    console.log({
-      successful:
-        successfulResults.length,
-      rejected:
-        rejectedResults.length,
-    });
+      items: [
+        {
+          productId:
+            sku.productId,
 
-    for (
-      const [index, result] of
-        concurrencyResults.entries()
-    ) {
-      if (
-        result.status ===
-        "fulfilled"
-      ) {
-        console.log(
-          `Concurrency checkout ${index + 1}: SUCCESS`,
-          {
-            orderId:
-              result.value.id,
-            orderNumber:
-              result.value
-                .orderNumber,
-          }
-        );
+          skuId:
+            sku.id,
 
-        additionalOrderIds.push(
-          result.value.id
-        );
-      } else {
-        console.log(
-          `Concurrency checkout ${index + 1}: REJECTED`,
-          getErrorMessage(
-            result.reason
-          )
-        );
+          quantity:
+            1,
+
+          customerNote:
+            `TEST-12-CONCURRENCY-A-${concurrencyFlashSaleItemId}`,
+
+          /**
+           * ==================================================
+           * IMPORTANT
+           * ==================================================
+           *
+           * Paksa checkout menggunakan
+           * FlashSaleItem TEST 12.
+           *
+           * Jangan dihapus.
+           */
+          preferredFlashSaleItemId:
+            concurrencyFlashSaleItemId,
+        },
+      ],
+    }),
+
+    /**
+     * ======================================================
+     * CONCURRENCY CHECKOUT 2
+     * ======================================================
+     */
+
+    OrderService.createOrder({
+      userId:
+        secondUser.id,
+
+      addressId:
+        temporaryAddress.id,
+
+      paymentMethod:
+        PaymentMethod.QRIS,
+
+      shippingCost:
+        0,
+
+      items: [
+        {
+          productId:
+            sku.productId,
+
+          skuId:
+            sku.id,
+
+          quantity:
+            1,
+
+          customerNote:
+            `TEST-12-CONCURRENCY-B-${concurrencyFlashSaleItemId}`,
+
+          /**
+           * ==================================================
+           * IMPORTANT
+           * ==================================================
+           *
+           * Checkout kedua WAJIB menggunakan
+           * FlashSaleItem yang SAMA.
+           */
+          preferredFlashSaleItemId:
+            concurrencyFlashSaleItemId,
+        },
+      ],
+    }),
+  ]);
+
+/**
+ * ==========================================================
+ * ANALYZE CONCURRENCY RESULT
+ * ==========================================================
+ */
+
+const successfulResults =
+  concurrencyResults.filter(
+    (
+      result
+    ): result is PromiseFulfilledResult<
+      Awaited<
+        ReturnType<
+          typeof OrderService.createOrder
+        >
+      >
+    > =>
+      result.status ===
+      "fulfilled"
+  );
+
+const rejectedResults =
+  concurrencyResults.filter(
+    (result) =>
+      result.status ===
+      "rejected"
+  );
+
+console.log({
+  successful:
+    successfulResults.length,
+
+  rejected:
+    rejectedResults.length,
+});
+
+/**
+ * ==========================================================
+ * PRINT EACH CHECKOUT RESULT
+ * ==========================================================
+ */
+
+for (
+  const [index, result] of
+    concurrencyResults.entries()
+) {
+  if (
+    result.status ===
+    "fulfilled"
+  ) {
+    console.log(
+      `Concurrency checkout ${index + 1}: SUCCESS`,
+      {
+        orderId:
+          result.value.id,
+
+        orderNumber:
+          result.value
+            .orderNumber,
       }
-    }
-
-    assert(
-      successfulResults.length === 1,
-      `FAIL: Concurrency harus menghasilkan tepat 1 checkout berhasil, tetapi ${successfulResults.length}.`
     );
 
-    assert(
-      rejectedResults.length === 1,
-      `FAIL: Concurrency harus menghasilkan tepat 1 checkout ditolak, tetapi ${rejectedResults.length}.`
+    additionalOrderIds.push(
+      result.value.id
     );
-
+  } else {
     console.log(
-      "PASS: Tepat 1 dari 2 checkout concurrent berhasil."
+      `Concurrency checkout ${index + 1}: REJECTED`,
+      getErrorMessage(
+        result.reason
+      )
     );
+  }
+}
 
-    /**
-     * Verify order sukses benar-benar menggunakan
-     * Flash Sale concurrency.
-     */
+/**
+ * ==========================================================
+ * GLOBAL QUOTA ASSERTION
+ * ==========================================================
+ *
+ * FlashSaleItem TEST 12 memiliki stockLimit = 1.
+ *
+ * Dua customer berbeda melakukan checkout
+ * terhadap FlashSaleItem yang sama.
+ *
+ * Hasil yang benar:
+ *
+ *   1 SUCCESS
+ *   1 REJECTED
+ *
+ * BUKAN:
+ *
+ *   2 SUCCESS
+ */
 
-    const concurrencyOrder =
-      successfulResults[0].value;
+assert(
+  successfulResults.length ===
+    1,
 
-    assert(
-      concurrencyOrder.items.length === 1,
-      "FAIL: Concurrency order seharusnya memiliki 1 item."
-    );
+  `FAIL: Concurrency harus menghasilkan tepat 1 checkout berhasil, tetapi ${successfulResults.length}.`
+);
 
-    assert(
-      concurrencyOrder.items[0]
-        .price.toString() ===
-        CONCURRENCY_PRICE.toString(),
-      `FAIL: Harga concurrency order seharusnya ${CONCURRENCY_PRICE.toString()}, tetapi ${concurrencyOrder.items[0].price.toString()}.`
-    );
+assert(
+  rejectedResults.length ===
+    1,
 
-    console.log(
-      "PASS: Order pemenang menggunakan harga Flash Sale concurrency."
-    );
+  `FAIL: Concurrency harus menghasilkan tepat 1 checkout ditolak, tetapi ${rejectedResults.length}.`
+);
 
-    /**
-     * Verify quota.
-     */
+console.log(
+  "PASS: Tepat 1 dari 2 checkout concurrent berhasil."
+);
 
-    const concurrencyItemAfter =
-      await prisma.flashSaleItem.findUnique({
-        where: {
-          id:
-            concurrencyFlashSaleItemId!,
-        },
-        select: {
-          stockLimit: true,
-          soldQuantity: true,
-          perUserLimit: true,
-        },
-      });
+/**
+ * ==========================================================
+ * GET SUCCESSFUL CONCURRENCY ORDER
+ * ==========================================================
+ *
+ * Hanya satu checkout yang berhasil.
+ *
+ * Simpan reference order pemenang sebelum melakukan
+ * assertion lanjutan terhadap database.
+ */
 
-    assert(
-      concurrencyItemAfter !== null,
-      "FAIL: Concurrency FlashSaleItem tidak ditemukan."
-    );
+const concurrencyOrder =
+  successfulResults[0].value;
 
-    assert(
-      concurrencyItemAfter.stockLimit === 1,
-      `FAIL: Concurrency stockLimit seharusnya 1, tetapi ${concurrencyItemAfter.stockLimit}.`
-    );
+/**
+ * ==========================================================
+ * VERIFY TRANSACTION ROLLBACK
+ * ==========================================================
+ *
+ * Kedua checkout menggunakan customerNote unik.
+ *
+ * Karena hanya satu transaction yang boleh berhasil,
+ * hanya satu Order dengan marker TEST-12 boleh
+ * tersimpan di database.
+ *
+ * Transaction yang kalah harus rollback seluruh:
+ *
+ * - Order
+ * - OrderItem
+ * - FlashSalePurchase
+ * - perubahan quota
+ * - perubahan stock
+ * - StockLedger
+ */
 
-    assert(
-      concurrencyItemAfter.soldQuantity === 1,
-      `FAIL: Concurrency soldQuantity harus tepat 1, tetapi ${concurrencyItemAfter.soldQuantity}.`
-    );
+const concurrencyTestNotes = [
+  `TEST-12-CONCURRENCY-A-${concurrencyFlashSaleItemId}`,
 
-    console.log(
-      "PASS: Global Flash Sale quota hanya terpakai 1 item."
-    );
+  `TEST-12-CONCURRENCY-B-${concurrencyFlashSaleItemId}`,
+];
 
-    /**
-     * Verify hanya satu FlashSalePurchase.
-     */
-
-    const concurrencyPurchases =
-      await prisma.flashSalePurchase.findMany({
-        where: {
-          flashSaleItemId:
-            concurrencyFlashSaleItemId!,
-        },
-        select: {
-          id: true,
-          userId: true,
-          orderId: true,
-          quantity: true,
-          price: true,
-        },
-      });
-
-    assert(
-      concurrencyPurchases.length === 1,
-      `FAIL: Concurrency harus menghasilkan tepat 1 FlashSalePurchase, tetapi ${concurrencyPurchases.length}.`
-    );
-
-    assert(
-      concurrencyPurchases[0]
-        .quantity === 1,
-      "FAIL: Concurrency purchase quantity harus 1."
-    );
-
-    assert(
-      concurrencyPurchases[0]
-        .price.toString() ===
-        CONCURRENCY_PRICE.toString(),
-      "FAIL: Concurrency purchase price tidak sesuai."
-    );
-
-    console.log(
-      "PASS: Hanya 1 FlashSalePurchase tercatat."
-    );
-
-    /**
-     * Verify stock hanya berkurang 1.
-     */
-
-    const skuAfterConcurrency =
-      await prisma.productSku.findUnique({
-        where: {
-          id: sku.id,
-        },
-        select: {
-          stock: true,
-        },
-      });
-
-    assert(
-      skuAfterConcurrency !== null,
-      "FAIL: SKU tidak ditemukan setelah concurrency test."
-    );
-
-    const expectedConcurrencyStock =
-      skuBeforeConcurrency.stock - 1;
-
-    assert(
-      skuAfterConcurrency.stock ===
-        expectedConcurrencyStock,
-      `FAIL: Stock SKU setelah concurrency seharusnya ${expectedConcurrencyStock}, tetapi ${skuAfterConcurrency.stock}.`
-    );
-
-    console.log(
-      "PASS: ProductSku.stock hanya berkurang 1 pada concurrency test."
-    );
-
-    /**
-     * Verify tepat satu StockLedger untuk
-     * Flash Sale concurrency.
-     */
-
-    const concurrencyLedgers =
-      await prisma.stockLedger.findMany({
-        where: {
-          orderId:
-            concurrencyOrder.id,
-          skuId: sku.id,
-          type: "SALE",
-        },
-        select: {
-          id: true,
-          orderId: true,
-          skuId: true,
-          quantity: true,
-          stockBefore: true,
-          stockAfter: true,
-        },
-      });
-
-    assert(
-      concurrencyLedgers.length === 1,
-      `FAIL: Concurrency order harus memiliki tepat 1 StockLedger SALE, tetapi ${concurrencyLedgers.length}.`
-    );
-
-    assert(
-      concurrencyLedgers[0].quantity === -1,
-      "FAIL: Concurrency StockLedger quantity harus -1."
-    );
-
-    console.log(
-      "PASS: Tepat 1 StockLedger SALE tercatat."
-    );
-
-    /**
-     * Verify tidak ada order tambahan yang tersisa
-     * dari checkout yang ditolak.
-     *
-     * Kedua order ID hanya ditambahkan dari hasil fulfilled.
-     * Jadi rejected transaction tidak boleh menghasilkan
-     * order yang bisa ditemukan.
-     */
-
-    const concurrencyOrders =
-      await prisma.order.findMany({
-        where: {
-          id: {
-            in: additionalOrderIds,
+const persistedConcurrencyOrders =
+  await prisma.order.findMany({
+    where: {
+      items: {
+        some: {
+          customerNote: {
+            in:
+              concurrencyTestNotes,
           },
         },
+      },
+    },
+
+    select: {
+      id: true,
+
+      userId: true,
+
+      status: true,
+
+      items: {
         select: {
-          id: true,
-          userId: true,
-          status: true,
+          skuId: true,
+
+          quantity: true,
+
+          customerNote: true,
         },
-      });
-
-    assert(
-      concurrencyOrders.length === 1,
-      `FAIL: Harus hanya ada 1 order hasil concurrency, tetapi ditemukan ${concurrencyOrders.length}.`
-    );
-
-    console.log(
-      "PASS: Tidak ada order yatim dari checkout yang kalah."
-    );
-
-    /**
-     * Restore campaign pertama supaya state
-     * sebelum Test 12 kembali seperti semula.
-     */
-
-    await prisma.flashSale.update({
-      where: {
-        id: flashSaleId!,
       },
-      data: {
-        status:
-          FlashSaleStatus.ACTIVE,
-      },
-    });
+    },
+  });
 
-    console.log(
-      "PASS: Status Flash Sale utama dikembalikan ACTIVE."
-    );
+assert(
+  persistedConcurrencyOrders.length ===
+    1,
+
+  `FAIL: TEST 12 hanya boleh meninggalkan 1 Order di database, tetapi ditemukan ${persistedConcurrencyOrders.length}.`
+);
+
+const persistedConcurrencyOrder =
+  persistedConcurrencyOrders[0];
+
+assert(
+  persistedConcurrencyOrder.items.length ===
+    1,
+
+  "FAIL: Order concurrency yang tersimpan harus memiliki tepat 1 OrderItem."
+);
+
+const persistedConcurrencyNote =
+  persistedConcurrencyOrder.items[0]
+    .customerNote;
+
+assert(
+  persistedConcurrencyNote !==
+      null &&
+    concurrencyTestNotes.includes(
+      persistedConcurrencyNote
+    ),
+
+  "FAIL: Order concurrency tersimpan tanpa marker TEST-12 yang valid."
+);
+
+assert(
+  persistedConcurrencyOrder.userId ===
+    concurrencyOrder.userId,
+
+  "FAIL: Order yang tersimpan bukan order pemenang concurrency."
+);
+
+console.log(
+  "PASS: Transaction yang kalah tidak meninggalkan Order."
+);
+
+/**
+ * ==========================================================
+ * VERIFY SUCCESSFUL ORDER PRICE
+ * ==========================================================
+ *
+ * Order pemenang harus menggunakan harga
+ * Flash Sale TEST 12.
+ */
+
+assert(
+  concurrencyOrder.items.length ===
+    1,
+
+  "FAIL: Concurrency order seharusnya memiliki 1 item."
+);
+
+assert(
+  concurrencyOrder.items[0]
+    .price.toString() ===
+    CONCURRENCY_PRICE.toString(),
+
+  `FAIL: Harga concurrency order seharusnya ${CONCURRENCY_PRICE.toString()}, tetapi ${concurrencyOrder.items[0].price.toString()}.`
+);
+
+console.log(
+  "PASS: Order pemenang menggunakan harga Flash Sale concurrency."
+);
+
+/**
+ * ==========================================================
+ * VERIFY GLOBAL FLASH SALE QUOTA
+ * ==========================================================
+ */
+
+const concurrencyItemAfter =
+  await prisma.flashSaleItem.findUnique({
+    where: {
+      id:
+        concurrencyFlashSaleItemId!,
+    },
+
+    select: {
+      stockLimit: true,
+
+      soldQuantity: true,
+
+      perUserLimit: true,
+    },
+  });
+
+assert(
+  concurrencyItemAfter !==
+    null,
+
+  "FAIL: Concurrency FlashSaleItem tidak ditemukan."
+);
+
+assert(
+  concurrencyItemAfter.stockLimit ===
+    1,
+
+  `FAIL: Concurrency stockLimit seharusnya 1, tetapi ${concurrencyItemAfter.stockLimit}.`
+);
+
+assert(
+  concurrencyItemAfter.soldQuantity ===
+    1,
+
+  `FAIL: Concurrency soldQuantity harus tepat 1, tetapi ${concurrencyItemAfter.soldQuantity}.`
+);
+
+console.log(
+  "PASS: Global Flash Sale quota hanya terpakai 1 item."
+);
+
+/**
+ * ==========================================================
+ * VERIFY FLASH SALE PURCHASE
+ * ==========================================================
+ *
+ * Hanya checkout pemenang yang boleh menghasilkan
+ * FlashSalePurchase.
+ */
+
+const concurrencyPurchases =
+  await prisma.flashSalePurchase.findMany({
+    where: {
+      flashSaleItemId:
+        concurrencyFlashSaleItemId!,
+    },
+
+    select: {
+      id: true,
+
+      userId: true,
+
+      orderId: true,
+
+      quantity: true,
+
+      price: true,
+    },
+  });
+
+assert(
+  concurrencyPurchases.length ===
+    1,
+
+  `FAIL: Concurrency harus menghasilkan tepat 1 FlashSalePurchase, tetapi ${concurrencyPurchases.length}.`
+);
+
+assert(
+  concurrencyPurchases[0]
+    .quantity ===
+    1,
+
+  "FAIL: Concurrency purchase quantity harus 1."
+);
+
+assert(
+  concurrencyPurchases[0]
+    .price.toString() ===
+    CONCURRENCY_PRICE.toString(),
+
+  "FAIL: Concurrency purchase price tidak sesuai."
+);
+
+console.log(
+  "PASS: Hanya 1 FlashSalePurchase tercatat."
+);
+
+/**
+ * ==========================================================
+ * VERIFY SKU STOCK
+ * ==========================================================
+ *
+ * Hanya checkout pemenang yang boleh mengurangi stock.
+ */
+
+const skuAfterConcurrency =
+  await prisma.productSku.findUnique({
+    where: {
+      id:
+        sku.id,
+    },
+
+    select: {
+      stock: true,
+    },
+  });
+
+assert(
+  skuAfterConcurrency !==
+    null,
+
+  "FAIL: SKU tidak ditemukan setelah concurrency test."
+);
+
+const expectedConcurrencyStock =
+  skuBeforeConcurrency.stock -
+  1;
+
+assert(
+  skuAfterConcurrency.stock ===
+    expectedConcurrencyStock,
+
+  `FAIL: Stock SKU setelah concurrency seharusnya ${expectedConcurrencyStock}, tetapi ${skuAfterConcurrency.stock}.`
+);
+
+console.log(
+  "PASS: ProductSku.stock hanya berkurang 1 pada concurrency test."
+);
+
+/**
+ * ==========================================================
+ * VERIFY STOCK LEDGER
+ * ==========================================================
+ *
+ * Tepat satu StockLedger SALE harus tercatat
+ * untuk order pemenang.
+ */
+
+const concurrencyLedgers =
+  await prisma.stockLedger.findMany({
+    where: {
+      orderId:
+        concurrencyOrder.id,
+
+      skuId:
+        sku.id,
+
+      type:
+        "SALE",
+    },
+
+    select: {
+      id: true,
+
+      orderId: true,
+
+      skuId: true,
+
+      quantity: true,
+
+      stockBefore: true,
+
+      stockAfter: true,
+    },
+  });
+
+assert(
+  concurrencyLedgers.length ===
+    1,
+
+  `FAIL: Concurrency order harus memiliki tepat 1 StockLedger SALE, tetapi ${concurrencyLedgers.length}.`
+);
+
+assert(
+  concurrencyLedgers[0]
+    .quantity ===
+    -1,
+
+  "FAIL: Concurrency StockLedger quantity harus -1."
+);
+
+console.log(
+  "PASS: Tepat 1 StockLedger SALE tercatat."
+);
+
+/**
+ * ==========================================================
+ * VERIFY NO ORPHAN ORDER
+ * ==========================================================
+ *
+ * Checkout yang ditolak tidak boleh meninggalkan order.
+ *
+ * additionalOrderIds hanya berisi order dari result
+ * yang fulfilled.
+ */
+
+const concurrencyOrders =
+  await prisma.order.findMany({
+    where: {
+      id: {
+        in:
+          additionalOrderIds,
+      },
+    },
+
+    select: {
+      id: true,
+
+      userId: true,
+
+      status: true,
+    },
+  });
+
+assert(
+  concurrencyOrders.length ===
+    1,
+
+  `FAIL: Harus hanya ada 1 order hasil concurrency, tetapi ditemukan ${concurrencyOrders.length}.`
+);
+
+console.log(
+  "PASS: Tidak ada order yatim dari checkout yang kalah."
+);
+
+/**
+ * ==========================================================
+ * RESTORE ORIGINAL FLASH SALE
+ * ==========================================================
+ *
+ * Restore campaign pertama supaya state
+ * sebelum Test 12 kembali seperti semula.
+ */
+
+await prisma.flashSale.update({
+  where: {
+    id:
+      flashSaleId!,
+  },
+
+  data: {
+    status:
+      FlashSaleStatus.ACTIVE,
+  },
+});
+
+console.log(
+  "PASS: Status Flash Sale utama dikembalikan ACTIVE."
+);
 
     /**
      * ========================================================
@@ -2522,7 +2912,7 @@ console.log(
     console.log(
       "PASS: Flash Sale Purchase idempotency berhasil diverifikasi."
     );
-    
+
     /**
      * ========================================================
      * TEST 16
@@ -4796,6 +5186,732 @@ console.log(
   "PASS: Payment vs cancellation concurrency berhasil diverifikasi."
 );
 
+// ========================================================
+// TEST 19 - VERIFY CART -> CHECKOUT FLASH SALE FLOW
+// ========================================================
+//
+// Tujuan:
+//
+// CartService.addItem()
+//      ↓
+// CartItem.skuId
+// CartItem.flashSaleItemId
+// CartItem.price
+//      ↓
+// OrderService.createCheckoutOrder()
+//      ↓
+// ProductPricingService.resolve()
+//      ↓
+// FlashSaleCheckoutService.consume()
+//      ↓
+// OrderItem
+// FlashSalePurchase
+// ProductSku.stock
+// StockLedger
+//      ↓
+// Cart kosong
+//
+// TEST ini memastikan snapshot Flash Sale di Cart benar-benar
+// diteruskan sampai production checkout flow.
+//
+// ========================================================
+
+section(
+  19,
+  "VERIFY CART TO CHECKOUT FLASH SALE FLOW"
+);
+
+// ========================================================
+// FIND ACTIVE PAYMENT CHANNEL
+// ========================================================
+
+const cartCheckoutPaymentChannel =
+  await prisma.paymentChannel.findFirst({
+    where: {
+      isActive: true,
+    },
+
+    orderBy: {
+      sortOrder: "asc",
+    },
+
+    select: {
+      id: true,
+      name: true,
+      type: true,
+    },
+  });
+
+assert(
+  cartCheckoutPaymentChannel !== null,
+  "FAIL: Tidak ada PaymentChannel aktif untuk TEST 19."
+);
+
+console.log(
+  "PASS: PaymentChannel aktif tersedia untuk TEST 19."
+);
+
+// ========================================================
+// PREPARE SKU SNAPSHOT
+// ========================================================
+
+const cartCheckoutSku =
+  await prisma.productSku.findUnique({
+    where: {
+      id: skuId ?? "",
+    },
+
+    select: {
+      id: true,
+      sku: true,
+      productId: true,
+      stock: true,
+      isActive: true,
+    },
+  });
+
+assert(
+  cartCheckoutSku !== null,
+  "FAIL: SKU TEST 19 tidak ditemukan."
+);
+
+assert(
+  cartCheckoutSku.isActive,
+  "FAIL: SKU TEST 19 tidak aktif."
+);
+
+assert(
+  cartCheckoutSku.stock >= 1,
+  `FAIL: Stock SKU TEST 19 tidak mencukupi. Stock: ${cartCheckoutSku.stock}.`
+);
+
+const cartCheckoutStockBefore =
+  cartCheckoutSku.stock;
+
+console.log(
+  "PASS: SKU TEST 19 valid."
+);
+
+// ========================================================
+// CREATE DEDICATED FLASH SALE
+// ========================================================
+
+const cartCheckoutFlashPrice =
+  new Prisma.Decimal(12500);
+
+const cartCheckoutOriginalPrice =
+  await prisma.productSku.findUnique({
+    where: {
+      id: cartCheckoutSku.id,
+    },
+
+    select: {
+      price: true,
+    },
+  });
+
+assert(
+  cartCheckoutOriginalPrice !== null,
+  "FAIL: Harga SKU TEST 19 tidak ditemukan."
+);
+
+assert(
+  cartCheckoutFlashPrice.lessThanOrEqualTo(
+  cartCheckoutOriginalPrice.price
+),
+  "FAIL: Harga Flash Sale TEST 19 lebih tinggi dari harga SKU."
+);
+
+const cartCheckoutFlashSale =
+  await prisma.flashSale.create({
+    data: {
+      name:
+        `TEST CART CHECKOUT ${Date.now()}`,
+
+      slug:
+        `test-cart-checkout-${Date.now()}`,
+
+      status:
+        FlashSaleStatus.ACTIVE,
+
+      startAt:
+        new Date(
+          Date.now() - 60_000
+        ),
+
+      endAt:
+        new Date(
+          Date.now() + 60 * 60 * 1000
+        ),
+
+      sortOrder:
+        -100,
+    },
+
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+cartCheckoutFlashSaleId =
+  cartCheckoutFlashSale.id;
+
+const cartCheckoutFlashSaleItem =
+  await prisma.flashSaleItem.create({
+    data: {
+      flashSaleId:
+        cartCheckoutFlashSale.id,
+
+      productId:
+        cartCheckoutSku.productId,
+
+      skuId:
+        cartCheckoutSku.id,
+
+      weightOptionId:
+        null,
+
+      originalPrice:
+        cartCheckoutOriginalPrice.price,
+
+      flashPrice:
+        cartCheckoutFlashPrice,
+
+      stockLimit:
+        1,
+
+      soldQuantity:
+        0,
+
+      perUserLimit:
+        1,
+
+      isActive:
+        true,
+
+      sortOrder:
+        -100,
+    },
+
+    select: {
+      id: true,
+      flashSaleId: true,
+      productId: true,
+      skuId: true,
+      stockLimit: true,
+      soldQuantity: true,
+      flashPrice: true,
+    },
+  });
+
+cartCheckoutFlashSaleItemId =
+  cartCheckoutFlashSaleItem.id;
+
+assert(
+  cartCheckoutFlashSaleItem.skuId ===
+    cartCheckoutSku.id,
+  "FAIL: TEST 19 FlashSaleItem tidak terikat ke SKU yang benar."
+);
+
+assert(
+  cartCheckoutFlashSaleItem.stockLimit === 1,
+  "FAIL: TEST 19 stockLimit harus 1."
+);
+
+assert(
+  cartCheckoutFlashSaleItem.soldQuantity === 0,
+  "FAIL: TEST 19 soldQuantity awal harus 0."
+);
+
+console.log(
+  "PASS: Dedicated Flash Sale TEST 19 berhasil dibuat."
+);
+
+// ========================================================
+// CLEAR EXISTING TEST USER CART
+// ========================================================
+//
+// TEST 19 harus dimulai dari cart bersih agar CartItem
+// yang kita verifikasi benar-benar berasal dari test ini.
+//
+
+const cartCheckoutExistingCart =
+  await prisma.cart.findUnique({
+    where: {
+      userId:
+        TEST_USER_ID,
+    },
+
+    select: {
+      id: true,
+    },
+  });
+
+if (cartCheckoutExistingCart) {
+  await prisma.cartItem.deleteMany({
+    where: {
+      cartId:
+        cartCheckoutExistingCart.id,
+    },
+  });
+
+  console.log(
+    "PASS: Cart customer TEST 19 dibersihkan."
+  );
+}
+
+// ========================================================
+// ADD ITEM TO CART THROUGH PRODUCTION SERVICE
+// ========================================================
+//
+// Jangan membuat CartItem secara manual.
+//
+// Kita sengaja menggunakan CartService.addItem()
+// agar seluruh logic cart berjalan seperti production.
+//
+
+const cartCheckoutAdded =
+  await CartService.addItem({
+    userId:
+      TEST_USER_ID,
+
+    productId:
+      cartCheckoutSku.productId,
+
+    skuId:
+      cartCheckoutSku.id,
+
+    quantity:
+      1,
+
+    customerNote:
+      "TEST 19 CART CHECKOUT",
+  });
+
+assert(
+  cartCheckoutAdded !== null,
+  "FAIL: CartService.addItem() TEST 19 tidak menghasilkan cart."
+);
+
+console.log(
+  "PASS: CartService.addItem() berhasil."
+);
+
+// ========================================================
+// VERIFY CART SNAPSHOT
+// ========================================================
+
+const cartCheckoutCart =
+  await prisma.cart.findUnique({
+    where: {
+      userId:
+        TEST_USER_ID,
+    },
+
+    include: {
+      items: {
+        include: {
+          product: true,
+
+          sku: true,
+
+          flashSaleItem: true,
+        },
+      },
+    },
+  });
+
+assert(
+  cartCheckoutCart !== null,
+  "FAIL: Cart TEST 19 tidak ditemukan setelah addItem()."
+);
+
+assert(
+  cartCheckoutCart.items.length === 1,
+  `FAIL: Cart TEST 19 harus memiliki tepat 1 item. Actual: ${cartCheckoutCart.items.length}.`
+);
+
+const cartCheckoutItem =
+  cartCheckoutCart.items[0];
+
+assert(
+  cartCheckoutItem.productId ===
+    cartCheckoutSku.productId,
+  "FAIL: CartItem productId TEST 19 tidak sesuai."
+);
+
+assert(
+  cartCheckoutItem.skuId ===
+    cartCheckoutSku.id,
+  "FAIL: CartItem skuId TEST 19 tidak sesuai."
+);
+
+assert(
+  cartCheckoutItem.flashSaleItemId ===
+    cartCheckoutFlashSaleItem.id,
+  `FAIL: CartItem tidak menyimpan FlashSaleItem TEST 19. Actual: ${cartCheckoutItem.flashSaleItemId}.`
+);
+
+assert(
+  cartCheckoutItem.isFlashSaleApplied ===
+    true,
+  "FAIL: CartItem TEST 19 seharusnya menandai Flash Sale aktif."
+);
+
+assert(
+  cartCheckoutItem.price.toString() ===
+    cartCheckoutFlashPrice.toString(),
+  `FAIL: Harga CartItem TEST 19 harus ${cartCheckoutFlashPrice}, actual ${cartCheckoutItem.price}.`
+);
+
+assert(
+  cartCheckoutItem.flashSaleItem !==
+    null,
+  "FAIL: Relasi CartItem.flashSaleItem TEST 19 tidak ditemukan."
+);
+
+console.log(
+  "PASS: CartItem menyimpan SKU + FlashSaleItem + Flash Sale price dengan benar."
+);
+
+// ========================================================
+// CREATE CHECKOUT ORDER
+// ========================================================
+//
+// Ini adalah production checkout flow.
+//
+// Cart dibaca oleh createCheckoutOrder().
+// Pricing dihitung ulang.
+// FlashSaleCheckoutService.consume() dipanggil.
+// Stock SKU dikurangi.
+// StockLedger dibuat.
+//
+// ========================================================
+
+const cartCheckoutResult =
+  await OrderService.createCheckoutOrder(
+    TEST_USER_ID,
+
+    TEST_ADDRESS_ID,
+
+    cartCheckoutPaymentChannel.id,
+
+    "TEST 19 CART CHECKOUT",
+
+    "INTERNAL",
+
+    null
+  );
+
+assert(
+  cartCheckoutResult.success === true,
+  `FAIL: createCheckoutOrder() TEST 19 gagal. ${
+    cartCheckoutResult.message ??
+    "Unknown error"
+  }`
+);
+
+assert(
+  "data" in cartCheckoutResult &&
+    cartCheckoutResult.data !== undefined &&
+    cartCheckoutResult.data !== null,
+  "FAIL: createCheckoutOrder() TEST 19 tidak mengembalikan data order."
+);
+
+cartCheckoutOrderId =
+  cartCheckoutResult.data.id;
+
+assert(
+  typeof cartCheckoutOrderId ===
+    "string" &&
+    cartCheckoutOrderId.length > 0,
+  "FAIL: Order ID TEST 19 tidak valid."
+);
+
+additionalOrderIds.push(
+  cartCheckoutOrderId
+);
+
+console.log(
+  "PASS: createCheckoutOrder() berhasil."
+);
+
+// ========================================================
+// VERIFY ORDER
+// ========================================================
+//
+// Jangan menggunakan result.data.items.
+//
+// createCheckoutOrder() hanya mengembalikan snapshot Order.
+// OrderItem diverifikasi melalui query database langsung.
+//
+
+const cartCheckoutOrder =
+  await prisma.order.findUnique({
+    where: {
+      id:
+        cartCheckoutOrderId,
+    },
+
+    include: {
+      items: true,
+    },
+  });
+
+assert(
+  cartCheckoutOrder !== null,
+  "FAIL: Order TEST 19 tidak ditemukan."
+);
+
+assert(
+  cartCheckoutOrder.items.length === 1,
+  `FAIL: Order TEST 19 harus memiliki tepat 1 OrderItem. Actual: ${cartCheckoutOrder.items.length}.`
+);
+
+const cartCheckoutOrderItem =
+  cartCheckoutOrder.items[0];
+
+assert(
+  cartCheckoutOrderItem.productId ===
+    cartCheckoutSku.productId,
+  "FAIL: OrderItem productId TEST 19 tidak sesuai."
+);
+
+assert(
+  cartCheckoutOrderItem.skuId ===
+    cartCheckoutSku.id,
+  "FAIL: OrderItem skuId TEST 19 tidak sesuai."
+);
+
+assert(
+  cartCheckoutOrderItem.price.toString() ===
+    cartCheckoutFlashPrice.toString(),
+  `FAIL: OrderItem TEST 19 harus menggunakan harga Flash Sale ${cartCheckoutFlashPrice}. Actual: ${cartCheckoutOrderItem.price}.`
+);
+
+console.log(
+  "PASS: OrderItem TEST 19 menggunakan harga Flash Sale."
+);
+
+// ========================================================
+// VERIFY FLASH SALE PURCHASE
+// ========================================================
+
+const cartCheckoutPurchase =
+  await prisma.flashSalePurchase.findFirst({
+    where: {
+      orderId:
+        cartCheckoutOrderId,
+
+      flashSaleItemId:
+        cartCheckoutFlashSaleItem.id,
+    },
+
+    select: {
+      id: true,
+
+      orderId: true,
+
+      flashSaleItemId: true,
+
+      userId: true,
+
+      quantity: true,
+
+      price: true,
+    },
+  });
+
+assert(
+  cartCheckoutPurchase !== null,
+  "FAIL: FlashSalePurchase TEST 19 tidak ditemukan."
+);
+
+assert(
+  cartCheckoutPurchase.quantity === 1,
+  "FAIL: FlashSalePurchase TEST 19 quantity harus 1."
+);
+
+assert(
+  cartCheckoutPurchase.price.toString() ===
+    cartCheckoutFlashPrice.toString(),
+  `FAIL: FlashSalePurchase TEST 19 price harus ${cartCheckoutFlashPrice}. Actual: ${cartCheckoutPurchase.price}.`
+);
+
+assert(
+  cartCheckoutPurchase.flashSaleItemId ===
+    cartCheckoutFlashSaleItem.id,
+  "FAIL: FlashSalePurchase TEST 19 menggunakan FlashSaleItem yang salah."
+);
+
+console.log(
+  "PASS: FlashSalePurchase TEST 19 tercatat dengan benar."
+);
+
+// ========================================================
+// VERIFY FLASH SALE QUOTA
+// ========================================================
+
+const cartCheckoutFlashSaleAfter =
+  await prisma.flashSaleItem.findUnique({
+    where: {
+      id:
+        cartCheckoutFlashSaleItem.id,
+    },
+
+    select: {
+      stockLimit: true,
+      soldQuantity: true,
+    },
+  });
+
+assert(
+  cartCheckoutFlashSaleAfter !== null,
+  "FAIL: FlashSaleItem TEST 19 hilang setelah checkout."
+);
+
+assert(
+  cartCheckoutFlashSaleAfter.stockLimit === 1,
+  "FAIL: TEST 19 stockLimit berubah."
+);
+
+assert(
+  cartCheckoutFlashSaleAfter.soldQuantity === 1,
+  `FAIL: TEST 19 soldQuantity harus 1. Actual: ${cartCheckoutFlashSaleAfter.soldQuantity}.`
+);
+
+console.log(
+  "PASS: Flash Sale quota TEST 19 terpakai tepat 1."
+);
+
+// ========================================================
+// VERIFY SKU STOCK
+// ========================================================
+
+const cartCheckoutSkuAfter =
+  await prisma.productSku.findUnique({
+    where: {
+      id:
+        cartCheckoutSku.id,
+    },
+
+    select: {
+      stock: true,
+    },
+  });
+
+assert(
+  cartCheckoutSkuAfter !== null,
+  "FAIL: SKU TEST 19 hilang setelah checkout."
+);
+
+const expectedCartCheckoutStock =
+  cartCheckoutStockBefore - 1;
+
+assert(
+  cartCheckoutSkuAfter.stock ===
+    expectedCartCheckoutStock,
+  `FAIL: Stock SKU TEST 19 harus ${expectedCartCheckoutStock}. Actual: ${cartCheckoutSkuAfter.stock}.`
+);
+
+console.log(
+  "PASS: ProductSku.stock TEST 19 berkurang tepat 1."
+);
+
+// ========================================================
+// VERIFY STOCK LEDGER
+// ========================================================
+
+const cartCheckoutSaleLedgers =
+  await prisma.stockLedger.findMany({
+    where: {
+      orderId:
+        cartCheckoutOrderId,
+
+      skuId:
+        cartCheckoutSku.id,
+
+      type:
+        "SALE",
+    },
+
+    select: {
+      id: true,
+
+      quantity: true,
+
+      stockBefore: true,
+
+      stockAfter: true,
+    },
+  });
+
+assert(
+  cartCheckoutSaleLedgers.length === 1,
+  `FAIL: TEST 19 harus memiliki tepat 1 SALE ledger. Actual: ${cartCheckoutSaleLedgers.length}.`
+);
+
+assert(
+  cartCheckoutSaleLedgers[0].quantity ===
+    -1,
+  "FAIL: TEST 19 SALE ledger quantity harus -1."
+);
+
+assert(
+  cartCheckoutSaleLedgers[0].stockBefore ===
+    cartCheckoutStockBefore,
+  "FAIL: TEST 19 stockBefore ledger tidak sesuai."
+);
+
+assert(
+  cartCheckoutSaleLedgers[0].stockAfter ===
+    expectedCartCheckoutStock,
+  "FAIL: TEST 19 stockAfter ledger tidak sesuai."
+);
+
+console.log(
+  "PASS: StockLedger SALE TEST 19 tercatat dengan benar."
+);
+
+// ========================================================
+// VERIFY CART CLEARED
+// ========================================================
+
+const cartAfterCheckout =
+  await prisma.cart.findUnique({
+    where: {
+      userId:
+        TEST_USER_ID,
+    },
+
+    include: {
+      items: true,
+    },
+  });
+
+assert(
+  cartAfterCheckout !== null,
+  "FAIL: Cart TEST 19 tidak ditemukan setelah checkout."
+);
+
+assert(
+  cartAfterCheckout.items.length === 0,
+  `FAIL: Cart TEST 19 seharusnya kosong setelah checkout. Actual: ${cartAfterCheckout.items.length}.`
+);
+
+console.log(
+  "PASS: Cart TEST 19 berhasil dikosongkan setelah checkout."
+);
+
+// ========================================================
+// TEST 19 COMPLETE
+// ========================================================
+
+console.log(
+  "PASS: TEST 19 Cart -> Checkout Flash Sale production flow berhasil diverifikasi."
+);
+
     /**
      * ========================================================
      * FINAL SUCCESS
@@ -5008,6 +6124,40 @@ if (paymentCancelFlashSaleId) {
 
   console.log(
     "PASS: Payment/cancellation FlashSale dihapus."
+  );
+}
+
+/**
+ * ==========================================================
+ * HAPUS DEDICATED FLASH SALE TEST 19
+ * ==========================================================
+ *
+ * FlashSaleItem harus dihapus terlebih dahulu.
+ */
+
+if (cartCheckoutFlashSaleItemId) {
+  await prisma.flashSaleItem.delete({
+    where: {
+      id:
+        cartCheckoutFlashSaleItemId,
+    },
+  });
+
+  console.log(
+    "PASS: Cart checkout FlashSaleItem TEST 19 dihapus."
+  );
+}
+
+if (cartCheckoutFlashSaleId) {
+  await prisma.flashSale.delete({
+    where: {
+      id:
+        cartCheckoutFlashSaleId,
+    },
+  });
+
+  console.log(
+    "PASS: Cart checkout FlashSale TEST 19 dihapus."
   );
 }
 
