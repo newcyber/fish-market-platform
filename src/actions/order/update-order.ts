@@ -15,6 +15,14 @@ export async function updateOrderAction(
         input
       );
 
+    if (!order) {
+      return {
+        success: false,
+        message:
+          "Order tidak ditemukan atau gagal diperbarui.",
+      };
+    }
+
     return {
       success: true,
 

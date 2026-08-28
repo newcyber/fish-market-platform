@@ -226,6 +226,277 @@ export default class PromotionRepository {
     });
   }
 
+/**
+ * ============================================================
+ * CUSTOMER PROMOTION SELECT
+ * ============================================================
+ *
+ * Projection khusus customer.
+ *
+ * Hanya mengambil data yang diperlukan oleh customer-facing
+ * promotion page.
+ *
+ * PromotionItem tetap berbasis SKU sebagai canonical target.
+ *
+ * IMPORTANT:
+ * Filtering terhadap SKU/Product dilakukan pada relation
+ * query masing-masing method customer-facing.
+ */
+private static readonly customerPromotionSelect =
+  Prisma.validator<Prisma.PromotionSelect>()({
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  banner: true,
+
+  status: true,
+
+  startAt: true,
+  endAt: true,
+
+  type: true,
+
+  discountType: true,
+  discountValue: true,
+
+  sortOrder: true,
+  isFeatured: true,
+
+  items: {
+  where: {
+    sku: {
+      isActive: true,
+
+      product: {
+        isPublished: true,
+        deletedAt: null,
+      },
+    },
+  },
+
+  orderBy: {
+    createdAt: "asc",
+  },
+
+  select: {
+      id: true,
+
+      sku: {
+        select: {
+          id: true,
+          sku: true,
+          price: true,
+          stock: true,
+          isActive: true,
+
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              isPublished: true,
+
+              images: {
+                orderBy: [
+                  {
+                    isThumbnail: "desc",
+                  },
+                  {
+                    sortOrder: "asc",
+                  },
+                ],
+
+                select: {
+                  id: true,
+                  image: true,
+                  isThumbnail: true,
+                  sortOrder: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+});
+
+/**
+ * ============================================================
+ * FIND ACTIVE FOR CUSTOMER
+ * ============================================================
+ *
+ * Hanya mengambil promotion yang:
+ *
+ * - ACTIVE
+ * - belum soft deleted
+ * - sudah mulai
+ * - belum berakhir
+ *
+ * Item customer hanya boleh berasal dari:
+ *
+ * - SKU aktif
+ * - Product published
+ * - Product belum soft deleted
+ */
+static async findActiveForCustomer(
+  now = new Date()
+) {
+  return prisma.promotion.findMany({
+    where: {
+      status: PromotionStatus.ACTIVE,
+
+      deletedAt: null,
+
+      AND: [
+        {
+          OR: [
+            {
+              startAt: null,
+            },
+            {
+              startAt: {
+                lte: now,
+              },
+            },
+          ],
+        },
+
+        {
+          OR: [
+            {
+              endAt: null,
+            },
+            {
+              endAt: {
+                gt: now,
+              },
+            },
+          ],
+        },
+      ],
+
+      /**
+       * --------------------------------------------------------
+       * CUSTOMER ITEM GUARD
+       * --------------------------------------------------------
+       *
+       * Promotion harus memiliki minimal satu SKU yang
+       * masih valid untuk customer.
+       */
+      items: {
+        some: {
+          sku: {
+            isActive: true,
+
+            product: {
+              isPublished: true,
+              deletedAt: null,
+            },
+          },
+        },
+      },
+    },
+
+    orderBy: [
+      {
+        isFeatured: "desc",
+      },
+
+      {
+        sortOrder: "asc",
+      },
+
+      {
+        startAt: "desc",
+      },
+    ],
+
+    select: this.customerPromotionSelect,
+  });
+}
+
+/**
+ * ============================================================
+ * FIND ACTIVE BY SLUG FOR CUSTOMER
+ * ============================================================
+ *
+ * Digunakan oleh:
+ *
+ * /promotions/[slug]
+ *
+ * Hanya promotion yang benar-benar aktif dan memiliki
+ * minimal satu SKU yang valid untuk customer yang boleh
+ * dikembalikan.
+ */
+static async findActiveBySlugForCustomer(
+  slug: string,
+  now = new Date()
+) {
+  if (!slug) {
+    return null;
+  }
+
+  return prisma.promotion.findFirst({
+    where: {
+      slug,
+
+      status: PromotionStatus.ACTIVE,
+
+      deletedAt: null,
+
+      AND: [
+        {
+          OR: [
+            {
+              startAt: null,
+            },
+            {
+              startAt: {
+                lte: now,
+              },
+            },
+          ],
+        },
+
+        {
+          OR: [
+            {
+              endAt: null,
+            },
+            {
+              endAt: {
+                gt: now,
+              },
+            },
+          ],
+        },
+      ],
+
+      /**
+       * --------------------------------------------------------
+       * CUSTOMER ITEM GUARD
+       * --------------------------------------------------------
+       */
+      items: {
+        some: {
+          sku: {
+            isActive: true,
+
+            product: {
+              isPublished: true,
+              deletedAt: null,
+            },
+          },
+        },
+      },
+    },
+
+    select: this.customerPromotionSelect,
+  });
+}
+
     /**
    * ============================================================
    * ASSERT NO PRICE DISCOUNT CONFLICT

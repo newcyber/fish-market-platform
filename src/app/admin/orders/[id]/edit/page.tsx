@@ -234,13 +234,13 @@ export default async function EditOrderPage({
             order.notes ?? "",
 
          items:
-            order.items
-              .filter(
-              (item) =>
-                item.skuId !== null
-            )
-            .map(
-              (item) => ({
+  order.items
+    .filter(
+      (item) =>
+        item.skuId !== null
+    )
+    .map(
+      (item) => ({
         productId:
           item.productId,
 
@@ -249,6 +249,9 @@ export default async function EditOrderPage({
 
         quantity:
           item.quantity,
+
+        price:
+          Number(item.price),
       })
     ),
         }}

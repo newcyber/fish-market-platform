@@ -81,6 +81,7 @@ interface EditOrderItem {
   productId: string;
   skuId: string;
   quantity: number;
+  price: number;
 }
 
 interface EditOrderData {
@@ -246,32 +247,18 @@ export default function EditOrderForm({
     [];
 
   const subtotal =
-    useMemo(() => {
-      return items.reduce(
-        (
-          total,
-          item
-        ) => {
-          const product =
-            products.find(
-              (product) =>
-                product.id ===
-                item.productId
-            );
-
-          if (!product) {
-            return total;
-          }
-
-          return (
-            total +
-            product.price *
-              item.quantity
-          );
-        },
-        0
-      );
-    }, [items, products]);
+  useMemo(() => {
+    return items.reduce(
+      (
+        total,
+        item
+      ) =>
+        total +
+        item.price *
+          item.quantity,
+      0
+    );
+  }, [items]);
 
   const shipping =
     Number(
@@ -392,22 +379,25 @@ export default function EditOrderForm({
    * ==========================================================
    */
   else {
-    setItems(
-      (current) => [
-        ...current,
+  setItems(
+    (current) => [
+      ...current,
 
-        {
-          productId:
-            selectedProduct.id,
+      {
+        productId:
+          selectedProduct.id,
 
-          skuId:
-            selectedSku.id,
+        skuId:
+          selectedSku.id,
 
-          quantity,
-        },
-      ]
-    );
-  }
+        quantity,
+
+        price:
+          selectedSku.price,
+      },
+    ]
+  );
+}
 
   /**
    * Reset selector setelah berhasil
@@ -826,7 +816,7 @@ export default function EditOrderForm({
 
                         <td className="px-4 py-4 text-right">
                           {formatCurrency(
-                            product.price
+                            item.price
                           )}
                         </td>
 
@@ -856,8 +846,8 @@ export default function EditOrderForm({
 
                         <td className="px-4 py-4 text-right font-medium">
                           {formatCurrency(
-                            product.price *
-                              item.quantity
+                              item.price *
+                            item.quantity
                           )}
                         </td>
 

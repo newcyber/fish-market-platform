@@ -1592,26 +1592,51 @@ await tx.product.update({
           }
 
           /**
-           * ------------------------------------------------------
-           * UPDATE LEGACY PRODUCT STOCK
-           * ------------------------------------------------------
-           */
+ * ------------------------------------------------------
+ * SYNC PRODUCT STOCK FROM DEFAULT SKU
+ * ------------------------------------------------------
+ *
+ * Produk tanpa variant tetap menggunakan ProductSku
+ * sebagai canonical stock.
+ *
+ * Product.stock hanya menjadi mirror/display value.
+ */
 
-          if (
-            input.stock !==
-            undefined
-          ) {
-            await tx.product.update({
-              where: {
-                id,
-              },
+const defaultSkuRecord =
+  await tx.productSku.findFirst({
+    where: {
+      productId:
+        id,
 
-              data: {
-                stock:
-                  input.stock,
-              },
-            });
-          }
+      sku:
+        defaultSku,
+
+      isActive:
+        true,
+    },
+
+    select: {
+      stock:
+        true,
+    },
+  });
+
+if (!defaultSkuRecord) {
+  throw new Error(
+    "Default SKU berhasil diproses tetapi gagal ditemukan saat sinkronisasi stock produk."
+  );
+}
+
+await tx.product.update({
+  where: {
+    id,
+  },
+
+  data: {
+    stock:
+      defaultSkuRecord.stock,
+  },
+});
 
           return ProductRepository.findByIdForAdmin(
             product.id
@@ -2248,165 +2273,851 @@ await tx.product.update({
   groups: CreatedGroup[],
   maps?: ReturnType<typeof buildOptionMaps>
 ) {
-    const optionMaps =
-      maps || buildOptionMaps(groups);
+  const optionMaps =
+    maps || buildOptionMaps(groups);
 
-    const seenCombinationKeys = new Set<string>();
-    const seenSkuValues = new Set<string>();
-    const activeSkuIds = new Set<string>();
+  const seenCombinationKeys =
+    new Set<string>();
 
-    for (const rawInput of skuInputs) {
-      const sku = validateSkuNumbers(rawInput);
+  const seenSkuValues =
+    new Set<string>();
 
-      const optionIds = resolveSkuOptionIds(
+  const activeSkuIds =
+    new Set<string>();
+
+/**
+ * ============================================================
+ * UPDATE SKU STOCK + LEDGER
+ * ============================================================
+ *
+ * rawInput.stock adalah TARGET STOCK.
+ *
+ * Admin mengubah stock secara manual, sehingga perubahan
+ * dicatat sebagai ADJUSTMENT.
+ *
+ * Contoh:
+ *
+ *   DB stock = 10
+ *   input     = 20
+ *
+ *   10 -> 20
+ *   +10 ADJUSTMENT
+ *
+ * Sedangkan:
+ *
+ *   DB stock = 20
+ *   input     = 10
+ *
+ *   20 -> 10
+ *   -10 ADJUSTMENT
+ *
+ * Tidak membuat ledger jika stock tidak berubah.
+ *
+ * IMPORTANT:
+ *
+ * SKU di-lock dengan SELECT ... FOR UPDATE sebelum membaca
+ * stock aktual.
+ *
+ * Dengan demikian perubahan stock melalui admin akan
+ * diserialisasikan dengan transaksi lain yang juga mengunci
+ * row SKU tersebut.
+ */
+const updateSkuStockWithLedger =
+  async (
+    skuId: string,
+    targetStock: number
+  ) => {
+    /**
+     * ----------------------------------------------------------
+     * VALIDATE TARGET STOCK
+     * ----------------------------------------------------------
+     */
+
+    if (
+      !Number.isInteger(
+        targetStock
+      ) ||
+      targetStock < 0
+    ) {
+      throw new Error(
+        "Stock SKU harus berupa angka bulat lebih dari atau sama dengan 0."
+      );
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * LOCK SKU ROW
+     * ----------------------------------------------------------
+     *
+     * Jangan membaca stock melalui findFirst biasa.
+     *
+     * Gunakan FOR UPDATE agar row ProductSku dikunci
+     * sampai transaction selesai.
+     *
+     * Transaction lain yang mencoba melakukan operasi
+     * yang membutuhkan lock pada row yang sama akan
+     * menunggu transaction ini selesai.
+     */
+    const lockedSku =
+      await tx.$queryRaw<
+        Array<{
+          id: string;
+          sku: string;
+          productId: string;
+          stock: number;
+          isActive: boolean;
+        }>
+      >`
+        SELECT
+          "id",
+          "sku",
+          "productId",
+          "stock",
+          "isActive"
+        FROM "ProductSku"
+        WHERE
+          "id" = ${skuId}
+          AND "productId" = ${productId}
+        FOR UPDATE
+      `;
+
+    /**
+     * ----------------------------------------------------------
+     * SKU NOT FOUND
+     * ----------------------------------------------------------
+     */
+
+    if (
+      lockedSku.length ===
+      0
+    ) {
+      throw new Error(
+        "SKU tidak ditemukan saat memperbarui stock."
+      );
+    }
+
+    const currentSku =
+      lockedSku[0];
+
+    /**
+     * ----------------------------------------------------------
+     * SKU INACTIVE
+     * ----------------------------------------------------------
+     *
+     * syncSkus() hanya seharusnya memproses SKU yang
+     * menjadi bagian dari request aktif.
+     *
+     * Jangan mengubah stock SKU yang sudah tidak aktif.
+     */
+    if (
+      !currentSku.isActive
+    ) {
+      throw new Error(
+        `SKU "${currentSku.sku}" tidak aktif sehingga stock tidak dapat diperbarui.`
+      );
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * STOCK TIDAK BERUBAH
+     * ----------------------------------------------------------
+     *
+     * Tidak perlu UPDATE dan tidak perlu membuat ledger.
+     */
+
+    if (
+      currentSku.stock ===
+      targetStock
+    ) {
+      return currentSku;
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * CALCULATE STOCK DIFFERENCE
+     * ----------------------------------------------------------
+     */
+
+    const stockBefore =
+      currentSku.stock;
+
+    const stockDifference =
+      targetStock -
+      stockBefore;
+
+    /**
+     * ----------------------------------------------------------
+     * ADMIN STOCK CHANGE
+     * ----------------------------------------------------------
+     *
+     * Semua perubahan manual melalui edit product
+     * dicatat sebagai ADJUSTMENT.
+     *
+     * RESTOCK reserved untuk proses penerimaan/restock
+     * inventory yang memang secara bisnis berarti barang
+     * masuk.
+     */
+    const ledgerType =
+      "ADJUSTMENT";
+
+    /**
+     * ----------------------------------------------------------
+     * UPDATE STOCK
+     * ----------------------------------------------------------
+     *
+     * Row sudah di-lock dengan FOR UPDATE.
+     *
+     * Tetap gunakan conditional WHERE stock = stockBefore
+     * sebagai defensive check tambahan.
+     */
+    const updatedSku =
+      await tx.productSku.updateMany({
+        where: {
+          id:
+            currentSku.id,
+
+          productId:
+            currentSku.productId,
+
+          stock:
+            stockBefore,
+        },
+
+        data: {
+          stock:
+            targetStock,
+        },
+      });
+
+    if (
+      updatedSku.count !==
+      1
+    ) {
+      throw new Error(
+        `Stock SKU "${currentSku.sku}" berubah sebelum stock diperbarui. Silakan muat ulang halaman dan coba lagi.`
+      );
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * CREATE STOCK LEDGER
+     * ----------------------------------------------------------
+     */
+
+    await tx.stockLedger.create({
+      data: {
+        productId:
+          currentSku.productId,
+
+        skuId:
+          currentSku.id,
+
+        type:
+          ledgerType,
+
+        quantity:
+          stockDifference,
+
+        stockBefore,
+
+        stockAfter:
+          targetStock,
+
+        note:
+          `Penyesuaian stock SKU ${currentSku.sku} melalui update produk.`,
+      },
+    });
+
+    /**
+     * ----------------------------------------------------------
+     * RETURN UPDATED SNAPSHOT
+     * ----------------------------------------------------------
+     */
+
+    return {
+      ...currentSku,
+
+      stock:
+        targetStock,
+    };
+  };
+
+  /**
+   * ============================================================
+   * PROCESS SKU INPUTS
+   * ============================================================
+   */
+
+  for (
+    const rawInput of skuInputs
+  ) {
+    /**
+     * ----------------------------------------------------------
+     * VALIDATE SKU
+     * ----------------------------------------------------------
+     */
+
+    const sku =
+      validateSkuNumbers(
+        rawInput
+      );
+
+    /**
+     * ----------------------------------------------------------
+     * VALIDATE STOCK
+     * ----------------------------------------------------------
+     */
+
+    if (
+      !Number.isInteger(
+        rawInput.stock
+      ) ||
+      rawInput.stock < 0
+    ) {
+      throw new Error(
+        `Stock SKU "${sku}" harus berupa angka bulat lebih dari atau sama dengan 0.`
+      );
+    }
+
+    /**
+     * ----------------------------------------------------------
+     * RESOLVE OPTION IDS
+     * ----------------------------------------------------------
+     */
+
+    const optionIds =
+      resolveSkuOptionIds(
         rawInput,
         groups,
         optionMaps
       );
 
-      const combinationKey = skuKey(optionIds);
+    /**
+     * ----------------------------------------------------------
+     * DUPLICATE COMBINATION CHECK
+     * ----------------------------------------------------------
+     */
 
-      if (seenCombinationKeys.has(combinationKey)) {
+    const combinationKey =
+      skuKey(optionIds);
+
+    if (
+      seenCombinationKeys.has(
+        combinationKey
+      )
+    ) {
+      throw new Error(
+        `Kombinasi option untuk SKU "${sku}" duplikat.`
+      );
+    }
+
+    seenCombinationKeys.add(
+      combinationKey
+    );
+
+    /**
+     * ----------------------------------------------------------
+     * DUPLICATE SKU CHECK
+     * ----------------------------------------------------------
+     */
+
+    const skuNormalized =
+      sku.toLowerCase();
+
+    if (
+      seenSkuValues.has(
+        skuNormalized
+      )
+    ) {
+      throw new Error(
+        `SKU "${sku}" duplikat dalam request.`
+      );
+    }
+
+    seenSkuValues.add(
+      skuNormalized
+    );
+
+    let skuId =
+      rawInput.id;
+
+    /**
+     * ==========================================================
+     * EXISTING SKU BY ID
+     * ==========================================================
+     */
+
+    if (skuId) {
+      const owned =
+        await tx.productSku.findFirst({
+          where: {
+            id:
+              skuId,
+
+            productId:
+              productId,
+          },
+
+          select: {
+            id: true,
+
+            stock: true,
+
+            isActive: true,
+          },
+        });
+
+      if (!owned) {
         throw new Error(
-          `Kombinasi option untuk SKU "${sku}" duplikat.`
+          `SKU "${sku}" memiliki ID yang tidak valid untuk produk ini.`
         );
       }
 
-      seenCombinationKeys.add(combinationKey);
+      /**
+       * --------------------------------------------------------
+       * SKU CONFLICT
+       * --------------------------------------------------------
+       */
 
-      const skuNormalized = sku.toLowerCase();
-
-      if (seenSkuValues.has(skuNormalized)) {
-        throw new Error(`SKU "${sku}" duplikat dalam request.`);
-      }
-
-      seenSkuValues.add(skuNormalized);
-
-      let skuId = rawInput.id;
-
-      if (skuId) {
-        const owned =
-          await tx.productSku.findFirst({
-            where: {
-              id: skuId,
-              productId,
-            },
-            select: { id: true },
-          });
-
-        if (!owned) {
-          throw new Error(
-            `SKU "${sku}" memiliki ID yang tidak valid untuk produk ini.`
-          );
-        }
-
-        const conflicting =
-          await tx.productSku.findFirst({
-            where: {
-              sku,
-              NOT: { id: skuId },
-            },
-            select: { id: true },
-          });
-
-        if (conflicting) {
-          throw new Error(`SKU "${sku}" sudah digunakan.`);
-        }
-
-        await tx.productSku.update({
-          where: { id: skuId },
-          data: {
+      const conflicting =
+        await tx.productSku.findFirst({
+          where: {
             sku,
-            price: rawInput.price,
-            stock: rawInput.stock,
-            isActive: rawInput.isActive ?? true,
+
+            NOT: {
+              id:
+                skuId,
+            },
+          },
+
+          select: {
+            id: true,
           },
         });
-      } else {
-        const existingByCombination =
-          await tx.productSku.findFirst({
-            where: {
-              productId,
-              isActive: true,
-              skuOptions: {
-                every: {
-                  variantOptionId: {
-                    in: optionIds,
-                  },
-                },
-              },
-            },
-            select: { id: true },
-          });
 
-        if (existingByCombination) {
-          skuId = existingByCombination.id;
-
-          await tx.productSku.update({
-            where: { id: skuId },
-            data: {
-              sku,
-              price: rawInput.price,
-              stock: rawInput.stock,
-              isActive: rawInput.isActive ?? true,
-            },
-          });
-        } else {
-          const conflicting =
-            await tx.productSku.findUnique({
-              where: { sku },
-              select: { id: true },
-            });
-
-          if (conflicting) {
-            throw new Error(`SKU "${sku}" sudah digunakan.`);
-          }
-
-          const created =
-            await tx.productSku.create({
-              data: {
-                productId,
-                sku,
-                price: rawInput.price,
-                stock: rawInput.stock,
-                isActive: rawInput.isActive ?? true,
-              },
-              select: { id: true },
-            });
-
-          skuId = created.id;
-        }
+      if (conflicting) {
+        throw new Error(
+          `SKU "${sku}" sudah digunakan.`
+        );
       }
 
-      activeSkuIds.add(skuId);
+      /**
+       * --------------------------------------------------------
+       * UPDATE STOCK
+       * --------------------------------------------------------
+       */
 
-      await tx.productSkuOption.deleteMany({
-        where: { skuId },
-      });
+      await updateSkuStockWithLedger(
+        skuId,
+        rawInput.stock
+      );
 
-      await tx.productSkuOption.createMany({
-        data: optionIds.map((variantOptionId) => ({
-          skuId,
-          variantOptionId,
-        })),
-        skipDuplicates: true,
+      /**
+       * --------------------------------------------------------
+       * UPDATE SKU CORE
+       * --------------------------------------------------------
+       */
+
+      await tx.productSku.update({
+        where: {
+          id:
+            skuId,
+        },
+
+        data: {
+          sku,
+
+          price:
+            rawInput.price,
+
+          isActive:
+            rawInput.isActive ??
+            true,
+        },
       });
     }
 
     /**
-     * Removed SKU combinations are archived rather than deleted.
-     * This preserves OrderItem / StockLedger / Cart / FlashSale history.
-     */
-    await tx.productSku.updateMany({
-      where: {
-        productId,
-        id: { notIn: [...activeSkuIds] },
+ * ==========================================================
+ * FIND EXISTING SKU BY COMBINATION
+ * ==========================================================
+ *
+ * Canonical SKU identity:
+ *
+ *   productId + exact set of variantOptionId
+ *
+ * Kombinasi harus benar-benar sama.
+ *
+ * Contoh:
+ *
+ * Existing:
+ *   [A, B]
+ *
+ * Request:
+ *   [A, B]
+ *
+ * => SKU yang sama
+ *
+ * Existing:
+ *   [A, B, C]
+ *
+ * Request:
+ *   [A, B]
+ *
+ * => BUKAN SKU yang sama
+ *
+ * Existing:
+ *   [A, B]
+ *
+ * Request:
+ *   [A, C]
+ *
+ * => BUKAN SKU yang sama
+ *
+ * Kita tidak menggunakan `every` Prisma sebagai
+ * penentu identity karena `every` tidak menjamin
+ * jumlah option sama.
+ *
+ * Exact comparison dilakukan di application layer.
+ */
+
+const existingSkuCandidates =
+  await tx.productSku.findMany({
+    where: {
+      productId,
+
+      isActive:
+        true,
+    },
+
+    select: {
+      id: true,
+
+      stock: true,
+
+      skuOptions: {
+        select: {
+          variantOptionId:
+            true,
+        },
       },
-      data: {
-        isActive: false,
+    },
+  });
+
+/**
+ * ----------------------------------------------------------
+ * NORMALIZE REQUESTED OPTION IDS
+ * ----------------------------------------------------------
+ *
+ * Sort agar:
+ *
+ * [A, B]
+ *
+ * dan
+ *
+ * [B, A]
+ *
+ * dianggap kombinasi yang sama.
+ */
+
+const requestedOptionIds =
+  [...optionIds].sort();
+
+/**
+ * ----------------------------------------------------------
+ * FIND EXACT COMBINATION
+ * ----------------------------------------------------------
+ */
+
+const existingByCombination =
+  existingSkuCandidates.find(
+    (candidate) => {
+      const existingOptionIds =
+        candidate.skuOptions
+          .map(
+            (option) =>
+              option.variantOptionId
+          )
+          .sort();
+
+      /**
+       * Jumlah option harus sama.
+       *
+       * Ini mencegah:
+       *
+       * [A, B, C]
+       *
+       * dianggap sama dengan:
+       *
+       * [A, B]
+       */
+
+      if (
+        existingOptionIds.length !==
+        requestedOptionIds.length
+      ) {
+        return false;
+      }
+
+      /**
+       * Setiap option ID harus
+       * sama pada posisi yang sama
+       * setelah di-sort.
+       */
+
+      return existingOptionIds.every(
+        (
+          optionId,
+          index
+        ) =>
+          optionId ===
+          requestedOptionIds[index]
+      );
+    }
+  );
+
+if (
+  existingByCombination
+) {
+  /**
+   * ========================================================
+   * EXISTING SKU FOUND
+   * ========================================================
+   */
+
+  skuId =
+    existingByCombination.id;
+
+  /**
+   * --------------------------------------------------------
+   * SKU CONFLICT
+   * --------------------------------------------------------
+   *
+   * SKU value harus tetap unique
+   * secara global.
+   *
+   * Jika SKU yang diminta sudah digunakan
+   * SKU lain, jangan overwrite SKU tersebut.
+   */
+
+  const conflicting =
+    await tx.productSku.findFirst({
+      where: {
+        sku,
+
+        NOT: {
+          id:
+            skuId,
+        },
+      },
+
+      select: {
+        id: true,
       },
     });
+
+  if (conflicting) {
+    throw new Error(
+      `SKU "${sku}" sudah digunakan.`
+    );
   }
+
+ /**
+ * --------------------------------------------------------
+ * CREATE STOCK LEDGER
+ * --------------------------------------------------------
+ *
+ * Perubahan stock melalui halaman edit produk
+ * selalu dianggap sebagai ADJUSTMENT.
+ *
+ * RESTOCK tidak digunakan di sini.
+ *
+ * RESTOCK sebaiknya digunakan oleh proses penerimaan
+ * stock/restock khusus.
+ */
+
+  await updateSkuStockWithLedger(
+    skuId,
+    rawInput.stock
+  );
+
+  /**
+   * --------------------------------------------------------
+   * UPDATE SKU CORE
+   * --------------------------------------------------------
+   *
+   * Stock sengaja TIDAK di-update di sini.
+   *
+   * Stock sudah ditangani oleh:
+   *
+   *   updateSkuStockWithLedger()
+   */
+
+  await tx.productSku.update({
+    where: {
+      id:
+        skuId,
+    },
+
+    data: {
+      sku,
+
+      price:
+        rawInput.price,
+
+      isActive:
+        rawInput.isActive ??
+        true,
+    },
+  });
+}
+
+/**
+ * ==========================================================
+ * CREATE NEW SKU
+ * ==========================================================
+ */
+
+else {
+  /**
+   * --------------------------------------------------------
+   * CHECK SKU CONFLICT
+   * --------------------------------------------------------
+   *
+   * SKU bersifat globally unique.
+   */
+
+  const conflicting =
+    await tx.productSku.findUnique({
+      where: {
+        sku,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  if (conflicting) {
+    throw new Error(
+      `SKU "${sku}" sudah digunakan.`
+    );
+  }
+
+  /**
+   * --------------------------------------------------------
+   * CREATE SKU
+   * --------------------------------------------------------
+   *
+   * SKU baru tidak membuat StockLedger RESTOCK.
+   *
+   * Alasannya:
+   *
+   * stock pada SKU baru adalah initial state,
+   * bukan perubahan terhadap stock sebelumnya.
+   */
+
+  const created =
+    await tx.productSku.create({
+      data: {
+        productId,
+
+        sku,
+
+        price:
+          rawInput.price,
+
+        stock:
+          rawInput.stock,
+
+        isActive:
+          rawInput.isActive ??
+          true,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  skuId =
+    created.id;
+}
+
+    /**
+     * ==========================================================
+     * MARK SKU ACTIVE IN REQUEST
+     * ==========================================================
+     */
+
+    activeSkuIds.add(
+      skuId
+    );
+
+    /**
+     * ==========================================================
+     * REPLACE SKU OPTIONS
+     * ==========================================================
+     */
+
+    await tx.productSkuOption.deleteMany({
+      where: {
+        skuId,
+      },
+    });
+
+    await tx.productSkuOption.createMany({
+      data:
+        optionIds.map(
+          (
+            variantOptionId
+          ) => ({
+            skuId,
+
+            variantOptionId,
+          })
+        ),
+
+      skipDuplicates:
+        true,
+    });
+  }
+
+  /**
+   * ============================================================
+   * ARCHIVE REMOVED SKU COMBINATIONS
+   * ============================================================
+   *
+   * Jangan delete secara fisik.
+   *
+   * Histori:
+   *
+   * - OrderItem
+   * - StockLedger
+   * - Cart
+   * - FlashSalePurchase
+   *
+   * tetap membutuhkan SKU tersebut.
+   */
+
+  await tx.productSku.updateMany({
+    where: {
+      productId,
+
+      id: {
+        notIn:
+          [
+            ...activeSkuIds,
+          ],
+      },
+    },
+
+    data: {
+      isActive:
+        false,
+    },
+  });
+}
 
   static async deleteProduct(id: string) {
     const product = await ProductRepository.findById(id);

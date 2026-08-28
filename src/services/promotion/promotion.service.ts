@@ -1111,7 +1111,7 @@ export default class PromotionService {
     );
   }
 
-  /**
+    /**
    * ============================================================
    * GET BY ID
    * ============================================================
@@ -1128,6 +1128,13 @@ export default class PromotionService {
    * ============================================================
    * GET BY SLUG
    * ============================================================
+   *
+   * Digunakan untuk kebutuhan internal/admin
+   * yang membutuhkan promotion berdasarkan slug.
+   *
+   * Untuk customer-facing page gunakan:
+   *
+   * getActiveBySlugForCustomer()
    */
   static async getBySlug(
     slug: string
@@ -1154,13 +1161,42 @@ export default class PromotionService {
 
   /**
    * ============================================================
-   * GET ACTIVE
+   * GET ACTIVE FOR CUSTOMER
    * ============================================================
+   *
+   * Hanya mengembalikan promotion yang:
+   *
+   * - ACTIVE
+   * - belum soft deleted
+   * - sudah memasuki startAt
+   * - belum melewati endAt
+   *
+   * Projection customer ditentukan oleh repository.
    */
-  static async getActive(
+  static async getActiveForCustomer(
     now = new Date()
   ) {
-    return PromotionRepository.findActive(
+    return PromotionRepository.findActiveForCustomer(
+      now
+    );
+  }
+
+  /**
+   * ============================================================
+   * GET ACTIVE BY SLUG FOR CUSTOMER
+   * ============================================================
+   *
+   * Digunakan oleh customer promotion detail page.
+   *
+   * Hanya promotion yang benar-benar aktif
+   * yang boleh ditampilkan kepada customer.
+   */
+  static async getActiveBySlugForCustomer(
+    slug: string,
+    now = new Date()
+  ) {
+    return PromotionRepository.findActiveBySlugForCustomer(
+      slug,
       now
     );
   }

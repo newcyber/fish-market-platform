@@ -1685,28 +1685,95 @@ static async updateOrder(
        * ==========================================================
        */
 
-      const order =
-        await tx.order.findUnique({
-          where: {
-            id,
-          },
+      /**
+ * ==========================================================
+ * 1. LOCK ORDER ROW
+ * ==========================================================
+ *
+ * Update order harus mengunci row Order terlebih dahulu.
+ *
+ * Ini mencegah race condition antara:
+ *
+ *   updateOrder()
+ *        ↕
+ *   cancelOrder()
+ *
+ * Contoh yang harus dicegah:
+ *
+ * updateOrder membaca PENDING
+ * lalu cancelOrder mengubah menjadi CANCELLED
+ * sementara updateOrder masih memproses stock.
+ *
+ * Dengan FOR UPDATE, hanya satu transaksi yang dapat
+ * memproses lifecycle order tersebut pada satu waktu.
+ */
+const lockedOrder =
+  await tx.$queryRaw<
+    Array<{
+      id: string;
+    }>
+  >`
+    SELECT "id"
+    FROM "Order"
+    WHERE "id" = ${id}
+    FOR UPDATE
+  `;
 
-          include: {
-            items: true,
-          },
-        });
+if (
+  lockedOrder.length === 0
+) {
+  throw new Error(
+    "Order tidak ditemukan."
+  );
+}
 
-      if (!order) {
-        throw new Error(
-          "Order tidak ditemukan."
-        );
-      }
+/**
+ * ==========================================================
+ * 2. GET CURRENT ORDER
+ * ==========================================================
+ *
+ * Row Order sudah terkunci.
+ *
+ * Setelah lock, baru ambil state order terbaru.
+ */
+const order =
+  await tx.order.findUnique({
+    where: {
+      id,
+    },
 
-      if (order.deletedAt) {
-        throw new Error(
-          "Order yang sudah dihapus tidak dapat diubah."
-        );
-      }
+    include: {
+      items: true,
+    },
+  });
+
+if (!order) {
+  throw new Error(
+    "Order tidak ditemukan."
+  );
+}
+
+      /**
+ * ==========================================================
+ * CUSTOMER IMMUTABLE
+ * ==========================================================
+ *
+ * Customer order tidak boleh diganti setelah order dibuat.
+ *
+ * Ini penting karena:
+ *
+ * - VoucherUsage.userId
+ * - FlashSalePurchase.userId
+ * - histori transaksi
+ * - ownership order
+ *
+ * semuanya bergantung pada customer asli.
+ */
+if (order.userId !== input.userId) {
+  throw new Error(
+    "Customer pada order tidak dapat diubah."
+  );
+}
 
       /**
        * ==========================================================
@@ -1731,6 +1798,29 @@ static async updateOrder(
           "Order yang pembayarannya sudah terverifikasi tidak dapat diedit."
         );
       }
+
+      /**
+       * ==========================================================
+       * VOUCHER SNAPSHOT PROTECTION
+       * ==========================================================
+       *
+       * Voucher pada order merupakan snapshot transaksi.
+       *
+       * Jika order sudah menggunakan voucher, perubahan
+       * product / SKU / quantity tidak diperbolehkan.
+       *
+       * Perubahan customer note tetap diperbolehkan karena
+       * customer note bukan bagian dari nilai transaksi.
+       *
+       * Pemeriksaan perubahan item dilakukan setelah
+       * oldItemMap dan newItemMap tersedia.
+       */
+
+      const hasVoucher =
+        order.voucherId !== null &&
+        new Prisma.Decimal(
+          order.voucherDiscount ?? 0
+        ).greaterThan(0);
 
       /**
        * ==========================================================
@@ -2088,216 +2178,383 @@ static async updateOrder(
       }
 
       /**
+ * ==========================================================
+ * 10A. DETECT ORDER ITEM CHANGES
+ * ==========================================================
+ *
+ * Digunakan untuk membedakan:
+ *
+ * - metadata-only update
+ * - financial/item update
+ *
+ * Identity item:
+ *
+ *   productId + skuId
+ *
+ * Quantity merupakan bagian dari perubahan transaksi.
+ */
+
+const oldItemMap =
+  new Map<
+    string,
+    number
+  >();
+
+for (
+  const item of
+    order.items
+) {
+  if (!item.skuId) {
+    continue;
+  }
+
+  const key =
+    `${item.productId}::${item.skuId}`;
+
+  oldItemMap.set(
+    key,
+    (
+      oldItemMap.get(
+        key
+      ) ?? 0
+    ) +
+      item.quantity
+  );
+}
+
+const newItemMap =
+  new Map<
+    string,
+    number
+  >();
+
+for (
+  const item of
+    finalItems
+) {
+  const key =
+    `${item.productId}::${item.skuId}`;
+
+  newItemMap.set(
+    key,
+    (
+      newItemMap.get(
+        key
+      ) ?? 0
+    ) +
+      item.quantity
+  );
+}
+
+let itemsChanged =
+  oldItemMap.size !==
+  newItemMap.size;
+
+if (!itemsChanged) {
+  for (
+    const [
+      key,
+      oldQuantity,
+    ] of oldItemMap
+  ) {
+    if (
+      newItemMap.get(
+        key
+      ) !== oldQuantity
+    ) {
+      itemsChanged = true;
+
+      break;
+    }
+  }
+}
+
+/**
+ * ==========================================================
+ * 10B. VOUCHER ITEM IMMUTABILITY
+ * ==========================================================
+ *
+ * Voucher merupakan snapshot transaksi.
+ *
+ * Jika order sudah menggunakan voucher,
+ * product / SKU / quantity tidak boleh berubah.
+ *
+ * Customer note tetap boleh berubah.
+ */
+
+if (
+  hasVoucher &&
+  itemsChanged
+) {
+  throw new Error(
+    "Order yang menggunakan voucher tidak dapat mengubah produk atau quantity."
+  );
+}
+
+            /**
        * ==========================================================
        * 11. VALIDATE NEW STOCK
        * ==========================================================
        *
-       * Hanya SKU yang masih digunakan order baru perlu
-       * divalidasi.
+       * Stock hanya perlu divalidasi apabila
+       * item order benar-benar berubah.
+       *
+       * Jika hanya metadata yang berubah
+       * (address / shipping / notes), maka:
+       *
+       * - tidak perlu validasi stock ulang
+       * - tidak ada perubahan stock
+       *
+       * Jika item berubah:
+       *
+       * availableStock =
+       *   current SKU stock +
+       *   quantity yang sebelumnya
+       *   sudah di-reserve oleh order lama
+       *
+       * Dengan demikian quantity lama
+       * dianggap dikembalikan terlebih dahulu
+       * sebelum menghitung kebutuhan order baru.
        */
 
-      for (
-        const [
-          skuId,
-          newQuantity,
-        ] of newStockMap
-      ) {
-        const sku =
-          skuMap.get(
-            skuId
-          );
-
-        if (!sku) {
-          throw new Error(
-            "SKU tidak ditemukan."
-          );
-        }
-
-        const oldQuantity =
-          oldStockMap.get(
-            skuId
-          ) ?? 0;
-
-        const availableStock =
-          sku.stock +
-          oldQuantity;
-
-        if (
-          availableStock <
-          newQuantity
+      if (itemsChanged) {
+        for (
+          const [
+            skuId,
+            newQuantity,
+          ] of newStockMap
         ) {
-          throw new Error(
-            `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${availableStock}.`
-          );
+          const sku =
+            skuMap.get(
+              skuId
+            );
+
+          if (!sku) {
+            throw new Error(
+              "SKU tidak ditemukan."
+            );
+          }
+
+          const oldQuantity =
+            oldStockMap.get(
+              skuId
+            ) ?? 0;
+
+          const availableStock =
+            sku.stock +
+            oldQuantity;
+
+          if (
+            availableStock <
+            newQuantity
+          ) {
+            throw new Error(
+              `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${availableStock}.`
+            );
+          }
         }
       }
 
       /**
-       * ==========================================================
-       * 12. BUILD NEW ORDER ITEMS
-       * ==========================================================
-       */
+ * ==========================================================
+ * 12. BUILD NEW ORDER ITEMS
+ * ==========================================================
+ *
+ * Jika item tidak berubah:
+ *
+ * - gunakan harga snapshot OrderItem lama
+ * - jangan resolve pricing ulang
+ * - jangan mengubah harga historis
+ *
+ * Jika item berubah:
+ *
+ * - resolve pricing menggunakan pricing engine
+ * - Flash Sale requirement dikumpulkan kembali
+ */
 
-      let subtotal =
-        new Prisma.Decimal(
-          0
-        );
+let subtotal =
+  new Prisma.Decimal(
+    0
+  );
 
-      const newOrderItems = [];
+const newOrderItems = [];
 
-      const flashSaleRequirements:
-        FlashSaleCheckoutRequirement[] =
-        [];
+const flashSaleRequirements:
+  FlashSaleCheckoutRequirement[] =
+  [];
 
-      for (
-        const item of
-          finalItems
-      ) {
-        const product =
-          productMap.get(
-            item.productId
-          );
+for (
+  const item of
+    finalItems
+) {
+  const product =
+    productMap.get(
+      item.productId
+    );
 
-        if (!product) {
-          throw new Error(
-            "Produk tidak ditemukan."
-          );
-        }
+  if (!product) {
+    throw new Error(
+      "Produk tidak ditemukan."
+    );
+  }
 
-        const sku =
-          skuMap.get(
-            item.skuId
-          );
+  const sku =
+    skuMap.get(
+      item.skuId
+    );
 
-        if (!sku) {
-          throw new Error(
-            "SKU tidak ditemukan."
-          );
-        }
+  if (!sku) {
+    throw new Error(
+      "SKU tidak ditemukan."
+    );
+  }
 
-        /**
-         * ========================================================
-         * RESOLVE CANONICAL PRICING
-         * ========================================================
-         */
+  /**
+   * ========================================================
+   * RESOLVE PRICE
+   * ========================================================
+   *
+   * Item tidak berubah:
+   *
+   *   gunakan harga snapshot lama.
+   *
+   * Item berubah:
+   *
+   *   gunakan pricing engine.
+   */
 
-        const pricing =
-          await ProductPricingService.resolve(
-            tx,
-            {
-              productId:
-                product.id,
+  const existingOrderItem =
+    order.items.find(
+      (orderItem) =>
+        orderItem.productId ===
+          item.productId &&
+        orderItem.skuId ===
+          item.skuId
+    );
 
-              skuId:
-                sku.id,
+  let price: Prisma.Decimal;
 
-              fallbackPrice:
-                product.price,
-            }
-          );
-
-        /**
-         * Flash Sale
-         *
-         * Kita collect requirement terlebih dahulu.
-         * Consumption dilakukan setelah OrderItem baru
-         * selesai dibangun.
-         */
-
-        if (
-          pricing.isFlashSaleApplied &&
-          pricing.flashSaleItemId
-        ) {
-          flashSaleRequirements.push({
-            flashSaleItemId:
-              pricing.flashSaleItemId,
-
-            quantity:
-              item.quantity,
-
-            price:
-              pricing.finalPrice,
-          });
-        }
-
-        const price =
-          pricing.finalPrice;
-
-        const quantity =
-          new Prisma.Decimal(
-            item.quantity
-          );
-
-        const itemSubtotal =
-          price.mul(
-            quantity
-          );
-
-        subtotal =
-          subtotal.plus(
-            itemSubtotal
-          );
-
-        newOrderItems.push({
+  if (
+    !itemsChanged &&
+    existingOrderItem
+  ) {
+    price =
+      new Prisma.Decimal(
+        existingOrderItem.price
+      );
+  } else {
+    const pricing =
+      await ProductPricingService.resolve(
+        tx,
+        {
           productId:
             product.id,
 
           skuId:
             sku.id,
 
-          productName:
-            product.name,
+          fallbackPrice:
+            product.price,
+        }
+      );
 
-          /**
-           * Legacy fields.
-           *
-           * Order baru hasil update menggunakan SKU
-           * sebagai canonical reference.
-           */
-          productVariant:
-            null,
+    price =
+      pricing.finalPrice;
 
-          productWeight:
-            null,
+    /**
+     * Flash Sale hanya diproses
+     * ketika item memang berubah.
+     */
+    if (
+      pricing.isFlashSaleApplied &&
+      pricing.flashSaleItemId
+    ) {
+      flashSaleRequirements.push({
+        flashSaleItemId:
+          pricing.flashSaleItemId,
 
-          customerNote:
-            item.customerNote,
+        quantity:
+          item.quantity,
 
-          price,
+        price:
+          pricing.finalPrice,
+      });
+    }
+  }
 
-          quantity:
-            item.quantity,
+  const quantity =
+    new Prisma.Decimal(
+      item.quantity
+    );
 
-          subtotal:
-            itemSubtotal,
-        });
-      }
+  const itemSubtotal =
+    price.mul(
+      quantity
+    );
+
+  subtotal =
+    subtotal.plus(
+      itemSubtotal
+    );
+
+  newOrderItems.push({
+    productId:
+      product.id,
+
+    skuId:
+      sku.id,
+
+    productName:
+      product.name,
+
+    productVariant:
+      null,
+
+    productWeight:
+      null,
+
+    customerNote:
+      item.customerNote,
+
+    price,
+
+    quantity:
+      item.quantity,
+
+    subtotal:
+      itemSubtotal,
+  });
+}
 
       /**
-       * ==========================================================
-       * 13. VOUCHER SNAPSHOT
-       * ==========================================================
-       *
-       * Jangan validasi ulang voucher.
-       *
-       * Voucher adalah snapshot transaksi.
-       */
+ * ==========================================================
+ * 13. VOUCHER SNAPSHOT
+ * ==========================================================
+ *
+ * Voucher tidak dihitung ulang pada updateOrder().
+ *
+ * Jika item tidak berubah:
+ * subtotal berasal dari harga snapshot OrderItem.
+ *
+ * Jika item berubah:
+ * order dengan voucher sudah ditolak oleh 10B.
+ */
 
-      const voucherDiscount =
-        new Prisma.Decimal(
-          order.voucherDiscount ??
-            0
-        );
+const voucherDiscount =
+  new Prisma.Decimal(
+    order.voucherDiscount ??
+      0
+  );
 
-      const subtotalAfterVoucher =
-        Prisma.Decimal.max(
-          subtotal.minus(
-            voucherDiscount
-          ),
-          new Prisma.Decimal(
-            0
-          )
-        );
+const subtotalAfterVoucher =
+  Prisma.Decimal.max(
+    subtotal.minus(
+      voucherDiscount
+    ),
+    new Prisma.Decimal(
+      0
+    )
+  );
 
       /**
        * ==========================================================
@@ -2330,246 +2587,443 @@ static async updateOrder(
        * delta < 0
        *   stock bertambah
        */
+if (itemsChanged) {
+  /**
+   * ==========================================================
+   * 15. ADJUST SKU STOCK BY ORDER ITEM DELTA
+   * ==========================================================
+   *
+   * oldQuantity = quantity order sebelum perubahan
+   * newQuantity = quantity order setelah perubahan
+   *
+   * delta:
+   *
+   *   newQuantity - oldQuantity
+   *
+   * delta > 0
+   *   Customer mengambil tambahan quantity.
+   *   Stock berkurang.
+   *   Ledger = SALE.
+   *
+   * delta < 0
+   *   Quantity order berkurang.
+   *   Stock dikembalikan.
+   *   Ledger = RETURN.
+   *
+   * delta === 0
+   *   Tidak ada perubahan stock.
+   *
+   * Canonical stock:
+   *
+   *   ProductSku.stock
+   *
+   * Product.stock TIDAK diubah di sini.
+   */
 
-      const affectedSkuIds =
-        new Set([
-          ...oldStockMap.keys(),
-          ...newStockMap.keys(),
-        ]);
+  const affectedSkuIds =
+    new Set<string>([
+      ...oldStockMap.keys(),
+      ...newStockMap.keys(),
+    ]);
 
-      for (
-        const skuId of
-          affectedSkuIds
-      ) {
-        const oldQuantity =
-          oldStockMap.get(
-            skuId
-          ) ?? 0;
+  for (
+    const skuId of affectedSkuIds
+  ) {
+    const oldQuantity =
+      oldStockMap.get(
+        skuId
+      ) ?? 0;
 
-        const newQuantity =
-          newStockMap.get(
-            skuId
-          ) ?? 0;
+    const newQuantity =
+      newStockMap.get(
+        skuId
+      ) ?? 0;
 
-        const delta =
-          newQuantity -
-          oldQuantity;
+    const delta =
+      newQuantity -
+      oldQuantity;
 
-        if (
-          delta === 0
-        ) {
-          continue;
-        }
+    /**
+     * --------------------------------------------------------
+     * NO STOCK CHANGE
+     * --------------------------------------------------------
+     */
 
-        const sku =
-          skuMap.get(
-            skuId
-          );
+    if (delta === 0) {
+      continue;
+    }
 
-        if (!sku) {
-          throw new Error(
-            `SKU ${skuId} tidak ditemukan.`
-          );
-        }
+    /**
+     * --------------------------------------------------------
+     * FIND SKU
+     * --------------------------------------------------------
+     *
+     * Gunakan skuMap yang sudah dibangun
+     * dari SKU yang terkait dengan order.
+     *
+     * SKU boleh sudah tidak aktif ketika
+     * quantity order dikurangi, karena stock
+     * tetap harus dikembalikan ke SKU historis.
+     */
 
-        /**
-         * --------------------------------------------------------
-         * DELTA POSITIVE
-         * --------------------------------------------------------
-         */
+    const sku =
+      skuMap.get(
+        skuId
+      );
 
-        if (
-          delta > 0
-        ) {
-          const currentSku =
-            await tx.productSku.findUnique({
-              where: {
-                id:
-                  sku.id,
-              },
+    if (!sku) {
+      throw new Error(
+        `SKU ${skuId} tidak ditemukan.`
+      );
+    }
 
-              select: {
-                id: true,
-                sku: true,
-                productId: true,
-                stock: true,
-                isActive: true,
-              },
-            });
+    /**
+ * ========================================================
+ * DELTA POSITIVE
+ * ========================================================
+ *
+ * Quantity order bertambah.
+ *
+ * Contoh:
+ *
+ * old = 2
+ * new = 5
+ *
+ * delta = +3
+ *
+ * Stock:
+ *
+ *   10 -> 7
+ *
+ * Ledger:
+ *
+ *   SALE -3
+ *
+ * ========================================================
+ */
 
-          if (!currentSku) {
-            throw new Error(
-              "SKU tidak ditemukan saat update order."
-            );
-          }
+if (delta > 0) {
+  /**
+   * --------------------------------------------------------
+   * GET CURRENT SKU SNAPSHOT
+   * --------------------------------------------------------
+   *
+   * Ambil stock terbaru sebelum melakukan decrement.
+   *
+   * stockBefore akan digunakan sebagai optimistic
+   * concurrency guard pada UPDATE.
+   */
 
-          const stockBefore =
-            currentSku.stock;
+  const currentSku =
+    await tx.productSku.findUnique({
+      where: {
+        id:
+          sku.id,
+      },
 
-          const result =
-            await tx.productSku.updateMany({
-              where: {
-                id:
-                  currentSku.id,
+      select: {
+        id: true,
+        sku: true,
+        productId: true,
+        stock: true,
+        isActive: true,
+      },
+    });
 
-                productId:
-                  currentSku.productId,
+  if (!currentSku) {
+    throw new Error(
+      `SKU "${sku.id}" tidak ditemukan saat menambah quantity order.`
+    );
+  }
 
-                isActive:
-                  true,
+  /**
+   * --------------------------------------------------------
+   * SKU MUST BE ACTIVE
+   * --------------------------------------------------------
+   *
+   * SKU yang menerima tambahan quantity harus masih aktif.
+   */
 
-                stock: {
-                  gte:
-                    delta,
-                },
-              },
+  if (!currentSku.isActive) {
+    throw new Error(
+      `SKU "${currentSku.sku}" sedang tidak aktif dan tidak dapat menambah quantity order.`
+    );
+  }
 
-              data: {
-                stock: {
-                  decrement:
-                    delta,
-                },
-              },
-            });
+  const stockBefore =
+    currentSku.stock;
 
-          if (
-            result.count !==
-            1
-          ) {
-            throw new Error(
-              `Stok SKU "${currentSku.sku}" tidak mencukupi atau berubah sebelum transaksi selesai.`
-            );
-          }
+  /**
+   * --------------------------------------------------------
+   * VALIDATE STOCK
+   * --------------------------------------------------------
+   *
+   * Jangan biarkan stock menjadi negatif.
+   */
 
-          const stockAfter =
-            stockBefore -
-            delta;
+  if (
+    stockBefore <
+    delta
+  ) {
+    throw new Error(
+      `Stok SKU "${currentSku.sku}" tidak mencukupi. Stok tersedia: ${stockBefore}, tambahan yang dibutuhkan: ${delta}.`
+    );
+  }
 
-          await tx.stockLedger.create({
-            data: {
-              productId:
-                currentSku.productId,
+  /**
+   * --------------------------------------------------------
+   * ATOMIC STOCK DECREMENT
+   * --------------------------------------------------------
+   *
+   * Gunakan:
+   *
+   *   stock = stockBefore
+   *
+   * sebagai optimistic concurrency guard.
+   *
+   * Artinya UPDATE hanya berhasil apabila stock masih sama
+   * dengan stock yang baru saja kita baca.
+   *
+   * Jika transaksi lain sudah mengubah stock terlebih dahulu,
+   * count akan menjadi 0 dan seluruh transaction dibatalkan.
+   */
 
-              skuId:
-                currentSku.id,
+  const stockResult =
+    await tx.productSku.updateMany({
+      where: {
+        id:
+          currentSku.id,
 
-              orderId:
-                order.id,
+        productId:
+          currentSku.productId,
 
-              type:
-                "SALE",
+        isActive:
+          true,
 
-              quantity:
-                -delta,
+        stock:
+          stockBefore,
+      },
 
-              stockBefore,
+      data: {
+        stock: {
+          decrement:
+            delta,
+        },
+      },
+    });
 
-              stockAfter,
+  if (
+    stockResult.count !==
+    1
+  ) {
+    throw new Error(
+      `Stok SKU "${currentSku.sku}" berubah sebelum transaksi selesai. Silakan muat ulang halaman dan coba lagi.`
+    );
+  }
 
-              note:
-                `Penyesuaian order ${order.orderNumber}: SKU ${currentSku.sku} bertambah ${delta}`,
-            },
-          });
+  /**
+   * --------------------------------------------------------
+   * CALCULATE STOCK AFTER
+   * --------------------------------------------------------
+   */
 
-          continue;
-        }
+  const stockAfter =
+    stockBefore -
+    delta;
 
-        /**
-         * --------------------------------------------------------
-         * DELTA NEGATIVE
-         * --------------------------------------------------------
-         */
+  /**
+   * --------------------------------------------------------
+   * CREATE SALE LEDGER
+   * --------------------------------------------------------
+   *
+   * SALE selalu dicatat sebagai quantity negatif.
+   */
 
-        const restoreQuantity =
-          Math.abs(
-            delta
-          );
+  await tx.stockLedger.create({
+    data: {
+      productId:
+        currentSku.productId,
 
-        const currentSku =
-          await tx.productSku.findUnique({
-            where: {
-              id:
-                sku.id,
-            },
+      skuId:
+        currentSku.id,
 
-            select: {
-              id: true,
-              sku: true,
-              productId: true,
-              stock: true,
-            },
-          });
+      orderId:
+        order.id,
 
-        if (!currentSku) {
-          throw new Error(
-            "SKU tidak ditemukan saat restore stock."
-          );
-        }
+      type:
+        "SALE",
 
-        const stockBefore =
-          currentSku.stock;
+      quantity:
+        -delta,
 
-        const updatedSku =
-          await tx.productSku.update({
-            where: {
-              id:
-                currentSku.id,
-            },
+      stockBefore,
 
-            data: {
-              stock: {
-                increment:
-                  restoreQuantity,
-              },
-            },
+      stockAfter,
 
-            select: {
-              stock: true,
-            },
-          });
+      note:
+        `Penambahan quantity order ${order.orderNumber}: SKU ${currentSku.sku} bertambah ${delta}.`,
+    },
+  });
 
-        const stockAfter =
-          updatedSku.stock;
+  continue;
+}
 
-        await tx.stockLedger.create({
-          data: {
-            productId:
-              currentSku.productId,
+    /**
+     * ========================================================
+     * DELTA NEGATIVE
+     * ========================================================
+     *
+     * Quantity order berkurang.
+     *
+     * Contoh:
+     *
+     * old = 5
+     * new = 3
+     *
+     * delta = -2
+     *
+     * Stock:
+     *
+     * 10 -> 12
+     *
+     * Ledger:
+     *
+     * RETURN +2
+     */
 
-            skuId:
-              currentSku.id,
+    const restoreQuantity =
+      Math.abs(
+        delta
+      );
 
-            orderId:
-              order.id,
+    /**
+     * --------------------------------------------------------
+     * GET CURRENT SKU
+     * --------------------------------------------------------
+     *
+     * Jangan mewajibkan isActive=true.
+     *
+     * SKU historis dapat sudah dinonaktifkan
+     * dari konfigurasi produk tetapi tetap harus
+     * menerima pengembalian stock dari order lama.
+     */
 
-            type:
-              "RETURN",
-
-            quantity:
-              restoreQuantity,
-
-            stockBefore,
-
-            stockAfter,
-
-            note:
-              `Penyesuaian order ${order.orderNumber}: SKU ${currentSku.sku} berkurang ${restoreQuantity}`,
-          },
-        });
-      }
-
-      /**
-       * ==========================================================
-       * 16. REPLACE ORDER ITEMS
-       * ==========================================================
-       */
-
-      await tx.orderItem.deleteMany({
+    const currentSku =
+      await tx.productSku.findUnique({
         where: {
-          orderId:
-            id,
+          id:
+            sku.id,
+        },
+
+        select: {
+          id: true,
+          sku: true,
+          productId: true,
+          stock: true,
+          isActive: true,
         },
       });
+
+    if (!currentSku) {
+      throw new Error(
+        `SKU "${sku.id}" tidak ditemukan saat mengembalikan stock.`
+      );
+    }
+
+    const stockBefore =
+      currentSku.stock;
+
+    /**
+     * --------------------------------------------------------
+     * ATOMIC STOCK INCREMENT
+     * --------------------------------------------------------
+     *
+     * Gunakan stockBefore sebagai optimistic
+     * concurrency guard.
+     *
+     * Jika stock berubah oleh transaksi lain
+     * setelah SELECT, update gagal.
+     */
+
+    const stockResult =
+      await tx.productSku.updateMany({
+        where: {
+          id:
+            currentSku.id,
+
+          productId:
+            currentSku.productId,
+
+          stock:
+            stockBefore,
+        },
+
+        data: {
+          stock: {
+            increment:
+              restoreQuantity,
+          },
+        },
+      });
+
+    if (
+      stockResult.count !==
+      1
+    ) {
+      throw new Error(
+        `Stock SKU "${currentSku.sku}" berubah sebelum stock dikembalikan. Silakan muat ulang halaman dan coba lagi.`
+      );
+    }
+
+    const stockAfter =
+      stockBefore +
+      restoreQuantity;
+
+    /**
+     * --------------------------------------------------------
+     * CREATE RETURN LEDGER
+     * --------------------------------------------------------
+     */
+
+    await tx.stockLedger.create({
+      data: {
+        productId:
+          currentSku.productId,
+
+        skuId:
+          currentSku.id,
+
+        orderId:
+          order.id,
+
+        type:
+          "RETURN",
+
+        quantity:
+          restoreQuantity,
+
+        stockBefore,
+
+        stockAfter,
+
+        note:
+          `Pengurangan quantity order ${order.orderNumber}: SKU ${currentSku.sku} berkurang ${restoreQuantity}.`,
+      },
+    });
+  }
+
+  /**
+   * ==========================================================
+   * 16. REPLACE ORDER ITEMS
+   * ==========================================================
+   */
+
+  await tx.orderItem.deleteMany({
+    where: {
+      orderId:
+        id,
+    },
+  });
 
       await tx.orderItem.createMany({
         data:
@@ -2609,41 +3063,52 @@ static async updateOrder(
       });
 
       /**
-       * ==========================================================
-       * 17. FLASH SALE
-       * ==========================================================
-       *
-       * Order lama mungkin sudah memiliki FlashSalePurchase.
-       *
-       * Release lama terlebih dahulu, lalu consume berdasarkan
-       * item baru.
-       *
-       * Semua tetap berada dalam transaction yang sama.
-       */
+ * ==========================================================
+ * 17. FLASH SALE
+ * ==========================================================
+ *
+ * Flash Sale hanya di-reconcile apabila
+ * item order benar-benar berubah.
+ *
+ * Jika hanya notes / address / shipping berubah:
+ *
+ * - jangan release purchase lama
+ * - jangan consume ulang
+ */
 
-      await FlashSaleRepository.releasePurchasesByOrderId(
-        tx,
-        order.id
-      );
+if (itemsChanged) {
+  /**
+   * Release Flash Sale purchase lama
+   * terlebih dahulu.
+   */
+  await FlashSaleRepository.releasePurchasesByOrderId(
+    tx,
+    order.id
+  );
 
-      if (
-        flashSaleRequirements.length >
-        0
-      ) {
-        await FlashSaleCheckoutService.consume(
-          {
-            userId:
-              input.userId,
+  /**
+   * Consume Flash Sale berdasarkan
+   * item order terbaru.
+   */
+  if (
+    flashSaleRequirements.length >
+    0
+  ) {
+    await FlashSaleCheckoutService.consume(
+      {
+        userId:
+          input.userId,
 
-            orderId:
-              order.id,
+        orderId:
+          order.id,
 
-            requirements:
-              flashSaleRequirements,
-          },
-          tx
-        );
-      }
+        requirements:
+          flashSaleRequirements,
+      },
+      tx
+    );
+  }
+}
 
       /**
        * ==========================================================
@@ -2657,23 +3122,20 @@ static async updateOrder(
         },
 
         data: {
-          userId:
-            input.userId,
+  addressId:
+    input.addressId,
 
-          addressId:
-            input.addressId,
+  subtotal,
 
-          subtotal,
+  shippingCost:
+    shipping,
 
-          shippingCost:
-            shipping,
+  total,
 
-          total,
-
-          notes:
-            input.notes?.trim() ||
-            null,
-        },
+  notes:
+    input.notes?.trim() ||
+    null,
+},
 
         include: {
           user: true,
@@ -2692,7 +3154,7 @@ static async updateOrder(
         },
       });
     }
-  );
+  });
 }
 
 /**
@@ -3309,7 +3771,7 @@ static async cancelOrder(
           )
         );
 
-      /**
+            /**
        * ========================================================
        * 7. RESTORE SKU STOCK + CREATE LEDGER
        * ========================================================
@@ -3319,6 +3781,20 @@ static async cancelOrder(
        *     ProductSku.stock
        *
        * Setiap SKU dibuatkan satu StockLedger CANCEL.
+       *
+       * IMPORTANT:
+       *
+       * stockBefore harus berasal dari snapshot SKU yang
+       * benar-benar menjadi target update.
+       *
+       * Karena stock adalah canonical state, gunakan
+       * optimistic concurrency guard:
+       *
+       *     WHERE stock = stockBefore
+       *
+       * Jika stock berubah oleh transaksi lain sebelum
+       * restore dilakukan, transaksi dibatalkan agar
+       * ledger tidak mencatat stockBefore yang salah.
        */
 
       for (
@@ -3327,6 +3803,12 @@ static async cancelOrder(
           quantity,
         ] of skuQuantities
       ) {
+        /**
+         * --------------------------------------------------------
+         * GET SKU SNAPSHOT
+         * --------------------------------------------------------
+         */
+
         const sku =
           skuMap.get(
             skuId
@@ -3338,17 +3820,63 @@ static async cancelOrder(
           );
         }
 
+        /**
+         * --------------------------------------------------------
+         * VALIDATE QUANTITY
+         * --------------------------------------------------------
+         */
+
+        if (
+          !Number.isInteger(
+            quantity
+          ) ||
+          quantity <= 0
+        ) {
+          throw new Error(
+            `Quantity restore SKU "${sku.sku}" tidak valid.`
+          );
+        }
+
         const stockBefore =
           sku.stock;
 
         /**
-         * Atomic increment.
+         * --------------------------------------------------------
+         * ATOMIC STOCK RESTORE
+         * --------------------------------------------------------
+         *
+         * Guard:
+         *
+         *   stock = stockBefore
+         *
+         * Artinya stock yang kita restore harus masih sama
+         * dengan stock yang dibaca sebelumnya.
+         *
+         * Jika ada transaksi lain yang sudah mengubah stock,
+         * update gagal dan seluruh transaction dibatalkan.
+         *
+         * Dengan demikian:
+         *
+         *   stockBefore
+         *   +
+         *   quantity
+         *   =
+         *   stockAfter
+         *
+         * tetap konsisten dengan database.
          */
+
         const updatedSku =
           await tx.productSku.updateMany({
             where: {
               id:
                 sku.id,
+
+              productId:
+                sku.productId,
+
+              stock:
+                stockBefore,
             },
 
             data: {
@@ -3359,23 +3887,49 @@ static async cancelOrder(
             },
           });
 
+        /**
+         * --------------------------------------------------------
+         * CONCURRENCY CHECK
+         * --------------------------------------------------------
+         */
+
         if (
           updatedSku.count !==
           1
         ) {
           throw new Error(
-            `Gagal mengembalikan stock SKU "${sku.sku}".`
+            `Stock SKU "${sku.sku}" berubah sebelum stock dikembalikan. Silakan coba lagi.`
           );
         }
+
+        /**
+         * --------------------------------------------------------
+         * CALCULATE STOCK AFTER
+         * --------------------------------------------------------
+         */
 
         const stockAfter =
           stockBefore +
           quantity;
 
         /**
-         * ======================================================
-         * STOCK LEDGER
-         * ======================================================
+         * --------------------------------------------------------
+         * CREATE STOCK LEDGER
+         * --------------------------------------------------------
+         *
+         * CANCEL:
+         *
+         *   quantity = positive
+         *
+         * Contoh:
+         *
+         *   stockBefore = 10
+         *   cancelled   = 2
+         *   stockAfter  = 12
+         *
+         * Ledger:
+         *
+         *   CANCEL +2
          */
 
         await tx.stockLedger.create({
@@ -3801,84 +4355,278 @@ static async markAsPaid(
 }
 
 /**
-  * Menandai order sebagai COMPLETED.
-  *
-  * Order hanya dapat diselesaikan
-  * setelah berada pada status SHIPPING
-  * dan pembayaran sudah VERIFIED.
-*/
+ * ============================================================
+ * MARK ORDER AS COMPLETED
+ * ============================================================
+ *
+ * Order hanya dapat diselesaikan apabila:
+ *
+ * 1. Order masih ada
+ * 2. Order belum dihapus
+ * 3. Order bukan CANCELLED
+ * 4. Order bukan COMPLETED
+ * 5. Status order = SHIPPING
+ * 6. Payment status = VERIFIED
+ *
+ * Seluruh proses:
+ *
+ *     LOCK
+ *       ↓
+ *     READ
+ *       ↓
+ *     VALIDATE
+ *       ↓
+ *     UPDATE
+ *
+ * berjalan dalam satu transaction.
+ *
+ * Tujuannya mencegah race condition dengan:
+ *
+ *     cancelOrder()
+ *     updatePaymentStatus()
+ *
+ * terutama pada kondisi:
+ *
+ *     SHIPPING → COMPLETED
+ *
+ * bersamaan dengan:
+ *
+ *     SHIPPING → CANCELLED
+ *
+ * ============================================================
+ */
 static async markAsCompleted(
   id: string
 ) {
-  const order =
-  await OrderRepository.findById(
-    id
-  );
+  /**
+   * ==========================================================
+   * VALIDATE ORDER ID
+   * ==========================================================
+   */
 
-  if (!order) {
+  if (!id) {
     throw new Error(
-      "Order tidak ditemukan."
+      "Order ID wajib diisi."
     );
   }
 
-  if (order.deletedAt) {
-    throw new Error(
-      "Order yang sudah dihapus tidak dapat diselesaikan."
-    );
-  }
+  /**
+   * ==========================================================
+   * TRANSACTION
+   * ==========================================================
+   */
 
-  if (
-    order.status ===
-    OrderStatus.CANCELLED
-  ) {
-    throw new Error(
-      "Order yang sudah dibatalkan tidak dapat diselesaikan."
-    );
-  }
+  return prisma.$transaction(
+    async (tx) => {
+      /**
+       * ========================================================
+       * 1. LOCK ORDER ROW
+       * ========================================================
+       *
+       * Gunakan FOR UPDATE agar:
+       *
+       * markAsCompleted()
+       * cancelOrder()
+       * updatePaymentStatus()
+       *
+       * tidak dapat memproses row Order yang sama
+       * secara bersamaan.
+       */
+      const lockedOrder =
+        await tx.$queryRaw<
+          Array<{
+            id: string;
+          }>
+        >`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${id}
+          FOR UPDATE
+        `;
 
-  if (
-    order.status ===
-    OrderStatus.COMPLETED
-  ) {
-    throw new Error(
-      "Order sudah berstatus selesai."
-    );
-  }
+      /**
+       * ========================================================
+       * 2. ORDER NOT FOUND
+       * ========================================================
+       */
 
-  if (
-    order.status !==
-    OrderStatus.SHIPPING
-  ) {
-    throw new Error(
-      "Order harus berstatus SHIPPING sebelum dapat diselesaikan."
-    );
-  }
+      if (
+        lockedOrder.length ===
+        0
+      ) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
 
-  if (
-    order.paymentStatus !==
-    PaymentStatus.VERIFIED
-  ) {
-    throw new Error(
-      "Order belum memiliki pembayaran yang terverifikasi."
-    );
-  }
+      /**
+       * ========================================================
+       * 3. GET CURRENT ORDER
+       * ========================================================
+       *
+       * Row sudah di-lock.
+       *
+       * Karena itu status dan paymentStatus yang dibaca
+       * adalah state yang menjadi dasar keputusan transaction
+       * ini.
+       */
+      const order =
+        await tx.order.findUnique({
+          where: {
+            id,
+          },
 
-  return OrderRepository.markAsCompleted(
-    id
+          include: {
+            user: true,
+
+            address: true,
+
+            items: {
+              include: {
+                product: true,
+
+                sku: true,
+              },
+            },
+
+            paymentProof: true,
+          },
+        });
+
+      if (!order) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 4. PREVENT UPDATE DELETED ORDER
+       * ========================================================
+       */
+
+      if (order.deletedAt) {
+        throw new Error(
+          "Order yang sudah dihapus tidak dapat diselesaikan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 5. PREVENT COMPLETING CANCELLED ORDER
+       * ========================================================
+       */
+
+      if (
+        order.status ===
+        OrderStatus.CANCELLED
+      ) {
+        throw new Error(
+          "Order yang sudah dibatalkan tidak dapat diselesaikan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 6. IDEMPOTENT COMPLETED CHECK
+       * ========================================================
+       *
+       * Jangan menganggap COMPLETED sebagai error teknis.
+       *
+       * Tetapi karena method ini adalah command untuk menyelesaikan
+       * order, kita pertahankan perilaku sebelumnya:
+       *
+       * COMPLETED → COMPLETED
+       *
+       * ditolak agar tidak membuat completedAt baru.
+       */
+      if (
+        order.status ===
+        OrderStatus.COMPLETED
+      ) {
+        throw new Error(
+          "Order sudah berstatus selesai."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 7. VALIDATE ORDER STATUS
+       * ========================================================
+       *
+       * Hanya SHIPPING yang boleh menjadi COMPLETED.
+       */
+      if (
+        order.status !==
+        OrderStatus.SHIPPING
+      ) {
+        throw new Error(
+          "Order harus berstatus SHIPPING sebelum dapat diselesaikan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 8. VALIDATE PAYMENT STATUS
+       * ========================================================
+       *
+       * Order tidak boleh COMPLETED sebelum pembayaran
+       * diverifikasi.
+       */
+      if (
+        order.paymentStatus !==
+        PaymentStatus.VERIFIED
+      ) {
+        throw new Error(
+          "Order belum memiliki pembayaran yang terverifikasi."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 9. UPDATE ORDER → COMPLETED
+       * ========================================================
+       *
+       * Row Order sudah di-lock dengan FOR UPDATE.
+       *
+       * Tidak ada perubahan Product.stock / ProductSku.stock
+       * di tahap ini.
+       *
+       * Stock sudah diproses pada lifecycle sebelumnya.
+       */
+      return await tx.order.update({
+        where: {
+          id: order.id,
+        },
+
+        data: {
+          status:
+            OrderStatus.COMPLETED,
+
+          completedAt:
+            new Date(),
+        },
+
+        include: {
+          user: true,
+
+          address: true,
+
+          items: {
+            include: {
+              product: true,
+
+              sku: true,
+            },
+          },
+
+          paymentProof: true,
+        },
+      });
+    }
   );
 }
 
-/**
-  * Soft delete order.
-  *
-  * Order dipindahkan ke Trash dan
-  * tidak dihapus secara permanen.
-  *
-  * Soft delete TIDAK mengubah stock.
-  *
-  * Stock sudah ditangani oleh lifecycle
-  * order, terutama ketika order dibatalkan.
-*/
 /**
  * ============================================================
  * SOFT DELETE ORDER
@@ -3890,23 +4638,28 @@ static async markAsCompleted(
  * - COMPLETED
  * - CANCELLED
  *
- * Order aktif tidak boleh langsung dihapus karena dapat
- * menyebabkan data operasional menghilang dari dashboard
- * meskipun proses pesanan belum selesai.
+ * Order aktif tidak boleh langsung dihapus.
  *
- * Soft delete tidak mengubah stock.
+ * Soft delete:
  *
- * Stock harus ditangani melalui lifecycle order, terutama
- * ketika order dibatalkan melalui cancelOrder().
+ * - tidak mengubah stock
+ * - tidak membuat StockLedger
+ * - tidak mengubah paymentStatus
+ * - tidak mengubah order status
+ *
+ * Seluruh proses berjalan dalam satu transaction dengan
+ * row-level lock untuk mencegah race condition dengan
+ * perubahan lifecycle order lainnya.
  */
 static async deleteOrder(
   id: string
 ) {
   /**
-   * ============================================================
+   * ==========================================================
    * VALIDATE ID
-   * ============================================================
+   * ==========================================================
    */
+
   if (!id) {
     throw new Error(
       "Order ID wajib diisi."
@@ -3914,57 +4667,143 @@ static async deleteOrder(
   }
 
   /**
-   * ============================================================
-   * FIND ORDER
-   * ============================================================
+   * ==========================================================
+   * TRANSACTION
+   * ==========================================================
    */
-  const order =
-    await OrderRepository.findById(
-      id
-    );
 
-  if (!order) {
-    throw new Error(
-      "Order tidak ditemukan."
-    );
-  }
+  return prisma.$transaction(
+    async (tx) => {
+      /**
+       * ========================================================
+       * 1. LOCK ORDER ROW
+       * ========================================================
+       *
+       * Pastikan state Order tidak berubah antara:
+       *
+       *     READ
+       *       ↓
+       *     VALIDATE
+       *       ↓
+       *     SOFT DELETE
+       *
+       * Lock ini juga menyelaraskan deleteOrder()
+       * dengan cancelOrder(), updatePaymentStatus(), dan
+       * markAsCompleted().
+       */
+      const lockedOrder =
+        await tx.$queryRaw<
+          Array<{
+            id: string;
+          }>
+        >`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${id}
+          FOR UPDATE
+        `;
 
-  /**
-   * ============================================================
-   * PREVENT DUPLICATE TRASH
-   * ============================================================
-   */
-  if (order.deletedAt) {
-    throw new Error(
-      "Order sudah berada di Trash."
-    );
-  }
+      /**
+       * ========================================================
+       * 2. ORDER NOT FOUND
+       * ========================================================
+       */
 
-  /**
-   * ============================================================
-   * PROTECT ACTIVE ORDERS
-   * ============================================================
-   *
-   * Hanya order dengan status final yang dapat dipindahkan
-   * ke Trash.
-   */
-  const isFinalStatus =
-    order.status === OrderStatus.COMPLETED ||
-    order.status === OrderStatus.CANCELLED;
+      if (
+        lockedOrder.length ===
+        0
+      ) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
 
-  if (!isFinalStatus) {
-    throw new Error(
-      "Order yang masih aktif tidak dapat dipindahkan ke Trash. Selesaikan atau batalkan order terlebih dahulu."
-    );
-  }
+      /**
+       * ========================================================
+       * 3. GET CURRENT ORDER
+       * ========================================================
+       *
+       * Row sudah di-lock sehingga validation menggunakan
+       * state Order yang konsisten dengan transaction ini.
+       */
+      const order =
+        await tx.order.findUnique({
+          where: {
+            id,
+          },
 
-  /**
-   * ============================================================
-   * SOFT DELETE
-   * ============================================================
-   */
-  return OrderRepository.softDelete(
-    id
+          select: {
+            id: true,
+
+            status: true,
+
+            deletedAt: true,
+          },
+        });
+
+      if (!order) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 4. PREVENT DUPLICATE TRASH
+       * ========================================================
+       */
+
+      if (order.deletedAt) {
+        throw new Error(
+          "Order sudah berada di Trash."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 5. PROTECT ACTIVE ORDERS
+       * ========================================================
+       *
+       * Hanya lifecycle final yang boleh dipindahkan
+       * ke Trash.
+       */
+      const isFinalStatus =
+        order.status ===
+          OrderStatus.COMPLETED ||
+        order.status ===
+          OrderStatus.CANCELLED;
+
+      if (!isFinalStatus) {
+        throw new Error(
+          "Order yang masih aktif tidak dapat dipindahkan ke Trash. Selesaikan atau batalkan order terlebih dahulu."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 6. SOFT DELETE
+       * ========================================================
+       *
+       * Jangan mengubah:
+       *
+       * - status
+       * - paymentStatus
+       * - stock
+       * - ledger
+       *
+       * Hanya deletedAt yang diisi.
+       */
+      return await tx.order.update({
+        where: {
+          id: order.id,
+        },
+
+        data: {
+          deletedAt:
+            new Date(),
+        },
+      });
+    }
   );
 }
 
@@ -3985,15 +4824,20 @@ static async deleteOrder(
  * - mengubah order status
  *
  * Data transaksi harus tetap menggunakan snapshot asli.
+ *
+ * Seluruh proses restore berjalan dalam satu transaction
+ * dengan row-level lock agar state Order tidak berubah
+ * di antara proses validation dan restore.
  */
 static async restoreOrder(
   id: string
 ) {
   /**
-   * ============================================================
+   * ==========================================================
    * VALIDATE ID
-   * ============================================================
+   * ==========================================================
    */
+
   if (!id) {
     throw new Error(
       "Order ID wajib diisi."
@@ -4001,63 +4845,151 @@ static async restoreOrder(
   }
 
   /**
-   * ============================================================
-   * FIND ORDER
-   * ============================================================
+   * ==========================================================
+   * TRANSACTION
+   * ==========================================================
    */
-  const order =
-    await OrderRepository.findById(
-      id
-    );
 
-  if (!order) {
-    throw new Error(
-      "Order tidak ditemukan."
-    );
-  }
+  return prisma.$transaction(
+    async (tx) => {
+      /**
+       * ========================================================
+       * 1. LOCK ORDER ROW
+       * ========================================================
+       *
+       * Mencegah perubahan state Order secara bersamaan
+       * selama proses restore.
+       *
+       * Flow:
+       *
+       *     LOCK
+       *       ↓
+       *     READ
+       *       ↓
+       *     VALIDATE
+       *       ↓
+       *     RESTORE
+       */
+      const lockedOrder =
+        await tx.$queryRaw<
+          Array<{
+            id: string;
+          }>
+        >`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${id}
+          FOR UPDATE
+        `;
 
-  /**
-   * ============================================================
-   * REQUIRE TRASH STATE
-   * ============================================================
-   *
-   * Restore hanya valid untuk order yang memang sedang
-   * berada di Trash.
-   */
-  if (!order.deletedAt) {
-    throw new Error(
-      "Order tidak berada di Trash."
-    );
-  }
+      /**
+       * ========================================================
+       * 2. ORDER NOT FOUND
+       * ========================================================
+       */
 
-  /**
-   * ============================================================
-   * REQUIRE FINAL STATUS
-   * ============================================================
-   *
-   * Sebagai defensive validation, restore hanya berlaku
-   * untuk order dengan lifecycle final.
-   */
-  const isFinalStatus =
-    order.status === OrderStatus.COMPLETED ||
-    order.status === OrderStatus.CANCELLED;
+      if (
+        lockedOrder.length ===
+        0
+      ) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
 
-  if (!isFinalStatus) {
-    throw new Error(
-      "Hanya order COMPLETED atau CANCELLED yang dapat dipulihkan."
-    );
-  }
+      /**
+       * ========================================================
+       * 3. GET CURRENT ORDER
+       * ========================================================
+       *
+       * Gunakan state setelah row berhasil di-lock.
+       */
+      const order =
+        await tx.order.findUnique({
+          where: {
+            id,
+          },
 
-  /**
-   * ============================================================
-   * RESTORE ORDER
-   * ============================================================
-   *
-   * Repository hanya menghapus deletedAt dan tidak boleh
-   * mengubah data transaksi lainnya.
-   */
-  return OrderRepository.restore(
-    id
+          select: {
+            id: true,
+
+            status: true,
+
+            deletedAt: true,
+          },
+        });
+
+      if (!order) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 4. REQUIRE TRASH STATE
+       * ========================================================
+       *
+       * Restore hanya valid apabila deletedAt memang
+       * terisi.
+       */
+      if (!order.deletedAt) {
+        throw new Error(
+          "Order tidak berada di Trash."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 5. REQUIRE FINAL STATUS
+       * ========================================================
+       *
+       * Restore hanya berlaku untuk order final:
+       *
+       * - COMPLETED
+       * - CANCELLED
+       *
+       * Restore tidak boleh menghidupkan kembali order
+       * yang masih berada dalam lifecycle aktif.
+       */
+      const isFinalStatus =
+        order.status ===
+          OrderStatus.COMPLETED ||
+        order.status ===
+          OrderStatus.CANCELLED;
+
+      if (!isFinalStatus) {
+        throw new Error(
+          "Hanya order COMPLETED atau CANCELLED yang dapat dipulihkan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 6. RESTORE ORDER
+       * ========================================================
+       *
+       * Hanya deletedAt yang dikembalikan menjadi NULL.
+       *
+       * Tidak menyentuh:
+       *
+       * - status
+       * - paymentStatus
+       * - stock
+       * - pricing
+       * - voucher
+       * - StockLedger
+       */
+      return await tx.order.update({
+        where: {
+          id: order.id,
+        },
+
+        data: {
+          deletedAt: null,
+        },
+      });
+    }
   );
 }
 
@@ -4086,15 +5018,19 @@ static async restoreOrder(
  * - StockLedger        → SetNull
  *
  * StockLedger sengaja dipertahankan sebagai histori audit stok.
+ *
+ * Seluruh proses validation dan deletion berjalan dalam satu
+ * transaction dengan row-level lock.
  */
 static async forceDeleteOrder(
   id: string
 ) {
   /**
-   * ============================================================
+   * ==========================================================
    * VALIDATE ID
-   * ============================================================
+   * ==========================================================
    */
+
   if (!id) {
     throw new Error(
       "Order ID wajib diisi."
@@ -4102,71 +5038,145 @@ static async forceDeleteOrder(
   }
 
   /**
-   * ============================================================
-   * FIND ORDER
-   * ============================================================
+   * ==========================================================
+   * TRANSACTION
+   * ==========================================================
    */
-  const order =
-    await OrderRepository.findById(
-      id
-    );
 
-  if (!order) {
-    throw new Error(
-      "Order tidak ditemukan."
-    );
-  }
+  return prisma.$transaction(
+    async (tx) => {
+      /**
+       * ========================================================
+       * 1. LOCK ORDER ROW
+       * ========================================================
+       *
+       * Jangan melakukan:
+       *
+       *     findById()
+       *     validate
+       *     delete
+       *
+       * di luar transaction.
+       *
+       * Row harus dikunci terlebih dahulu agar state yang
+       * digunakan untuk menentukan apakah order boleh dihapus
+       * tidak berubah sebelum DELETE dilakukan.
+       */
+      const lockedOrder =
+        await tx.$queryRaw<
+          Array<{
+            id: string;
+          }>
+        >`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${id}
+          FOR UPDATE
+        `;
 
-  /**
-   * ============================================================
-   * REQUIRE TRASH STATE
-   * ============================================================
-   *
-   * Force delete hanya boleh dilakukan setelah order
-   * dipindahkan ke Trash melalui soft delete.
-   */
-  if (!order.deletedAt) {
-    throw new Error(
-      "Order harus dipindahkan ke Trash terlebih dahulu sebelum dihapus permanen."
-    );
-  }
+      /**
+       * ========================================================
+       * 2. ORDER NOT FOUND
+       * ========================================================
+       */
 
-  /**
-   * ============================================================
-   * REQUIRE FINAL STATUS
-   * ============================================================
-   *
-   * Sebagai lapisan keamanan tambahan, pastikan hanya order
-   * dengan lifecycle final yang dapat dihapus permanen.
-   */
-  const isFinalStatus =
-    order.status === OrderStatus.COMPLETED ||
-    order.status === OrderStatus.CANCELLED;
+      if (
+        lockedOrder.length ===
+        0
+      ) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
 
-  if (!isFinalStatus) {
-    throw new Error(
-      "Hanya order COMPLETED atau CANCELLED yang dapat dihapus permanen."
-    );
-  }
+      /**
+       * ========================================================
+       * 3. GET CURRENT ORDER
+       * ========================================================
+       *
+       * Gunakan state setelah row berhasil di-lock.
+       */
+      const order =
+        await tx.order.findUnique({
+          where: {
+            id,
+          },
 
-  /**
-   * ============================================================
-   * FORCE DELETE
-   * ============================================================
-   *
-   * Prisma relation policy akan menangani relasi:
-   *
-   * - Cascade:
-   *   OrderItem
-   *   PaymentProof
-   *   VoucherUsage
-   *   FlashSalePurchase
-   *
-   * - SetNull:
-   *   StockLedger.orderId
-   */
-  return OrderRepository.forceDelete(
-    id
+          select: {
+            id: true,
+
+            status: true,
+
+            deletedAt: true,
+          },
+        });
+
+      if (!order) {
+        throw new Error(
+          "Order tidak ditemukan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 4. REQUIRE TRASH STATE
+       * ========================================================
+       *
+       * Force delete hanya boleh dilakukan terhadap order
+       * yang memang sudah berada di Trash.
+       */
+      if (!order.deletedAt) {
+        throw new Error(
+          "Order harus dipindahkan ke Trash terlebih dahulu sebelum dihapus permanen."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 5. REQUIRE FINAL STATUS
+       * ========================================================
+       *
+       * Hanya order final yang boleh dihapus permanen:
+       *
+       * - COMPLETED
+       * - CANCELLED
+       */
+      const isFinalStatus =
+        order.status ===
+          OrderStatus.COMPLETED ||
+        order.status ===
+          OrderStatus.CANCELLED;
+
+      if (!isFinalStatus) {
+        throw new Error(
+          "Hanya order COMPLETED atau CANCELLED yang dapat dihapus permanen."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 6. FORCE DELETE
+       * ========================================================
+       *
+       * Hapus order secara permanen.
+       *
+       * Relation policy Prisma/database akan menangani
+       * relasi child sesuai schema:
+       *
+       * - OrderItem
+       * - PaymentProof
+       * - VoucherUsage
+       * - FlashSalePurchase
+       *
+       * StockLedger tidak boleh ikut hilang apabila schema
+       * menggunakan ON DELETE SET NULL untuk orderId.
+       */
+      return await tx.order.delete({
+        where: {
+          id: order.id,
+        },
+      });
+    }
   );
 }
 
@@ -5372,26 +6382,6 @@ if (sku.stock < item.quantity) {
             },
           });
 
-          /**
- * ==========================================================
- * FLASH SALE ATOMIC CHECKOUT CONSUMPTION
- * ==========================================================
- *
- * HARUS dijalankan setelah Order berhasil dibuat,
- * tetapi tetap di dalam Prisma transaction yang sama.
- *
- * Service akan:
- *
- * - Validasi Flash Sale masih aktif
- * - Validasi quota terbaru
- * - Validasi per-user purchase limit
- * - Atomic increment soldQuantity
- * - Membuat FlashSalePurchase
- *
- * Jika salah satu validasi gagal, seluruh transaction
- * akan rollback termasuk Order yang baru dibuat.
- */
-
 /**
  * ==========================================================
  * FLASH SALE ATOMIC CHECKOUT CONSUMPTION
@@ -5431,120 +6421,151 @@ if (
         */
 
         if (voucherResult) {
-          const { voucher } =
-          voucherResult;
+  const { voucher } =
+    voucherResult;
 
-          /**
-            * ==================================================
-            * FINAL PER-USER LIMIT CHECK
-            * ==================================================
-          */
+  /**
+   * ==================================================
+   * FINAL PER-USER LIMIT CHECK
+   * ==================================================
+   *
+   * IMPORTANT:
+   *
+   * Lock harus diperoleh SEBELUM countUserUsage().
+   *
+   * Tanpa lock, dua checkout dari user yang sama
+   * dapat membaca usage count yang sama secara
+   * bersamaan dan keduanya lolos perUserLimit.
+   */
 
-          if (
-            voucher.perUserLimit !== null
-          ) {
-            const userUsageCount =
-            await VoucherRepository.countUserUsage(
-              voucher.id,
-              userId,
-              tx
-            );
+  if (
+    voucher.perUserLimit !== null
+  ) {
+    await VoucherRepository.acquireUserVoucherLock(
+      voucher.id,
+      userId,
+      tx
+    );
 
-            if (
-              userUsageCount >=
-              voucher.perUserLimit
-            ) {
-              throw new Error(
-                "Anda sudah mencapai batas penggunaan voucher ini."
-              );
+    const userUsageCount =
+      await VoucherRepository.countUserUsage(
+        voucher.id,
+        userId,
+        tx
+      );
+
+    if (
+      userUsageCount >=
+      voucher.perUserLimit
+    ) {
+      throw new Error(
+        "Anda sudah mencapai batas penggunaan voucher ini."
+      );
+    }
+  }
+
+  /**
+   * ==================================================
+   * GUARDED GLOBAL USAGE COUNT
+   * ==================================================
+   *
+   * Mencegah usageCount melebihi usageLimit.
+   */
+
+  const usageResult =
+    await tx.voucher.updateMany({
+      where: {
+        id:
+          voucher.id,
+
+        deletedAt:
+          null,
+
+        isActive:
+          true,
+
+        ...(voucher.usageLimit !== null
+          ? {
+              usageCount: {
+                lt:
+                  voucher.usageLimit,
+              },
             }
-          }
+          : {}),
+      },
 
-          /**
-            * ==================================================
-            * GUARDED GLOBAL USAGE COUNT
-            * ==================================================
-            *
-            * Mencegah usageCount melebihi usageLimit.
-          */
+      data: {
+        usageCount: {
+          increment:
+            1,
+        },
+      },
+    });
 
-          const usageResult =
-          await tx.voucher.updateMany({
-              where: {
-                id:
-                voucher.id,
+  if (
+    usageResult.count !==
+    1
+  ) {
+    throw new Error(
+      "Voucher sudah mencapai batas penggunaan. Silakan gunakan voucher lain."
+    );
+  }
 
-                deletedAt:
-                null,
+  /**
+   * ==================================================
+   * CREATE VOUCHER USAGE RECORD
+   * ==================================================
+   */
 
-                isActive:
-                true,
+  await VoucherRepository.createUsage(
+    {
+      voucherId:
+        voucher.id,
 
-                ...(voucher.usageLimit !== null
-                  ? {
-                    usageCount: {
-                      lt:
-                      voucher.usageLimit,
-                    },
-                  }
-                  : {}),
-              },
+      userId,
 
-              data: {
-                usageCount: {
-                  increment:
-                  1,
-                },
-              },
-            });
+      orderId:
+        createdOrder.id,
 
-          if (
-            usageResult.count !== 1
-          ) {
-            throw new Error(
-              "Voucher sudah mencapai batas penggunaan. Silakan gunakan voucher lain."
-            );
-          }
+      discountAmount:
+        voucherResult.discountAmount,
+    },
+    tx
+  );
+}
 
-          /**
-            * ==================================================
-            * CREATE VOUCHER USAGE RECORD
-            * ==================================================
-          */
-
-          await VoucherRepository.createUsage(
-            {
-              voucherId:
-              voucher.id,
-
-              userId,
-
-              orderId:
-              createdOrder.id,
-
-              discountAmount:
-              voucherResult.discountAmount,
-            },
-            tx
-          );
-        }
-
-        /**
-          * ====================================================
-          * AGGREGATE STOCK REQUIREMENTS PER SKU
-          * ====================================================
-          *
-          * Stock canonical berada pada ProductSku.stock.
-          * Product yang sama boleh memiliki beberapa SKU dengan
-          * stock terpisah, sehingga aggregation WAJIB berdasarkan
-          * skuId, bukan productId.
-        */
+                /**
+         * ====================================================
+         * AGGREGATE STOCK REQUIREMENTS PER SKU
+         * ====================================================
+         *
+         * Stock canonical berada pada ProductSku.stock.
+         *
+         * Product yang sama boleh memiliki beberapa SKU dengan
+         * stock terpisah.
+         *
+         * Karena itu aggregation WAJIB berdasarkan skuId,
+         * bukan productId.
+         *
+         * Contoh:
+         *
+         *   SKU-A × 2
+         *   SKU-A × 1
+         *   SKU-B × 3
+         *
+         * menjadi:
+         *
+         *   SKU-A = 3
+         *   SKU-B = 3
+         *
+         * ====================================================
+         */
 
         const stockRequirements =
-        new Map<
-          string,
-          number
-        >();
+          new Map<
+            string,
+            number
+          >();
 
         for (
           const item of normalizedItems
@@ -5555,6 +6576,17 @@ if (
             );
           }
 
+          if (
+            !Number.isInteger(
+              item.quantity
+            ) ||
+            item.quantity <= 0
+          ) {
+            throw new Error(
+              `Quantity untuk SKU "${item.skuId}" tidak valid.`
+            );
+          }
+
           stockRequirements.set(
             item.skuId,
             (
@@ -5562,26 +6594,96 @@ if (
                 item.skuId
               ) ?? 0
             ) +
-            item.quantity
+              item.quantity
           );
         }
 
         /**
-          * ====================================================
-          * ATOMIC SKU STOCK DECREMENT
-          * + CREATE STOCK LEDGER
-          * ====================================================
-          *
-          * Product.stock TIDAK lagi diubah oleh checkout.
-          * Guard stock >= quantity dilakukan di query UPDATE
-          * agar aman terhadap checkout bersamaan.
-        */
+         * ====================================================
+         * LOCK ALL AFFECTED SKU ROWS
+         * ====================================================
+         *
+         * Semua SKU yang akan dikurangi harus di-lock terlebih
+         * dahulu.
+         *
+         * Lock menggunakan urutan skuId yang deterministic
+         * untuk mengurangi risiko deadlock ketika terdapat
+         * beberapa checkout bersamaan.
+         *
+         * Setelah row terkunci:
+         *
+         *   LOCK
+         *     ↓
+         *   READ STOCK
+         *     ↓
+         *   UPDATE STOCK
+         *     ↓
+         *   CREATE LEDGER
+         *
+         * berjalan di dalam transaction yang sama.
+         *
+         * ====================================================
+         */
+
+        const lockedSkuIds =
+          Array.from(
+            stockRequirements.keys()
+          ).sort();
+
+        for (
+          const skuId of
+            lockedSkuIds
+        ) {
+          const lockedSku =
+            await tx.$queryRaw<
+              Array<{
+                id: string;
+              }>
+            >`
+              SELECT "id"
+              FROM "ProductSku"
+              WHERE "id" = ${skuId}
+              FOR UPDATE
+            `;
+
+          if (
+            lockedSku.length ===
+            0
+          ) {
+            throw new Error(
+              `SKU "${skuId}" tidak ditemukan saat checkout.`
+            );
+          }
+        }
+
+        /**
+         * ====================================================
+         * ATOMIC SKU STOCK DECREMENT
+         * + CREATE STOCK LEDGER
+         * ====================================================
+         *
+         * Pada titik ini seluruh SKU yang terdampak sudah
+         * terkunci.
+         *
+         * Product.stock TIDAK lagi digunakan untuk checkout.
+         *
+         * ProductSku.stock adalah canonical stock.
+         *
+         * ====================================================
+         */
 
         for (
           const [
             skuId,
             quantity,
-          ] of stockRequirements
+          ] of lockedSkuIds.map(
+            (id) => [
+              id,
+              stockRequirements.get(
+                id
+              ) ?? 0,
+            ] as const
+          )
         ) {
           if (
             quantity <= 0
@@ -5589,124 +6691,219 @@ if (
             continue;
           }
 
+          /**
+           * --------------------------------------------------
+           * GET LOCKED SKU SNAPSHOT
+           * --------------------------------------------------
+           *
+           * Row SKU sudah di-lock dengan FOR UPDATE.
+           */
+
           const currentSku =
-          await tx.productSku.findUnique({
+            await tx.productSku.findUnique({
               where: {
                 id:
-                skuId,
+                  skuId,
               },
 
               select: {
                 id: true,
+
                 sku: true,
+
                 productId: true,
+
                 stock: true,
+
                 isActive: true,
               },
             });
 
           if (!currentSku) {
             throw new Error(
-              "SKU tidak ditemukan saat checkout."
+              `SKU "${skuId}" tidak ditemukan saat checkout.`
             );
           }
 
-          if (!currentSku.isActive) {
+          /**
+           * --------------------------------------------------
+           * VALIDATE SKU ACTIVE
+           * --------------------------------------------------
+           */
+
+          if (
+            !currentSku.isActive
+          ) {
             throw new Error(
               `SKU "${currentSku.sku}" sedang tidak aktif.`
             );
           }
 
+          /**
+           * --------------------------------------------------
+           * STOCK BEFORE
+           * --------------------------------------------------
+           */
+
           const stockBefore =
-          currentSku.stock;
+            currentSku.stock;
+
+          /**
+           * --------------------------------------------------
+           * VALIDATE STOCK
+           * --------------------------------------------------
+           *
+           * Karena row sudah di-lock, pengecekan dilakukan
+           * terhadap stock aktual SKU.
+           */
+
+          if (
+            stockBefore <
+            quantity
+          ) {
+            throw new Error(
+              `Stok SKU "${currentSku.sku}" tidak mencukupi. Stok tersedia: ${stockBefore}, dibutuhkan: ${quantity}.`
+            );
+          }
+
+          /**
+           * --------------------------------------------------
+           * ATOMIC STOCK DECREMENT
+           * --------------------------------------------------
+           *
+           * Conditional stock tetap dipertahankan sebagai
+           * defensive guard.
+           */
 
           const stockResult =
-          await tx.productSku.updateMany({
+            await tx.productSku.updateMany({
               where: {
                 id:
-                currentSku.id,
+                  currentSku.id,
 
                 productId:
-                currentSku.productId,
+                  currentSku.productId,
 
                 isActive:
-                true,
+                  true,
 
-                stock: {
-                  gte:
-                  quantity,
-                },
+                stock:
+                  stockBefore,
               },
 
               data: {
                 stock: {
                   decrement:
-                  quantity,
+                    quantity,
                 },
               },
             });
 
           if (
-            stockResult.count !== 1
+            stockResult.count !==
+            1
           ) {
             throw new Error(
-              `Stok SKU "${currentSku.sku}" tidak mencukupi atau berubah sebelum checkout selesai.`
+              `Stok SKU "${currentSku.sku}" berubah sebelum checkout selesai. Silakan coba lagi.`
             );
           }
 
+          /**
+           * --------------------------------------------------
+           * STOCK AFTER
+           * --------------------------------------------------
+           */
+
           const stockAfter =
-          stockBefore -
-          quantity;
+            stockBefore -
+            quantity;
+
+          /**
+           * --------------------------------------------------
+           * CREATE STOCK LEDGER
+           * --------------------------------------------------
+           *
+           * SALE menggunakan quantity negatif.
+           *
+           * Contoh:
+           *
+           *   stockBefore = 20
+           *   quantity    = 3
+           *   stockAfter  = 17
+           *
+           * Ledger:
+           *
+           *   quantity = -3
+           *
+           * sehingga:
+           *
+           *   20 + (-3) = 17
+           */
 
           await tx.stockLedger.create({
-              data: {
-                productId:
+            data: {
+              productId:
                 currentSku.productId,
 
-                skuId:
+              skuId:
                 currentSku.id,
 
-                orderId:
+              orderId:
                 createdOrder.id,
 
-                type:
+              type:
                 "SALE",
 
-                quantity:
+              quantity:
                 -quantity,
 
-                stockBefore,
+              stockBefore,
 
-                stockAfter,
+              stockAfter,
 
-                note:
+              note:
                 `Penjualan ${createdOrder.orderNumber} - SKU ${currentSku.sku}`,
-              },
-            });
+            },
+          });
         }
 
         /**
-          * ====================================================
-          * CLEAR CART
-          * ====================================================
-        */
+         * ====================================================
+         * CLEAR CART
+         * ====================================================
+         *
+         * Cart baru dihapus setelah seluruh stock SKU berhasil
+         * dikurangi dan seluruh StockLedger SALE berhasil dibuat.
+         *
+         * Semua masih berada di dalam transaction yang sama.
+         *
+         * Jika proses setelah ini gagal, transaction akan rollback
+         * sehingga:
+         *
+         *   - order rollback
+         *   - stock rollback
+         *   - ledger rollback
+         *   - cart tetap ada
+         *
+         * ====================================================
+         */
 
         await tx.cartItem.deleteMany({
-            where: {
-              cartId:
+          where: {
+            cartId:
               cart.id,
-            },
-          });
+          },
+        });
 
         return createdOrder;
       }
     );
 
     /**
-      * ========================================================
-      * CREATE ORDER NOTIFICATION
-      * ========================================================
-    */
+     * ========================================================
+     * CREATE ORDER NOTIFICATION
+     * ========================================================
+     */
 
     try {
       await notificationService.createOrderNotification({
