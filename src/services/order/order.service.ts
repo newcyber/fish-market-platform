@@ -7047,7 +7047,7 @@ if (
       }
     );
 
-    /**
+        /**
      * ========================================================
      * CREATE ORDER NOTIFICATION
      * ========================================================
@@ -7055,28 +7055,28 @@ if (
 
     try {
       await notificationService.createOrderNotification({
-          orderId:
+        orderId:
           order.id,
 
-          orderNumber:
+        orderNumber:
           order.orderNumber,
 
-          customerName:
+        customerName:
           order.user?.name ??
           null,
 
-          totalAmount:
+        totalAmount:
           Number(
             order.total
           ),
-        });
+      });
     } catch (
       notificationError
     ) {
       /**
-        * Notification tidak boleh membuat checkout
-        * yang sudah berhasil menjadi gagal.
-      */
+       * Notification tidak boleh membuat checkout
+       * yang sudah berhasil menjadi gagal.
+       */
 
       console.error(
         "[CREATE_ORDER_NOTIFICATION_ERROR]",

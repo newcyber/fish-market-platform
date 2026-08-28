@@ -118,6 +118,8 @@ model User {
 
   flashSalePurchases FlashSalePurchase[]
 
+  notifications Notification[]
+
   accounts Account[]
   sessions Session[]
 
@@ -2182,22 +2184,22 @@ model StoreSettings {
 model Notification {
   id String @id @default(cuid())
 
-  title String
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  title   String
   message String
-
-  type NotificationType
-
-  href String?
+  type    NotificationType
+  href    String?
 
   isRead Boolean @default(false)
 
   createdAt DateTime @default(now())
-
   updatedAt DateTime @updatedAt
 
-  @@index([isRead])
-  @@index([createdAt])
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
   @@index([type])
 }
 

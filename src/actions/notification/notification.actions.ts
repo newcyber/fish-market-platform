@@ -55,43 +55,62 @@ export async function getNotificationsAction(): Promise<GetNotificationsResult> 
   try {
     const session = await auth();
 
-    if (!session?.user?.id) {
+    const userId =
+      session?.user?.id?.trim();
+
+    if (!userId) {
       return {
         success: false,
+
         notifications: [],
+
         unreadCount: 0,
       };
     }
 
-    const [notifications, unreadCount] =
-      await Promise.all([
-        notificationService.getLatestNotifications({
-          take: 10,
-        }),
+    const [
+      notifications,
+      unreadCount,
+    ] = await Promise.all([
+      notificationService.getLatestNotifications({
+        userId,
 
-        notificationService.getUnreadCount(),
-      ]);
+        take: 10,
+      }),
+
+      notificationService.getUnreadCount(
+        userId
+      ),
+    ]);
 
     return {
       success: true,
 
-      notifications: notifications.map(
-        (notification) => ({
-          id: notification.id,
+      notifications:
+        notifications.map(
+          (notification) => ({
+            id:
+              notification.id,
 
-          title: notification.title,
+            title:
+              notification.title,
 
-          message: notification.message,
+            message:
+              notification.message,
 
-          type: notification.type,
+            type:
+              notification.type,
 
-          href: notification.href,
+            href:
+              notification.href,
 
-          isRead: notification.isRead,
+            isRead:
+              notification.isRead,
 
-          createdAt: notification.createdAt,
-        })
-      ),
+            createdAt:
+              notification.createdAt,
+          })
+        ),
 
       unreadCount,
     };
@@ -123,22 +142,31 @@ export async function markNotificationAsReadAction(
   try {
     const session = await auth();
 
-    if (!session?.user?.id) {
+    const userId =
+      session?.user?.id?.trim();
+
+    if (!userId) {
       return {
         success: false,
+
         message:
           "Anda harus login terlebih dahulu.",
       };
     }
 
     await notificationService.markAsRead(
+      userId,
+
       notificationId
     );
 
-    revalidatePath("/admin");
+    revalidatePath(
+      "/admin"
+    );
 
     return {
       success: true,
+
       message:
         "Notifikasi berhasil ditandai sudah dibaca.",
     };
@@ -150,6 +178,7 @@ export async function markNotificationAsReadAction(
 
     return {
       success: false,
+
       message:
         "Gagal memperbarui notifikasi.",
     };
@@ -166,20 +195,29 @@ export async function markAllNotificationsAsReadAction() {
   try {
     const session = await auth();
 
-    if (!session?.user?.id) {
+    const userId =
+      session?.user?.id?.trim();
+
+    if (!userId) {
       return {
         success: false,
+
         message:
           "Anda harus login terlebih dahulu.",
       };
     }
 
-    await notificationService.markAllAsRead();
+    await notificationService.markAllAsRead(
+      userId
+    );
 
-    revalidatePath("/admin");
+    revalidatePath(
+      "/admin"
+    );
 
     return {
       success: true,
+
       message:
         "Semua notifikasi telah ditandai sudah dibaca.",
     };
@@ -191,6 +229,7 @@ export async function markAllNotificationsAsReadAction() {
 
     return {
       success: false,
+
       message:
         "Gagal memperbarui notifikasi.",
     };
