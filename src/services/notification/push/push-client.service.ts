@@ -1,3 +1,7 @@
+import {
+  removePushSubscriptionAction,
+} from "@/actions/notification/push.actions";
+
 /**
  * ============================================================
  * PUSH CLIENT SERVICE
@@ -258,29 +262,80 @@ class PushClientService {
    * ==========================================================
    */
 
-  async unsubscribe() {
-    if (!this.isSupported()) {
-      return false;
-    }
+  /**
+ * ==========================================================
+ * UNSUBSCRIBE
+ * ==========================================================
+ *
+ * Browser subscription dan database harus sama-sama
+ * dibersihkan.
+ *
+ * SECURITY:
+ * removePushSubscriptionAction() mengambil userId
+ * dari auth() di server. Client tidak pernah mengirim
+ * userId.
+ */
 
-    const registration =
-      await navigator.serviceWorker.getRegistration(
-        "/"
-      );
-
-    if (!registration) {
-      return false;
-    }
-
-    const subscription =
-      await registration.pushManager.getSubscription();
-
-    if (!subscription) {
-      return false;
-    }
-
-    return subscription.unsubscribe();
+async unsubscribe() {
+  if (!this.isSupported()) {
+    return false;
   }
+
+  const registration =
+    await navigator.serviceWorker.getRegistration("/");
+
+  if (!registration) {
+    return false;
+  }
+
+  const subscription =
+    await registration.pushManager.getSubscription();
+
+  if (!subscription) {
+    return false;
+  }
+
+  const serialized =
+    this.serializeSubscription(
+      subscription
+    );
+
+  const browserUnsubscribed =
+    await subscription.unsubscribe();
+
+  if (!browserUnsubscribed) {
+    return false;
+  }
+
+  /**
+   * Browser sudah unsubscribe.
+   *
+   * Sekarang hapus subscription milik user
+   * dari database.
+   */
+
+  const result =
+    await removePushSubscriptionAction(
+      serialized.endpoint
+    );
+
+  if (!result.success) {
+    console.error(
+      "[PUSH_DB_UNSUBSCRIBE_ERROR]",
+      result.message
+    );
+
+    /**
+     * Browser sudah unsubscribe tetapi DB gagal
+     * dibersihkan.
+     *
+     * Jangan mengembalikan false seolah browser gagal.
+     * Subscription browser memang sudah nonaktif.
+     */
+  }
+
+  return true;
+}
 }
 
 const pushClientService =

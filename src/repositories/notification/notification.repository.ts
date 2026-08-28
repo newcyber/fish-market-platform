@@ -91,6 +91,11 @@ class NotificationRepository {
    *
    * createMany() sengaja berada di repository agar service
    * tidak perlu mengetahui detail Prisma.
+   *
+   * Method ini hanya mengembalikan count.
+   *
+   * Jika caller membutuhkan ID notification yang baru dibuat,
+   * gunakan createManyAndReturn().
    */
 
   async createMany(
@@ -103,6 +108,66 @@ class NotificationRepository {
     }
 
     return prisma.notification.createMany({
+      data: data.map(
+        (item) => ({
+          userId:
+            item.userId,
+
+          title:
+            item.title.trim(),
+
+          message:
+            item.message.trim(),
+
+          type:
+            item.type,
+
+          href:
+            item.href?.trim() || null,
+        })
+      ),
+    });
+  }
+
+  /**
+   * ==========================================================
+   * CREATE MANY AND RETURN
+   * ==========================================================
+   *
+   * Digunakan ketika setiap notification membutuhkan ID
+   * hasil insert.
+   *
+   * createMany() hanya mengembalikan:
+   *
+   * {
+   *   count: number
+   * }
+   *
+   * Sedangkan method ini mengembalikan notification record
+   * yang benar-benar dibuat.
+   *
+   * Contoh:
+   *
+   * ADMIN A
+   *   → notificationId A
+   *
+   * ADMIN B
+   *   → notificationId B
+   *
+   * ID tersebut nantinya digunakan sebagai identity pada
+   * payload Web Push sehingga ketika user menekan notification,
+   * kita dapat mengetahui notification database mana yang
+   * harus ditandai sebagai read.
+   */
+
+  async createManyAndReturn(
+    data: CreateNotificationInput[]
+  ) {
+    if (data.length === 0) {
+      return [];
+    }
+
+    return prisma.notification.createManyAndReturn({
       data: data.map(
         (item) => ({
           userId:

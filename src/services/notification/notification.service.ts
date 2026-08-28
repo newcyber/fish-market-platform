@@ -1,8 +1,10 @@
 import { NotificationType } from "@prisma/client";
 
+import { prisma } from "@/lib/prisma";
+
 import notificationRepository from "@/repositories/notification/notification.repository";
 
-import { prisma } from "@/lib/prisma";
+import pushDeliveryService from "@/services/notification/push/push-delivery.service";
 
 /**
  * ============================================================
@@ -16,6 +18,13 @@ import { prisma } from "@/lib/prisma";
  * - Notification selalu mempunyai recipient user.
  * - User-facing query selalu user-scoped.
  * - Event system dapat melakukan broadcast ke beberapa user.
+ *
+ * Push notification:
+ *
+ * - Bersifat best-effort.
+ * - Kegagalan push tidak menggagalkan notification database.
+ * - Kegagalan push tidak menggagalkan checkout/order.
+ * - Detail Web Push ditangani oleh PushDeliveryService.
  *
  * ============================================================
  */
@@ -51,11 +60,31 @@ class NotificationService {
    *
    * Customer yang membuat order BUKAN recipient notification
    * admin ini.
+   *
+   * Flow:
+   *
+   * Order
+   *   ↓
+   * resolve active admin recipients
+   *   ↓
+   * create Notification records
+   *   ↓
+   * PushDeliveryService
+   *   ↓
+   * seluruh device recipient
+   *
+   * Push bersifat best-effort.
    */
 
   async createOrderNotification(
     input: CreateOrderNotificationInput
   ) {
+    /**
+     * --------------------------------------------------------
+     * VALIDATE ORDER ID
+     * --------------------------------------------------------
+     */
+
     const orderId =
       input.orderId?.trim();
 
@@ -64,6 +93,12 @@ class NotificationService {
         "Order ID tidak valid."
       );
     }
+
+    /**
+     * --------------------------------------------------------
+     * NORMALIZE MESSAGE DATA
+     * --------------------------------------------------------
+     */
 
     const orderNumber =
       input.orderNumber?.trim() ||
@@ -110,6 +145,8 @@ class NotificationService {
      * ========================================================
      * GET ACTIVE ADMIN RECIPIENTS
      * ========================================================
+     *
+     * Recipient ditentukan sepenuhnya oleh server.
      */
 
     const recipients =
@@ -134,17 +171,22 @@ class NotificationService {
         },
       });
 
-    if (recipients.length === 0) {
-      /**
-       * Tidak ada admin aktif.
-       *
-       * Order tetap berhasil.
-       * Notification tidak perlu dianggap sebagai kegagalan
-       * terhadap proses checkout.
-       */
+    /**
+     * --------------------------------------------------------
+     * NO ACTIVE RECIPIENT
+     * --------------------------------------------------------
+     */
 
+    if (recipients.length === 0) {
       return {
         count: 0,
+
+        push: {
+          totalSubscriptions: 0,
+          sent: 0,
+          failed: 0,
+          removed: 0,
+        },
       };
     }
 
@@ -152,27 +194,105 @@ class NotificationService {
      * ========================================================
      * CREATE NOTIFICATIONS
      * ========================================================
+     *
+     * createManyAndReturn() digunakan karena kita membutuhkan
+     * ID notification untuk payload Web Push.
      */
 
-    return notificationRepository.createMany(
-      recipients.map(
-        (recipient) => ({
-          userId:
-            recipient.id,
+    const notifications =
+      await notificationRepository.createManyAndReturn(
+        recipients.map(
+          (recipient) => ({
+            userId:
+              recipient.id,
 
-          title:
-            "Pesanan Baru",
+            title:
+              "Pesanan Baru",
 
-          message,
+            message,
 
-          type:
-            NotificationType.NEW_ORDER,
+            type:
+              NotificationType.NEW_ORDER,
 
-          href:
-            `/admin/orders/${orderId}`,
-        })
-      )
-    );
+            href:
+              `/admin/orders/${orderId}`,
+          })
+        )
+      );
+
+    /**
+     * ========================================================
+     * WEB PUSH DELIVERY
+     * ========================================================
+     *
+     * Push tidak boleh menggagalkan proses order.
+     *
+     * PushDeliveryService menangani:
+     *
+     * - pencarian subscription
+     * - pengiriman ke seluruh device
+     * - invalid subscription 404/410
+     * - cleanup subscription invalid
+     * - error handling per subscription
+     */
+
+    let pushResult = {
+  totalNotifications: 0,
+  totalSubscriptions: 0,
+  sent: 0,
+  failed: 0,
+  removed: 0,
+};
+
+try {
+  pushResult =
+    await pushDeliveryService.deliver({
+      notifications:
+        notifications.map(
+          (notification) => ({
+            userId:
+              notification.userId,
+
+            notificationId:
+              notification.id,
+
+            title:
+              notification.title,
+
+            message:
+              notification.message,
+
+            href:
+              notification.href,
+
+            type:
+              notification.type,
+
+            createdAt:
+              notification.createdAt,
+          })
+        ),
+    });
+} catch (error) {
+  console.error(
+    "[WEB_PUSH_DELIVERY_FATAL_ERROR]",
+    error
+  );
+}
+
+    /**
+     * ========================================================
+     * RESULT
+     * ========================================================
+     */
+
+    return {
+      count:
+        notifications.length,
+
+      push:
+        pushResult,
+    };
   }
 
   /**

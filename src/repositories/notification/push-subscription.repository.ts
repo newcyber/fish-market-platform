@@ -236,6 +236,56 @@ class PushSubscriptionRepository {
 
   /**
    * ==========================================================
+   * FIND MANY BY USERS
+   * ==========================================================
+   *
+   * Digunakan oleh notification delivery untuk mengambil
+   * seluruh subscription milik beberapa user sekaligus.
+   *
+   * Contoh:
+   *
+   * ADMIN A
+   *   ├── Chrome
+   *   └── Edge
+   *
+   * ADMIN B
+   *   └── Chrome
+   *
+   * Semua subscription tersebut akan menerima push.
+   *
+   * userIds selalu berasal dari server-side recipient resolution.
+   */
+
+  async findManyByUserIds(
+    userIds: string[]
+  ) {
+    const normalizedUserIds = [
+      ...new Set(
+        userIds
+          .map((id) => id.trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (normalizedUserIds.length === 0) {
+      return [];
+    }
+
+    return prisma.pushSubscription.findMany({
+      where: {
+        userId: {
+          in: normalizedUserIds,
+        },
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+
+  /**
+   * ==========================================================
    * COUNT BY USER
    * ==========================================================
    */
