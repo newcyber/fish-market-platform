@@ -4,6 +4,7 @@ import {
   PromotionDiscountType,
   PromotionStatus,
   PromotionType,
+  FlashSaleStatus,
 } from "@prisma/client";
 
 /**
@@ -61,22 +62,48 @@ export interface ResolveProductPriceInput {
 
   /**
    * Canonical sellable unit.
+   *
+   * Untuk product dengan SKU,
+   * harga dan discount menggunakan ProductSku.
    */
   skuId?: string | null;
 
   /**
-   * Legacy inputs - temporary compatibility only.
+   * Flash Sale Item yang dipilih oleh caller.
+   *
+   * Jika tersedia:
+   *
+   * - Pricing TIDAK boleh memilih FlashSaleItem lain
+   * - Pricing harus memvalidasi FlashSaleItem ini
+   * - FlashSaleItem harus cocok dengan productId + skuId
+   * - FlashSaleItem harus aktif
+   * - Campaign harus aktif
+   * - Campaign harus berada dalam periode aktif
+   * - quota harus masih tersedia
+   *
+   * Ini penting untuk mencegah race / salah campaign
+   * ketika checkout concurrency terjadi.
+   */
+  preferredFlashSaleItemId?: string | null;
+
+  /**
+   * Legacy inputs.
+   *
+   * Dipertahankan sementara agar consumer lama
+   * tetap dapat dikompilasi.
    */
   productVariant?: string | null;
+
   productWeight?: string | null;
 
   /**
-   * Legacy fallback for products without SKU.
+   * Legacy fallback.
    *
-   * Untuk product dengan SKU, canonical price berasal
-   * dari ProductSku.price.
+   * Hanya digunakan untuk product tanpa SKU.
    */
-  fallbackPrice?: Prisma.Decimal | number;
+  fallbackPrice?:
+    | Prisma.Decimal
+    | number;
 }
 
 export type ProductDiscountSource =
@@ -89,17 +116,20 @@ export interface ProductPricingResult {
   /**
    * Harga SKU/Product sebelum pricing override.
    */
-  originalPrice: Prisma.Decimal;
+  originalPrice:
+    Prisma.Decimal;
 
   /**
    * Nominal discount yang benar-benar diterapkan.
    */
-  discountAmount: Prisma.Decimal;
+  discountAmount:
+    Prisma.Decimal;
 
   /**
    * Harga final.
    */
-  finalPrice: Prisma.Decimal;
+  finalPrice:
+    Prisma.Decimal;
 
   /**
    * Backward compatibility.
@@ -109,36 +139,44 @@ export interface ProductPricingResult {
    *
    * Flash Sale menggunakan flag tersendiri.
    */
-  isDiscountApplied: boolean;
+  isDiscountApplied:
+    boolean;
 
   /**
    * True jika Flash Sale menjadi pricing source.
    */
-  isFlashSaleApplied: boolean;
+  isFlashSaleApplied:
+    boolean;
 
   /**
    * True jika Promotion PRICE_DISCOUNT menjadi
    * pricing source.
    */
-  promotionDiscountApplied: boolean;
+  promotionDiscountApplied:
+    boolean;
 
   /**
    * Promotion yang menghasilkan harga final.
    *
    * null jika tidak ada Promotion yang diterapkan.
    */
-  promotionId: string | null;
+  promotionId:
+    string | null;
 
   /**
    * Sumber pricing final.
    */
-  discountSource: ProductDiscountSource;
+  discountSource:
+    ProductDiscountSource;
 
   /**
    * Flash Sale metadata.
    */
-  flashSaleItemId: string | null;
-  flashSaleId: string | null;
+  flashSaleItemId:
+    string | null;
+
+  flashSaleId:
+    string | null;
 }
 
 export default class ProductPricingService {
@@ -153,9 +191,15 @@ export default class ProductPricingService {
   ): Promise<ProductPricingResult> {
     const {
       productId,
+
       skuId,
+
+      preferredFlashSaleItemId,
+
       productVariant,
+
       productWeight,
+
       fallbackPrice,
     } = input;
 
@@ -176,7 +220,10 @@ export default class ProductPricingService {
      */
     if (
       !skuId &&
-      (productVariant || productWeight)
+      (
+        productVariant ||
+        productWeight
+      )
     ) {
       throw new Error(
         "Pricing sekarang berbasis SKU. skuId wajib dikirim untuk produk dengan variant."
@@ -199,22 +246,37 @@ export default class ProductPricingService {
     const product =
       await tx.product.findUnique({
         where: {
-          id: productId,
+          id:
+            productId,
         },
+
         select: {
-          id: true,
-          price: true,
+          id:
+            true,
+
+          price:
+            true,
 
           /**
            * Legacy product discount.
            *
-           * Hanya digunakan ketika skuId tidak tersedia.
+           * Hanya digunakan ketika skuId
+           * tidak tersedia.
            */
-          isDiscountActive: true,
-          discountType: true,
-          discountValue: true,
-          discountStartAt: true,
-          discountEndAt: true,
+          isDiscountActive:
+            true,
+
+          discountType:
+            true,
+
+          discountValue:
+            true,
+
+          discountStartAt:
+            true,
+
+          discountEndAt:
+            true,
         },
       });
 
@@ -230,9 +292,11 @@ export default class ProductPricingService {
      * ==========================================================
      */
 
-    let originalPrice: Prisma.Decimal;
+    let originalPrice:
+      Prisma.Decimal;
 
-    let discountIsActive: boolean;
+    let discountIsActive:
+      boolean;
 
     let discountType:
       | ProductDiscountType
@@ -256,26 +320,47 @@ export default class ProductPricingService {
        * CANONICAL SKU PATH
        * --------------------------------------------------------
        */
+
       const sku =
         await tx.productSku.findFirst({
           where: {
-            id: skuId,
-            productId,
+            id:
+              skuId,
+
+            productId:
+              productId,
           },
+
           select: {
-            id: true,
-            price: true,
-            stock: true,
-            isActive: true,
+            id:
+              true,
+
+            price:
+              true,
+
+            stock:
+              true,
+
+            isActive:
+              true,
 
             /**
              * Canonical SKU Product Discount.
              */
-            isDiscountActive: true,
-            discountType: true,
-            discountValue: true,
-            discountStartAt: true,
-            discountEndAt: true,
+            isDiscountActive:
+              true,
+
+            discountType:
+              true,
+
+            discountValue:
+              true,
+
+            discountStartAt:
+              true,
+
+            discountEndAt:
+              true,
           },
         });
 
@@ -295,9 +380,13 @@ export default class ProductPricingService {
        * ProductSku adalah canonical price source.
        */
       originalPrice =
-        new Prisma.Decimal(sku.price);
+        new Prisma.Decimal(
+          sku.price
+        );
 
-      if (originalPrice.lessThan(0)) {
+      if (
+        originalPrice.lessThan(0)
+      ) {
         throw new Error(
           "Harga SKU tidak valid."
         );
@@ -335,8 +424,10 @@ export default class ProductPricingService {
        * Setelah seluruh consumer legacy dimigrasikan,
        * fallback ini dapat dihapus dan skuId dibuat wajib.
        */
+
       originalPrice =
-        fallbackPrice !== undefined
+        fallbackPrice !==
+        undefined
           ? new Prisma.Decimal(
               fallbackPrice
             )
@@ -344,7 +435,9 @@ export default class ProductPricingService {
               product.price
             );
 
-      if (originalPrice.lessThan(0)) {
+      if (
+        originalPrice.lessThan(0)
+      ) {
         throw new Error(
           "Harga produk tidak valid."
         );
@@ -373,43 +466,74 @@ export default class ProductPricingService {
         product.discountEndAt;
     }
 
-    /**
+        /**
      * ==========================================================
      * CURRENT TIME
      * ==========================================================
      */
-    const now = new Date();
+    const now =
+      new Date();
 
-        /**
+    /**
      * ==========================================================
-     * FIND ACTIVE FLASH SALE
+     * FIND FLASH SALE
      * ==========================================================
      *
      * Canonical priority:
      *
-     * 1. SKU-specific Flash Sale.
-     * 2. Legacy/product-wide Flash Sale.
+     * 1. preferredFlashSaleItemId
+     * 2. SKU-specific Flash Sale
+     * 3. Legacy/product-wide Flash Sale
      *
-     * Flash Sale memiliki priority tertinggi.
+     * Flash Sale memiliki priority tertinggi terhadap:
+     *
+     * - Promotion PRICE_DISCOUNT
+     * - ProductSku Discount
+     *
+     * Pricing TIDAK melakukan stacking discount.
      *
      * IMPORTANT:
      *
-     * Pricing hanya boleh menggunakan Flash Sale yang
-     * benar-benar masih memiliki quota.
+     * ProductSku.stock TIDAK digunakan sebagai quota
+     * Flash Sale.
      *
-     * Formula:
+     * Quota Flash Sale:
      *
      *     soldQuantity < stockLimit
      *
-     * ProductSku.stock TIDAK digunakan untuk menentukan
-     * quota Flash Sale.
+     * ----------------------------------------------------------
+     *
+     * preferredFlashSaleItemId digunakan ketika caller sudah
+     * mengetahui FlashSaleItem tertentu yang harus digunakan.
+     *
+     * Contoh:
+     *
+     * TEST concurrency:
+     *
+     * Checkout A
+     *       ↓
+     * preferredFlashSaleItemId = X
+     *
+     * Checkout B
+     *       ↓
+     * preferredFlashSaleItemId = X
+     *
+     * Dengan demikian kedua checkout mengacu pada
+     * FlashSaleItem yang SAMA.
+     *
+     * Jika preferredFlashSaleItemId diberikan tetapi tidak valid,
+     * JANGAN diam-diam menggantinya dengan Flash Sale lain.
+     *
+     * Ini penting agar pricing dan FlashSaleCheckoutService
+     * menggunakan sumber Flash Sale yang konsisten.
      */
 
     const flashSaleScope = {
       isActive: true,
 
       flashSale: {
-        status: "ACTIVE" as const,
+        status:
+          FlashSaleStatus.ACTIVE,
 
         deletedAt: null,
 
@@ -426,31 +550,115 @@ export default class ProductPricingService {
     let flashSaleItem:
       | {
           id: string;
+
           flashSaleId: string;
-          flashPrice: Prisma.Decimal;
+
+          flashPrice:
+            Prisma.Decimal;
+
           stockLimit: number;
+
           soldQuantity: number;
         }
       | null = null;
 
-    if (skuId) {
-      /**
-       * --------------------------------------------------------
-       * SKU-SPECIFIC FLASH SALE
-       * --------------------------------------------------------
-       *
-       * Ambil semua kandidat yang masih mungkin tersedia.
-       *
-       * Prisma tidak melakukan perbandingan:
-       *
-       *     stockLimit > soldQuantity
-       *
-       * secara langsung pada query biasa.
-       *
-       * Karena itu filtering final dilakukan di application
-       * layer.
-       */
+    /**
+     * ==========================================================
+     * 1. PREFERRED FLASH SALE ITEM
+     * ==========================================================
+     *
+     * Jika caller mengirim preferredFlashSaleItemId,
+     * gunakan item tersebut setelah seluruh validasi.
+     *
+     * TIDAK boleh fallback ke Flash Sale lain jika
+     * preferred item ternyata tidak valid.
+     */
 
+    if (
+      preferredFlashSaleItemId
+    ) {
+      const preferredItem =
+        await tx.flashSaleItem.findFirst({
+          where: {
+            id:
+              preferredFlashSaleItemId,
+
+            ...flashSaleScope,
+
+            productId,
+
+            ...(skuId
+              ? {
+                  skuId,
+                }
+              : {
+                  skuId: null,
+                  weightOptionId:
+                    null,
+                }),
+
+            stockLimit: {
+              gt: 0,
+            },
+          },
+
+          select: {
+            id: true,
+
+            flashSaleId: true,
+
+            flashPrice: true,
+
+            stockLimit: true,
+
+            soldQuantity: true,
+          },
+        });
+
+      /**
+       * preferredFlashSaleItemId diberikan oleh caller,
+       * tetapi item tersebut tidak lagi valid.
+       *
+       * Jangan memilih Flash Sale lain secara diam-diam.
+       */
+      if (!preferredItem) {
+        throw new Error(
+          "Flash Sale yang dipilih sudah tidak aktif atau tidak berlaku untuk SKU ini."
+        );
+      }
+
+      /**
+       * Flash Sale harus masih memiliki quota.
+       */
+      if (
+        preferredItem.soldQuantity >=
+        preferredItem.stockLimit
+      ) {
+        throw new Error(
+          "Kuota Flash Sale yang dipilih sudah habis."
+        );
+      }
+
+      flashSaleItem =
+        preferredItem;
+    }
+
+    /**
+     * ==========================================================
+     * 2. NORMAL SKU-SPECIFIC FLASH SALE
+     * ==========================================================
+     *
+     * Hanya dilakukan jika caller TIDAK memberikan
+     * preferredFlashSaleItemId.
+     *
+     * SKU-specific Flash Sale memiliki prioritas lebih tinggi
+     * daripada legacy product-wide Flash Sale.
+     */
+
+    if (
+      !flashSaleItem &&
+      skuId
+    ) {
       const skuFlashSaleItems =
         await tx.flashSaleItem.findMany({
           where: {
@@ -480,97 +688,114 @@ export default class ProductPricingService {
           orderBy: [
             {
               flashSale: {
-                sortOrder: "asc",
+                sortOrder:
+                  "asc",
               },
             },
 
             {
-              sortOrder: "asc",
+              sortOrder:
+                "asc",
             },
 
             {
-              createdAt: "asc",
+              createdAt:
+                "asc",
             },
           ],
         });
 
       /**
-       * Hanya Flash Sale yang:
+       * Hanya Flash Sale yang benar-benar masih mempunyai
+       * quota yang boleh menjadi pricing source.
+       *
+       * Formula:
        *
        *     soldQuantity < stockLimit
-       *
-       * yang boleh menjadi pricing source.
        */
-
       flashSaleItem =
         skuFlashSaleItems.find(
           (item) =>
             item.soldQuantity <
             item.stockLimit
         ) ?? null;
+    }
 
-      /**
-       * --------------------------------------------------------
-       * LEGACY PRODUCT-WIDE FALLBACK
-       * --------------------------------------------------------
-       *
-       * Hanya digunakan jika tidak ditemukan Flash Sale
-       * SKU-specific yang tersedia.
-       */
+    /**
+     * ==========================================================
+     * 3. LEGACY PRODUCT-WIDE FLASH SALE
+     * ==========================================================
+     *
+     * Compatibility path untuk FlashSaleItem lama yang:
+     *
+     *     skuId = null
+     *     weightOptionId = null
+     *
+     * Hanya digunakan jika:
+     *
+     * - tidak ada preferred Flash Sale
+     * - tidak ada SKU-specific Flash Sale yang tersedia
+     */
 
-      if (!flashSaleItem) {
-        const legacyFlashSaleItems =
-          await tx.flashSaleItem.findMany({
-            where: {
-              ...flashSaleScope,
+    if (
+      !flashSaleItem &&
+      skuId
+    ) {
+      const legacyFlashSaleItems =
+        await tx.flashSaleItem.findMany({
+          where: {
+            ...flashSaleScope,
 
-              productId,
+            productId,
 
-              skuId: null,
+            skuId: null,
 
-              weightOptionId: null,
+            weightOptionId:
+              null,
 
-              stockLimit: {
-                gt: 0,
+            stockLimit: {
+              gt: 0,
+            },
+          },
+
+          select: {
+            id: true,
+
+            flashSaleId: true,
+
+            flashPrice: true,
+
+            stockLimit: true,
+
+            soldQuantity: true,
+          },
+
+          orderBy: [
+            {
+              flashSale: {
+                sortOrder:
+                  "asc",
               },
             },
 
-            select: {
-              id: true,
-
-              flashSaleId: true,
-
-              flashPrice: true,
-
-              stockLimit: true,
-
-              soldQuantity: true,
+            {
+              sortOrder:
+                "asc",
             },
 
-            orderBy: [
-              {
-                flashSale: {
-                  sortOrder: "asc",
-                },
-              },
+            {
+              createdAt:
+                "asc",
+            },
+          ],
+        });
 
-              {
-                sortOrder: "asc",
-              },
-
-              {
-                createdAt: "asc",
-              },
-            ],
-          });
-
-        flashSaleItem =
-          legacyFlashSaleItems.find(
-            (item) =>
-              item.soldQuantity <
-              item.stockLimit
-          ) ?? null;
-      }
+      flashSaleItem =
+        legacyFlashSaleItems.find(
+          (item) =>
+            item.soldQuantity <
+            item.stockLimit
+        ) ?? null;
     }
 
     /**
@@ -580,28 +805,40 @@ export default class ProductPricingService {
      *
      * Flash Sale memiliki priority tertinggi.
      *
-     * Jika Flash Sale aktif:
+     * Priority final:
      *
-     * Flash Sale
-     *     >
-     * Promotion
-     *     >
-     * ProductSku Discount
+     *     Flash Sale
+     *          >
+     *     Promotion PRICE_DISCOUNT
+     *          >
+     *     ProductSku Discount
+     *          >
+     *     Normal Price
      *
-     * tidak terjadi stacking.
+     * Tidak terjadi stacking.
      */
+
     if (flashSaleItem) {
       const flashPrice =
         new Prisma.Decimal(
           flashSaleItem.flashPrice
         );
 
-      if (flashPrice.lessThan(0)) {
+      /**
+       * Harga Flash Sale tidak boleh negatif.
+       */
+      if (
+        flashPrice.lessThan(0)
+      ) {
         throw new Error(
           "Harga Flash Sale tidak valid."
         );
       }
 
+      /**
+       * Flash Sale tidak boleh lebih mahal daripada
+       * harga normal SKU/Product.
+       */
       if (
         flashPrice.greaterThan(
           originalPrice
@@ -612,6 +849,23 @@ export default class ProductPricingService {
         );
       }
 
+      /**
+       * Pastikan quota masih tersedia pada saat pricing.
+       *
+       * Ini bukan pengganti atomic consume.
+       *
+       * FlashSaleCheckoutService tetap wajib melakukan
+       * validasi + advisory lock + atomic increment.
+       */
+      if (
+        flashSaleItem.soldQuantity >=
+        flashSaleItem.stockLimit
+      ) {
+        throw new Error(
+          "Kuota Flash Sale baru saja habis."
+        );
+      }
+
       const discountAmount =
         originalPrice.minus(
           flashPrice
@@ -619,21 +873,27 @@ export default class ProductPricingService {
 
       return {
         originalPrice,
+
         discountAmount,
-        finalPrice: flashPrice,
+
+        finalPrice:
+          flashPrice,
 
         /**
          * ProductSku/Product Discount
          * tidak diterapkan ketika Flash Sale aktif.
          */
-        isDiscountApplied: false,
+        isDiscountApplied:
+          false,
 
-        isFlashSaleApplied: true,
+        isFlashSaleApplied:
+          true,
 
         promotionDiscountApplied:
           false,
 
-        promotionId: null,
+        promotionId:
+          null,
 
         discountSource:
           "FLASH_SALE",

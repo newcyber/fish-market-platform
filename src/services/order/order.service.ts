@@ -64,6 +64,21 @@ export interface CreateOrderItemInput {
   skuId: string;
 
   /**
+   * Preferred Flash Sale Item.
+   *
+   * Optional.
+   *
+   * Digunakan ketika caller sudah mengetahui
+   * FlashSaleItem tertentu yang harus digunakan.
+   *
+   * Contoh:
+   *
+   * TEST concurrency dapat memaksa dua checkout
+   * menggunakan FlashSaleItem yang sama.
+   */
+  preferredFlashSaleItemId?: string | null;
+
+  /**
    * Quantity final yang dibeli.
    */
   quantity: number;
@@ -73,7 +88,6 @@ export interface CreateOrderItemInput {
    */
   customerNote?: string | null;
 }
-
 export interface CreateOrderInput {
   userId: string;
 
@@ -457,16 +471,17 @@ export default class OrderService {
      * quantity digabungkan.
      */
 
-    const itemMap =
-      new Map<
-        string,
-        {
-          productId: string;
-          skuId: string;
-          quantity: number;
-          customerNote: string | null;
-        }
-      >();
+const itemMap =
+  new Map<
+    string,
+    {
+      productId: string;
+      skuId: string;
+      quantity: number;
+      customerNote: string | null;
+      preferredFlashSaleItemId: string | null;
+    }
+  >();
 
     for (
       const item of input.items
@@ -516,32 +531,53 @@ export default class OrderService {
           itemKey
         );
 
-      if (existing) {
-        existing.quantity +=
-          item.quantity;
+if (existing) {
+  existing.quantity +=
+    item.quantity;
 
-        /**
-         * Jika request kedua membawa note,
-         * gunakan note tersebut sebagai note terbaru.
-         */
-        if (
-          customerNote !== null
-        ) {
-          existing.customerNote =
-            customerNote;
-        }
-      } else {
-        itemMap.set(
-          itemKey,
-          {
-            productId,
-            skuId,
-            quantity:
-              item.quantity,
-            customerNote,
-          }
-        );
-      }
+  /**
+   * Jika request kedua membawa note,
+   * gunakan note tersebut sebagai note terbaru.
+   */
+  if (
+    customerNote !== null
+  ) {
+    existing.customerNote =
+      customerNote;
+  }
+
+  /**
+   * Jika request berikutnya membawa
+   * preferredFlashSaleItemId, gunakan nilai tersebut.
+   *
+   * Jika tidak membawa nilai tersebut,
+   * pertahankan nilai sebelumnya.
+   */
+  if (
+    item.preferredFlashSaleItemId
+  ) {
+    existing.preferredFlashSaleItemId =
+      item.preferredFlashSaleItemId;
+  }
+} else {
+  itemMap.set(
+    itemKey,
+    {
+      productId,
+
+      skuId,
+
+      quantity:
+        item.quantity,
+
+      customerNote,
+
+      preferredFlashSaleItemId:
+        item.preferredFlashSaleItemId ??
+        null,
+    }
+  );
+}
     }
 
     const normalizedItems =
@@ -943,20 +979,81 @@ export default class OrderService {
            * tetap dihitung oleh pricing engine.
            */
 
-          const pricing =
-            await ProductPricingService.resolve(
-              tx,
-              {
-                productId:
-                  product.id,
+const pricing =
+  await ProductPricingService.resolve(
+    tx,
+    {
+      productId:
+        product.id,
 
-                skuId:
-                  sku.id,
+      skuId:
+        sku.id,
 
-                fallbackPrice:
-                  product.price,
-              }
-            );
+      preferredFlashSaleItemId:
+        item.preferredFlashSaleItemId,
+
+      fallbackPrice:
+        product.price,
+    }
+  );
+
+console.log(
+  "[ORDER-PRICING]",
+  {
+    orderUserId:
+      input.userId,
+
+    skuId:
+      item.skuId,
+
+    preferredFlashSaleItemId:
+      item.preferredFlashSaleItemId,
+
+    flashSaleItemId:
+      pricing.flashSaleItemId,
+
+    flashSaleId:
+      pricing.flashSaleId,
+
+    isFlashSaleApplied:
+      pricing.isFlashSaleApplied,
+
+    finalPrice:
+      pricing.finalPrice.toString(),
+
+    timestamp:
+      new Date().toISOString(),
+  }
+);
+
+            console.log(
+  "[ORDER-PRICING-RESULT]",
+  {
+    orderUserId:
+      input.userId,
+
+    productId:
+      product.id,
+
+    skuId:
+      sku.id,
+
+    finalPrice:
+      pricing.finalPrice.toString(),
+
+    isFlashSaleApplied:
+      pricing.isFlashSaleApplied,
+
+    flashSaleItemId:
+      pricing.flashSaleItemId,
+
+    flashSaleId:
+      pricing.flashSaleId,
+
+    timestamp:
+      new Date().toISOString(),
+  }
+);
 
           /**
            * ======================================================
@@ -1233,48 +1330,83 @@ export default class OrderService {
           });
 
         /**
-         * ========================================================
-         * 12. CONSUME FLASH SALE
-         * ========================================================
-         *
-         * Wajib dilakukan setelah Order berhasil dibuat.
-         *
-         * Tetapi masih berada dalam transaction yang sama.
-         *
-         * FlashSaleCheckoutService bertanggung jawab terhadap:
-         *
-         * - campaign validation
-         * - quota validation
-         * - per-user limit
-         * - advisory lock
-         * - atomic soldQuantity increment
-         * - FlashSalePurchase
-         */
+ * ========================================================
+ * 12. CONSUME FLASH SALE
+ * ========================================================
+ *
+ * Wajib dilakukan setelah Order berhasil dibuat.
+ *
+ * Tetapi masih berada dalam transaction yang sama.
+ *
+ * FlashSaleCheckoutService bertanggung jawab terhadap:
+ *
+ * - campaign validation
+ * - quota validation
+ * - per-user limit
+ * - advisory lock
+ * - atomic soldQuantity increment
+ * - FlashSalePurchase
+ */
 
-        if (
-          flashSaleRequirements.length >
-          0
-        ) {
-          await FlashSaleCheckoutService.consume(
-            {
-              userId:
-                input.userId,
+/**
+ * --------------------------------------------------------
+ * DEBUG FLASH SALE REQUIREMENTS
+ * --------------------------------------------------------
+ *
+ * Memastikan pricing result yang dihasilkan sebelumnya
+ * benar-benar diteruskan ke FlashSaleCheckoutService.
+ *
+ * Hanya untuk debugging/audit flow.
+ */
+console.log(
+  "[CREATE-ORDER-FLASH-SALE-REQUIREMENTS]",
+  {
+    orderId:
+      order.id,
 
-              orderId:
-                order.id,
+    userId:
+      input.userId,
 
-              requirements:
-                flashSaleRequirements,
-            },
-            tx
-          );
-        }
+    requirements:
+      flashSaleRequirements.map(
+        (requirement) => ({
+          flashSaleItemId:
+            requirement.flashSaleItemId,
 
-        /**
-         * ========================================================
-         * 13. CONSUME VOUCHER + CREATE USAGE
-         * ========================================================
-         */
+          quantity:
+            requirement.quantity,
+
+          price:
+            requirement.price.toString(),
+        })
+      ),
+  }
+);
+
+if (
+  flashSaleRequirements.length >
+  0
+) {
+  await FlashSaleCheckoutService.consume(
+    {
+      userId:
+        input.userId,
+
+      orderId:
+        order.id,
+
+      requirements:
+        flashSaleRequirements,
+    },
+    tx
+  );
+}
+
+/**
+ * ========================================================
+ * 13. CONSUME VOUCHER + CREATE USAGE
+ * ========================================================
+ */
 
         if (
           voucherResult
@@ -5825,29 +5957,42 @@ static async createCheckoutOrder(
     */
 
     const cart =
-    await prisma.cart.findUnique({
-        where: {
-          userId,
-        },
+  await prisma.cart.findUnique({
+    where: {
+      userId,
+    },
 
+    include: {
+      items: {
         include: {
-          items: {
-  include: {
-    product: true,
+          product: true,
 
-    sku: {
-      include: {
-        skuOptions: {
-          include: {
-            variantOption: true,
+          sku: {
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption: true,
+                },
+              },
+            },
           },
+
+          /**
+           * ======================================================
+           * FLASH SALE SNAPSHOT
+           * ======================================================
+           *
+           * CartItem menyimpan FlashSaleItem yang dipilih
+           * ketika item dimasukkan / diperbarui di cart.
+           *
+           * Nilai ini menjadi preferred Flash Sale candidate
+           * ketika checkout.
+           */
+          flashSaleItem: true,
         },
       },
     },
-  },
-},
-        },
-      });
+  });
 
     if (
       !cart ||
@@ -6024,19 +6169,22 @@ if (sku.stock < item.quantity) {
 }
 
           const pricing =
-          await ProductPricingService.resolve(
-            tx,
-            {
-              productId:
-                product.id,
+  await ProductPricingService.resolve(
+    tx,
+    {
+      productId:
+        product.id,
 
-              skuId:
-                sku.id,
+      skuId:
+        sku.id,
 
-              fallbackPrice:
-                product.price,
-            }
-          );
+      preferredFlashSaleItemId:
+        item.flashSaleItemId,
+
+      fallbackPrice:
+        product.price,
+    }
+  );
 
           /**
             * ========================================================

@@ -330,110 +330,6 @@ export default class CartService {
 
   /**
    * ============================================================
-   * FIND ACTIVE FLASH SALE
-   * ============================================================
-   *
-   * Priority:
-   *
-   * 1. SKU-specific Flash Sale
-   * 2. Product-wide Flash Sale
-   *
-   * weightOptionId tidak lagi menjadi sumber kebenaran.
-   */
-  private static async findActiveFlashSaleItem(
-  tx: Prisma.TransactionClient,
-  input: {
-    productId: string;
-    skuId?: string | null;
-  }
-) {
-  const {
-    productId,
-    skuId,
-  } = input;
-
-  const now = new Date();
-
-  /**
-   * ==========================================================
-   * SKU-BASED FLASH SALE
-   * ==========================================================
-   */
-  if (skuId) {
-    return tx.flashSaleItem.findFirst({
-      where: {
-        productId,
-        skuId,
-        isActive: true,
-
-        flashSale: {
-          status: "ACTIVE" as const,
-
-          startAt: {
-            lte: now,
-          },
-
-          endAt: {
-            gt: now,
-          },
-        },
-      },
-
-      select: {
-        id: true,
-        flashSaleId: true,
-        stockLimit: true,
-        soldQuantity: true,
-        perUserLimit: true,
-      },
-
-      orderBy: {
-        sortOrder: "asc",
-      },
-    });
-  }
-
-  /**
-   * ==========================================================
-   * LEGACY PRODUCT-WIDE FLASH SALE
-   * ==========================================================
-   */
-  return tx.flashSaleItem.findFirst({
-    where: {
-      productId,
-      skuId: null,
-      weightOptionId: null,
-      isActive: true,
-
-      flashSale: {
-        status: "ACTIVE" as const,
-
-        startAt: {
-          lte: now,
-        },
-
-        endAt: {
-          gt: now,
-        },
-      },
-    },
-
-    select: {
-      id: true,
-      flashSaleId: true,
-      stockLimit: true,
-      soldQuantity: true,
-      perUserLimit: true,
-    },
-
-    orderBy: {
-      sortOrder: "asc",
-    },
-  });
-}
-
-  /**
-   * ============================================================
    * VALIDATE FLASH SALE QUOTA
    * ============================================================
    */
@@ -602,26 +498,6 @@ export default class CartService {
           );
         }
 
-        const activeFlashSaleItem =
-          await this.findActiveFlashSaleItem(
-            tx,
-            {
-              productId:
-                product.id,
-              skuId:
-                normalizedSkuId,
-            }
-          );
-
-        /**
-         * Flash Sale quota harus divalidasi terhadap FINAL quantity
-         * di cart.
-         */
-        this.validateFlashSaleQuota(
-          activeFlashSaleItem,
-          newQuantity
-        );
-
         /**
          * Harga canonical berasal dari SKU.
          *
@@ -629,17 +505,31 @@ export default class CartService {
          * diperbolehkan selama migration.
          */
         const pricing =
-          await ProductPricingService.resolve(
-            tx,
-            {
-              productId:
-                product.id,
-              skuId:
-                normalizedSkuId,
-              fallbackPrice:
-                product.price,
-            }
-          );
+  await ProductPricingService.resolve(
+    tx,
+    {
+      productId:
+        product.id,
+
+      skuId:
+        normalizedSkuId,
+
+      /**
+       * Jika item sudah ada di Cart,
+       * pertahankan FlashSaleItem yang sebelumnya
+       * dipilih sebagai preferred candidate.
+       *
+       * ProductPricingService tetap melakukan validasi ulang
+       * terhadap status, waktu, SKU, dan quota Flash Sale.
+       */
+      preferredFlashSaleItemId:
+        existingItem?.flashSaleItemId ??
+        null,
+
+      fallbackPrice:
+        product.price,
+    }
+  );
 
         if (existingItem) {
           return tx.cartItem.update({
@@ -795,7 +685,7 @@ export default class CartService {
           );
         }
 
-        if (
+                if (
           quantity >
           availableStock
         ) {
@@ -807,40 +697,85 @@ export default class CartService {
           );
         }
 
-        const activeFlashSaleItem =
-          await this.findActiveFlashSaleItem(
-            tx,
-            {
-              productId:
-                product.id,
-              skuId:
-                cartItem.skuId,
-            }
-          );
-
-        this.validateFlashSaleQuota(
-          activeFlashSaleItem,
-          quantity
-        );
-
+        /**
+         * ======================================================
+         * RESOLVE CANONICAL PRICING
+         * ======================================================
+         *
+         * ProductPricingService menjadi satu-satunya sumber
+         * untuk menentukan Flash Sale dan harga final.
+         *
+         * CartItem.flashSaleItemId digunakan sebagai
+         * preferred candidate agar Flash Sale yang sebelumnya
+         * dipakai oleh CartItem tetap dipertahankan selama
+         * masih valid.
+         */
         const pricing =
           await ProductPricingService.resolve(
             tx,
             {
               productId:
                 product.id,
+
               skuId:
                 cartItem.skuId,
+
+              preferredFlashSaleItemId:
+                cartItem.flashSaleItemId,
+
               fallbackPrice:
                 product.price,
             }
           );
 
+        /**
+         * ======================================================
+         * VALIDATE FINAL FLASH SALE QUOTA
+         * ======================================================
+         */
+        if (
+          pricing.isFlashSaleApplied &&
+          pricing.flashSaleItemId
+        ) {
+          const selectedFlashSaleItem =
+            await tx.flashSaleItem.findUnique({
+              where: {
+                id:
+                  pricing.flashSaleItemId,
+              },
+
+              select: {
+                stockLimit: true,
+
+                soldQuantity: true,
+
+                perUserLimit: true,
+              },
+            });
+
+          if (!selectedFlashSaleItem) {
+            throw new Error(
+              "Flash Sale yang digunakan untuk pricing tidak ditemukan."
+            );
+          }
+
+          this.validateFlashSaleQuota(
+            selectedFlashSaleItem,
+            quantity
+          );
+        }
+
+        /**
+         * ======================================================
+         * UPDATE CART ITEM
+         * ======================================================
+         */
         await tx.cartItem.update({
           where: {
             id:
               cartItemId,
           },
+
           data: {
             quantity,
 
