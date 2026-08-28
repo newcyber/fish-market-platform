@@ -122,11 +122,50 @@ private static async acquireFlashSaleItemLock(
   tx: Prisma.TransactionClient,
   flashSaleItemId: string
 ) {
+  const lockStart =
+    Date.now();
+
+  const backend =
+    await tx.$queryRaw<
+      Array<{
+        pid: number;
+      }>
+    >`
+      SELECT pg_backend_pid() AS pid
+    `;
+
+  const pid =
+    backend[0]?.pid ??
+    0;
+
+  console.log(
+    "[FLASH-SALE-LOCK-WAIT]",
+    {
+      flashSaleItemId,
+      pid,
+      timestamp:
+        new Date().toISOString(),
+    }
+  );
+
   await tx.$executeRaw`
     SELECT pg_advisory_xact_lock(
       hashtext(${flashSaleItemId})
     )
   `;
+
+  console.log(
+    "[FLASH-SALE-LOCK-ACQUIRED]",
+    {
+      flashSaleItemId,
+      pid,
+      waitedMs:
+        Date.now() -
+        lockStart,
+      timestamp:
+        new Date().toISOString(),
+    }
+  );
 }
 
   /**
@@ -235,27 +274,28 @@ private static async acquireFlashSaleItemLock(
           )
       );
 
-    /**
-     * ==========================================================
-     * ACQUIRE ALL USER LOCKS
-     * ==========================================================
-     *
-     * Lock diambil dalam urutan deterministik.
-     */
-
-    /**
+/**
  * ==========================================================
  * ACQUIRE ALL FLASH SALE ITEM LOCKS
  * ==========================================================
  *
- * Lock berdasarkan FlashSaleItem saja.
+ * FlashSaleItem adalah serialization boundary global
+ * untuk quota Flash Sale.
  *
- * Ini penting karena quota Flash Sale bersifat GLOBAL,
- * bukan per-user.
+ * Semua requirement sudah diurutkan berdasarkan
+ * flashSaleItemId sehingga setiap transaction memperoleh
+ * advisory lock dalam urutan deterministik.
  *
- * Requirements sudah di-sort berdasarkan flashSaleItemId,
- * sehingga seluruh transaction memperoleh lock dalam
- * urutan deterministik dan risiko deadlock berkurang.
+ * Tidak digunakan user-level advisory lock di sini.
+ *
+ * Alasannya:
+ *
+ * - quota Flash Sale bersifat global per FlashSaleItem
+ * - checkout customer berbeda harus tetap bersaing
+ *   pada lock FlashSaleItem yang sama
+ * - satu lock global lebih sederhana
+ * - mengurangi jumlah resource yang dikunci
+ * - mengurangi risiko deadlock lintas resource
  */
 
 for (
@@ -311,6 +351,48 @@ for (
           "Item Flash Sale sudah tidak tersedia."
         );
       }
+
+      const backend =
+  await tx.$queryRaw<
+    Array<{
+      pid: number;
+    }>
+  >`
+    SELECT pg_backend_pid() AS pid
+  `;
+
+console.log(
+  "[FLASH-SALE-STATE]",
+  {
+    flashSaleItemId:
+      flashSaleItem.id,
+
+    orderId:
+      input.orderId,
+
+    userId:
+      input.userId,
+
+    pid:
+      backend[0]?.pid ?? 0,
+
+    stockLimit:
+      flashSaleItem.stockLimit,
+
+    soldQuantity:
+      flashSaleItem.soldQuantity,
+
+    requestedQuantity:
+      requirement.quantity,
+
+    remainingQuantity:
+      flashSaleItem.stockLimit -
+      flashSaleItem.soldQuantity,
+
+    timestamp:
+      new Date().toISOString(),
+  }
+);
 
       /**
        * ========================================================
@@ -428,6 +510,29 @@ const remainingQuantity =
       }
 
       /**
+ * ========================================================
+ * VALIDATE CHECKOUT PRICE
+ * ========================================================
+ *
+ * Harga yang digunakan checkout harus sama
+ * dengan harga Flash Sale terbaru.
+ */
+const checkoutPrice =
+  new Prisma.Decimal(
+    requirement.price
+  );
+
+if (
+  !checkoutPrice.equals(
+    flashSaleItem.flashPrice
+  )
+) {
+  throw new Error(
+    "Harga Flash Sale berubah. Silakan refresh keranjang dan coba checkout kembali."
+  );
+}
+
+      /**
        * ========================================================
        * GUARDED QUOTA CONSUMPTION
        * ========================================================
@@ -456,6 +561,33 @@ const remainingQuantity =
             },
           },
         });
+
+        console.log(
+  "[FLASH-SALE-QUOTA-UPDATE]",
+  {
+    flashSaleItemId:
+      flashSaleItem.id,
+
+    orderId:
+      input.orderId,
+
+    userId:
+      input.userId,
+
+    requestedQuantity:
+      requirement.quantity,
+
+    updatedCount:
+      updated.count,
+
+    expectedSoldQuantity:
+      flashSaleItem.soldQuantity +
+      requirement.quantity,
+
+    timestamp:
+      new Date().toISOString(),
+  }
+);
 
       if (
         updated.count !== 1
