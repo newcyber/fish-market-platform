@@ -1132,8 +1132,8 @@ export default function AddToCartButton({
                 flex-col
                 gap-3
                 bg-linear-to-r
-                from-[#fc2600]
-                to-[#f739a8]
+                from-[#00a0fc]
+                to-[#39eaf7]
                 px-5
                 py-3
                 sm:flex-row
@@ -1302,8 +1302,8 @@ export default function AddToCartButton({
                         h-full
                         rounded-full
                         bg-linear-to-r
-                        from-[#ff4d2d]
-                        to-[#ff8a4c]
+                        from-[#2d99ff]
+                        to-[#4cccff]
                         transition-all
                         duration-500
                       "
@@ -2152,7 +2152,7 @@ export default function AddToCartButton({
                 0
                 ? "cursor-not-allowed bg-slate-300 text-slate-500"
                 : isFlashSaleApplied
-                  ? "bg-red-600 shadow-sm hover:bg-red-700 active:scale-[0.99]"
+                  ? "bg-blue-600 shadow-sm hover:bg-blue-700 active:scale-[0.99]"
                   : "bg-cyan-600 shadow-sm hover:bg-cyan-700 active:scale-[0.99]",
             ].join(" ")}
           >
