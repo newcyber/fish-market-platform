@@ -268,7 +268,7 @@ export default function RewardVoucherSection({
       )}
 
       {selectedReward && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-110 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-slate-900">
               Konfirmasi Penukaran

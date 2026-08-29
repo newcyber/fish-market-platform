@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import {
   MapPin,
-  Package,
   User,
   ShieldCheck,
 } from "lucide-react";

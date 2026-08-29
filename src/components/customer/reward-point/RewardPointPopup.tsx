@@ -64,7 +64,7 @@ export default function RewardPointPopup({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
 
         {/* CLOSE */}
@@ -81,7 +81,7 @@ export default function RewardPointPopup({
 
         {/* HEADER */}
 
-        <div className="bg-gradient-to-br from-cyan-500 to-blue-600 px-6 pb-8 pt-10 text-center text-white">
+        <div className="bg-linear-to-br from-cyan-500 to-blue-600 px-6 pb-8 pt-10 text-center text-white">
 
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15 ring-1 ring-white/25">
             <Gift className="h-10 w-10" />

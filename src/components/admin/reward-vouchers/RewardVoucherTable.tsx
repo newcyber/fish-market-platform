@@ -163,7 +163,7 @@ export function RewardVoucherTable({
                   {/* REWARD */}
 
                   <td className="px-6 py-4">
-                    <div className="flex min-w-[180px] flex-col">
+                    <div className="flex min-w-45 flex-col">
                       <span className="font-semibold text-gray-900">
                         {reward.name}
                       </span>

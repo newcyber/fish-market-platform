@@ -41,8 +41,8 @@ const HERO_IMAGES = [
 
 const MENU_ITEMS = [
   {
-    label: "Blog",
-    href: "/blog",
+    label: "Beranda",
+    href: "/",
     icon: Newspaper,
   },
   {
@@ -87,7 +87,7 @@ export default function MobileLoginLanding({
     <div
       className="
         flex
-        min-h-[100svh]
+        min-h-svh
         flex-col
         bg-white
         text-slate-900
@@ -100,7 +100,7 @@ export default function MobileLoginLanding({
       <section
         className="
           relative
-          h-[430px]
+          h-107.5
           w-full
           overflow-hidden
           bg-slate-900
@@ -140,7 +140,7 @@ export default function MobileLoginLanding({
           className="
             absolute
             inset-0
-            bg-gradient-to-b
+            bg-linear-to-b
             from-black/10
             via-black/25
             to-black/75
@@ -420,7 +420,7 @@ export default function MobileLoginLanding({
         >
           <span>{storeName}</span>
 
-          <ArrowRight className="h-3 w-3 rotate-[-45deg]" />
+          <ArrowRight className="h-3 w-3 -rotate-45" />
 
           <span>Fresh Seafood Market</span>
         </div>
