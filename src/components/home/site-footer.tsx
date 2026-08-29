@@ -4,6 +4,7 @@ import {
   MapPin,
   Package,
   User,
+  ShieldCheck,
 } from "lucide-react";
 
 /**
@@ -130,12 +131,12 @@ export default function SiteFooter() {
               </Link>
 
               <Link
-                href="/customer/orders"
+                href="/help"
                 className="flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-900"
               >
-                <Package className="h-4 w-4" />
+                <ShieldCheck className="h-4 w-4" />
 
-                Pesanan
+                Bantuan
               </Link>
 
             </div>
