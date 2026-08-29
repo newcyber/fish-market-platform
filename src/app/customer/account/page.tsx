@@ -20,6 +20,18 @@ import CustomerService from "@/services/customer/customer.service";
 import CartService from "@/services/cart/cart.service";
 import WishlistService from "@/services/wishlist/wishlist.service";
 
+import RewardPointPopup from "@/components/customer/reward-point/RewardPointPopup";
+
+import {
+  getUnseenReward,
+} from "@/services/reward-point/reward-point.service";
+
+import {
+  getAvailableRewardVouchers,
+} from "@/services/reward-voucher/reward-voucher.service";
+
+import RewardVoucherSection from "@/components/customer/reward-voucher/RewardVoucherSection";
+
 import {
   OrderRepository,
 } from "@/repositories/OrderRepository";
@@ -82,22 +94,60 @@ export default async function CustomerAccountPage() {
    */
 
   const [
-    orderSummary,
-    wishlistCount,
-    cartCount,
-  ] = await Promise.all([
-    OrderRepository.getCustomerOrderSummary(
-      session.user.id
-    ),
+  orderSummary,
+  wishlistCount,
+  cartCount,
+  unseenReward,
+  availableRewardVouchers,
+] = await Promise.all([
+  OrderRepository.getCustomerOrderSummary(
+    session.user.id
+  ),
 
-    WishlistService.getItemCount(
-      session.user.id
-    ),
+  WishlistService.getItemCount(
+    session.user.id
+  ),
 
-    CartService.getItemCount(
-      session.user.id
-    ),
-  ]);
+  CartService.getItemCount(
+    session.user.id
+  ),
+
+  getUnseenReward(
+    session.user.id
+  ),
+
+  getAvailableRewardVouchers(),
+]);
+
+const rewardVoucherItems =
+  availableRewardVouchers.map(
+    (rewardVoucher) => ({
+      id: rewardVoucher.id,
+
+      name:
+        rewardVoucher.name,
+
+      requiredPoints:
+        rewardVoucher.requiredPoints,
+
+      discountType:
+        rewardVoucher.discountType,
+
+      discountValue:
+        rewardVoucher.discountValue.toNumber(),
+
+      minimumPurchase:
+        rewardVoucher.minimumPurchase
+          ?.toNumber() ?? null,
+
+      maximumDiscount:
+        rewardVoucher.maximumDiscount
+          ?.toNumber() ?? null,
+
+      sortOrder:
+        rewardVoucher.sortOrder,
+    })
+  );
 
   /**
    * ==========================================================
@@ -117,6 +167,15 @@ export default async function CustomerAccountPage() {
     customerName
       .charAt(0)
       .toUpperCase();
+
+  /**
+   * ==========================================================
+   * REWARD POINT BALANCE
+   * ==========================================================
+   */
+
+  const rewardPoints =
+    customer.rewardPointsBalance ?? 0;
 
   /**
    * ==========================================================
@@ -520,48 +579,120 @@ export default async function CustomerAccountPage() {
 
           </section>
 
-          {/* REWARD PLACEHOLDER */}
+                    {/* ================================================== */}
+          {/* REWARD POINT */}
+          {/* ================================================== */}
 
           <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            {/* DECORATIVE CIRCLE */}
 
             <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-cyan-50" />
 
             <div className="relative">
 
+              {/* ICON */}
+
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50">
-                <ShoppingBag className="h-5 w-5 text-cyan-600" />
+                <WalletCards className="h-5 w-5 text-cyan-600" />
               </div>
 
+              {/* LABEL */}
+
               <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-cyan-600">
-                Reward
+                Reward Point
               </p>
 
-              <h2 className="mt-2 text-xl font-bold text-slate-900">
-                Program Reward Segera Hadir
-              </h2>
+              {/* BALANCE */}
+
+              <div className="mt-2 flex items-end gap-2">
+
+                <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+                  {rewardPoints.toLocaleString("id-ID")}
+                </h2>
+
+                <span className="mb-1 text-sm font-semibold text-slate-500">
+                  Poin
+                </span>
+
+              </div>
+
+              {/* DESCRIPTION */}
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Nantikan program poin dan berbagai keuntungan
-                menarik dari setiap transaksi Anda.
+                Kumpulkan poin dari setiap pembelian
+                yang telah selesai.
               </p>
 
+              {/* BALANCE STATUS */}
+
               <div className="mt-5 rounded-xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-slate-500">
-                  Status
+
+                <div className="flex items-center justify-between gap-4">
+
+                  <div>
+
+                    <p className="text-xs font-medium text-slate-500">
+                      Saldo Reward Anda
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {rewardPoints.toLocaleString("id-ID")} Poin
+                    </p>
+
+                  </div>
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-100">
+                    <WalletCards className="h-4 w-4 text-cyan-600" />
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* INFO */}
+
+              <div className="mt-4 flex items-start gap-2">
+
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
+
+                <p className="text-xs leading-5 text-slate-500">
+                  Setiap 1 kg pembelian mendapatkan 10 poin
+                  reward.
                 </p>
 
-                <p className="mt-1 text-sm font-semibold text-slate-700">
-                  Belum tersedia
-                </p>
               </div>
 
             </div>
 
           </section>
 
+<RewardVoucherSection
+            rewardPoints={
+              rewardPoints
+            }
+            rewards={
+              rewardVoucherItems
+            }
+          />
+          
         </div>
 
       </div>
+
+      {unseenReward && (
+      <RewardPointPopup
+        reward={{
+          id: unseenReward.id,
+          points: unseenReward.points,
+          weightGrams:
+            unseenReward.weightGrams,
+          description:
+            unseenReward.description,
+        }}
+      />
+    )}
+
     </main>
   );
 }

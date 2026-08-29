@@ -18,6 +18,13 @@ enum Role {
   CUSTOMER
 }
 
+enum RewardPointTransactionType {
+  EARN
+  REDEEM
+  ADJUSTMENT
+  EXPIRED
+}
+
 enum OrderStatus {
   PENDING
   WAITING_PAYMENT
@@ -135,8 +142,133 @@ model User {
 
   wishlist Wishlist?
 
+  /**
+   * ============================================================
+   * REWARD POINTS
+   * ============================================================
+   * Saldo poin reward customer saat ini.
+   * Nilai ini merupakan cached balance.
+   * Seluruh perubahan tetap dicatat di
+   * RewardPointTransaction sebagai ledger.
+   */
+
+  rewardPointsBalance Int @default(0)
+
+  rewardPointTransactions RewardPointTransaction[]
+
+  userVouchers UserVoucher[]
+
   @@index([email])
   @@index([role])
+}
+
+// ============================================================
+// REWARD POINT TRANSACTION
+// ============================================================
+
+model RewardPointTransaction {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * USER RELATION
+   * ============================================================
+   */
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * ORDER RELATION
+   * ============================================================
+   * Diisi ketika transaksi reward berasal dari order.
+   * Contoh:
+   * COMPLETED
+   * ↓
+   * EARN
+   * ↓
+   * orderId = order tersebut
+   * Untuk transaksi manual seperti ADJUSTMENT,
+   * orderId dapat bernilai null.
+   */
+
+  orderId String?
+
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  /**
+   * ============================================================
+   * TRANSACTION TYPE
+   * ============================================================
+   */
+
+  type RewardPointTransactionType
+
+  /**
+   * ============================================================
+   * POINTS
+   * ============================================================
+   * Nilai transaksi.
+   * EARN:
+   * +15
+   * REDEEM:
+   * -25
+   * ADJUSTMENT:
+   * dapat positif atau negatif
+   * EXPIRED:
+   * -10
+   */
+
+  points Int
+
+  /**
+   * ============================================================
+   * WEIGHT SNAPSHOT
+   * ============================================================
+   * Total berat yang digunakan ketika poin EARN dihitung.
+   * Disimpan sebagai gram agar tidak bergantung pada
+   * format string seperti "1 KG", "500 GR", dan sebagainya.
+   * Null untuk transaksi yang tidak berasal dari pembelian.
+   */
+
+  weightGrams Int?
+
+  /**
+   * ============================================================
+   * DESCRIPTION
+   * ============================================================
+   */
+
+  description String?
+
+  /**
+   * ============================================================
+   * TIMESTAMP
+   * ============================================================
+   */
+
+  rewardViewedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@unique([orderId, type])
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([type])
 }
 
 // ============================================================
@@ -1541,6 +1673,21 @@ model Order {
 
   flashSalePurchases FlashSalePurchase[]
 
+  /**
+   * ============================================================
+   * REWARD POINT TRANSACTIONS
+   * ============================================================
+   * Riwayat transaksi reward yang berasal dari order ini.
+   * Contoh:
+   * Order COMPLETED
+   * ↓
+   * RewardPointTransaction
+   * ↓
+   * EARN +15 poin
+   */
+
+  rewardPointTransactions RewardPointTransaction[]
+
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   voucherUsage VoucherUsage?
@@ -1759,6 +1906,8 @@ model Voucher {
 
   orders Order[]
 
+  userVoucher UserVoucher?
+
   usages VoucherUsage[]
 
   /**
@@ -1784,6 +1933,236 @@ model Voucher {
   @@index([startAt])
   @@index([endAt])
   @@index([deletedAt])
+}
+
+// ============================================================
+// REWARD VOUCHER SETTING
+// ============================================================
+//
+// Konfigurasi reward yang dapat ditukar menggunakan point.
+//
+// Contoh:
+//
+// 500 Point
+//     ↓
+// Voucher Rp1.000
+//
+// 1.000 Point
+//     ↓
+// Voucher Rp2.500
+//
+// 2.000 Point
+//     ↓
+// Voucher 5%
+//
+// Setting ini dikelola dari Admin.
+// ============================================================
+
+model RewardVoucherSetting {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * BASIC INFORMATION
+   * ============================================================
+   */
+
+  name String
+
+  /**
+   * ============================================================
+   * REQUIRED POINT
+   * ============================================================
+   * Jumlah point yang harus dimiliki customer
+   * untuk menukarkan reward ini.
+   * Contoh:
+   * 500
+   * 1000
+   * 2000
+   */
+
+  requiredPoints Int
+
+  /**
+   * ============================================================
+   * VOUCHER DISCOUNT
+   * ============================================================
+   * Menggunakan enum VoucherDiscountType yang sudah
+   * digunakan oleh sistem Voucher.
+   * PERCENTAGE
+   * FIXED_AMOUNT
+   */
+
+  discountType VoucherDiscountType
+
+  discountValue Decimal @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * MINIMUM PURCHASE
+   * ============================================================
+   * Optional.
+   * Contoh:
+   * Voucher Rp10.000
+   * Minimum pembelian Rp50.000
+   */
+
+  minimumPurchase Decimal? @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * MAXIMUM DISCOUNT
+   * ============================================================
+   * Relevan terutama untuk percentage voucher.
+   * Contoh:
+   * 5%
+   * maximum discount Rp20.000
+   */
+
+  maximumDiscount Decimal? @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   */
+
+  isActive Boolean @default(true)
+
+  /**
+   * ============================================================
+   * SORT ORDER
+   * ============================================================
+   * Menentukan urutan reward pada halaman customer.
+   */
+
+  sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * RELATION
+   * ============================================================
+   */
+
+  userVouchers UserVoucher[]
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([requiredPoints])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// ============================================================
+// USER VOUCHER
+// ============================================================
+//
+// Voucher hasil penukaran reward point.
+//
+// Satu record UserVoucher berarti:
+// customer tertentu telah menukarkan reward tertentu
+// dan mendapatkan Voucher tertentu.
+//
+// Contoh:
+//
+// User
+//   ↓
+// UserVoucher
+//   ├── RewardVoucherSetting
+//   └── Voucher
+// ============================================================
+
+model UserVoucher {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * USER
+   * ============================================================
+   */
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * REWARD VOUCHER SETTING
+   * ============================================================
+   * Menyimpan reward yang digunakan ketika redeem.
+   * Relation ini menjadi referensi konfigurasi reward.
+   */
+
+  rewardVoucherSettingId String
+
+  rewardVoucherSetting RewardVoucherSetting @relation(fields: [rewardVoucherSettingId], references: [id], onDelete: Restrict)
+
+  /**
+   * ============================================================
+   * VOUCHER
+   * ============================================================
+   * Voucher aktual yang dibuat untuk customer.
+   * Satu Voucher hanya boleh dimiliki oleh satu UserVoucher.
+   */
+
+  voucherId String @unique
+
+  voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Restrict)
+
+  /**
+   * ============================================================
+   * POINTS SPENT
+   * ============================================================
+   * Snapshot jumlah point yang dipakai ketika redeem.
+   * Jangan mengambil kembali dari RewardVoucherSetting
+   * karena setting admin dapat berubah di masa depan.
+   */
+
+  pointsSpent Int
+
+  /**
+   * ============================================================
+   * TIMESTAMP
+   * ============================================================
+   */
+
+  redeemedAt DateTime @default(now())
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([userId])
+  @@index([rewardVoucherSettingId])
+  @@index([userId, redeemedAt])
 }
 
 /**

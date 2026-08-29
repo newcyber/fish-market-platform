@@ -14,7 +14,7 @@ export const PUBLIC_ROUTES = {
  */
 export const CUSTOMER_ROUTES = {
   DASHBOARD: "/customer",
-  PROFILE: "/customer/profile",
+  PROFILE: "/customer/account",
   ORDERS: "/customer/orders",
   CART: "/cart",
   CHECKOUT: "/checkout",

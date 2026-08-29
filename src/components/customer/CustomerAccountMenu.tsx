@@ -188,7 +188,7 @@ export function CustomerAccountMenu({
           ==================================================== */}
 
           <Link
-            href="/customer/profile"
+            href="/customer/account"
             onClick={() =>
               setIsOpen(false)
             }

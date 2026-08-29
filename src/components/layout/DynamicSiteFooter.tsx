@@ -507,7 +507,7 @@ export default async function DynamicSiteFooter() {
             <div className="mt-4 space-y-3">
 
               <Link
-                href="/customer/profile"
+                href="/customer/account"
                 className="flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-900"
               >
                 <User className="h-4 w-4 shrink-0" />

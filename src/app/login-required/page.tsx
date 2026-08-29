@@ -83,8 +83,8 @@ function getPageName(
     return "Detail Pesanan";
   }
 
-  if (path === "/customer/profile") {
-    return "Profil Saya";
+  if (path === "/customer/account") {
+    return "Akun Saya";
   }
 
   if (path === "/customer/wishlist") {

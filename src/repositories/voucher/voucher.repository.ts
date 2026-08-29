@@ -101,9 +101,63 @@ export class VoucherRepository {
 
   /**
    * ============================================================
-   * FIND MANY
+   * FIND USER VOUCHER
    * ============================================================
+   *
+   * Mengecek apakah voucher tertentu dimiliki
+   * oleh user tertentu melalui UserVoucher.
+   *
+   * Digunakan khusus untuk validasi ownership
+   * voucher hasil redeem reward point.
    */
+
+  static async findUserVoucher(
+    voucherId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client =
+      this.getClient(tx);
+
+    return client.userVoucher.findFirst({
+      where: {
+        voucherId,
+        userId,
+      },
+
+      select: {
+        id: true,
+
+        userId: true,
+
+        voucherId: true,
+
+        pointsSpent: true,
+
+        redeemedAt: true,
+      },
+    });
+  }
+
+  static async findUserVoucherOwner(
+  voucherId: string,
+  tx?: Prisma.TransactionClient
+) {
+  const client = this.getClient(tx);
+
+  return client.userVoucher.findUnique({
+    where: {
+      voucherId,
+    },
+    select: {
+      id: true,
+      userId: true,
+      voucherId: true,
+      pointsSpent: true,
+      redeemedAt: true,
+    },
+  });
+}
 
     /**
    * ============================================================

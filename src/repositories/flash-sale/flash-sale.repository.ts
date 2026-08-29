@@ -1494,12 +1494,16 @@ static async findDuplicateItem({
      */
 
     const purchases =
-      await tx.flashSalePurchase.findMany({
-        where: {
-          orderId,
-        },
+  await tx.flashSalePurchase.findMany({
+    where: {
+      orderId,
+    },
 
-        select: {
+    orderBy: {
+      flashSaleItemId: "asc",
+    },
+
+    select: {
           id: true,
 
           flashSaleItemId: true,

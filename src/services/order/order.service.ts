@@ -39,6 +39,11 @@ import settingsService from "@/services/settings/settings.service";
 
 import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
 
+import {
+  awardOrderRewardPointsTx,
+  getSkuOptionSnapshotFromSku,
+} from "@/services/reward-point/reward-point.service";
+
 export interface OrderDashboardSummary {
   totalOrders: number;
   pendingPayments: number;
@@ -2631,33 +2636,35 @@ for (
       itemSubtotal
     );
 
+  const skuSnapshot =
+  getSkuOptionSnapshotFromSku(
+    sku.skuOptions
+  );
+
   newOrderItems.push({
-    productId:
-      product.id,
+  productId: product.id,
 
-    skuId:
-      sku.id,
+  skuId: sku.id,
 
-    productName:
-      product.name,
+  productName: product.name,
 
-    productVariant:
-      null,
+  productVariant:
+    skuSnapshot.productVariant,
 
-    productWeight:
-      null,
+  productWeight:
+    skuSnapshot.productWeight,
 
-    customerNote:
-      item.customerNote,
+  weightSku:
+    skuSnapshot.weightSku,
 
-    price,
+  customerNote: item.customerNote,
 
-    quantity:
-      item.quantity,
+  price,
 
-    subtotal:
-      itemSubtotal,
-  });
+  quantity: item.quantity,
+
+  subtotal: itemSubtotal,
+});
 }
 
       /**
@@ -3292,291 +3299,411 @@ if (itemsChanged) {
 }
 
 /**
-  * Update status order dengan lifecycle
-  * transition yang terkontrol.
-  *
-  * Lifecycle:
-  *
-  * PENDING
-  *   -> PROCESSING
-  *   -> CANCELLED
-  *
-  * PROCESSING
-  *   -> SHIPPING
-  *   -> CANCELLED
-  *
-  * SHIPPING
-  *   -> COMPLETED
-  *   -> CANCELLED
-  *
-  * COMPLETED / CANCELLED
-  *   -> terminal state
-*/
+ * Update status order dengan lifecycle
+ * transition yang terkontrol.
+ *
+ * Lifecycle:
+ *
+ * PENDING
+ *   -> PROCESSING
+ *   -> CANCELLED
+ *
+ * WAITING_PAYMENT
+ *   -> WAITING_VERIFICATION
+ *   -> CANCELLED
+ *
+ * WAITING_VERIFICATION
+ *   -> PROCESSING
+ *   -> CANCELLED
+ *
+ * PROCESSING
+ *   -> SHIPPING
+ *   -> CANCELLED
+ *
+ * SHIPPING
+ *   -> COMPLETED
+ *   -> CANCELLED
+ *
+ * COMPLETED / CANCELLED
+ *   -> terminal state
+ */
 static async updateStatus(
   id: string,
   status: OrderStatus
 ) {
+  /**
+   * ========================================================
+   * COMPLETED COMMAND
+   * ========================================================
+   *
+   * COMPLETED bukan generic status update.
+   *
+   * Penyelesaian order harus melalui markAsCompleted()
+   * karena proses tersebut menangani:
+   *
+   * 1. Lock Order
+   * 2. Validasi SHIPPING
+   * 3. Validasi payment VERIFIED
+   * 4. Update Order → COMPLETED
+   * 5. Create RewardPointTransaction EARN
+   * 6. Update User.rewardPointsBalance
+   *
+   * Semua proses tersebut berada dalam satu transaction.
+   *
+   * Letakkan dispatch ini SEBELUM try agar TypeScript
+   * tidak melakukan narrowing status berdasarkan generic
+   * transition rules di bawah.
+   */
+  if (
+    status ===
+    OrderStatus.COMPLETED
+  ) {
+    try {
+      const completedOrder =
+        await this.markAsCompleted(id);
+
+      return {
+        success: true,
+
+        message:
+          "Pesanan berhasil diselesaikan dan reward point telah diberikan.",
+
+        data:
+          completedOrder,
+      };
+    } catch (error) {
+      console.error(
+        "[ORDER_SERVICE_COMPLETE_ORDER_ERROR]",
+        error
+      );
+
+      return {
+        success: false,
+
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menyelesaikan pesanan.",
+      };
+    }
+  }
+
   try {
     /**
-      * ========================================================
-      * GET CURRENT ORDER
-      * ========================================================
-    */
+     * ========================================================
+     * GET CURRENT ORDER
+     * ========================================================
+     */
 
     const order =
-    await OrderRepository.findById(id);
+      await OrderRepository.findById(
+        id
+      );
 
     if (!order) {
       return {
         success: false,
-        message: "Pesanan tidak ditemukan.",
+
+        message:
+          "Pesanan tidak ditemukan.",
       };
     }
 
     /**
-      * ========================================================
-      * PROTECT FINAL STATES
-      * ========================================================
-    */
+     * ========================================================
+     * PROTECT FINAL STATES
+     * ========================================================
+     *
+     * COMPLETED sudah ditangani di atas.
+     *
+     * CANCELLED tetap terminal state.
+     */
 
     if (
-      order.status === "COMPLETED" ||
-      order.status === "CANCELLED"
+      order.status ===
+      OrderStatus.COMPLETED ||
+      order.status ===
+      OrderStatus.CANCELLED
     ) {
       return {
         success: false,
+
         message:
-        "Status pesanan yang sudah selesai atau dibatalkan tidak dapat diubah.",
+          "Status pesanan yang sudah selesai atau dibatalkan tidak dapat diubah.",
       };
     }
 
     /**
-      * ========================================================
-      * PREVENT SAME STATUS
-      * ========================================================
-    */
+     * ========================================================
+     * PREVENT SAME STATUS
+     * ========================================================
+     */
 
-    if (order.status === status) {
+    if (
+      order.status ===
+      status
+    ) {
       return {
         success: false,
+
         message:
-        "Pesanan sudah memiliki status tersebut.",
+          "Pesanan sudah memiliki status tersebut.",
       };
     }
 
     /**
-      * ========================================================
-      * VALIDATE PAYMENT
-      * ========================================================
-    */
+     * ========================================================
+     * VALIDATE PAYMENT
+     * ========================================================
+     */
 
     const isPaymentVerified =
-    order.paymentStatus === "VERIFIED";
+      order.paymentStatus ===
+      PaymentStatus.VERIFIED;
 
     /**
-      * ========================================================
-      * STATUS TRANSITION RULES
-      * ========================================================
-    */
+     * ========================================================
+     * STATUS TRANSITION RULES
+     * ========================================================
+     */
 
     /**
-      * --------------------------------------------------------
-      * PENDING
-      * --------------------------------------------------------
-    */
+     * --------------------------------------------------------
+     * PENDING
+     * --------------------------------------------------------
+     */
 
-    if (order.status === "PENDING") {
-      if (status === "PROCESSING" && !isPaymentVerified) {
+    if (
+      order.status ===
+      OrderStatus.PENDING
+    ) {
+      if (
+        status ===
+          OrderStatus.PROCESSING &&
+        !isPaymentVerified
+      ) {
         return {
           success: false,
+
           message:
-          "Pesanan tidak dapat diproses sebelum pembayaran diverifikasi.",
+            "Pesanan tidak dapat diproses sebelum pembayaran diverifikasi.",
         };
       }
 
       if (
-        status !== "PROCESSING" &&
-        status !== "CANCELLED"
+        status !==
+          OrderStatus.PROCESSING &&
+        status !==
+          OrderStatus.CANCELLED
       ) {
         return {
           success: false,
+
           message:
-          "Pesanan dengan status PENDING hanya dapat diproses atau dibatalkan.",
+            "Pesanan dengan status PENDING hanya dapat diproses atau dibatalkan.",
         };
       }
     }
 
     /**
-      * --------------------------------------------------------
-      * WAITING PAYMENT
-      * --------------------------------------------------------
-    */
+     * --------------------------------------------------------
+     * WAITING PAYMENT
+     * --------------------------------------------------------
+     */
 
     if (
-      order.status === "WAITING_PAYMENT" &&
-      status !== "WAITING_VERIFICATION" &&
-      status !== "CANCELLED"
+      order.status ===
+        OrderStatus.WAITING_PAYMENT &&
+      status !==
+        OrderStatus.WAITING_VERIFICATION &&
+      status !==
+        OrderStatus.CANCELLED
     ) {
       return {
         success: false,
+
         message:
-        "Pesanan yang menunggu pembayaran hanya dapat dilanjutkan ke verifikasi atau dibatalkan.",
+          "Pesanan yang menunggu pembayaran hanya dapat dilanjutkan ke verifikasi atau dibatalkan.",
       };
     }
 
     /**
-      * --------------------------------------------------------
-      * WAITING VERIFICATION
-      * --------------------------------------------------------
-    */
+     * --------------------------------------------------------
+     * WAITING VERIFICATION
+     * --------------------------------------------------------
+     */
 
     if (
-      order.status === "WAITING_VERIFICATION"
+      order.status ===
+      OrderStatus.WAITING_VERIFICATION
     ) {
-      if (status === "PROCESSING" && !isPaymentVerified) {
+      if (
+        status ===
+          OrderStatus.PROCESSING &&
+        !isPaymentVerified
+      ) {
         return {
           success: false,
+
           message:
-          "Pesanan tidak dapat diproses sebelum pembayaran diverifikasi.",
+            "Pesanan tidak dapat diproses sebelum pembayaran diverifikasi.",
         };
       }
 
       if (
-        status !== "PROCESSING" &&
-        status !== "CANCELLED"
+        status !==
+          OrderStatus.PROCESSING &&
+        status !==
+          OrderStatus.CANCELLED
       ) {
         return {
           success: false,
+
           message:
-          "Pesanan yang sedang menunggu verifikasi hanya dapat diproses atau dibatalkan.",
+            "Pesanan yang sedang menunggu verifikasi hanya dapat diproses atau dibatalkan.",
         };
       }
     }
 
     /**
-      * --------------------------------------------------------
-      * PROCESSING
-      * --------------------------------------------------------
-    */
+     * --------------------------------------------------------
+     * PROCESSING
+     * --------------------------------------------------------
+     */
 
     if (
-      order.status === "PROCESSING" &&
-      status !== "SHIPPING" &&
-      status !== "CANCELLED"
+      order.status ===
+        OrderStatus.PROCESSING &&
+      status !==
+        OrderStatus.SHIPPING &&
+      status !==
+        OrderStatus.CANCELLED
     ) {
       return {
         success: false,
+
         message:
-        "Pesanan yang sedang diproses hanya dapat ditandai sebagai dikirim atau dibatalkan.",
+          "Pesanan yang sedang diproses hanya dapat ditandai sebagai dikirim atau dibatalkan.",
       };
     }
 
     /**
-      * --------------------------------------------------------
-      * SHIPPING
-      * --------------------------------------------------------
-    */
+     * --------------------------------------------------------
+     * SHIPPING
+     * --------------------------------------------------------
+     *
+     * COMPLETED sudah ditangani di awal method
+     * melalui markAsCompleted().
+     *
+     * Jadi pada generic transition di sini,
+     * satu-satunya status yang masih valid adalah
+     * CANCELLED.
+     */
 
-    if (order.status === "SHIPPING") {
-      if (status === "COMPLETED" && !isPaymentVerified) {
-        return {
-          success: false,
-          message:
-          "Pesanan tidak dapat diselesaikan sebelum pembayaran diverifikasi.",
-        };
-      }
+    if (
+      order.status ===
+        OrderStatus.SHIPPING &&
+      status !==
+        OrderStatus.CANCELLED
+    ) {
+      return {
+        success: false,
 
-      if (
-        status !== "COMPLETED" &&
-        status !== "CANCELLED"
-      ) {
-        return {
-          success: false,
-          message:
+        message:
           "Pesanan yang sudah dikirim hanya dapat diselesaikan atau dibatalkan.",
-        };
-      }
+      };
     }
 
     /**
-      * ========================================================
-      * CANCELLED
-      * ========================================================
-      *
-      * PENTING:
-      *
-      * Jangan langsung:
-      *
-      * OrderRepository.updateStatus(id, status)
-      *
-      * Karena pembatalan harus:
-      *
-      * 1. Mengembalikan stock
-      * 2. Membuat StockLedger CANCEL
-      * 3. Mengubah status menjadi CANCELLED
-      *
-      * Semua dilakukan melalui cancelOrder().
-    */
+     * ========================================================
+     * CANCELLED
+     * ========================================================
+     *
+     * PENTING:
+     *
+     * Jangan langsung:
+     *
+     * OrderRepository.updateStatus(
+     *   id,
+     *   status
+     * )
+     *
+     * Karena pembatalan harus:
+     *
+     * 1. Mengembalikan stock
+     * 2. Membuat StockLedger CANCEL
+     * 3. Mengubah status menjadi CANCELLED
+     *
+     * Semua dilakukan melalui cancelOrder().
+     */
 
-    if (status === "CANCELLED") {
+    if (
+      status ===
+      OrderStatus.CANCELLED
+    ) {
       const cancelledOrder =
-      await this.cancelOrder(id);
+        await this.cancelOrder(id);
 
       return {
         success: true,
+
         message:
-        "Pesanan berhasil dibatalkan dan stok telah dikembalikan.",
+          "Pesanan berhasil dibatalkan dan stok telah dikembalikan.",
+
         data:
-        cancelledOrder,
+          cancelledOrder,
       };
     }
 
     /**
- * ========================================================
- * NORMAL STATUS UPDATE
- * ========================================================
- *
- * Gunakan status order saat ini sebagai expectedStatus.
- *
- * Ini mencegah race condition ketika status berubah setelah
- * order dibaca tetapi sebelum proses update dijalankan.
- */
-const updatedOrder =
-  await OrderRepository.updateStatus(
-    id,
-    status,
-    order.status
-  );
+     * ========================================================
+     * NORMAL STATUS UPDATE
+     * ========================================================
+     *
+     * Hanya status non-terminal yang sampai
+     * ke generic repository update.
+     *
+     * Gunakan status order saat ini sebagai
+     * expectedStatus untuk mencegah race condition.
+     */
 
-/**
- * ========================================================
- * CONCURRENT STATUS CHANGE
- * ========================================================
- *
- * Jika conditional update gagal, kemungkinan status order
- * sudah berubah oleh request atau proses lain.
- */
-if (!updatedOrder) {
-  return {
-    success: false,
-    message:
-      "Status pesanan telah berubah oleh proses lain. Silakan refresh data dan coba lagi.",
-  };
-}
+    const updatedOrder =
+      await OrderRepository.updateStatus(
+        id,
+        status,
+        order.status
+      );
 
-/**
- * ========================================================
- * SUCCESS RESPONSE
- * ========================================================
- */
-return {
-  success: true,
-  message:
-    "Status pesanan berhasil diperbarui.",
-  data: updatedOrder,
-};
+    /**
+     * ========================================================
+     * CONCURRENT STATUS CHANGE
+     * ========================================================
+     */
 
+    if (!updatedOrder) {
+      return {
+        success: false,
 
+        message:
+          "Status pesanan telah berubah oleh proses lain. Silakan refresh data dan coba lagi.",
+      };
+    }
+
+    /**
+     * ========================================================
+     * SUCCESS RESPONSE
+     * ========================================================
+     */
+
+    return {
+      success: true,
+
+      message:
+        "Status pesanan berhasil diperbarui.",
+
+      data:
+        updatedOrder,
+    };
   } catch (error) {
     console.error(
       "[ORDER_SERVICE_UPDATE_STATUS_ERROR]",
@@ -3585,8 +3712,11 @@ return {
 
     return {
       success: false,
+
       message:
-      "Terjadi kesalahan saat memperbarui status pesanan.",
+        error instanceof Error
+          ? error.message
+          : "Gagal memperbarui status pesanan.",
     };
   }
 }
@@ -4616,12 +4746,24 @@ static async markAsCompleted(
             address: true,
 
             items: {
-              include: {
-                product: true,
+  include: {
+    product: true,
 
-                sku: true,
+    sku: {
+      include: {
+        skuOptions: {
+          include: {
+            variantOption: {
+              include: {
+                group: true,
               },
             },
+          },
+        },
+      },
+    },
+  },
+},
 
             paymentProof: true,
           },
@@ -4728,35 +4870,55 @@ static async markAsCompleted(
        *
        * Stock sudah diproses pada lifecycle sebelumnya.
        */
-      return await tx.order.update({
-        where: {
-          id: order.id,
-        },
-
-        data: {
-          status:
-            OrderStatus.COMPLETED,
-
-          completedAt:
-            new Date(),
-        },
-
-        include: {
-          user: true,
-
-          address: true,
-
-          items: {
-            include: {
-              product: true,
-
-              sku: true,
-            },
+      const completedOrder =
+        await tx.order.update({
+          where: {
+            id: order.id,
           },
 
-          paymentProof: true,
-        },
-      });
+          data: {
+            status:
+              OrderStatus.COMPLETED,
+
+            completedAt:
+              new Date(),
+          },
+
+          include: {
+            user: true,
+
+            address: true,
+
+            items: {
+              include: {
+                product: true,
+
+                sku: {
+                  include: {
+                    skuOptions: {
+                      include: {
+                        variantOption: {
+                          include: {
+                            group: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+
+            paymentProof: true,
+          },
+        });
+
+      await awardOrderRewardPointsTx(
+        tx,
+        completedOrder
+      );
+
+      return completedOrder;
     }
   );
 }

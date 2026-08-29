@@ -16,6 +16,9 @@ import {
   AuthBrandingProvider,
 } from "@/components/auth/AuthBrandingProvider";
 
+import MobileLoginContent from
+  "@/components/auth/MobileLoginContent";
+
 /**
  * ============================================================
  * METADATA
@@ -1086,7 +1089,6 @@ export default async function AuthLayout({
                   lg:justify-end
                 "
               >
-
                 <AuthBrandingProvider
                   branding={{
                     storeName,
@@ -1095,215 +1097,42 @@ export default async function AuthLayout({
                     storeInitial,
                   }}
                 >
+                  {/* =====================================================
+                      DESKTOP AUTH
+                  ====================================================== */}
+
                   <div
                     className="
+                      hidden
                       w-full
                       max-w-md
+                      lg:block
                     "
                   >
                     {children}
                   </div>
-                </AuthBrandingProvider>
 
-              </div>
+                  {/* =====================================================
+                      MOBILE AUTH
+                  ====================================================== */}
 
-            </div>
-
-          </div>
-
-          {/* ==================================================
-              MOBILE BRANDING
-          ================================================== */}
-
-          <div
-            className="
-              relative
-              z-10
-              border-t
-              border-white/10
-              bg-black/10
-              px-4
-              py-8
-              backdrop-blur-sm
-              lg:hidden
-            "
-          >
-
-            <div
-              className="
-                mx-auto
-                flex
-                w-full
-                max-w-md
-                flex-col
-                items-center
-                text-center
-              "
-            >
-
-              {/* ===============================================
-                  MOBILE LOGO
-              =============================================== */}
-
-              <div
-                className="
-                  auth-brand-float
-                  relative
-                  flex
-                  h-20
-                  w-20
-                  items-center
-                  justify-center
-                  overflow-hidden
-                  rounded-2xl
-                  border
-                  border-white/20
-                  bg-white/10
-                  p-2
-                  shadow-xl
-                  backdrop-blur-xl
-                "
-              >
-
-                <div
-                  className="
-                    relative
-                    h-full
-                    w-full
-                    overflow-hidden
-                    rounded-xl
-                    bg-white
-                  "
-                >
-                  {siteLogo ? (
-                    <Image
-                      src={siteLogo}
-                      alt={`${storeName} Logo`}
-                      fill
-                      sizes="80px"
-                      className="
-                        object-contain
-                        p-1.5
-                      "
-                    />
-                  ) : (
-                    <div
-                      className="
-                        flex
-                        h-full
-                        w-full
-                        items-center
-                        justify-center
-                        text-xl
-                        font-bold
-                        text-sky-800
-                      "
+                  <div
+                    className="
+                      block
+                      w-full
+                      lg:hidden
+                    "
+                  >
+                    <MobileLoginContent
+                      storeName={storeName}
+                      storeDescription={storeDescription}
+                      siteLogo={siteLogo}
+                      storeInitial={storeInitial}
                     >
-                      {storeInitial}
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
-              {/* ===============================================
-                  MOBILE STORE NAME
-              =============================================== */}
-
-              <h1
-                className="
-                  mt-4
-                  text-2xl
-                  font-bold
-                  tracking-tight
-                  text-white
-                "
-              >
-                {storeName}
-              </h1>
-
-              {/* ===============================================
-                  MOBILE DESCRIPTION
-              =============================================== */}
-
-              <p
-                className="
-                  mt-1.5
-                  text-sm
-                  font-medium
-                  text-cyan-100
-                "
-              >
-                {storeDescription}
-              </p>
-
-              {/* ===============================================
-                  MOBILE MESSAGE
-              =============================================== */}
-
-              <p
-                className="
-                  mt-4
-                  max-w-sm
-                  text-xs
-                  leading-6
-                  text-cyan-50/75
-                "
-              >
-                Belanja seafood segar dengan
-                mudah, praktis, dan terpercaya.
-              </p>
-
-              {/* ===============================================
-                  MOBILE FEATURES
-              =============================================== */}
-
-              <div
-                className="
-                  mt-5
-                  grid
-                  w-full
-                  grid-cols-3
-                  gap-2
-                "
-              >
-
-                <FeatureItem
-                  icon={
-                    <Fish
-                      className="
-                        h-4
-                        w-4
-                      "
-                    />
-                  }
-                  label="Segar"
-                />
-
-                <FeatureItem
-                  icon={
-                    <ShieldCheck
-                      className="
-                        h-4
-                        w-4
-                      "
-                    />
-                  }
-                  label="Terpercaya"
-                />
-
-                <FeatureItem
-                  icon={
-                    <Truck
-                      className="
-                        h-4
-                        w-4
-                      "
-                    />
-                  }
-                  label="Kirim"
-                />
-
+                      {children}
+                    </MobileLoginContent>
+                  </div>
+                </AuthBrandingProvider>
               </div>
 
             </div>
@@ -1312,6 +1141,7 @@ export default async function AuthLayout({
 
           {/* ==================================================
               OCEAN WAVES
+              DESKTOP ONLY
           ================================================== */}
 
           <div
@@ -1321,9 +1151,11 @@ export default async function AuthLayout({
               bottom-0
               left-0
               z-20
+              hidden
               h-32
               w-full
               overflow-hidden
+              lg:block
               sm:h-36
             "
             aria-hidden="true"
@@ -1449,13 +1281,16 @@ export default async function AuthLayout({
 
         {/* ======================================================
             FOOTER
+            DESKTOP ONLY
         ====================================================== */}
 
         <footer
           className="
+            hidden
             border-t
             border-slate-200
             bg-slate-50
+            lg:block
           "
         >
           <div

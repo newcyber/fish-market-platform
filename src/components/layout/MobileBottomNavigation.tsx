@@ -784,7 +784,7 @@ const whatsappUrl =
 
   const accountUrl =
     status === "authenticated"
-      ? "/customer/profile"
+      ? "/customer/account"
       : "/login";
 
   /**
@@ -805,7 +805,7 @@ const whatsappUrl =
         ) =>
           currentPathname === "/" ||
           currentPathname ===
-            "/customer/profile",
+            "/customer/account",
       },
 
       {
@@ -868,7 +868,7 @@ const whatsappUrl =
           currentPathname ===
             "/customer" ||
           currentPathname.startsWith(
-            "/customer/profile"
+            "/customer/account"
           ) ||
           currentPathname.startsWith(
             "/customer/addresses"

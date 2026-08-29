@@ -531,24 +531,6 @@ static async updateStatus(
   },
 });
 }
-
-  /**
-   * Menandai order selesai.
-   */
-  static async markAsCompleted(
-    id: string
-  ) {
-    return prisma.order.update({
-      where: {
-        id,
-      },
-
-      data: {
-        status: OrderStatus.COMPLETED,
-        completedAt: new Date(),
-      },
-    });
-  }
 }
 
 export default OrderRepository;

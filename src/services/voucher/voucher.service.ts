@@ -134,6 +134,34 @@ export class VoucherService {
       );
     }
 
+/**
+ * ----------------------------------------------------------
+ * REWARD VOUCHER OWNERSHIP
+ * ----------------------------------------------------------
+ *
+ * Jika voucher merupakan hasil redeem reward point,
+ * voucher hanya boleh digunakan oleh customer
+ * yang memilikinya.
+ *
+ * Voucher biasa tidak memiliki UserVoucher,
+ * sehingga tetap dianggap voucher publik.
+ */
+
+const rewardVoucherOwner =
+  await VoucherRepository.findUserVoucherOwner(
+    voucher.id,
+    tx
+  );
+
+if (
+  rewardVoucherOwner &&
+  rewardVoucherOwner.userId !== input.userId
+) {
+  throw new Error(
+    "Voucher reward ini bukan milik Anda."
+  );
+}
+
     /**
      * ----------------------------------------------------------
      * ACTIVE STATUS
