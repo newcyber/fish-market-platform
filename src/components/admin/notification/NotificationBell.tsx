@@ -24,6 +24,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 
+import PushNotificationControl from "@/components/admin/notification/PushNotificationControl";
+
 import {
   Popover,
   PopoverContent,
@@ -571,6 +573,14 @@ export function NotificationBell() {
               Tandai dibaca
             </Button>
           ) : null}
+                </div>
+
+        {/* ================================================= */}
+        {/* PUSH NOTIFICATION */}
+        {/* ================================================= */}
+
+        <div className="border-b px-3 py-3">
+          <PushNotificationControl />
         </div>
 
         {/* ================================================= */}

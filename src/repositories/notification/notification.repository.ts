@@ -32,6 +32,8 @@ export interface CreateNotificationInput {
   type: NotificationType;
 
   href?: string | null;
+
+  orderId?: string | null;
 }
 
 export interface NotificationListOptions {
@@ -70,6 +72,9 @@ class NotificationRepository {
 
         href:
           data.href?.trim() || null,
+
+        orderId:
+          data.orderId?.trim() || null,
       },
     });
   }
@@ -107,26 +112,29 @@ class NotificationRepository {
       };
     }
 
-    return prisma.notification.createMany({
-      data: data.map(
-        (item) => ({
-          userId:
-            item.userId,
+return prisma.notification.createMany({
+  data: data.map(
+    (item) => ({
+      userId:
+        item.userId,
 
-          title:
-            item.title.trim(),
+      title:
+        item.title.trim(),
 
-          message:
-            item.message.trim(),
+      message:
+        item.message.trim(),
 
-          type:
-            item.type,
+      type:
+        item.type,
 
-          href:
-            item.href?.trim() || null,
-        })
-      ),
-    });
+      href:
+        item.href?.trim() || null,
+
+      orderId:
+        item.orderId?.trim() || null,
+    })
+  ),
+});
   }
 
   /**
@@ -168,25 +176,28 @@ class NotificationRepository {
     }
 
     return prisma.notification.createManyAndReturn({
-      data: data.map(
-        (item) => ({
-          userId:
-            item.userId,
+  data: data.map(
+    (item) => ({
+      userId:
+        item.userId,
 
-          title:
-            item.title.trim(),
+      title:
+        item.title.trim(),
 
-          message:
-            item.message.trim(),
+      message:
+        item.message.trim(),
 
-          type:
-            item.type,
+      type:
+        item.type,
 
-          href:
-            item.href?.trim() || null,
-        })
-      ),
-    });
+      href:
+        item.href?.trim() || null,
+
+      orderId:
+        item.orderId?.trim() || null,
+    })
+  ),
+});
   }
 
   /**

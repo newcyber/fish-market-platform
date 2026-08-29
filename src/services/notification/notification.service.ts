@@ -199,26 +199,28 @@ class NotificationService {
      * ID notification untuk payload Web Push.
      */
 
-    const notifications =
-      await notificationRepository.createManyAndReturn(
-        recipients.map(
-          (recipient) => ({
-            userId:
-              recipient.id,
+const notifications =
+  await notificationRepository.createManyAndReturn(
+    recipients.map(
+      (recipient) => ({
+        userId:
+          recipient.id,
 
-            title:
-              "Pesanan Baru",
+        title:
+          "Pesanan Baru",
 
-            message,
+        message,
 
-            type:
-              NotificationType.NEW_ORDER,
+        type:
+          NotificationType.NEW_ORDER,
 
-            href:
-              `/admin/orders/${orderId}`,
-          })
-        )
-      );
+        href:
+          `/admin/orders/${orderId}`,
+
+        orderId,
+      })
+    )
+  );
 
     /**
      * ========================================================

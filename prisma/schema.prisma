@@ -1531,6 +1531,8 @@ model Order {
 
   items OrderItem[]
 
+  notifications Notification[]
+
   paymentProof PaymentProof?
 
   deletedAt DateTime?
@@ -2189,6 +2191,9 @@ model Notification {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
   title   String
   message String
   type    NotificationType
@@ -2203,6 +2208,7 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@index([type])
+  @@index([orderId])
 }
 
 model PushSubscription {
