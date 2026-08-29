@@ -7,6 +7,10 @@ import {
   ShoppingBag,
 } from "lucide-react";
 
+import {
+  OrderStatus,
+} from "@prisma/client";
+
 import { auth } from "@/auth";
 
 import OrderService from "@/services/order/order.service";
@@ -100,7 +104,15 @@ function getStatusLabel(
  * ============================================================
  */
 
-export default async function CustomerOrdersPage() {
+interface CustomerOrdersPageProps {
+  searchParams: Promise<{
+    status?: string;
+  }>;
+}
+
+export default async function CustomerOrdersPage({
+  searchParams,
+}: CustomerOrdersPageProps) {
   /**
    * ==========================================================
    * AUTHENTICATION
@@ -124,9 +136,49 @@ export default async function CustomerOrdersPage() {
  * ==========================================================
  */
 
+const {
+  status,
+} = await searchParams;
+
+let orderStatuses:
+  | OrderStatus[]
+  | undefined;
+
+switch (status) {
+  case "PAYMENT":
+    orderStatuses = [
+      OrderStatus.PENDING,
+      OrderStatus.WAITING_PAYMENT,
+    ];
+    break;
+
+  case "PROCESSING":
+    orderStatuses = [
+      OrderStatus.WAITING_VERIFICATION,
+      OrderStatus.PROCESSING,
+    ];
+    break;
+
+  case "SHIPPING":
+    orderStatuses = [
+      OrderStatus.SHIPPING,
+    ];
+    break;
+
+  case "COMPLETED":
+    orderStatuses = [
+      OrderStatus.COMPLETED,
+    ];
+    break;
+
+  default:
+    orderStatuses = undefined;
+}
+
 const orders =
   await OrderService.getOrdersByUserId(
-    session.user.id
+    session.user.id,
+    orderStatuses
   );
 
   /**

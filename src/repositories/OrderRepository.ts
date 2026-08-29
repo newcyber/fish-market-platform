@@ -97,6 +97,104 @@ static async getDeletedTotal() {
 }
 
   /**
+   * ==========================================================
+   * CUSTOMER ORDER SUMMARY
+   * ==========================================================
+   *
+   * Mengambil ringkasan order milik satu customer.
+   *
+   * Digunakan oleh Customer Account Dashboard.
+   *
+   * Hanya order aktif yang dihitung:
+   *
+   * deletedAt = null
+   *
+   * Order milik customer lain tidak akan ikut terhitung
+   * karena userId menjadi authorization scope.
+   *
+   * Grouping dilakukan langsung di database berdasarkan
+   * OrderStatus agar tidak perlu mengambil seluruh Order
+   * beserta relasinya.
+   */
+  static async getCustomerOrderSummary(
+    userId: string
+  ) {
+    const rows =
+      await prisma.order.groupBy({
+        by: ["status"],
+
+        where: {
+          userId,
+
+          deletedAt: null,
+        },
+
+        _count: {
+          _all: true,
+        },
+      });
+
+    const summary = {
+      totalOrders: 0,
+
+      pending: 0,
+
+      waitingPayment: 0,
+
+      waitingVerification: 0,
+
+      processing: 0,
+
+      shipping: 0,
+
+      completed: 0,
+
+      cancelled: 0,
+    };
+
+    for (const row of rows) {
+      const count =
+        row._count._all;
+
+      summary.totalOrders +=
+        count;
+
+      switch (row.status) {
+        case OrderStatus.PENDING:
+          summary.pending = count;
+          break;
+
+        case OrderStatus.WAITING_PAYMENT:
+          summary.waitingPayment = count;
+          break;
+
+        case OrderStatus.WAITING_VERIFICATION:
+          summary.waitingVerification =
+            count;
+          break;
+
+        case OrderStatus.PROCESSING:
+          summary.processing = count;
+          break;
+
+        case OrderStatus.SHIPPING:
+          summary.shipping = count;
+          break;
+
+        case OrderStatus.COMPLETED:
+          summary.completed = count;
+          break;
+
+        case OrderStatus.CANCELLED:
+          summary.cancelled = count;
+          break;
+      }
+    }
+
+    return summary;
+  }
+
+  /**
    * Order terbaru.
    */
   static async findLatest(limit = 5) {
@@ -285,28 +383,40 @@ static async forceDelete(id: string) {
    * Seluruh order milik user.
    */
   static async findByUserId(
-    userId: string
-  ) {
-    return prisma.order.findMany({
-      where: {
-        userId,
-      },
+  userId: string,
+  statuses?: OrderStatus[]
+) {
+  return prisma.order.findMany({
+    where: {
+      userId,
 
-      orderBy: {
-        createdAt: "desc",
-      },
+      ...(statuses &&
+      statuses.length > 0
+        ? {
+            status: {
+              in: statuses,
+            },
+          }
+        : {}),
+    },
 
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
+    orderBy: {
+      createdAt: "desc",
+    },
+
+    include: {
+      items: {
+        include: {
+          product: true,
         },
-        paymentProof: true,
-        paymentChannel: true,
       },
-    });
-  }
+
+      paymentProof: true,
+
+      paymentChannel: true,
+    },
+  });
+}
 
   /**
    * Membuat order baru.

@@ -183,12 +183,14 @@ export default class OrderService {
     * Order milik customer tertentu.
   */
   static async getOrdersByUserId(
-    userId: string
-  ) {
-    return OrderRepository.findByUserId(
-      userId
-    );
-  }
+  userId: string,
+  statuses?: OrderStatus[]
+) {
+  return OrderRepository.findByUserId(
+    userId,
+    statuses
+  );
+}
 
   /**
     * Order terbaru.
