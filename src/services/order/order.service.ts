@@ -3188,6 +3188,9 @@ if (delta > 0) {
               productWeight:
                 null,
 
+              weightSku:
+                item.weightSku,
+
               customerNote:
                 item.customerNote,
 
@@ -6114,49 +6117,54 @@ static async createCheckoutOrder(
       };
     }
 
-    /**
-      * ========================================================
-      * GET CART
-      * ========================================================
-    */
+        /**
+     * ========================================================
+     * GET CART
+     * ========================================================
+     */
 
     const cart =
-  await prisma.cart.findUnique({
-    where: {
-      userId,
-    },
+      await prisma.cart.findUnique({
+        where: {
+          userId,
+        },
 
-    include: {
-      items: {
         include: {
-          product: true,
-
-          sku: {
+          items: {
             include: {
-              skuOptions: {
+              product: true,
+
+              sku: {
                 include: {
-                  variantOption: true,
+                  skuOptions: {
+                    include: {
+                      variantOption: {
+                        include: {
+                          group: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
+
+              /**
+               * ======================================================
+               * FLASH SALE SNAPSHOT
+               * ======================================================
+               *
+               * CartItem menyimpan FlashSaleItem yang dipilih
+               * ketika item dimasukkan / diperbarui di cart.
+               *
+               * Nilai ini menjadi preferred Flash Sale candidate
+               * ketika checkout.
+               */
+
+              flashSaleItem: true,
             },
           },
-
-          /**
-           * ======================================================
-           * FLASH SALE SNAPSHOT
-           * ======================================================
-           *
-           * CartItem menyimpan FlashSaleItem yang dipilih
-           * ketika item dimasukkan / diperbarui di cart.
-           *
-           * Nilai ini menjadi preferred Flash Sale candidate
-           * ketika checkout.
-           */
-          flashSaleItem: true,
         },
-      },
-    },
-  });
+      });
 
     if (
       !cart ||
@@ -6351,10 +6359,10 @@ if (sku.stock < item.quantity) {
   );
 
           /**
-            * ========================================================
-            * COLLECT FLASH SALE REQUIREMENT
-            * ========================================================
-          */
+           * ========================================================
+           * COLLECT FLASH SALE REQUIREMENT
+           * ========================================================
+           */
 
           if (
             pricing.isFlashSaleApplied &&
@@ -6372,6 +6380,12 @@ if (sku.stock < item.quantity) {
             });
           }
 
+          /**
+           * ========================================================
+           * CALCULATE ITEM PRICE
+           * ========================================================
+           */
+
           const price =
             pricing.finalPrice;
 
@@ -6385,6 +6399,36 @@ if (sku.stock < item.quantity) {
               quantity
             );
 
+          /**
+           * ========================================================
+           * BUILD SKU SNAPSHOT
+           * ========================================================
+           *
+           * SKU adalah source of truth untuk:
+           *
+           * - productVariant
+           * - productWeight
+           * - weightSku
+           *
+           * Jangan mengambil weightSku dari CartItem karena
+           * CartItem bukan source of truth untuk konfigurasi SKU.
+           *
+           * Snapshot ini akan disimpan ke OrderItem agar reward
+           * point tetap dapat dihitung berdasarkan kondisi SKU
+           * saat checkout dilakukan.
+           */
+
+          const skuSnapshot =
+            getSkuOptionSnapshotFromSku(
+              sku.skuOptions
+            );
+
+          /**
+           * ========================================================
+           * BUILD NORMALIZED ORDER ITEM
+           * ========================================================
+           */
+
           normalizedItems.push({
             productId:
               product.id,
@@ -6395,19 +6439,14 @@ if (sku.stock < item.quantity) {
             productName:
               product.name,
 
-            /**
-              * Legacy snapshot fields tetap dipertahankan
-              * untuk kompatibilitas data lama, tetapi tidak
-              * digunakan sebagai source of truth transaksi.
-            */
             productVariant:
-              item.productVariant,
+              skuSnapshot.productVariant,
 
             productWeight:
-              item.productWeight,
+              skuSnapshot.productWeight,
 
             weightSku:
-              item.weightSku,
+              skuSnapshot.weightSku,
 
             customerNote:
               item.customerNote,
@@ -6423,11 +6462,10 @@ if (sku.stock < item.quantity) {
         }
 
         /**
-        /**
-          * ========================================================
-          * CALCULATE CHECKOUT SUBTOTAL
-          * ========================================================
-        */
+         * ========================================================
+         * CALCULATE CHECKOUT SUBTOTAL
+         * ========================================================
+         */
 
         const subtotal =
         normalizedItems.reduce(
@@ -6648,41 +6686,45 @@ if (sku.stock < item.quantity) {
               null,
 
               items: {
-                create:
-                normalizedItems.map(
-                  (item) => ({
-                      productId:
-                      item.productId,
+  create:
+    normalizedItems.map(
+      (item) => ({
+        productId:
+          item.productId,
 
-                      skuId:
-                      item.skuId,
+        skuId:
+          item.skuId,
 
-                      productName:
-                      item.productName,
+        productName:
+          item.productName,
 
-                      productVariant:
-                      item.productVariant ??
-                      null,
+        productVariant:
+          item.productVariant ??
+          null,
 
-                      productWeight:
-                      item.productWeight ??
-                      null,
+        productWeight:
+          item.productWeight ??
+          null,
 
-                      customerNote:
-                      item.customerNote ??
-                      null,
+        weightSku:
+          item.weightSku ??
+          null,
 
-                      price:
-                      item.price,
+        customerNote:
+          item.customerNote ??
+          null,
 
-                      quantity:
-                      item.quantity,
+        price:
+          item.price,
 
-                      subtotal:
-                      item.subtotal,
-                    })
-                ),
-              },
+        quantity:
+          item.quantity,
+
+        subtotal:
+          item.subtotal,
+      })
+    ),
+},
             },
 
             include: {
