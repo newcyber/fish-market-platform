@@ -132,6 +132,8 @@ model User {
   accounts Account[]
   sessions Session[]
 
+  mobileSessions MobileSession[]
+
   passwordResetTokens PasswordResetToken[]
 
   emailVerificationOtps EmailVerificationOtp[]
@@ -2320,6 +2322,27 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model MobileSession {
+  id String @id @default(cuid())
+
+  userId String
+
+  refreshTokenHash String @unique
+
+  expiresAt DateTime
+
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model VerificationToken {
