@@ -25,6 +25,16 @@ enum RewardPointTransactionType {
   EXPIRED
 }
 
+enum RewardClaimStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
 enum OrderStatus {
   PENDING
   WAITING_PAYMENT
@@ -159,6 +169,8 @@ model User {
   rewardPointTransactions RewardPointTransaction[]
 
   userVouchers UserVoucher[]
+
+  rewardClaims RewardClaim[]
 
   @@index([email])
   @@index([role])
@@ -2073,6 +2085,245 @@ model RewardVoucherSetting {
   @@index([requiredPoints])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+// ============================================================
+// REWARD CATALOG
+// ============================================================
+//
+// Katalog hadiah fisik yang dapat ditukar menggunakan
+// reward point.
+//
+// Contoh:
+//
+// TV Samsung 43"
+//     25.000 Point
+//
+// Kulkas
+//     30.000 Point
+//
+// Sepeda Gunung
+//     15.000 Point
+//
+// Data ini dikelola oleh Admin.
+// ============================================================
+
+model RewardCatalog {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * BASIC INFORMATION
+   * ============================================================
+   */
+
+  name String
+
+  description String?
+
+  image String?
+
+  /**
+   * ============================================================
+   * REQUIRED POINT
+   * ============================================================
+   * Jumlah point yang diperlukan customer
+   * untuk melakukan claim satu hadiah.
+   */
+
+  requiredPoints Int
+
+  /**
+   * ============================================================
+   * STOCK
+   * ============================================================
+   * Jumlah hadiah yang masih tersedia.
+   * Satu RewardClaim akan mengurangi stock sebesar 1.
+   */
+
+  stock Int @default(0)
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   */
+
+  isActive Boolean @default(true)
+
+  /**
+   * ============================================================
+   * SORT ORDER
+   * ============================================================
+   * Menentukan urutan hadiah pada katalog customer.
+   */
+
+  sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * RELATION
+   * ============================================================
+   */
+
+  claims RewardClaim[]
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([isActive])
+  @@index([requiredPoints])
+  @@index([sortOrder])
+}
+
+// ============================================================
+// REWARD CLAIM
+// ============================================================
+//
+// Mencatat customer yang menukarkan reward point
+// dengan hadiah fisik.
+//
+// Satu RewardClaim = satu unit hadiah.
+//
+// Contoh:
+//
+// Customer
+//     ↓
+// Claim TV
+//     ↓
+// 25.000 point
+//
+// Point:
+//     REDEEM -25.000
+//
+// Stock:
+//     -1
+// ============================================================
+
+model RewardClaim {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * CUSTOMER
+   * ============================================================
+   */
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /**
+   * ============================================================
+   * REWARD CATALOG
+   * ============================================================
+   */
+
+  rewardCatalogId String
+
+  rewardCatalog RewardCatalog @relation(fields: [rewardCatalogId], references: [id], onDelete: Restrict)
+
+  /**
+   * ============================================================
+   * POINT SNAPSHOT
+   * ============================================================
+   * Jumlah point yang benar-benar digunakan
+   * ketika claim dibuat.
+   * Tidak mengambil kembali dari RewardCatalog
+   * karena konfigurasi hadiah dapat berubah
+   * di masa depan.
+   */
+
+  pointsSpent Int
+
+  /**
+   * ============================================================
+   * REWARD SNAPSHOT
+   * ============================================================
+   * Snapshot diperlukan agar histori claim
+   * tidak berubah ketika Admin mengedit katalog.
+   */
+
+  rewardName String
+
+  rewardDescription String?
+
+  rewardImage String?
+
+  /**
+   * ============================================================
+   * CLAIM STATUS
+   * ============================================================
+   */
+
+  status RewardClaimStatus @default(PENDING)
+
+  /**
+   * ============================================================
+   * REJECTION
+   * ============================================================
+   * Diisi ketika claim ditolak.
+   */
+
+  rejectionReason String?
+
+  /**
+   * ============================================================
+   * STATUS TIMESTAMPS
+   * ============================================================
+   */
+
+  approvedAt DateTime?
+
+  shippedAt DateTime?
+
+  completedAt DateTime?
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([userId])
+  @@index([rewardCatalogId])
+  @@index([status])
+  @@index([userId, createdAt])
 }
 
 // ============================================================
