@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth/admin";
+
 import OrderService, {
   type UpdateOrderInput,
 } from "@/services/order/order.service";
@@ -9,6 +11,8 @@ export async function updateOrderAction(
   input: UpdateOrderInput
 ) {
   try {
+    await requireAdmin();
+
     const order =
       await OrderService.updateOrder(
         id,

@@ -1,3 +1,5 @@
+import type { Role } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -61,7 +63,7 @@ export interface MobileAuthenticatedUser {
 
   avatar: string | null;
 
-  role: string;
+  role: Role;
 }
 
 /**

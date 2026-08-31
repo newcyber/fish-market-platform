@@ -70,9 +70,9 @@ export class AddressService {
   /**
    * ============================================================
    * GET ADDRESS BY ID
+   * ============================================================
    *
-   * Pastikan alamat benar-benar milik
-   * user yang sedang login.
+   * Pastikan address benar-benar milik user.
    * ============================================================
    */
   static async getAddressById(
@@ -94,6 +94,9 @@ export class AddressService {
         };
       }
 
+      /**
+       * Ownership validation.
+       */
       if (
         address.userId !== userId
       ) {
@@ -189,8 +192,8 @@ export class AddressService {
         data.longitude !== null;
 
       /**
-       * Latitude dan longitude harus
-       * diisi bersamaan.
+       * Latitude dan longitude
+       * harus diisi bersamaan.
        */
       if (
         hasLatitude !== hasLongitude
@@ -246,83 +249,53 @@ export class AddressService {
 
       /**
        * ==========================================================
-       * CEK JUMLAH ALAMAT
-       * ==========================================================
-       */
-      const existingAddresses =
-        await AddressRepository.findByUserId(
-          userId
-        );
-
-      /**
-       * Jika ini alamat pertama,
-       * otomatis jadikan default.
-       */
-      const isFirstAddress =
-        existingAddresses.length === 0;
-
-      const shouldBeDefault =
-        isFirstAddress ||
-        data.isDefault === true;
-
-      /**
-       * Jika alamat baru dijadikan default,
-       * hapus status default alamat lama.
-       */
-      if (shouldBeDefault) {
-        await AddressRepository.clearDefault(
-          userId
-        );
-      }
-
-      /**
-       * ==========================================================
-       * CREATE ADDRESS
+       * CREATE
        * ==========================================================
        */
       const address =
-        await AddressRepository.create({
+        await AddressRepository.createWithDefaultHandling(
           userId,
+          {
+            receiverName:
+              data.receiverName.trim(),
 
-          receiverName:
-            data.receiverName.trim(),
+            receiverPhone:
+              data.receiverPhone.trim(),
 
-          receiverPhone:
-            data.receiverPhone.trim(),
+            province:
+              data.province.trim(),
 
-          province:
-            data.province.trim(),
+            city:
+              data.city.trim(),
 
-          city:
-            data.city.trim(),
+            district:
+              data.district.trim(),
 
-          district:
-            data.district.trim(),
+            village:
+              data.village.trim(),
 
-          village:
-            data.village.trim(),
+            postalCode:
+              data.postalCode.trim(),
 
-          postalCode:
-            data.postalCode.trim(),
+            fullAddress:
+              data.fullAddress.trim(),
 
-          fullAddress:
-            data.fullAddress.trim(),
+            latitude:
+              data.latitude ?? null,
 
-          latitude:
-            data.latitude ?? null,
+            longitude:
+              data.longitude ?? null,
 
-          longitude:
-            data.longitude ?? null,
+            label:
+              data.label?.trim() || null,
 
-          label:
-            data.label?.trim() || null,
+            notes:
+              data.notes?.trim() || null,
 
-          notes:
-            data.notes?.trim() || null,
-
-          isDefault:
-            shouldBeDefault,
-        });
+            isDefault:
+              data.isDefault === true,
+          }
+        );
 
       return {
         success: true,
@@ -374,7 +347,7 @@ export class AddressService {
     try {
       /**
        * ==========================================================
-       * CEK ALAMAT
+       * CEK ADDRESS
        * ==========================================================
        */
       const address =
@@ -497,8 +470,9 @@ export class AddressService {
        * UPDATE
        * ==========================================================
        */
-      const updatedAddress =
+      const updateResult =
         await AddressRepository.update(
+          userId,
           addressId,
           {
             receiverName:
@@ -539,6 +513,30 @@ export class AddressService {
           }
         );
 
+      /**
+       * updateMany tidak melempar error
+       * apabila record berubah menjadi tidak cocok.
+       *
+       * Karena itu cek affected rows.
+       */
+      if (
+        updateResult.count === 0
+      ) {
+        return {
+          success: false,
+          message:
+            "Alamat tidak ditemukan.",
+        };
+      }
+
+      /**
+       * Ambil kembali address setelah update.
+       */
+      const updatedAddress =
+        await AddressRepository.findById(
+          addressId
+        );
+
       return {
         success: true,
         message:
@@ -571,7 +569,7 @@ export class AddressService {
     try {
       /**
        * ==========================================================
-       * CEK ALAMAT
+       * CEK ADDRESS
        * ==========================================================
        */
       const address =
@@ -618,6 +616,22 @@ export class AddressService {
           "Alamat utama berhasil diperbarui.",
       };
     } catch (error) {
+      /**
+       * Address mungkin menjadi tidak tersedia
+       * karena race condition.
+       */
+      if (
+        error instanceof Error &&
+        error.message ===
+          "ADDRESS_NOT_FOUND"
+      ) {
+        return {
+          success: false,
+          message:
+            "Alamat tidak ditemukan.",
+        };
+      }
+
       console.error(
         "[ADDRESS_SET_DEFAULT_ERROR]",
         error
@@ -643,7 +657,7 @@ export class AddressService {
     try {
       /**
        * ==========================================================
-       * CEK ALAMAT
+       * CEK ADDRESS
        * ==========================================================
        */
       const address =
@@ -676,34 +690,16 @@ export class AddressService {
 
       /**
        * ==========================================================
-       * DELETE
+       * DELETE + PROMOTE DEFAULT
        * ==========================================================
+       *
+       * Semua operasi mutation dilakukan dalam
+       * satu transaction di repository.
        */
-      await AddressRepository.delete(
+      await AddressRepository.deleteAndPromoteDefault(
+        userId,
         addressId
       );
-
-      /**
-       * ==========================================================
-       * JIKA ALAMAT YANG DIHAPUS ADALAH DEFAULT,
-       * JADIKAN ALAMAT PERTAMA SEBAGAI DEFAULT.
-       * ==========================================================
-       */
-      if (address.isDefault) {
-        const remainingAddresses =
-          await AddressRepository.findByUserId(
-            userId
-          );
-
-        if (
-          remainingAddresses.length > 0
-        ) {
-          await AddressRepository.setDefault(
-            userId,
-            remainingAddresses[0].id
-          );
-        }
-      }
 
       return {
         success: true,
@@ -711,6 +707,23 @@ export class AddressService {
           "Alamat berhasil dihapus.",
       };
     } catch (error) {
+      /**
+       * ==========================================================
+       * ADDRESS NOT FOUND
+       * ==========================================================
+       */
+      if (
+        error instanceof Error &&
+        error.message ===
+          "ADDRESS_NOT_FOUND"
+      ) {
+        return {
+          success: false,
+          message:
+            "Alamat tidak ditemukan.",
+        };
+      }
+
       console.error(
         "[ADDRESS_DELETE_ERROR]",
         error
@@ -723,7 +736,6 @@ export class AddressService {
       };
     }
   }
-  
 }
 
 export default AddressService;
