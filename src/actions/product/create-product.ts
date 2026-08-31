@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth/admin";
+
 import {
   revalidatePath,
 } from "next/cache";
@@ -101,7 +103,6 @@ function normalizePrice(
   return numberValue;
 }
 
-
 /**
  * ============================================================
  * PARSE JSON PAYLOAD
@@ -112,39 +113,70 @@ function parseJsonArray(
   value: FormDataEntryValue | null,
   fieldName: string
 ): unknown[] {
-  if (value === null || String(value).trim() === "") {
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
     return [];
   }
 
   let parsed: unknown;
+
   try {
-    parsed = JSON.parse(String(value));
+    parsed = JSON.parse(
+      String(value)
+    );
   } catch {
-    throw new Error(`Data ${fieldName} tidak valid.`);
+    throw new Error(
+      `Data ${fieldName} tidak valid.`
+    );
   }
 
   if (!Array.isArray(parsed)) {
-    throw new Error(`Data ${fieldName} harus berupa array.`);
+    throw new Error(
+      `Data ${fieldName} harus berupa array.`
+    );
   }
 
   return parsed;
 }
 
-function parseVariantGroups(value: FormDataEntryValue | null) {
-  return parseJsonArray(value, "variantGroups");
+function parseVariantGroups(
+  value: FormDataEntryValue | null
+) {
+  return parseJsonArray(
+    value,
+    "variantGroups"
+  );
 }
 
-function parseSkus(value: FormDataEntryValue | null) {
-  return parseJsonArray(value, "skus");
+function parseSkus(
+  value: FormDataEntryValue | null
+) {
+  return parseJsonArray(
+    value,
+    "skus"
+  );
 }
 
 function normalizeBoolean(
   value: FormDataEntryValue | null,
   fallback = false
 ): boolean {
-  if (value === null) return fallback;
-  const normalized = String(value).trim().toLowerCase();
-  return normalized === "true" || normalized === "on" || normalized === "1";
+  if (value === null) {
+    return fallback;
+  }
+
+  const normalized =
+    String(value)
+      .trim()
+      .toLowerCase();
+
+  return (
+    normalized === "true" ||
+    normalized === "on" ||
+    normalized === "1"
+  );
 }
 
 /**
@@ -159,6 +191,8 @@ function normalizeBoolean(
  * ProductForm
  *      ↓
  * FormData
+ *      ↓
+ * Authorization
  *      ↓
  * Parse variantOptions
  *      ↓
@@ -183,6 +217,30 @@ export async function createProductAction(
     /**
      * ========================================================
      *
+     * AUTHORIZATION
+     *
+     * ========================================================
+     *
+     * Create product merupakan mutation admin.
+     *
+     * Hanya:
+     *
+     * - ADMIN
+     * - SUPER_ADMIN
+     *
+     * yang boleh menjalankan action ini.
+     *
+     * Authorization harus dilakukan
+     * sebelum validasi dan mutation apa pun.
+     *
+     * ========================================================
+     */
+
+    await requireAdmin();
+
+    /**
+     * ========================================================
+     *
      * FORM DATA GUARD
      *
      * ========================================================
@@ -204,20 +262,31 @@ export async function createProductAction(
      * ========================================================
      * PRODUCT VARIANTS / SKUS
      * ========================================================
-     * ProductForm v3 mengirim variantGroups dan skus sebagai JSON.
+     *
+     * ProductForm v3 mengirim
+     * variantGroups dan skus sebagai JSON.
      */
-    const variantGroups = parseVariantGroups(
-      formData.get("variantGroups")
-    );
 
-    const skus = parseSkus(
-      formData.get("skus")
-    );
+    const variantGroups =
+      parseVariantGroups(
+        formData.get(
+          "variantGroups"
+        )
+      );
+
+    const skus =
+      parseSkus(
+        formData.get(
+          "skus"
+        )
+      );
 
     /**
      * ========================================================
      *
      * GET PRODUCT IMAGE FILES
+     *
+     * ========================================================
      *
      * Input:
      *
@@ -247,53 +316,113 @@ export async function createProductAction(
      * ========================================================
      */
 
-    const parsed = ProductSchema.safeParse({
-      categoryId: formData.get("categoryId"),
-      name: formData.get("name"),
-      slug: formData.get("slug"),
-      description: formData.get("description"),
-      sku: formData.get("sku"),
-      price: formData.get("price"),
+    const parsed =
+      ProductSchema.safeParse({
+        categoryId:
+          formData.get(
+            "categoryId"
+          ),
 
-      isDiscountActive: normalizeBoolean(
-        formData.get("isDiscountActive"),
-        false
-      ),
+        name:
+          formData.get(
+            "name"
+          ),
 
-      discountType: (() => {
-        const value = formData.get("discountType");
-        if (value === null || String(value).trim() === "") {
-          return null;
-        }
-        return String(value);
-      })(),
+        slug:
+          formData.get(
+            "slug"
+          ),
 
-      discountValue: normalizePrice(
-        formData.get("discountValue")
-      ),
+        description:
+          formData.get(
+            "description"
+          ),
 
-      discountStartAt: normalizeOptionalDate(
-        formData.get("discountStartAt")
-      ),
+        sku:
+          formData.get(
+            "sku"
+          ),
 
-      discountEndAt: normalizeOptionalDate(
-        formData.get("discountEndAt")
-      ),
+        price:
+          formData.get(
+            "price"
+          ),
 
-      stock: formData.get("stock"),
-      variantGroups,
-      skus,
+        isDiscountActive:
+          normalizeBoolean(
+            formData.get(
+              "isDiscountActive"
+            ),
+            false
+          ),
 
-      isPublished: normalizeBoolean(
-        formData.get("isPublished"),
-        true
-      ),
+        discountType:
+          (() => {
+            const value =
+              formData.get(
+                "discountType"
+              );
 
-      featured: normalizeBoolean(
-        formData.get("featured"),
-        false
-      ),
-    });
+            if (
+              value === null ||
+              String(
+                value
+              ).trim() === ""
+            ) {
+              return null;
+            }
+
+            return String(
+              value
+            );
+          })(),
+
+        discountValue:
+          normalizePrice(
+            formData.get(
+              "discountValue"
+            )
+          ),
+
+        discountStartAt:
+          normalizeOptionalDate(
+            formData.get(
+              "discountStartAt"
+            )
+          ),
+
+        discountEndAt:
+          normalizeOptionalDate(
+            formData.get(
+              "discountEndAt"
+            )
+          ),
+
+        stock:
+          formData.get(
+            "stock"
+          ),
+
+        variantGroups,
+
+        skus,
+
+        isPublished:
+          normalizeBoolean(
+            formData.get(
+              "isPublished"
+            ),
+            true
+          ),
+
+        featured:
+          normalizeBoolean(
+            formData.get(
+              "featured"
+            ),
+            false
+          ),
+      });
 
     /**
      * ========================================================
@@ -304,50 +433,57 @@ export async function createProductAction(
      */
 
     if (!parsed.success) {
-  const { error } = parsed;
+      const { error } =
+        parsed;
 
-  const { fieldErrors } =
-    error.flatten();
+      const { fieldErrors } =
+        error.flatten();
 
-  console.error(
-    "[CREATE_PRODUCT_VALIDATION_ERROR]",
-    {
-      fieldErrors,
-      issues: error.issues,
-    }
-  );
-
-  /**
-   * Ambil error pertama agar
-   * user langsung mengetahui
-   * field mana yang bermasalah.
-   */
-  const firstError =
-    Object.values(fieldErrors)
-      .flat()
-      .find(
-        (
-          message
-        ): message is string =>
-          Boolean(message)
+      console.error(
+        "[CREATE_PRODUCT_VALIDATION_ERROR]",
+        {
+          fieldErrors,
+          issues:
+            error.issues,
+        }
       );
 
-  return {
-    success: false,
+      /**
+       * Ambil error pertama agar
+       * user langsung mengetahui
+       * field mana yang bermasalah.
+       */
 
-    message:
-      firstError ??
-      "Validasi gagal. Silakan periksa kembali data produk.",
+      const firstError =
+        Object.values(
+          fieldErrors
+        )
+          .flat()
+          .find(
+            (
+              message
+            ): message is string =>
+              Boolean(message)
+          );
 
-    errors:
-      fieldErrors,
-  };
-}
+      return {
+        success: false,
+
+        message:
+          firstError ??
+          "Validasi gagal. Silakan periksa kembali data produk.",
+
+        errors:
+          fieldErrors,
+      };
+    }
 
     /**
      * ========================================================
      *
      * CREATE PRODUCT
+     *
+     * ========================================================
      *
      * Product harus dibuat terlebih dahulu
      * agar kita mendapatkan product.id.
@@ -370,6 +506,8 @@ export async function createProductAction(
      * ========================================================
      *
      * UPLOAD PRODUCT IMAGES
+     *
+     * ========================================================
      *
      * File:
      *
@@ -399,6 +537,8 @@ export async function createProductAction(
      * ========================================================
      *
      * REVALIDATE ADMIN PAGES
+     *
+     * ========================================================
      *
      * Dilakukan setelah upload selesai
      * agar gambar langsung tersedia
@@ -451,6 +591,8 @@ export async function createProductAction(
      * ========================================================
      *
      * SUCCESS
+     *
+     * ========================================================
      *
      * Jangan redirect di sini.
      *
