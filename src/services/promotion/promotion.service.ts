@@ -5,6 +5,8 @@ import {
   PromotionType,
 } from "@prisma/client";
 
+import { prisma } from "@/lib/prisma";
+
 import PromotionRepository, {
   CreatePromotionInput,
   UpdatePromotionInput,
@@ -154,15 +156,14 @@ export default class PromotionService {
        * value > 0
        */
       if (
-        data.discountType ===
-        PromotionDiscountType.FIXED_AMOUNT
-      ) {
-        if (!value.greaterThan(0)) {
-          throw new Error(
-            "Fixed discount harus lebih besar dari 0."
-          );
-        }
-      }
+  data.discountType ===
+    PromotionDiscountType.FIXED_AMOUNT &&
+  !value.greaterThan(0)
+    ) {
+  throw new Error(
+    "Fixed discount harus lebih besar dari 0."
+  );
+}
     }
   }
 
@@ -230,68 +231,65 @@ export default class PromotionService {
    * MARKETING tidak mengubah harga sehingga tidak conflict.
    */
   private static async assertNoPriceDiscountConflict(
-    promotionId: string,
-    skuIds: string[],
-    startAt: Date | null,
-    endAt: Date | null
-  ): Promise<void> {
-    if (skuIds.length === 0) {
-      return;
-    }
-
-    const promotion =
-      await PromotionRepository.findById(
-        promotionId
-      );
-
-    if (!promotion) {
-      throw new Error(
-        "Promotion tidak ditemukan."
-      );
-    }
-
-    /**
-     * Hanya PRICE_DISCOUNT yang perlu
-     * dicek terhadap promotion lain.
-     */
-    if (
-      promotion.type !==
-      PromotionType.PRICE_DISCOUNT
-    ) {
-      return;
-    }
-
-    /**
-     * Hilangkan duplicate SKU agar
-     * query tidak dilakukan berulang.
-     */
-    const uniqueSkuIds = [
-      ...new Set(skuIds),
-    ];
-
-    for (
-      const skuId of uniqueSkuIds
-    ) {
-      const conflicts =
-        await PromotionRepository.findPriceDiscountConflictsForSku(
-          skuId,
-          startAt,
-          endAt,
-          promotionId
-        );
-
-      if (conflicts.length === 0) {
-        continue;
-      }
-
-      const conflict =
-        conflicts[0];
-
-      throw new Error(
-        `SKU ${skuId} sudah digunakan oleh promotion PRICE_DISCOUNT "${conflict.name}" pada periode yang beririsan.`
-      );
-    }
+  promotionId: string,
+  skuIds: string[],
+  startAt: Date | null,
+  endAt: Date | null,
+  tx?: Prisma.TransactionClient
+): Promise<void> {
+  if (skuIds.length === 0) {
+    return;
   }
+
+  const promotion =
+    await PromotionRepository.findById(
+      promotionId,
+      tx
+    );
+
+  if (!promotion) {
+    throw new Error(
+      "Promotion tidak ditemukan."
+    );
+  }
+
+  if (
+    promotion.type !==
+    PromotionType.PRICE_DISCOUNT
+  ) {
+    return;
+  }
+
+  const uniqueSkuIds = [
+    ...new Set(skuIds),
+  ];
+
+  for (
+    const skuId of uniqueSkuIds
+  ) {
+    const conflicts =
+      await PromotionRepository.findPriceDiscountConflictsForSku(
+        skuId,
+        startAt,
+        endAt,
+        promotionId,
+        tx
+      );
+
+    if (
+      conflicts.length === 0
+    ) {
+      continue;
+    }
+
+    const conflict =
+      conflicts[0];
+
+    throw new Error(
+      `SKU ${skuId} sudah digunakan oleh promotion PRICE_DISCOUNT "${conflict.name}" pada periode yang beririsan.`
+    );
+  }
+}
 
   /**
    * ============================================================
@@ -620,30 +618,89 @@ export default class PromotionService {
     );
   }
 
+/**
+ * ============================================================
+ * SCHEDULE
+ * ============================================================
+ *
+ * Mengubah promotion menjadi SCHEDULED.
+ *
+ * Rule:
+ * - Promotion harus bisa ditransisikan ke SCHEDULED.
+ * - startAt wajib.
+ * - endAt wajib.
+ * - startAt harus di masa depan.
+ * - startAt harus lebih kecil dari endAt.
+ * - PRICE_DISCOUNT tidak boleh conflict dengan promotion
+ *   PRICE_DISCOUNT lain pada SKU yang sama.
+ *
+ * Concurrency:
+ * - Seluruh SKU promotion di-lock terlebih dahulu.
+ * - Conflict check dilakukan di transaction yang sama.
+ * - Update promotion dilakukan di transaction yang sama.
+ *
+ * Dengan demikian:
+ *
+ * LOCK SKU
+ *    ↓
+ * CHECK CONFLICT
+ *    ↓
+ * UPDATE PROMOTION
+ *    ↓
+ * COMMIT
+ */
+static async schedule(
+  id: string,
+  startAt: Date,
+  endAt: Date
+) {
+  return prisma.$transaction(
+  async (tx) => {
     /**
-   * ============================================================
-   * SCHEDULE
-   * ============================================================
-   *
-   * Mengubah promotion menjadi SCHEDULED.
-   *
-   * Rule:
-   * - Promotion harus bisa ditransisikan ke SCHEDULED.
-   * - startAt wajib.
-   * - endAt wajib.
-   * - startAt harus di masa depan.
-   * - startAt harus lebih kecil dari endAt.
-   * - PRICE_DISCOUNT tidak boleh conflict dengan promotion
-   *   PRICE_DISCOUNT lain pada SKU yang sama.
-   */
-  static async schedule(
-    id: string,
-    startAt: Date,
-    endAt: Date
-  ) {
+     * ========================================================
+     * 1. LOCK PROMOTION
+     * ========================================================
+     *
+     * Schedule request terhadap promotion yang sama
+     * harus diserialisasi.
+     *
+     * Transaction kedua akan menunggu sampai transaction
+     * pertama selesai, kemudian membaca state terbaru.
+     */
+
+    const lockedPromotion =
+      await tx.$queryRaw<
+        Array<{
+          id: string;
+        }>
+      >`
+        SELECT "id"
+        FROM "Promotion"
+        WHERE "id" = ${id}
+          AND "deletedAt" IS NULL
+        FOR UPDATE
+      `;
+
+    if (
+      lockedPromotion.length === 0
+    ) {
+      throw new Error(
+        "Promotion tidak ditemukan."
+      );
+    }
+
+    /**
+     * ========================================================
+     * 2. GET CURRENT PROMOTION
+     * ========================================================
+     *
+     * Wajib membaca ulang setelah row berhasil di-lock.
+     */
+
     const existing =
       await PromotionRepository.findById(
-        id
+        id,
+        tx
       );
 
     if (!existing) {
@@ -652,271 +709,727 @@ export default class PromotionService {
       );
     }
 
-    /**
-     * ----------------------------------------------------------
-     * DATE VALIDATION
-     * ----------------------------------------------------------
-     *
-     * SCHEDULED harus memiliki periode yang lengkap.
-     */
-    if (!startAt) {
-      throw new Error(
-        "startAt wajib diisi saat menjadwalkan promotion."
+      /**
+       * ========================================================
+       * 2. STATUS TRANSITION
+       * ========================================================
+       *
+       * Hanya status yang diizinkan oleh
+       * assertStatusTransition() yang boleh
+       * menjadi SCHEDULED.
+       */
+
+      this.assertStatusTransition(
+        existing.status,
+        PromotionStatus.SCHEDULED
       );
-    }
 
-    if (!endAt) {
-      throw new Error(
-        "endAt wajib diisi saat menjadwalkan promotion."
-      );
-    }
+      /**
+       * ========================================================
+       * 3. DATE VALIDATION
+       * ========================================================
+       *
+       * SCHEDULED harus memiliki periode lengkap.
+       */
 
-    if (startAt >= endAt) {
-      throw new Error(
-        "startAt harus lebih kecil dari endAt."
-      );
-    }
+      if (!startAt) {
+        throw new Error(
+          "startAt wajib diisi saat menjadwalkan promotion."
+        );
+      }
 
-    if (startAt <= new Date()) {
-      throw new Error(
-        "startAt promotion yang dijadwalkan harus berada di masa depan."
-      );
-    }
+      if (!endAt) {
+        throw new Error(
+          "endAt wajib diisi saat menjadwalkan promotion."
+        );
+      }
 
-    /**
-     * ----------------------------------------------------------
-     * PROMOTION DATA VALIDATION
-     * ----------------------------------------------------------
-     */
-    this.validatePromotionData({
-      type: existing.type,
-      discountType:
-        existing.discountType,
-      discountValue:
-        existing.discountValue,
-      startAt,
-      endAt,
-    });
+      if (
+        startAt >=
+        endAt
+      ) {
+        throw new Error(
+          "startAt harus lebih kecil dari endAt."
+        );
+      }
 
-    /**
-     * ----------------------------------------------------------
-     * PRICE DISCOUNT CONFLICT
-     * ----------------------------------------------------------
-     *
-     * Hanya PRICE_DISCOUNT yang perlu diperiksa.
-     *
-     * Semua SKU yang sudah terdaftar pada promotion
-     * diperiksa terhadap promotion PRICE_DISCOUNT lain.
-     */
-    if (
-      existing.type ===
-      PromotionType.PRICE_DISCOUNT
-    ) {
+      if (
+        startAt <=
+        new Date()
+      ) {
+        throw new Error(
+          "startAt promotion yang dijadwalkan harus berada di masa depan."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 4. PROMOTION DATA VALIDATION
+       * ========================================================
+       */
+
+      this.validatePromotionData({
+        type:
+          existing.type,
+
+        discountType:
+          existing.discountType,
+
+        discountValue:
+          existing.discountValue,
+
+        startAt,
+
+        endAt,
+      });
+
+      /**
+       * ========================================================
+       * 5. LOCK SKU
+       * ========================================================
+       *
+       * Lock dilakukan SEBELUM conflict check.
+       *
+       * Ini adalah bagian penting dari concurrency control.
+       *
+       * Semua promotion PRICE_DISCOUNT yang memakai SKU
+       * yang sama akan menggunakan row ProductSku yang
+       * sama sebagai serialization point.
+       */
+
       const skuIds =
         existing.items.map(
-          (item) => item.skuId
+          (item) =>
+            item.skuId
         );
 
-      await this.assertNoPriceDiscountConflict(
-        id,
+      await PromotionRepository.lockProductSkus(
         skuIds,
-        startAt,
-        endAt
+        tx
+      );
+
+      /**
+       * ========================================================
+       * 6. PRICE DISCOUNT CONFLICT
+       * ========================================================
+       *
+       * Conflict check menggunakan transaction client
+       * yang sama dengan lock dan update.
+       */
+
+      if (
+        existing.type ===
+        PromotionType.PRICE_DISCOUNT
+      ) {
+        for (
+          const skuId of [
+            ...new Set(skuIds),
+          ]
+        ) {
+          const conflicts =
+            await PromotionRepository.findPriceDiscountConflictsForSku(
+              skuId,
+              startAt,
+              endAt,
+              id,
+              tx
+            );
+
+          if (
+            conflicts.length ===
+            0
+          ) {
+            continue;
+          }
+
+          const conflict =
+            conflicts[0];
+
+          throw new Error(
+            `SKU ${skuId} sudah digunakan oleh promotion PRICE_DISCOUNT "${conflict.name}" pada periode yang beririsan.`
+          );
+        }
+      }
+
+      /**
+       * ========================================================
+       * 7. UPDATE PROMOTION
+       * ========================================================
+       */
+
+      return PromotionRepository.update(
+        id,
+        {
+          status:
+            PromotionStatus.SCHEDULED,
+
+          startAt,
+
+          endAt,
+        },
+        tx
       );
     }
+  );
+}
 
-    /**
-     * ----------------------------------------------------------
-     * UPDATE STATUS
-     * ----------------------------------------------------------
-     */
-    return PromotionRepository.update(
-      id,
-      {
-        status:
-          PromotionStatus.SCHEDULED,
-        startAt,
-        endAt,
-      }
-    );
-  }
-   /**
+  /**
    * ============================================================
    * ACTIVATE
    * ============================================================
    *
    * Mengubah promotion SCHEDULED menjadi ACTIVE.
    *
-   * Rule:
-   * - Promotion harus berstatus SCHEDULED.
-   * - startAt wajib.
-   * - endAt wajib.
-   * - waktu sekarang harus sudah mencapai startAt.
-   * - waktu sekarang belum melewati endAt.
-   * - PRICE_DISCOUNT harus dicek ulang terhadap conflict.
+   * Seluruh proses dilakukan dalam satu transaction:
    *
-   * Conflict tetap diperiksa saat activation karena kondisi
-   * database dapat berubah setelah promotion dijadwalkan.
+   * 1. Lock promotion
+   * 2. Ambil state terbaru
+   * 3. Validasi status
+   * 4. Validasi periode
+   * 5. Validasi promotion data
+   * 6. Validasi PRICE_DISCOUNT conflict
+   * 7. Update menjadi ACTIVE
+   *
+   * Dengan demikian tidak ada race window antara:
+   *
+   * conflict check
+   *        ↓
+   * status ACTIVE
+   *
+   * Transaction client diteruskan ke repository sehingga
+   * seluruh pembacaan dan penulisan menggunakan transaction
+   * yang sama.
    */
   static async activate(
     id: string
   ) {
-    const existing =
-      await PromotionRepository.findById(
-        id
-      );
+    return prisma.$transaction(
+      async (tx) => {
+        /**
+         * ========================================================
+         * 1. LOCK PROMOTION
+         * ========================================================
+         *
+         * Lock row promotion agar dua proses activation
+         * tidak dapat memproses promotion yang sama secara
+         * bersamaan.
+         */
 
-    if (!existing) {
-      throw new Error(
-        "Promotion tidak ditemukan."
-      );
-    }
+        const lockedPromotion =
+          await tx.$queryRaw<
+            Array<{
+              id: string;
+            }>
+          >`
+            SELECT "id"
+            FROM "Promotion"
+            WHERE "id" = ${id}
+              AND "deletedAt" IS NULL
+            FOR UPDATE
+          `;
 
-    /**
-     * ----------------------------------------------------------
-     * STATUS TRANSITION
-     * ----------------------------------------------------------
-     *
-     * Hanya SCHEDULED yang boleh menjadi ACTIVE.
-     */
-    this.assertStatusTransition(
-      existing.status,
-      PromotionStatus.ACTIVE
-    );
+        /**
+         * --------------------------------------------------------
+         * PROMOTION NOT FOUND
+         * --------------------------------------------------------
+         */
 
-    /**
-     * ----------------------------------------------------------
-     * DATE VALIDATION
-     * ----------------------------------------------------------
-     */
-    if (!existing.startAt) {
-      throw new Error(
-        "Promotion tidak dapat diaktifkan karena startAt belum ditentukan."
-      );
-    }
+        if (
+          lockedPromotion.length === 0
+        ) {
+          throw new Error(
+            "Promotion tidak ditemukan."
+          );
+        }
 
-    if (!existing.endAt) {
-      throw new Error(
-        "Promotion tidak dapat diaktifkan karena endAt belum ditentukan."
-      );
-    }
+        /**
+         * ========================================================
+         * 2. GET CURRENT PROMOTION
+         * ========================================================
+         *
+         * Wajib membaca ulang setelah row berhasil di-lock.
+         */
 
-    if (
-      existing.startAt >=
-      existing.endAt
-    ) {
-      throw new Error(
-        "startAt harus lebih kecil dari endAt."
-      );
-    }
+        const existing =
+          await PromotionRepository.findById(
+            id,
+            tx
+          );
 
-    const now = new Date();
+        if (!existing) {
+          throw new Error(
+            "Promotion tidak ditemukan."
+          );
+        }
 
-    /**
-     * Jangan izinkan activation sebelum jadwal dimulai.
-     */
-    if (
-      now < existing.startAt
-    ) {
-      throw new Error(
-        "Promotion belum memasuki waktu mulai."
-      );
-    }
+        /**
+         * ========================================================
+         * 3. STATUS TRANSITION
+         * ========================================================
+         *
+         * Hanya SCHEDULED yang boleh menjadi ACTIVE.
+         */
 
-    /**
-     * Jangan izinkan activation setelah promotion expired.
-     */
-    if (
-      now >= existing.endAt
-    ) {
-      throw new Error(
-        "Promotion sudah melewati endAt."
-      );
-    }
-
-    /**
-     * ----------------------------------------------------------
-     * PROMOTION DATA VALIDATION
-     * ----------------------------------------------------------
-     */
-    this.validatePromotionData({
-      type: existing.type,
-      discountType:
-        existing.discountType,
-      discountValue:
-        existing.discountValue,
-      startAt: existing.startAt,
-      endAt: existing.endAt,
-    });
-
-    /**
-     * ----------------------------------------------------------
-     * PRICE DISCOUNT CONFLICT
-     * ----------------------------------------------------------
-     *
-     * Re-check diperlukan karena promotion lain mungkin
-     * dibuat setelah promotion ini dijadwalkan.
-     */
-    if (
-      existing.type ===
-      PromotionType.PRICE_DISCOUNT
-    ) {
-      const skuIds =
-        existing.items.map(
-          (item) => item.skuId
+        this.assertStatusTransition(
+          existing.status,
+          PromotionStatus.ACTIVE
         );
 
-      await this.assertNoPriceDiscountConflict(
-        id,
-        skuIds,
-        existing.startAt,
-        existing.endAt
-      );
-    }
+        /**
+         * ========================================================
+         * 4. DATE VALIDATION
+         * ========================================================
+         *
+         * ACTIVE wajib memiliki periode lengkap.
+         */
 
-    /**
-     * ----------------------------------------------------------
-     * ACTIVATE
-     * ----------------------------------------------------------
-     */
-    return PromotionRepository.update(
-      id,
-      {
-        status:
-          PromotionStatus.ACTIVE,
+        if (!existing.startAt) {
+          throw new Error(
+            "Promotion tidak dapat diaktifkan karena startAt belum ditentukan."
+          );
+        }
+
+        if (!existing.endAt) {
+          throw new Error(
+            "Promotion tidak dapat diaktifkan karena endAt belum ditentukan."
+          );
+        }
+
+        if (
+          existing.startAt >=
+          existing.endAt
+        ) {
+          throw new Error(
+            "startAt harus lebih kecil dari endAt."
+          );
+        }
+
+        const now =
+          new Date();
+
+        /**
+         * --------------------------------------------------------
+         * BELUM DIMULAI
+         * --------------------------------------------------------
+         */
+
+        if (
+          now <
+          existing.startAt
+        ) {
+          throw new Error(
+            "Promotion belum memasuki waktu mulai."
+          );
+        }
+
+        /**
+         * --------------------------------------------------------
+         * SUDAH BERAKHIR
+         * --------------------------------------------------------
+         */
+
+        if (
+          now >=
+          existing.endAt
+        ) {
+          throw new Error(
+            "Promotion sudah melewati endAt."
+          );
+        }
+
+        /**
+         * ========================================================
+         * 5. PROMOTION DATA VALIDATION
+         * ========================================================
+         */
+
+        this.validatePromotionData({
+          type:
+            existing.type,
+
+          discountType:
+            existing.discountType,
+
+          discountValue:
+            existing.discountValue,
+
+          startAt:
+            existing.startAt,
+
+          endAt:
+            existing.endAt,
+        });
+
+        /**
+         * ========================================================
+         * 6. PRICE DISCOUNT CONFLICT
+         * ========================================================
+         *
+         * Conflict harus dicek menggunakan transaction client
+         * yang sama.
+         *
+         * Ini penting karena activation adalah perubahan
+         * lifecycle yang sensitif terhadap race condition.
+         */
+
+if (
+  existing.type ===
+  PromotionType.PRICE_DISCOUNT
+) {
+  const skuIds = [
+    ...new Set(
+      existing.items.map(
+        (item) => item.skuId
+      )
+    ),
+  ];
+
+  await PromotionRepository.lockProductSkus(
+    skuIds,
+    tx
+  );
+
+  await this.assertNoPriceDiscountConflict(
+    id,
+    skuIds,
+    existing.startAt,
+    existing.endAt,
+    tx
+  );
+}
+
+        /**
+         * ========================================================
+         * 7. ACTIVATE
+         * ========================================================
+         */
+
+        return PromotionRepository.update(
+          id,
+          {
+            status:
+              PromotionStatus.ACTIVE,
+          },
+          tx
+        );
       }
     );
   }
 
   /**
+ * ============================================================
+ * SYNC AUTOMATIC LIFECYCLE
+ * ============================================================
+ *
+ * Background worker menggunakan method ini untuk memastikan
+ * status promotion mengikuti periode waktunya.
+ *
+ * Flow:
+ *
+ * SCHEDULED
+ *   startAt <= now < endAt
+ *   ↓
+ * ACTIVE
+ *
+ * ACTIVE
+ *   endAt <= now
+ *   ↓
+ * ENDED
+ *
+ * IMPORTANT:
+ *
+ * Method ini tetap menggunakan:
+ *
+ * - activate()
+ * - end()
+ *
+ * sehingga seluruh business validation tetap terpusat
+ * di lifecycle service.
+ */
+static async syncLifecycle(
+  now = new Date()
+) {
+  const candidates =
+    await PromotionRepository.findLifecycleCandidates(
+      now
+    );
+
+  const result = {
+    checked:
+      candidates.length,
+
+    activated: 0,
+
+    ended: 0,
+
+    failed: 0,
+  };
+
+  for (
+    const promotion of candidates
+  ) {
+    try {
+      /**
+       * --------------------------------------------------------
+       * SCHEDULED -> ACTIVE
+       * --------------------------------------------------------
+       */
+
+      if (
+        promotion.status ===
+        PromotionStatus.SCHEDULED
+      ) {
+        if (
+          !promotion.startAt ||
+          !promotion.endAt
+        ) {
+          console.error(
+            "[PROMOTION_LIFECYCLE] Promotion SCHEDULED tidak memiliki periode lengkap.",
+            {
+              promotionId:
+                promotion.id,
+
+              slug:
+                promotion.slug,
+            }
+          );
+
+          result.failed++;
+
+          continue;
+        }
+
+        /**
+         * Defensive check.
+         *
+         * Walaupun query repository sudah memfilter,
+         * validasi tetap dilakukan di worker.
+         */
+
+        if (
+          promotion.startAt > now
+        ) {
+          continue;
+        }
+
+        if (
+          promotion.endAt <= now
+        ) {
+          continue;
+        }
+
+        await this.activate(
+          promotion.id
+        );
+
+        result.activated++;
+
+        console.log(
+          "[PROMOTION_LIFECYCLE] Promotion otomatis ACTIVE.",
+          {
+            promotionId:
+              promotion.id,
+
+            slug:
+              promotion.slug,
+
+            startAt:
+              promotion.startAt.toISOString(),
+
+            endAt:
+              promotion.endAt.toISOString(),
+          }
+        );
+
+        continue;
+      }
+
+      /**
+       * --------------------------------------------------------
+       * ACTIVE -> ENDED
+       * --------------------------------------------------------
+       */
+
+      if (
+        promotion.status ===
+        PromotionStatus.ACTIVE
+      ) {
+        if (
+          !promotion.endAt
+        ) {
+          console.error(
+            "[PROMOTION_LIFECYCLE] Promotion ACTIVE tidak memiliki endAt.",
+            {
+              promotionId:
+                promotion.id,
+
+              slug:
+                promotion.slug,
+            }
+          );
+
+          result.failed++;
+
+          continue;
+        }
+
+        if (
+          promotion.endAt > now
+        ) {
+          continue;
+        }
+
+        await this.end(
+          promotion.id
+        );
+
+        result.ended++;
+
+        console.log(
+          "[PROMOTION_LIFECYCLE] Promotion otomatis ENDED.",
+          {
+            promotionId:
+              promotion.id,
+
+            slug:
+              promotion.slug,
+
+            endAt:
+              promotion.endAt.toISOString(),
+          }
+        );
+      }
+    } catch (error) {
+      result.failed++;
+
+      console.error(
+        "[PROMOTION_LIFECYCLE] Gagal memproses promotion.",
+        {
+          promotionId:
+            promotion.id,
+
+          slug:
+            promotion.slug,
+
+          status:
+            promotion.status,
+
+          error:
+            error instanceof Error
+              ? error.message
+              : error,
+        }
+      );
+    }
+  }
+
+  return result;
+}
+
+  /**
    * ============================================================
    * END
    * ============================================================
+   *
+   * Mengubah promotion ACTIVE menjadi ENDED.
+   *
+   * Seluruh lifecycle transition dilakukan dalam transaction
+   * dengan row-level lock.
+   *
+   * Tujuannya mencegah race condition antara:
+   *
+   * - background lifecycle worker
+   * - admin action
+   * - proses lifecycle lain
    */
   static async end(
     id: string
   ) {
-    const existing =
-      await PromotionRepository.findById(
-        id
-      );
+    return prisma.$transaction(
+      async (tx) => {
+        /**
+         * ========================================================
+         * 1. LOCK PROMOTION
+         * ========================================================
+         */
 
-    if (!existing) {
-      throw new Error(
-        "Promotion tidak ditemukan."
-      );
-    }
+        const lockedPromotion =
+          await tx.$queryRaw<
+            Array<{
+              id: string;
+            }>
+          >`
+            SELECT "id"
+            FROM "Promotion"
+            WHERE "id" = ${id}
+              AND "deletedAt" IS NULL
+            FOR UPDATE
+          `;
 
-    this.assertStatusTransition(
-      existing.status,
-      PromotionStatus.ENDED
-    );
+        /**
+         * --------------------------------------------------------
+         * PROMOTION NOT FOUND
+         * --------------------------------------------------------
+         */
 
-    return PromotionRepository.update(
-      id,
-      {
-        status:
-          PromotionStatus.ENDED,
+        if (
+          lockedPromotion.length === 0
+        ) {
+          throw new Error(
+            "Promotion tidak ditemukan."
+          );
+        }
+
+        /**
+         * ========================================================
+         * 2. GET CURRENT PROMOTION
+         * ========================================================
+         */
+
+        const existing =
+          await PromotionRepository.findById(
+            id,
+            tx
+          );
+
+        if (!existing) {
+          throw new Error(
+            "Promotion tidak ditemukan."
+          );
+        }
+
+/**
+ * ========================================================
+ * 3. STATUS TRANSITION
+ * ========================================================
+ *
+ * Promotion hanya boleh diakhiri dari ACTIVE.
+ *
+ * Transaction kedua akan membaca state terbaru
+ * setelah menunggu row lock transaction pertama.
+ *
+ * ACTIVE -> ENDED
+ * ENDED  -> reject
+ */
+this.assertStatusTransition(
+  existing.status,
+  PromotionStatus.ENDED
+);
+
+        /**
+         * ========================================================
+         * 4. UPDATE STATUS
+         * ========================================================
+         */
+
+        return PromotionRepository.update(
+          id,
+          {
+            status:
+              PromotionStatus.ENDED,
+          },
+          tx
+        );
       }
     );
   }
@@ -925,13 +1438,63 @@ export default class PromotionService {
    * ============================================================
    * CANCEL
    * ============================================================
+   *
+   * Mengubah promotion menjadi CANCELLED.
+   *
+   * Seluruh lifecycle transition dilakukan dalam transaction
+   * dengan row-level lock.
+   *
+   * Business rule status tetap dikontrol oleh:
+   *
+   * assertStatusTransition()
    */
   static async cancel(
     id: string
   ) {
+    return prisma.$transaction(
+  async (tx) => {
+    /**
+     * ========================================================
+     * 1. LOCK PROMOTION
+     * ========================================================
+     *
+     * Serialize concurrent schedule requests
+     * terhadap promotion yang sama.
+     */
+
+    const lockedPromotion =
+      await tx.$queryRaw<
+        Array<{
+          id: string;
+        }>
+      >`
+        SELECT "id"
+        FROM "Promotion"
+        WHERE "id" = ${id}
+          AND "deletedAt" IS NULL
+        FOR UPDATE
+      `;
+
+    if (
+      lockedPromotion.length === 0
+    ) {
+      throw new Error(
+        "Promotion tidak ditemukan."
+      );
+    }
+
+    /**
+     * ========================================================
+     * 2. GET CURRENT PROMOTION
+     * ========================================================
+     *
+     * Wajib membaca ulang setelah row berhasil di-lock.
+     */
+
     const existing =
       await PromotionRepository.findById(
-        id
+        id,
+        tx
       );
 
     if (!existing) {
@@ -940,16 +1503,31 @@ export default class PromotionService {
       );
     }
 
-    this.assertStatusTransition(
-      existing.status,
-      PromotionStatus.CANCELLED
-    );
+        /**
+         * ========================================================
+         * 3. STATUS TRANSITION
+         * ========================================================
+         */
 
-    return PromotionRepository.update(
-      id,
-      {
-        status:
-          PromotionStatus.CANCELLED,
+        this.assertStatusTransition(
+          existing.status,
+          PromotionStatus.CANCELLED
+        );
+
+        /**
+         * ========================================================
+         * 4. UPDATE STATUS
+         * ========================================================
+         */
+
+        return PromotionRepository.update(
+          id,
+          {
+            status:
+              PromotionStatus.CANCELLED,
+          },
+          tx
+        );
       }
     );
   }

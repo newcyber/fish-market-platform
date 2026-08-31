@@ -127,8 +127,12 @@ async function main() {
 
   let skuId: string | null = null;
 
-  let originalSkuStock: number | null =
-    null;
+let originalSkuStock: number | null =
+  null;
+
+let originalSkuIsActive:
+  boolean | null =
+  null;
 
   let firstOrderId: string | null =
     null;
@@ -229,11 +233,10 @@ async function main() {
     section(3, "PREPARE SKU");
 
     const sku =
-      await prisma.productSku.findFirst({
-        where: {
-          sku: TEST_SKU_CODE,
-          isActive: true,
-        },
+  await prisma.productSku.findFirst({
+    where: {
+      sku: TEST_SKU_CODE,
+    },
         select: {
           id: true,
           sku: true,
@@ -250,17 +253,17 @@ async function main() {
     );
 
     assert(
-      sku.isActive,
-      "FAIL: SKU test tidak aktif."
-    );
-
-    assert(
       sku.stock >= 2,
       `FAIL: Stock SKU minimal 2 diperlukan untuk seluruh test. Stock saat ini: ${sku.stock}`
     );
 
     skuId = sku.id;
-    originalSkuStock = sku.stock;
+
+originalSkuStock =
+  sku.stock;
+
+originalSkuIsActive =
+  sku.isActive;
 
     console.log({
       sku: sku.sku,
@@ -274,6 +277,34 @@ async function main() {
     console.log(
       "PASS: SKU test tersedia."
     );
+
+    /**
+ * ==========================================================
+ * PREPARE SKU FOR TEST
+ * ==========================================================
+ *
+ * SKU test harus aktif karena production checkout
+ * hanya boleh menggunakan SKU aktif.
+ *
+ * Kondisi awal isActive disimpan agar cleanup
+ * dapat mengembalikannya setelah test selesai.
+ */
+
+if (!sku.isActive) {
+  await prisma.productSku.update({
+    where: {
+      id: sku.id,
+    },
+
+    data: {
+      isActive: true,
+    },
+  });
+
+  console.log(
+    "PASS: SKU test diaktifkan sementara."
+  );
+}
 
     // ==========================================================
     // TEST 4 - CREATE ACTIVE FLASH SALE
@@ -3148,55 +3179,60 @@ console.log(
     );
 
     const expirationOrderId =
-      expirationOrder.id;
+  expirationOrder.id;
 
-    additionalOrderIds.push(
-      expirationOrderId
-    );
+additionalOrderIds.push(
+  expirationOrderId
+);
 
-    console.log({
-      orderId: expirationOrder.id,
-      orderNumber: expirationOrder.orderNumber,
-      status: expirationOrder.status,
-      paymentStatus: expirationOrder.paymentStatus,
-    });
+console.log({
+  orderId:
+    expirationOrder.id,
 
-    console.log(
-      "PASS: Order expiration berhasil dibuat melalui production flow."
-    );
+  orderNumber:
+    expirationOrder.orderNumber,
 
-    // ========================================================
-    // VERIFY INITIAL ORDER STATE
-    // ========================================================
+  status:
+    expirationOrder.status,
 
-    const expirationInitialOrder =
-      await prisma.order.findUnique({
-        where: {
-          id: expirationOrderId,
-        },
-        select: {
-          id: true,
-          status: true,
-          paymentStatus: true,
-        },
-      });
+  paymentStatus:
+    expirationOrder.paymentStatus,
+});
 
-    assert(
-      expirationInitialOrder !== null,
-      "FAIL: Order expiration tidak ditemukan."
-    );
+/**
+ * ========================================================
+ * VERIFY INITIAL EXPIRATION ELIGIBILITY
+ * ========================================================
+ *
+ * Order expiration production hanya berlaku untuk:
+ *
+ * WAITING_PAYMENT
+ * +
+ * PENDING
+ *
+ * Order WAITING_VERIFICATION tidak boleh
+ * terkena payment expiration.
+ */
 
-    assert(
-      expirationInitialOrder.status !==
-        OrderStatus.CANCELLED,
-      "FAIL: Order expiration sudah CANCELLED sebelum expiration."
-    );
+assert(
+  expirationOrder.status ===
+    OrderStatus.PENDING,
+  `FAIL: Status awal order expiration seharusnya PENDING, actual ${expirationOrder.status}.`
+);
 
-    assert(
-      expirationInitialOrder.paymentStatus !==
-        PaymentStatus.VERIFIED,
-      "FAIL: Order expiration sudah VERIFIED sebelum expiration."
-    );
+assert(
+  expirationOrder.paymentStatus ===
+    PaymentStatus.PENDING,
+  `FAIL: Payment status awal order expiration seharusnya PENDING, actual ${expirationOrder.paymentStatus}.`
+);
+
+console.log(
+  "PASS: Order expiration memiliki state PENDING + PENDING."
+);
+
+console.log(
+  "PASS: Order expiration berhasil dibuat melalui production flow."
+);
 
     // ========================================================
     // VERIFY ACTUAL FLASH SALE PURCHASE
@@ -6044,23 +6080,28 @@ console.log(
        */
 
       if (
-        skuId &&
-        originalSkuStock !== null
-      ) {
-        await prisma.productSku.update({
-          where: {
-            id: skuId,
-          },
-          data: {
-            stock:
-              originalSkuStock,
-          },
-        });
+  skuId &&
+  originalSkuStock !== null &&
+  originalSkuIsActive !== null
+) {
+  await prisma.productSku.update({
+    where: {
+      id: skuId,
+    },
 
-        console.log(
-          "PASS: Stock SKU dikembalikan ke nilai awal."
-        );
-      }
+    data: {
+      stock:
+        originalSkuStock,
+
+      isActive:
+        originalSkuIsActive,
+    },
+  });
+
+  console.log(
+    "PASS: Stock dan status aktif SKU dikembalikan ke kondisi awal."
+  );
+}
 
       /**
        * Hapus dedicated Flash Sale TEST 16 terlebih dahulu.
@@ -6286,4 +6327,3 @@ main()
     await prisma.$disconnect();
   });
 
-  

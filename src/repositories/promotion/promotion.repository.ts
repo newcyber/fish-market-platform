@@ -45,30 +45,48 @@ export interface UpdatePromotionInput {
 
 export default class PromotionRepository {
   /**
-   * ============================================================
-   * PROMOTION INCLUDE
-   * ============================================================
-   *
-   * SKU menjadi canonical target Promotion.
-   */
-  private static readonly promotionInclude = {
-    items: {
-      include: {
-        sku: {
-          include: {
-            skuOptions: {
-              include: {
-                variantOption: true,
-              },
+ * ============================================================
+ * PROMOTION INCLUDE
+ * ============================================================
+ *
+ * SKU menjadi canonical target Promotion.
+ *
+ * Promotion detail membutuhkan:
+ *
+ * - SKU
+ * - Product parent
+ * - SKU options
+ *
+ * Product hanya mengambil field yang diperlukan
+ * agar payload tidak berlebihan.
+ */
+private static readonly promotionInclude = {
+  items: {
+    include: {
+      sku: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+
+          skuOptions: {
+            include: {
+              variantOption: true,
             },
           },
         },
       },
-      orderBy: {
-        createdAt: "asc" as const,
-      },
     },
-  };
+
+    orderBy: {
+      createdAt: "asc" as const,
+    },
+  },
+};
 
   /**
    * ============================================================
@@ -134,19 +152,25 @@ export default class PromotionRepository {
   }
 
   /**
-   * ============================================================
-   * FIND BY ID
-   * ============================================================
-   */
-  static async findById(id: string) {
-    return prisma.promotion.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
-      include: this.promotionInclude,
-    });
-  }
+ * ============================================================
+ * FIND BY ID
+ * ============================================================
+ */
+static async findById(
+  id: string,
+  tx?: Prisma.TransactionClient
+) {
+  const client = tx ?? prisma;
+
+  return client.promotion.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+    },
+
+    include: this.promotionInclude,
+  });
+}
 
   /**
    * ============================================================
@@ -225,6 +249,83 @@ export default class PromotionRepository {
       include: this.promotionInclude,
     });
   }
+
+  /**
+ * ============================================================
+ * FIND LIFECYCLE CANDIDATES
+ * ============================================================
+ *
+ * Digunakan oleh background worker untuk menjalankan
+ * lifecycle promotion secara otomatis.
+ *
+ * Kandidat:
+ *
+ * SCHEDULED
+ *   - startAt sudah tercapai
+ *   - endAt belum lewat
+ *
+ * ACTIVE
+ *   - endAt sudah tercapai
+ *
+ * Promotion yang soft deleted tidak pernah diproses.
+ */
+static async findLifecycleCandidates(
+  now = new Date()
+) {
+  return prisma.promotion.findMany({
+    where: {
+      deletedAt: null,
+
+      OR: [
+        /**
+         * ------------------------------------------------------
+         * SCHEDULED -> ACTIVE
+         * ------------------------------------------------------
+         */
+        {
+          status:
+            PromotionStatus.SCHEDULED,
+
+          startAt: {
+            lte: now,
+          },
+
+          endAt: {
+            gt: now,
+          },
+        },
+
+        /**
+         * ------------------------------------------------------
+         * ACTIVE -> ENDED
+         * ------------------------------------------------------
+         */
+        {
+          status:
+            PromotionStatus.ACTIVE,
+
+          endAt: {
+            lte: now,
+          },
+        },
+      ],
+    },
+
+    orderBy: [
+      {
+        startAt: "asc",
+      },
+
+      {
+        endAt: "asc",
+      },
+
+      {
+        createdAt: "asc",
+      },
+    ],
+  });
+}
 
 /**
  * ============================================================
@@ -953,6 +1054,75 @@ static async softDelete(
       ],
     });
   }
+
+  /**
+ * ============================================================
+ * LOCK PRODUCT SKUS
+ * ============================================================
+ *
+ * Mengunci row ProductSku yang digunakan promotion.
+ *
+ * Lock ini dipakai untuk serialisasi operasi promotion
+ * PRICE_DISCOUNT yang menggunakan SKU yang sama.
+ *
+ * Semua caller WAJIB berada di dalam transaction.
+ *
+ * ORDER BY id memastikan seluruh transaction mengambil
+ * lock multi-SKU dengan urutan yang konsisten sehingga
+ * risiko deadlock dapat dikurangi.
+ */
+static async lockProductSkus(
+  skuIds: string[],
+  tx: Prisma.TransactionClient
+): Promise<void> {
+  const uniqueSkuIds = [
+    ...new Set(
+      skuIds.filter(
+        (skuId) =>
+          typeof skuId === "string" &&
+          skuId.trim().length > 0
+      )
+    ),
+  ];
+
+  if (uniqueSkuIds.length === 0) {
+    return;
+  }
+
+  const rows =
+    await tx.$queryRaw<
+      Array<{
+        id: string;
+      }>
+    >`
+      SELECT "id"
+      FROM "ProductSku"
+      WHERE "id" IN (${Prisma.join(uniqueSkuIds)})
+      ORDER BY "id"
+      FOR UPDATE
+    `;
+
+  if (
+    rows.length !==
+    uniqueSkuIds.length
+  ) {
+    const foundIds = new Set(
+      rows.map(
+        (row) => row.id
+      )
+    );
+
+    const missingSkuId =
+      uniqueSkuIds.find(
+        (skuId) =>
+          !foundIds.has(skuId)
+      );
+
+    throw new Error(
+      `SKU "${missingSkuId ?? "unknown"}" tidak ditemukan.`
+    );
+  }
+}
 
    /**
    * ============================================================

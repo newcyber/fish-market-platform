@@ -4319,6 +4319,7 @@ static async updatePaymentStatus(
    * VALIDATE ORDER ID
    * ============================================================
    */
+
   if (!id) {
     throw new Error(
       "Order ID wajib diisi."
@@ -4330,11 +4331,10 @@ static async updatePaymentStatus(
    * TRANSACTION
    * ============================================================
    *
-   * Payment update harus berjalan dalam transaction
-   * agar dapat menggunakan row-level lock yang sama
-   * dengan cancelOrder().
+   * Payment update dan Order status update harus
+   * dilakukan dalam transaction yang sama.
    *
-   * Dengan demikian:
+   * Order di-lock dengan FOR UPDATE agar:
    *
    * VERIFY PAYMENT
    *       ↕
@@ -4345,27 +4345,15 @@ static async updatePaymentStatus(
    * tidak dapat memproses order yang sama secara
    * bersamaan.
    */
+
   return prisma.$transaction(
     async (tx) => {
       /**
-       * ==========================================================
+       * ========================================================
        * 1. LOCK ORDER ROW
-       * ==========================================================
-       *
-       * Lock row Order sebelum membaca paymentStatus
-       * dan status order.
-       *
-       * Ini penting untuk mencegah race condition:
-       *
-       * Request A:
-       *   VERIFY PAYMENT
-       *
-       * Request B:
-       *   CANCEL ORDER
-       *
-       * Keduanya harus menggunakan state Order terbaru
-       * secara serial.
+       * ========================================================
        */
+
       const lockedOrder =
         await tx.$queryRaw<
           Array<{
@@ -4379,10 +4367,11 @@ static async updatePaymentStatus(
         `;
 
       /**
-       * ==========================================================
+       * ========================================================
        * 2. ORDER NOT FOUND
-       * ==========================================================
+       * ========================================================
        */
+
       if (
         lockedOrder.length === 0
       ) {
@@ -4392,19 +4381,17 @@ static async updatePaymentStatus(
       }
 
       /**
-       * ==========================================================
+       * ========================================================
        * 3. GET CURRENT ORDER
-       * ==========================================================
-       *
-       * Karena row Order sudah di-lock dengan FOR UPDATE,
-       * data yang dibaca di sini merupakan state terbaru
-       * yang aman untuk diproses.
+       * ========================================================
        */
+
       const order =
         await tx.order.findUnique({
           where: {
             id,
           },
+
           include: {
             user: true,
 
@@ -4428,10 +4415,11 @@ static async updatePaymentStatus(
       }
 
       /**
-       * ==========================================================
+       * ========================================================
        * 4. PREVENT UPDATE DELETED ORDER
-       * ==========================================================
+       * ========================================================
        */
+
       if (order.deletedAt) {
         throw new Error(
           "Order yang sudah dihapus tidak dapat diubah."
@@ -4439,17 +4427,11 @@ static async updatePaymentStatus(
       }
 
       /**
-       * ==========================================================
+       * ========================================================
        * 5. PREVENT UPDATE CANCELLED ORDER
-       * ==========================================================
-       *
-       * Cancellation juga menggunakan FOR UPDATE.
-       *
-       * Jika cancelOrder() berhasil lebih dahulu,
-       * maka ketika proses payment mendapatkan lock,
-       * order.status akan terbaca sebagai CANCELLED
-       * dan proses pembayaran akan ditolak.
+       * ========================================================
        */
+
       if (
         order.status ===
         OrderStatus.CANCELLED
@@ -4460,11 +4442,29 @@ static async updatePaymentStatus(
       }
 
       /**
-       * ==========================================================
-       * 6. PAYMENT STATUS TRANSITION
-       * ==========================================================
+       * ========================================================
+       * 6. PREVENT UPDATE COMPLETED ORDER
+       * ========================================================
        *
-       * Lifecycle pembayaran:
+       * Order yang sudah selesai tidak boleh mengalami
+       * perubahan payment lifecycle.
+       */
+
+      if (
+        order.status ===
+        OrderStatus.COMPLETED
+      ) {
+        throw new Error(
+          "Pembayaran order yang sudah selesai tidak dapat diubah."
+        );
+      }
+
+      /**
+       * ========================================================
+       * 7. PAYMENT STATUS TRANSITION
+       * ========================================================
+       *
+       * Lifecycle:
        *
        * PENDING
        *   ├── VERIFIED
@@ -4476,6 +4476,7 @@ static async updatePaymentStatus(
        * VERIFIED
        *   └── FINAL / LOCKED
        */
+
       const allowedTransitions:
         Record<
           PaymentStatus,
@@ -4494,20 +4495,14 @@ static async updatePaymentStatus(
         };
 
       /**
-       * ==========================================================
-       * 7. IDEMPOTENT UPDATE
-       * ==========================================================
+       * ========================================================
+       * 8. IDEMPOTENT UPDATE
+       * ========================================================
        *
-       * Jika status tujuan sama dengan status saat ini,
-       * tidak perlu melakukan update.
-       *
-       * Contoh:
-       *
-       * PENDING → PENDING
-       * VERIFIED → VERIFIED
-       *
-       * cukup mengembalikan order saat ini.
+       * Jika payment status sama dengan status sekarang,
+       * tidak perlu melakukan perubahan.
        */
+
       if (
         order.paymentStatus ===
         paymentStatus
@@ -4516,10 +4511,11 @@ static async updatePaymentStatus(
       }
 
       /**
-       * ==========================================================
-       * 8. VALIDATE PAYMENT TRANSITION
-       * ==========================================================
+       * ========================================================
+       * 9. VALIDATE PAYMENT TRANSITION
+       * ========================================================
        */
+
       const allowedNextStatuses =
         allowedTransitions[
           order.paymentStatus
@@ -4536,56 +4532,125 @@ static async updatePaymentStatus(
       }
 
       /**
- * ==========================================================
- * 9. UPDATE PAYMENT STATUS
- * ==========================================================
- *
- * Payment status dan paidAt harus diperbarui dalam
- * transaction yang sama.
- *
- * Jika paymentStatus menjadi VERIFIED:
- * - paymentStatus = VERIFIED
- * - paidAt = waktu verifikasi
- *
- * Jika paymentStatus menjadi REJECTED:
- * - paymentStatus = REJECTED
- * - paidAt tidak diubah
- *
- * Karena Order sudah di-lock dengan FOR UPDATE,
- * update ini aman terhadap race condition dengan
- * cancelOrder().
- */
-return await tx.order.update({
-  where: {
-    id: order.id,
-  },
+       * ========================================================
+       * 10. DETERMINE ORDER STATUS
+       * ========================================================
+       *
+       * PAYMENT VERIFIED
+       * ----------------
+       *
+       * Jika pembayaran berhasil diverifikasi,
+       * order yang masih berada pada fase pembayaran
+       * dipindahkan ke PROCESSING.
+       *
+       * PENDING
+       * WAITING_PAYMENT
+       * WAITING_VERIFICATION
+       *
+       *      ↓ VERIFIED
+       *
+       * PROCESSING
+       *
+       * Jangan menurunkan order yang sudah berada
+       * di tahap PROCESSING atau SHIPPING.
+       */
 
-  data: {
-    paymentStatus,
+      let nextOrderStatus =
+        order.status;
 
-    ...(paymentStatus ===
-      PaymentStatus.VERIFIED
-      ? {
-          paidAt: new Date(),
-        }
-      : {}),
-  },
+      if (
+  paymentStatus ===
+    PaymentStatus.VERIFIED &&
+  (
+    order.status ===
+      OrderStatus.PENDING ||
+    order.status ===
+      OrderStatus.WAITING_PAYMENT ||
+    order.status ===
+      OrderStatus.WAITING_VERIFICATION
+  )
+) {
+  nextOrderStatus =
+    OrderStatus.PROCESSING;
+}
 
-  include: {
-    user: true,
+      /**
+       * ========================================================
+       * PAYMENT REJECTED
+       * ========================================================
+       *
+       * Jika bukti pembayaran ditolak:
+       *
+       * WAITING_VERIFICATION
+       *          ↓
+       * WAITING_PAYMENT
+       *
+       * Customer kemudian dapat mengupload
+       * bukti pembayaran kembali.
+       *
+       * Jangan mengubah PROCESSING / SHIPPING secara
+       * paksa menjadi WAITING_PAYMENT.
+       */
 
-    address: true,
+      if (
+  paymentStatus ===
+    PaymentStatus.REJECTED &&
+  (
+    order.status ===
+      OrderStatus.WAITING_VERIFICATION ||
+    order.status ===
+      OrderStatus.PENDING
+  )
+) {
+  nextOrderStatus =
+    OrderStatus.WAITING_PAYMENT;
+}
 
-    items: {
-      include: {
-        product: true,
-        sku: true,
-      },
-    },
+      /**
+       * ========================================================
+       * 11. UPDATE PAYMENT + ORDER STATUS
+       * ========================================================
+       *
+       * Kedua perubahan dilakukan dalam satu query
+       * dan satu transaction.
+       */
 
-    paymentProof: true,
-  },
-});
+      return await tx.order.update({
+        where: {
+          id:
+            order.id,
+        },
+
+        data: {
+          paymentStatus,
+
+          status:
+            nextOrderStatus,
+
+          ...(paymentStatus ===
+            PaymentStatus.VERIFIED
+            ? {
+                paidAt:
+                  new Date(),
+              }
+            : {}),
+        },
+
+        include: {
+          user: true,
+
+          address: true,
+
+          items: {
+            include: {
+              product: true,
+              sku: true,
+            },
+          },
+
+          paymentProof: true,
+        },
+      });
     }
   );
 }
@@ -5783,16 +5848,19 @@ static async submitPaymentProof(
         */
 
         await tx.order.update({
-            where: {
-              id:
-              order.id,
-            },
+  where: {
+    id:
+      order.id,
+  },
 
-            data: {
-              paymentStatus:
-              PaymentStatus.PENDING,
-            },
-          });
+  data: {
+    paymentStatus:
+      PaymentStatus.PENDING,
+
+    status:
+      OrderStatus.WAITING_VERIFICATION,
+  },
+});
 
         return proof;
       }

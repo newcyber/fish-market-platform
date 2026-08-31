@@ -140,20 +140,23 @@ export class OrderExpirationService {
     return expirationDate;
   }
 
-  /**
-   * ==========================================================
-   * FIND EXPIRED ORDERS
-   * ==========================================================
-   *
-   * Order dianggap memenuhi syarat expiration jika:
-   *
-   * 1. createdAt sudah melewati timeout
-   * 2. deletedAt = null
-   * 3. status bukan COMPLETED
-   * 4. status bukan CANCELLED
-   * 5. paymentStatus bukan VERIFIED
-   * ==========================================================
-   */
+ /**
+ * ==========================================================
+ * FIND EXPIRED ORDERS
+ * ==========================================================
+ *
+ * Order dianggap memenuhi syarat payment expiration jika:
+ *
+ * 1. createdAt sudah melewati timeout
+ * 2. deletedAt = null
+ * 3. status = WAITING_PAYMENT
+ * 4. paymentStatus = PENDING
+ *
+ * WAITING_VERIFICATION tidak ikut diproses karena customer
+ * sudah mengirimkan bukti pembayaran dan sedang menunggu
+ * verifikasi admin.
+ * ==========================================================
+ */
 
   static async findExpiredOrders(
     timeoutHours:
@@ -167,45 +170,32 @@ export class OrderExpirationService {
       );
 
     return prisma.order.findMany({
-      where: {
-        createdAt: {
-          lte:
-            expirationDate,
-        },
+  where: {
+    createdAt: {
+      lte: expirationDate,
+    },
 
-        deletedAt:
-          null,
+    deletedAt: null,
 
-        status: {
-          notIn: [
-            OrderStatus.COMPLETED,
-            OrderStatus.CANCELLED,
-          ],
-        },
+    status:
+      OrderStatus.WAITING_PAYMENT,
 
-        paymentStatus: {
-          not:
-            PaymentStatus.VERIFIED,
-        },
-      },
+    paymentStatus:
+      PaymentStatus.PENDING,
+  },
 
-      select: {
-        id: true,
+  select: {
+    id: true,
+    orderNumber: true,
+    status: true,
+    paymentStatus: true,
+    createdAt: true,
+  },
 
-        orderNumber: true,
-
-        status: true,
-
-        paymentStatus: true,
-
-        createdAt: true,
-      },
-
-      orderBy: {
-        createdAt:
-          "asc",
-      },
-    });
+  orderBy: {
+    createdAt: "asc",
+  },
+});
   }
 
   /**
@@ -389,22 +379,92 @@ export class OrderExpirationService {
           order.paymentStatus,
       };
     }
-
     /**
      * ========================================================
-     * VERIFIED PAYMENT
+     * PAYMENT TIMEOUT ELIGIBILITY
      * ========================================================
+     *
+     * Payment expiration hanya berlaku untuk order
+     * yang masih berada pada fase pembayaran.
+     *
+     * Allowed:
+     *
+     * PENDING + PENDING
+     * WAITING_PAYMENT + PENDING
+     *
+     * WAITING_VERIFICATION tidak boleh diexpire karena
+     * customer sudah mengirim bukti pembayaran.
+     *
+     * Payment VERIFIED juga tidak boleh diexpire.
+     */
+
+    /**
+     * --------------------------------------------------------
+     * PAYMENT STATUS
+     * --------------------------------------------------------
+     *
+     * Hanya payment PENDING yang boleh masuk
+     * payment expiration.
      */
 
     if (
-      order.paymentStatus ===
-      PaymentStatus.VERIFIED
+      order.paymentStatus !==
+      PaymentStatus.PENDING
     ) {
       return {
         success: false,
 
         message:
-          "Order dengan pembayaran VERIFIED tidak dapat diexpire.",
+          "Order hanya dapat diexpire jika paymentStatus masih PENDING.",
+
+        orderId:
+          order.id,
+
+        orderNumber:
+          order.orderNumber,
+
+        expired: false,
+
+        previousStatus:
+          order.status,
+
+        paymentStatus:
+          order.paymentStatus,
+      };
+    }
+
+    /**
+     * --------------------------------------------------------
+     * ORDER STATUS
+     * --------------------------------------------------------
+     *
+     * PENDING:
+     *   Order baru dibuat tetapi belum dibayar.
+     *
+     * WAITING_PAYMENT:
+     *   Order sedang menunggu pembayaran.
+     *
+     * Keduanya masih merupakan fase pembayaran
+     * dan boleh diproses oleh payment expiration.
+     *
+     * WAITING_VERIFICATION tidak boleh diexpire
+     * karena customer sudah mengirim bukti pembayaran.
+     *
+     * PROCESSING / SHIPPING juga tidak boleh diexpire
+     * karena order sudah melewati fase pembayaran.
+     */
+
+    if (
+      order.status !==
+        OrderStatus.PENDING &&
+      order.status !==
+        OrderStatus.WAITING_PAYMENT
+    ) {
+      return {
+        success: false,
+
+        message:
+          "Order hanya dapat diexpire saat berstatus PENDING atau WAITING_PAYMENT.",
 
         orderId:
           order.id,
@@ -426,6 +486,23 @@ export class OrderExpirationService {
      * ========================================================
      * CANCEL THROUGH CENTRALIZED LIFECYCLE
      * ========================================================
+     *
+     * Jangan melakukan cancellation langsung di service ini.
+     *
+     * Seluruh lifecycle cancellation dipusatkan melalui:
+     *
+     * OrderService.cancelOrder()
+     *
+     * agar:
+     *
+     * - ProductSku.stock dikembalikan
+     * - StockLedger CANCEL dibuat
+     * - FlashSalePurchase dilepas
+     * - FlashSale quota dikembalikan
+     * - VoucherUsage dilepas
+     * - Order menjadi CANCELLED
+     *
+     * tetap berjalan secara transactional.
      */
 
     try {
