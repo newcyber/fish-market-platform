@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
-
-import { auth } from "@/auth";
+import { requireSuperAdmin } from "@/lib/auth/admin";
 
 import SettingsForm from "@/components/admin/settings/SettingsForm";
 import settingsService from "@/services/settings/settings.service";
@@ -14,7 +12,7 @@ import settingsService from "@/services/settings/settings.service";
  *
  * /admin/settings
  *       ↓
- * Authentication
+ * requireSuperAdmin()
  *       ↓
  * Authorization
  *       ↓
@@ -30,31 +28,17 @@ import settingsService from "@/services/settings/settings.service";
 export default async function AdminSettingsPage() {
   /**
    * ==========================================================
-   * AUTHENTICATION
-   * ==========================================================
-   */
-
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
-
-  /**
-   * ==========================================================
    * AUTHORIZATION
    * ==========================================================
+   *
+   * Hanya SUPER_ADMIN yang boleh mengakses
+   * Store Settings.
+   *
+   * Authentication dan authorization ditangani
+   * oleh centralized auth helper.
    */
 
-  const role = session.user.role;
-
-  const isAdmin =
-    role === "ADMIN" ||
-    role === "SUPER_ADMIN";
-
-  if (!isAdmin) {
-    redirect("/admin");
-  }
+  await requireSuperAdmin();
 
   /**
    * ==========================================================
@@ -78,44 +62,46 @@ export default async function AdminSettingsPage() {
    */
 
   const serializedSettings = {
-  ...settings,
+    ...settings,
 
-  /**
-   * ==========================================================
-   * STORE LOCATION
-   * ==========================================================
-   */
+    /**
+     * ========================================================
+     * STORE LOCATION
+     * ========================================================
+     */
 
-  latitude:
-    settings.latitude !== null
-      ? Number(settings.latitude)
-      : null,
+    latitude:
+      settings.latitude !== null
+        ? Number(settings.latitude)
+        : null,
 
-  longitude:
-    settings.longitude !== null
-      ? Number(settings.longitude)
-      : null,
+    longitude:
+      settings.longitude !== null
+        ? Number(settings.longitude)
+        : null,
 
-  /**
-   * ==========================================================
-   * INTERNAL SHIPPING
-   * ==========================================================
-   */
+    /**
+     * ========================================================
+     * INTERNAL SHIPPING
+     * ========================================================
+     */
 
-  internalShippingBaseFee:
-    Number(settings.internalShippingBaseFee),
+    internalShippingBaseFee:
+      Number(settings.internalShippingBaseFee),
 
-  internalShippingPerKmFee:
-    Number(settings.internalShippingPerKmFee),
+    internalShippingPerKmFee:
+      Number(settings.internalShippingPerKmFee),
 
-  internalShippingMaxDistance:
-    Number(settings.internalShippingMaxDistance),
+    internalShippingMaxDistance:
+      Number(settings.internalShippingMaxDistance),
 
-  internalShippingFreeThreshold:
-    settings.internalShippingFreeThreshold !== null
-      ? Number(settings.internalShippingFreeThreshold)
-      : null,
-};
+    internalShippingFreeThreshold:
+      settings.internalShippingFreeThreshold !== null
+        ? Number(
+            settings.internalShippingFreeThreshold
+          )
+        : null,
+  };
 
   /**
    * ==========================================================

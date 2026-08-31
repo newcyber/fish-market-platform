@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireSuperAdmin } from "@/lib/auth/admin";
+
 import {
   CreatePaymentChannelInput,
   PaymentChannelService,
@@ -13,7 +15,13 @@ import {
  *
  * PAYMENT CHANNEL ACTIONS
  *
- * Server Actions untuk Admin Payment Channel Management.
+ * Server Actions untuk Super Admin Payment Channel Management.
+ *
+ * SECURITY:
+ *
+ * Semua mutation wajib melewati requireSuperAdmin().
+ *
+ * Sidebar bukan security boundary.
  *
  * ============================================================
  */
@@ -28,6 +36,17 @@ export async function createPaymentChannelAction(
   input: CreatePaymentChannelInput
 ) {
   try {
+    /**
+     * --------------------------------------------------------
+     * AUTHORIZATION
+     * --------------------------------------------------------
+     *
+     * Hanya SUPER_ADMIN yang diperbolehkan membuat
+     * metode pembayaran.
+     */
+
+    await requireSuperAdmin();
+
     const result =
       await PaymentChannelService.create(
         input
@@ -49,7 +68,13 @@ export async function createPaymentChannelAction(
     return {
       success: false,
       message:
-        "Gagal menambahkan metode pembayaran.",
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+          ? "Anda tidak memiliki izin untuk mengelola metode pembayaran."
+          : error instanceof Error &&
+              error.message === "UNAUTHORIZED"
+            ? "Anda harus login terlebih dahulu."
+            : "Gagal menambahkan metode pembayaran.",
     };
   }
 }
@@ -65,6 +90,14 @@ export async function updatePaymentChannelAction(
   input: UpdatePaymentChannelInput
 ) {
   try {
+    /**
+     * --------------------------------------------------------
+     * AUTHORIZATION
+     * --------------------------------------------------------
+     */
+
+    await requireSuperAdmin();
+
     if (!id) {
       return {
         success: false,
@@ -99,7 +132,13 @@ export async function updatePaymentChannelAction(
     return {
       success: false,
       message:
-        "Gagal memperbarui metode pembayaran.",
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+          ? "Anda tidak memiliki izin untuk mengelola metode pembayaran."
+          : error instanceof Error &&
+              error.message === "UNAUTHORIZED"
+            ? "Anda harus login terlebih dahulu."
+            : "Gagal memperbarui metode pembayaran.",
     };
   }
 }
@@ -115,6 +154,14 @@ export async function updatePaymentChannelStatusAction(
   isActive: boolean
 ) {
   try {
+    /**
+     * --------------------------------------------------------
+     * AUTHORIZATION
+     * --------------------------------------------------------
+     */
+
+    await requireSuperAdmin();
+
     if (!id) {
       return {
         success: false,
@@ -145,7 +192,13 @@ export async function updatePaymentChannelStatusAction(
     return {
       success: false,
       message:
-        "Gagal memperbarui status metode pembayaran.",
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+          ? "Anda tidak memiliki izin untuk mengelola metode pembayaran."
+          : error instanceof Error &&
+              error.message === "UNAUTHORIZED"
+            ? "Anda harus login terlebih dahulu."
+            : "Gagal memperbarui status metode pembayaran.",
     };
   }
 }
@@ -160,6 +213,14 @@ export async function deletePaymentChannelAction(
   id: string
 ) {
   try {
+    /**
+     * --------------------------------------------------------
+     * AUTHORIZATION
+     * --------------------------------------------------------
+     */
+
+    await requireSuperAdmin();
+
     if (!id) {
       return {
         success: false,
@@ -189,7 +250,13 @@ export async function deletePaymentChannelAction(
     return {
       success: false,
       message:
-        "Gagal menghapus metode pembayaran.",
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+          ? "Anda tidak memiliki izin untuk mengelola metode pembayaran."
+          : error instanceof Error &&
+              error.message === "UNAUTHORIZED"
+            ? "Anda harus login terlebih dahulu."
+            : "Gagal menghapus metode pembayaran.",
     };
   }
 }

@@ -8,16 +8,22 @@ import { Role } from "@prisma/client";
  * ============================================================
  */
 
+const ADMIN_ROLES = [
+  Role.SUPER_ADMIN,
+  Role.ADMIN,
+];
+
+const SUPER_ADMIN_ONLY = [
+  Role.SUPER_ADMIN,
+];
+
 export const ADMIN_NAVIGATION: NavigationItem[] = [
   {
     id: "dashboard",
     title: "Dashboard",
     href: "/admin",
     icon: "dashboard",
-    roles: [
-      Role.SUPER_ADMIN,
-      Role.ADMIN,
-    ],
+    roles: ADMIN_ROLES,
     order: 1,
   },
 
@@ -26,10 +32,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: "Products",
     href: "/admin/products",
     icon: "products",
-    roles: [
-      Role.SUPER_ADMIN,
-      Role.ADMIN,
-    ],
+    roles: ADMIN_ROLES,
     order: 2,
   },
 
@@ -38,10 +41,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: "Categories",
     href: "/admin/categories",
     icon: "categories",
-    roles: [
-      Role.SUPER_ADMIN,
-      Role.ADMIN,
-    ],
+    roles: ADMIN_ROLES,
     order: 3,
   },
 
@@ -50,10 +50,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: "Orders",
     href: "/admin/orders",
     icon: "orders",
-    roles: [
-      Role.SUPER_ADMIN,
-      Role.ADMIN,
-    ],
+    roles: ADMIN_ROLES,
     order: 4,
   },
 
@@ -62,10 +59,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: "Customers",
     href: "/admin/customers",
     icon: "customers",
-    roles: [
-      Role.SUPER_ADMIN,
-      Role.ADMIN,
-    ],
+    roles: ADMIN_ROLES,
     order: 5,
   },
 
@@ -74,10 +68,76 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: "Payments",
     href: "/admin/payments",
     icon: "payments",
-    roles: [
-      Role.SUPER_ADMIN,
-    ],
+    roles: SUPER_ADMIN_ONLY,
     order: 6,
+  },
+
+  /**
+   * ==========================================================
+   * PROMOTIONS
+   * ==========================================================
+   */
+  {
+    id: "promotions",
+    title: "Promotions",
+    href: "/admin/promotions",
+    icon: "promotions",
+    roles: SUPER_ADMIN_ONLY,
+    order: 7,
+
+    children: [
+      {
+        id: "promotion-list",
+        title: "Promotions",
+        href: "/admin/promotions",
+        icon: "promotions",
+        roles: SUPER_ADMIN_ONLY,
+        order: 1,
+      },
+
+      {
+        id: "flash-sales",
+        title: "Flash Sale",
+        href: "/admin/flash-sales",
+        icon: "flash-sale",
+        roles: SUPER_ADMIN_ONLY,
+        order: 2,
+      },
+
+      {
+        id: "voucher-settings",
+        title: "Voucher",
+        href: "/admin/vouchers",
+        icon: "voucher",
+        roles: SUPER_ADMIN_ONLY,
+        order: 3,
+      },
+    ],
+  },
+
+  /**
+   * ==========================================================
+   * LOYALTY
+   * ==========================================================
+   */
+  {
+    id: "loyalty",
+    title: "Loyalty",
+    href: "/admin/reward-vouchers",
+    icon: "loyalty",
+    roles: SUPER_ADMIN_ONLY,
+    order: 8,
+
+    children: [
+      {
+        id: "reward-vouchers",
+        title: "Reward Voucher",
+        href: "/admin/reward-vouchers",
+        icon: "reward-voucher",
+        roles: SUPER_ADMIN_ONLY,
+        order: 1,
+      },
+    ],
   },
 
   {
@@ -85,10 +145,8 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: "Reports",
     href: "/admin/reports",
     icon: "reports",
-    roles: [
-      Role.SUPER_ADMIN,
-    ],
-    order: 7,
+    roles: SUPER_ADMIN_ONLY,
+    order: 9,
   },
 
   /**
@@ -101,10 +159,8 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: "Settings",
     href: "/admin/settings",
     icon: "settings",
-    roles: [
-      Role.SUPER_ADMIN,
-    ],
-    order: 8,
+    roles: SUPER_ADMIN_ONLY,
+    order: 10,
 
     children: [
       {
@@ -112,9 +168,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         title: "Pengaturan Toko",
         href: "/admin/settings",
         icon: "settings",
-        roles: [
-          Role.SUPER_ADMIN,
-        ],
+        roles: SUPER_ADMIN_ONLY,
         order: 1,
       },
 
@@ -123,42 +177,8 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         title: "Metode Pembayaran",
         href: "/admin/payment-channels",
         icon: "payments",
-        roles: [
-          Role.SUPER_ADMIN,
-        ],
+        roles: SUPER_ADMIN_ONLY,
         order: 2,
-      },
-
-      /**
-       * ========================================================
-       * FLASH SALE
-       * ========================================================
-       */
-      {
-        id: "flash-sales",
-        title: "Atur Flash Sale",
-        href: "/admin/flash-sales",
-        icon: "orders",
-        roles: [
-          Role.SUPER_ADMIN,
-        ],
-        order: 3,
-      },
-
-      /**
-       * ========================================================
-       * VOUCHER SETTINGS
-       * ========================================================
-       */
-      {
-        id: "voucher-settings",
-        title: "Setting Voucher",
-        href: "/admin/vouchers",
-        icon: "settings",
-        roles: [
-          Role.SUPER_ADMIN,
-        ],
-        order: 4,
       },
     ],
   },

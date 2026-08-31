@@ -1,3 +1,5 @@
+import { requireSuperAdmin } from "@/lib/auth/admin";
+
 import {
   PaymentChannelService,
 } from "@/services/payment/payment-channel.service";
@@ -19,11 +21,56 @@ interface PaymentChannelsPageProps {
   }>;
 }
 
+/**
+ * ============================================================
+ * ADMIN PAYMENT CHANNELS PAGE
+ * ============================================================
+ *
+ * Authorization:
+ *
+ * SUPER_ADMIN only.
+ *
+ * Sidebar visibility bukan security boundary.
+ * Direct URL access juga harus dikunci.
+ *
+ * Flow:
+ *
+ * /admin/payment-channels
+ *          ↓
+ * requireSuperAdmin()
+ *          ↓
+ * PaymentChannelService
+ *          ↓
+ * PaymentChannelTable
+ *
+ * ============================================================
+ */
+
 export default async function PaymentChannelsPage({
   searchParams,
 }: PaymentChannelsPageProps) {
+  /**
+   * ==========================================================
+   * AUTHORIZATION
+   * ==========================================================
+   */
+
+  await requireSuperAdmin();
+
+  /**
+   * ==========================================================
+   * SEARCH PARAMS
+   * ==========================================================
+   */
+
   const params =
     (await searchParams) ?? {};
+
+  /**
+   * ==========================================================
+   * GET PAYMENT CHANNELS
+   * ==========================================================
+   */
 
   const result =
     await PaymentChannelService.getAll();
@@ -32,6 +79,12 @@ export default async function PaymentChannelsPage({
     result.success && result.data
       ? result.data
       : [];
+
+  /**
+   * ==========================================================
+   * SEARCH
+   * ==========================================================
+   */
 
   const search =
     params.search
@@ -60,6 +113,12 @@ export default async function PaymentChannelsPage({
         )
       : channels;
 
+  /**
+   * ==========================================================
+   * TABLE DATA
+   * ==========================================================
+   */
+
   const tableData:
     PaymentChannelTableItem[] =
     filteredChannels.map(
@@ -87,8 +146,18 @@ export default async function PaymentChannelsPage({
       })
     );
 
+  /**
+   * ==========================================================
+   * PAGE
+   * ==========================================================
+   */
+
   return (
     <div className="flex flex-col gap-6">
+      {/* ======================================================
+          PAGE HEADER
+      ====================================================== */}
+
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
           Payment Channel Management
@@ -100,9 +169,17 @@ export default async function PaymentChannelsPage({
         </p>
       </div>
 
+      {/* ======================================================
+          TOOLBAR
+      ====================================================== */}
+
       <PaymentChannelToolbar
         search={params.search}
       />
+
+      {/* ======================================================
+          TABLE
+      ====================================================== */}
 
       <PaymentChannelTable
         channels={tableData}

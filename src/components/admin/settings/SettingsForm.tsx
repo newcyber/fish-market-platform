@@ -99,12 +99,20 @@ interface SettingsFormProps {
     internalShippingMaxDistance: number;
     internalShippingFreeThreshold: number | null;
 
-    /**
+        /**
+     * ==========================================================
      * OPERATIONAL
      */
-
     openingTime: string | null;
     closingTime: string | null;
+
+    /**
+     * ==========================================================
+     * ORDER SETTINGS
+     * ==========================================================
+     */
+
+    paymentTimeoutHours: number;
   };
 }
 
@@ -267,6 +275,21 @@ const heroSlide3InputRef =
     setInternalShippingEnabled,
   ] = useState(
     settings.internalShippingEnabled
+  );
+
+    /**
+   * ==========================================================
+   * ORDER SETTINGS STATE
+   * ==========================================================
+   */
+
+  const [
+    paymentTimeoutHours,
+    setPaymentTimeoutHours,
+  ] = useState<string>(
+    String(
+      settings.paymentTimeoutHours
+    )
   );
 
   /**
@@ -1102,8 +1125,10 @@ heroSlide3Image,
           )
         ),
 
-      /**
+            /**
+       * --------------------------------------------------------
        * OPERATIONAL
+       * --------------------------------------------------------
        */
 
       openingTime: String(
@@ -1113,6 +1138,15 @@ heroSlide3Image,
       closingTime: String(
         formData.get("closingTime") ?? ""
       ),
+
+      /**
+       * --------------------------------------------------------
+       * ORDER SETTINGS
+       * --------------------------------------------------------
+       */
+
+      paymentTimeoutHours:
+        Number(paymentTimeoutHours),
     };
 
     startTransition(async () => {
@@ -2176,6 +2210,76 @@ heroSlide3Image,
               className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
             />
           </div>
+                </div>
+      </section>
+
+      {/* ====================================================== */}
+      {/* PENGATURAN ORDER */}
+      {/* ====================================================== */}
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="mb-6 flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+            <Clock className="h-5 w-5" />
+          </div>
+
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Pengaturan Order
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Atur batas waktu pembayaran order sebelum
+              sistem membatalkannya secara otomatis.
+            </p>
+          </div>
+        </div>
+
+        <div className="max-w-md">
+          <label
+            htmlFor="paymentTimeoutHours"
+            className="mb-2 block text-sm font-semibold text-slate-700"
+          >
+            Batas Waktu Pembayaran
+          </label>
+
+          <div className="relative">
+            <input
+              id="paymentTimeoutHours"
+              name="paymentTimeoutHours"
+              type="number"
+              min="1"
+              step="1"
+              value={paymentTimeoutHours}
+              onChange={(event) =>
+                setPaymentTimeoutHours(
+                  event.target.value
+                )
+              }
+              disabled={isPending}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 pr-14 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              placeholder="24"
+            />
+
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+              jam
+            </span>
+          </div>
+
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Order dengan status menunggu pembayaran akan
+            dianggap expired setelah melewati batas waktu ini.
+            Nilai default adalah 24 jam.
+          </p>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+          <p className="text-xs leading-5 text-amber-700">
+            Pengaturan ini digunakan oleh sistem expiration
+            order. Jangan mengatur nilai terlalu pendek karena
+            customer membutuhkan waktu untuk menyelesaikan
+            pembayaran.
+          </p>
         </div>
       </section>
 

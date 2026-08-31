@@ -5,11 +5,42 @@ import {
   CreditCard,
 } from "lucide-react";
 
+import { requireSuperAdmin } from "@/lib/auth/admin";
+
 import CreatePaymentChannelForm from "@/components/admin/payment-channels/CreatePaymentChannelForm";
 
 export const dynamic = "force-dynamic";
 
-export default function CreatePaymentChannelPage() {
+/**
+ * ============================================================
+ * CREATE PAYMENT CHANNEL PAGE
+ * ============================================================
+ *
+ * Authorization:
+ *
+ * SUPER_ADMIN only.
+ *
+ * Direct URL access harus tetap
+ * melewati authorization.
+ *
+ * ============================================================
+ */
+
+export default async function CreatePaymentChannelPage() {
+  /**
+   * ==========================================================
+   * AUTHORIZATION
+   * ==========================================================
+   */
+
+  await requireSuperAdmin();
+
+  /**
+   * ==========================================================
+   * PAGE
+   * ==========================================================
+   */
+
   return (
     <div className="flex flex-col gap-6">
       {/* ======================================================

@@ -109,6 +109,14 @@ export interface UpdateStoreSettingsPayload {
   openingTime?: string;
 
   closingTime?: string;
+
+  /**
+   * ==========================================================
+   * ORDER SETTINGS
+   * ==========================================================
+   */
+
+  paymentTimeoutHours?: number;
 }
 
 /**
@@ -154,10 +162,31 @@ class SettingsService {
 
     /**
      * --------------------------------------------------------
+     * VALIDASI PAYMENT TIMEOUT
+     * --------------------------------------------------------
+     */
+
+    const paymentTimeoutHours =
+      payload.paymentTimeoutHours;
+
+    if (
+      paymentTimeoutHours !== undefined &&
+      (
+        !Number.isInteger(
+          paymentTimeoutHours
+        ) ||
+        paymentTimeoutHours <= 0
+      )
+    ) {
+      throw new Error(
+        "Batas waktu pembayaran harus berupa bilangan bulat lebih besar dari 0."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
      * NORMALIZE STRING
      * --------------------------------------------------------
-     *
-     * String kosong akan disimpan sebagai null.
      */
 
     const normalize = (
@@ -458,7 +487,7 @@ class SettingsService {
         normalize(
           payload.heroSlide3Image
         ),
-        
+
       email,
 
       whatsapp:
@@ -535,6 +564,15 @@ class SettingsService {
         normalize(
           payload.closingTime
         ),
+
+      /**
+       * ------------------------------------------------------
+       * ORDER SETTINGS
+       * ------------------------------------------------------
+       */
+
+      paymentTimeoutHours:
+        paymentTimeoutHours ?? 24,
     };
 
     /**

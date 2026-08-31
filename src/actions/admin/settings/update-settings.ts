@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/auth";
+import { requireSuperAdmin } from "@/lib/auth/admin";
 
 import settingsService from "@/services/settings/settings.service";
 
@@ -16,6 +16,8 @@ import settingsService from "@/services/settings/settings.service";
  * Admin Form
  *      ↓
  * Server Action
+ *      ↓
+ * requireSuperAdmin()
  *      ↓
  * Authentication & Authorization
  *      ↓
@@ -116,6 +118,14 @@ export interface UpdateSettingsActionInput {
   openingTime?: string;
 
   closingTime?: string;
+
+  /**
+   * ==========================================================
+   * ORDER SETTINGS
+   * ==========================================================
+   */
+
+  paymentTimeoutHours?: number;
 }
 
 /**
@@ -142,41 +152,21 @@ export async function updateSettingsAction(
   try {
     /**
      * --------------------------------------------------------
-     * AUTHENTICATION
+     * AUTHENTICATION & AUTHORIZATION
      * --------------------------------------------------------
+     *
+     * Hanya SUPER_ADMIN yang boleh mengubah
+     * Store Settings.
+     *
+     * requireSuperAdmin() juga memastikan user:
+     *
+     * - sudah login
+     * - memiliki user ID
+     * - account masih aktif
+     * - memiliki role SUPER_ADMIN
      */
 
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return {
-        success: false,
-
-        message:
-          "Anda harus login terlebih dahulu.",
-      };
-    }
-
-    /**
-     * --------------------------------------------------------
-     * AUTHORIZATION
-     * --------------------------------------------------------
-     */
-
-    const role = session.user.role;
-
-    const isAdmin =
-      role === "ADMIN" ||
-      role === "SUPER_ADMIN";
-
-    if (!isAdmin) {
-      return {
-        success: false,
-
-        message:
-          "Anda tidak memiliki izin untuk mengubah pengaturan toko.",
-      };
-    }
+    await requireSuperAdmin();
 
     /**
      * --------------------------------------------------------
@@ -206,7 +196,7 @@ export async function updateSettingsAction(
       siteLogo:
         input.siteLogo,
 
-        /**
+      /**
        * ======================================================
        * HERO SLIDER IMAGES
        * ======================================================
@@ -292,6 +282,15 @@ export async function updateSettingsAction(
 
       closingTime:
         input.closingTime,
+
+      /**
+       * ------------------------------------------------------
+       * ORDER SETTINGS
+       * ------------------------------------------------------
+       */
+
+      paymentTimeoutHours:
+        input.paymentTimeoutHours,
     });
 
     /**
@@ -341,9 +340,48 @@ export async function updateSettingsAction(
     };
   } catch (error) {
     console.error(
-      "[UPDATE_SETTINGS_ACTION]",
+      "[UPDATE_SETTINGS_ACTION_ERROR]",
       error
     );
+
+    /**
+     * --------------------------------------------------------
+     * AUTHORIZATION ERROR
+     * --------------------------------------------------------
+     *
+     * Jangan membocorkan detail internal authorization
+     * kepada client.
+     */
+
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+
+        message:
+          "Anda harus login terlebih dahulu.",
+      };
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "FORBIDDEN"
+    ) {
+      return {
+        success: false,
+
+        message:
+          "Anda tidak memiliki izin untuk mengubah pengaturan toko.",
+      };
+    }
+
+    /**
+     * --------------------------------------------------------
+     * GENERAL ERROR
+     * --------------------------------------------------------
+     */
 
     return {
       success: false,
@@ -351,7 +389,7 @@ export async function updateSettingsAction(
       message:
         error instanceof Error
           ? error.message
-          : "Terjadi kesalahan saat memperbarui pengaturan.",
+          : "Gagal memperbarui pengaturan toko.",
     };
   }
 }

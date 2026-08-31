@@ -1,6 +1,9 @@
 import { auth } from "@/auth";
 
-import { isAdmin } from "@/lib/auth/permissions";
+import {
+  isAdmin,
+  isSuperAdmin,
+} from "@/lib/auth/permissions";
 
 /**
  * ============================================================
@@ -28,6 +31,48 @@ export async function requireAdmin() {
 
   if (
     !isAdmin(session.user.role)
+  ) {
+    throw new Error(
+      "FORBIDDEN"
+    );
+  }
+
+  return session;
+}
+
+/**
+ * ============================================================
+ * REQUIRE SUPER ADMIN
+ * ============================================================
+ *
+ * Memastikan request berasal dari user aktif
+ * dengan role SUPER_ADMIN.
+ *
+ * Digunakan untuk konfigurasi sistem yang sensitif,
+ * seperti:
+ *
+ * - Store Settings
+ * - Payment Channels
+ * - konfigurasi bisnis penting lainnya
+ *
+ * ADMIN biasa tidak diperbolehkan.
+ */
+
+export async function requireSuperAdmin() {
+  const session = await auth();
+
+  if (
+    !session?.user ||
+    !session.user.id ||
+    !session.user.isActive
+  ) {
+    throw new Error(
+      "UNAUTHORIZED"
+    );
+  }
+
+  if (
+    !isSuperAdmin(session.user.role)
   ) {
     throw new Error(
       "FORBIDDEN"

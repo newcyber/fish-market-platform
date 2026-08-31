@@ -6,7 +6,12 @@ export type NavigationIcon =
   | "customers"
   | "payments"
   | "reports"
-  | "settings";
+  | "settings"
+  | "promotions"
+  | "flash-sale"
+  | "voucher"
+  | "loyalty"
+  | "reward-voucher";
 
 import type { Role } from "@prisma/client";
 

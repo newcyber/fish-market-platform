@@ -6,6 +6,8 @@ import {
   CreditCard,
 } from "lucide-react";
 
+import { requireSuperAdmin } from "@/lib/auth/admin";
+
 import { PaymentChannelService } from "@/services/payment/payment-channel.service";
 
 import EditPaymentChannelForm from "@/components/admin/payment-channels/EditPaymentChannelForm";
@@ -18,10 +20,68 @@ interface EditPaymentChannelPageProps {
   }>;
 }
 
+/**
+ * ============================================================
+ * EDIT PAYMENT CHANNEL PAGE
+ * ============================================================
+ *
+ * Authorization:
+ *
+ * SUPER_ADMIN only.
+ *
+ * Direct URL access juga wajib melewati
+ * authorization.
+ *
+ * Flow:
+ *
+ * /admin/payment-channels/[id]/edit
+ *              ↓
+ * requireSuperAdmin()
+ *              ↓
+ * PaymentChannelService.getById()
+ *              ↓
+ * EditPaymentChannelForm
+ *
+ * ============================================================
+ */
+
 export default async function EditPaymentChannelPage({
   params,
 }: EditPaymentChannelPageProps) {
+  /**
+   * ==========================================================
+   * AUTHORIZATION
+   * ==========================================================
+   *
+   * Harus dilakukan sebelum mengambil data
+   * payment channel.
+   */
+
+  await requireSuperAdmin();
+
+  /**
+   * ==========================================================
+   * PARAMS
+   * ==========================================================
+   */
+
   const { id } = await params;
+
+  /**
+   * ==========================================================
+   * VALIDATE ID
+   * ==========================================================
+   */
+
+  if (!id) {
+    notFound();
+  }
+
+  /**
+   * ==========================================================
+   * GET PAYMENT CHANNEL
+   * ==========================================================
+   */
 
   const result =
     await PaymentChannelService.getById(id);
@@ -36,9 +96,17 @@ export default async function EditPaymentChannelPage({
   const channel =
     result.data;
 
+  /**
+   * ==========================================================
+   * PAGE
+   * ==========================================================
+   */
+
   return (
     <div className="flex flex-col gap-6">
-      {/* BREADCRUMB */}
+      {/* ======================================================
+          BREADCRUMB
+      ====================================================== */}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link
@@ -64,7 +132,9 @@ export default async function EditPaymentChannelPage({
         </span>
       </div>
 
-      {/* HEADER */}
+      {/* ======================================================
+          PAGE HEADER
+      ====================================================== */}
 
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -83,7 +153,9 @@ export default async function EditPaymentChannelPage({
         </div>
       </div>
 
-      {/* FORM */}
+      {/* ======================================================
+          FORM
+      ====================================================== */}
 
       <EditPaymentChannelForm
         channel={channel}

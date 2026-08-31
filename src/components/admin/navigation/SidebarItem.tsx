@@ -15,6 +15,11 @@ import {
   BarChart3,
   Settings,
   ChevronDown,
+  Megaphone,
+  Zap,
+  TicketPercent,
+  HeartHandshake,
+  Gift,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -57,6 +62,16 @@ const ICON_MAP: Record<
   reports: BarChart3,
 
   settings: Settings,
+
+  promotions: Megaphone,
+
+  "flash-sale": Zap,
+
+  voucher: TicketPercent,
+
+  loyalty: HeartHandshake,
+
+  "reward-voucher": Gift,
 };
 
 /**

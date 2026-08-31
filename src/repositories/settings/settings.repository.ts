@@ -107,6 +107,14 @@ export interface UpdateSettingsPayload {
   openingTime?: string | null;
 
   closingTime?: string | null;
+
+  /**
+   * ==========================================================
+   * ORDER SETTINGS
+   * ==========================================================
+   */
+
+  paymentTimeoutHours?: number;
 }
 
 /**
@@ -219,6 +227,14 @@ class SettingsRepository {
         openingTime: null,
 
         closingTime: null,
+
+        /**
+         * ------------------------------------------------------
+         * ORDER SETTINGS
+         * ------------------------------------------------------
+         */
+
+        paymentTimeoutHours: 24,
       },
     });
   }
@@ -351,6 +367,15 @@ class SettingsRepository {
 
         closingTime:
           data.closingTime ?? null,
+
+        /**
+         * ------------------------------------------------------
+         * ORDER SETTINGS
+         * ------------------------------------------------------
+         */
+
+        paymentTimeoutHours:
+          data.paymentTimeoutHours ?? 24,
       },
     });
   }

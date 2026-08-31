@@ -4307,8 +4307,12 @@ static async cancelOrder(
  * UPDATE PAYMENT STATUS
  * ============================================================
  *
- * Memperbarui status pembayaran order dengan conditional update
- * untuk mencegah race condition.
+ * Memperbarui status pembayaran order secara transactional
+ * dengan row-level lock (FOR UPDATE) untuk mencegah race
+ * condition antar proses lifecycle order.
+ *
+ * Lock memastikan hanya satu proses yang dapat melakukan
+ * perubahan lifecycle terhadap Order yang sama pada satu waktu.
  */
 static async updatePaymentStatus(
   id: string,

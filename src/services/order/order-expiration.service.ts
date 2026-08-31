@@ -6,6 +6,7 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import OrderService from "@/services/order/order.service";
+import settingsRepository from "@/repositories/settings/settings.repository";
 
 /**
  * ============================================================
@@ -110,6 +111,36 @@ export class OrderExpirationService {
 
   static readonly DEFAULT_TIMEOUT_HOURS =
     24;
+
+  /**
+   * ==========================================================
+   * GET PAYMENT TIMEOUT FROM STORE SETTINGS
+   * ==========================================================
+   *
+   * StoreSettings menjadi source of truth untuk payment timeout.
+   *
+   * DEFAULT_TIMEOUT_HOURS tetap dipertahankan sebagai fallback
+   * defensive apabila settings tidak tersedia atau nilainya
+   * tidak valid.
+   * ==========================================================
+   */
+
+  static async getPaymentTimeoutHours(): Promise<number> {
+    const settings =
+      await settingsRepository.getOrCreate();
+
+    const timeout =
+      settings.paymentTimeoutHours;
+
+    if (
+      Number.isInteger(timeout) &&
+      timeout > 0
+    ) {
+      return timeout;
+    }
+
+    return this.DEFAULT_TIMEOUT_HOURS;
+  }
 
   /**
    * ==========================================================
@@ -604,14 +635,15 @@ export class OrderExpirationService {
    */
 
   static async expirePendingOrders(
-    timeoutHours:
-      | number
-      | undefined =
-      this.DEFAULT_TIMEOUT_HOURS
+    timeoutHours?: number
   ): Promise<ExpireOrdersResult> {
+    const effectiveTimeoutHours =
+      timeoutHours ??
+      await this.getPaymentTimeoutHours();
+
     const expiredOrders =
       await this.findExpiredOrders(
-        timeoutHours
+        effectiveTimeoutHours
       );
 
     const expiredOrderIds:
