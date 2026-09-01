@@ -20,6 +20,7 @@ import {
   TicketPercent,
   HeartHandshake,
   Gift,
+  Award,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -72,6 +73,8 @@ const ICON_MAP: Record<
   loyalty: HeartHandshake,
 
   "reward-voucher": Gift,
+
+  "reward-catalog": Award,
 };
 
 /**

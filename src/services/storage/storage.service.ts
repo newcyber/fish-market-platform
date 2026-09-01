@@ -24,12 +24,14 @@ import {
  * Storage:
  *
  * public/uploads/products
+ * public/uploads/rewards
  * public/uploads/settings
  * public/uploads/settings/qris
  *
  * Public URL:
  *
  * /uploads/products/{filename}
+ * /uploads/rewards/{filename}
  * /uploads/settings/{filename}
  * /uploads/settings/qris/{filename}
  *
@@ -79,6 +81,14 @@ const PRODUCT_UPLOAD_DIRECTORY =
     "products"
   );
 
+const REWARD_UPLOAD_DIRECTORY =
+  path.join(
+    PROJECT_ROOT,
+    "public",
+    "uploads",
+    "rewards"
+  );
+
 const SETTINGS_UPLOAD_DIRECTORY =
   path.join(
     PROJECT_ROOT,
@@ -107,6 +117,7 @@ const MIME_TO_EXTENSION:
   Record<string, string> = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
     "image/webp": ".webp",
   };
 
@@ -171,17 +182,49 @@ export class StorageService {
 
   /**
    * ==========================================================
-   * SAVE SETTINGS LOGO
+   * SAVE REWARD IMAGE
    * ==========================================================
    *
    * Storage:
    *
-   * public/uploads/settings
+   * public/uploads/rewards
    *
    * Public URL:
    *
-   * /uploads/settings/{filename}
+   * /uploads/rewards/{filename}
    *
+   * ==========================================================
+   */
+
+  static async saveRewardImage(
+    file: File
+  ): Promise<string> {
+    return this.saveToDirectory(
+      file,
+      REWARD_UPLOAD_DIRECTORY,
+      "/uploads/rewards"
+    );
+  }
+
+  /**
+   * ==========================================================
+   * DELETE REWARD IMAGE
+   * ==========================================================
+   */
+
+  static async deleteRewardImage(
+    imagePath: string
+  ): Promise<void> {
+    await this.deleteFromDirectory(
+      imagePath,
+      "uploads/rewards/",
+      REWARD_UPLOAD_DIRECTORY
+    );
+  }
+
+  /**
+   * ==========================================================
+   * SAVE SETTINGS LOGO
    * ==========================================================
    */
 

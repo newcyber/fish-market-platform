@@ -232,6 +232,13 @@ export default async function CustomerLayout({
               </Link>
 
               <Link
+                href="/customer/rewards"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+                Reward
+              </Link>
+
+              <Link
                 href="/customer/orders"
                 className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
               >

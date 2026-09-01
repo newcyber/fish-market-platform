@@ -18,6 +18,11 @@ const SUPER_ADMIN_ONLY = [
 ];
 
 export const ADMIN_NAVIGATION: NavigationItem[] = [
+  /**
+   * ==========================================================
+   * DASHBOARD
+   * ==========================================================
+   */
   {
     id: "dashboard",
     title: "Dashboard",
@@ -27,6 +32,11 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     order: 1,
   },
 
+  /**
+   * ==========================================================
+   * PRODUCTS
+   * ==========================================================
+   */
   {
     id: "products",
     title: "Products",
@@ -36,6 +46,11 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     order: 2,
   },
 
+  /**
+   * ==========================================================
+   * CATEGORIES
+   * ==========================================================
+   */
   {
     id: "categories",
     title: "Categories",
@@ -45,15 +60,65 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     order: 3,
   },
 
+  /**
+   * ==========================================================
+   * TRANSACTIONS
+   * ==========================================================
+   *
+   * Satu grup untuk seluruh proses transaksi:
+   *
+   * Transactions
+   * ├── Orders
+   * └── Payments
+   *
+   * Parent dapat dilihat oleh:
+   *
+   * - SUPER_ADMIN
+   * - ADMIN
+   *
+   * Orders:
+   * - SUPER_ADMIN
+   * - ADMIN
+   *
+   * Payments:
+   * - SUPER_ADMIN
+   *
+   * ==========================================================
+   */
   {
-    id: "orders",
-    title: "Orders",
-    href: "/admin/orders",
-    icon: "orders",
-    roles: ADMIN_ROLES,
-    order: 4,
-  },
+  id: "transactions",
+  title: "Transactions",
+  href: "/admin/orders",
+  icon: "orders",
+  roles: ADMIN_ROLES,
+  order: 4,
 
+  children: [
+    {
+      id: "orders",
+      title: "Orders",
+      href: "/admin/orders",
+      icon: "orders",
+      roles: ADMIN_ROLES,
+      order: 1,
+    },
+
+    {
+      id: "payments",
+      title: "Payments",
+      href: "/admin/payments",
+      icon: "payments",
+      roles: SUPER_ADMIN_ONLY,
+      order: 2,
+    },
+  ],
+},
+
+  /**
+   * ==========================================================
+   * CUSTOMERS
+   * ==========================================================
+   */
   {
     id: "customers",
     title: "Customers",
@@ -61,15 +126,6 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     icon: "customers",
     roles: ADMIN_ROLES,
     order: 5,
-  },
-
-  {
-    id: "payments",
-    title: "Payments",
-    href: "/admin/payments",
-    icon: "payments",
-    roles: SUPER_ADMIN_ONLY,
-    order: 6,
   },
 
   /**
@@ -83,7 +139,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     href: "/admin/promotions",
     icon: "promotions",
     roles: SUPER_ADMIN_ONLY,
-    order: 7,
+    order: 6,
 
     children: [
       {
@@ -126,7 +182,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     href: "/admin/reward-vouchers",
     icon: "loyalty",
     roles: SUPER_ADMIN_ONLY,
-    order: 8,
+    order: 7,
 
     children: [
       {
@@ -137,16 +193,30 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         roles: SUPER_ADMIN_ONLY,
         order: 1,
       },
+
+      {
+        id: "reward-catalog",
+        title: "Reward Catalog",
+        href: "/admin/reward-catalog",
+        icon: "reward-catalog",
+        roles: SUPER_ADMIN_ONLY,
+        order: 2,
+      },
     ],
   },
 
+  /**
+   * ==========================================================
+   * REPORTS
+   * ==========================================================
+   */
   {
     id: "reports",
     title: "Reports",
     href: "/admin/reports",
     icon: "reports",
     roles: SUPER_ADMIN_ONLY,
-    order: 9,
+    order: 8,
   },
 
   /**
@@ -160,7 +230,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     href: "/admin/settings",
     icon: "settings",
     roles: SUPER_ADMIN_ONLY,
-    order: 10,
+    order: 9,
 
     children: [
       {

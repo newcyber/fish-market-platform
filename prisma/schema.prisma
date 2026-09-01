@@ -21,6 +21,7 @@ enum Role {
 enum RewardPointTransactionType {
   EARN
   REDEEM
+  REFUND
   ADJUSTMENT
   EXPIRED
 }
@@ -220,6 +221,22 @@ model RewardPointTransaction {
 
   /**
    * ============================================================
+   * REWARD CLAIM RELATION
+   * ============================================================
+   * Digunakan untuk menghubungkan transaksi point
+   * dengan claim reward fisik.
+   * Satu RewardClaim dapat memiliki:
+   * REDEEM  -N
+   * REFUND  +N
+   * sehingga rewardClaimId TIDAK boleh unique.
+   */
+
+  rewardClaimId String?
+
+  rewardClaim RewardClaim? @relation(fields: [rewardClaimId], references: [id], onDelete: SetNull)
+
+  /**
+   * ============================================================
    * TRANSACTION TYPE
    * ============================================================
    */
@@ -283,6 +300,7 @@ model RewardPointTransaction {
   @@index([userId])
   @@index([userId, createdAt])
   @@index([type])
+  @@index([rewardClaimId])
 }
 
 // ============================================================
@@ -2238,6 +2256,8 @@ model RewardClaim {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  rewardPointTransactions RewardPointTransaction[]
+
   /**
    * ============================================================
    * REWARD CATALOG
@@ -2291,6 +2311,17 @@ model RewardClaim {
    */
 
   rejectionReason String?
+
+  /**
+   * ============================================================
+   * REFUND
+   * ============================================================
+   * Diisi ketika point dikembalikan karena claim ditolak
+   * atau dibatalkan sebelum fulfillment.
+   * null = point belum dikembalikan
+   * DateTime = point sudah dikembalikan
+   */
+  refundedAt DateTime?
 
   /**
    * ============================================================
