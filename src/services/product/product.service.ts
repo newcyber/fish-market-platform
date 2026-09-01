@@ -429,6 +429,18 @@ export class ProductService {
     return ProductRepository.findMany(filters);
   }
 
+  static async getProductsPaginated(
+    filters: ProductFilters = {},
+    page = 1,
+    limit = 20
+  ) {
+    return ProductRepository.findManyPaginated(
+      filters,
+      page,
+      limit
+    );
+  }
+
   static async getProductById(id: string) {
     return ProductRepository.findById(id);
   }
@@ -439,6 +451,14 @@ export class ProductService {
 
   static async getProductBySlug(slug: string) {
     return ProductRepository.findBySlug(slug);
+  }
+
+  static async getPublishedProductBySlug(
+    slug: string
+  ) {
+    return ProductRepository.findPublishedBySlug(
+      slug
+    );
   }
 
     static async createProduct(input: CreateProductInput) {

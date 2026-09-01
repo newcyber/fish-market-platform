@@ -424,6 +424,197 @@ static async findMany(
 
   /**
    * ============================================================
+   * FIND MANY PAGINATED
+   * ============================================================
+   *
+   * Digunakan oleh public/mobile product listing.
+   *
+   * Berbeda dengan findMany():
+   * - mendukung pagination
+   * - count menggunakan filter yang sama
+   * - tidak menggunakan productInclude lengkap
+   *
+   * ============================================================
+   */
+  static async findManyPaginated(
+    filters: ProductFilters = {},
+    page = 1,
+    limit = 20
+  ) {
+    const {
+      search,
+      categoryId,
+      categoryIds,
+      discounted,
+      published,
+      featured,
+    } = filters;
+
+    const categoryFilter =
+      categoryIds &&
+      categoryIds.length > 0
+        ? {
+            categoryId: {
+              in: categoryIds,
+            },
+          }
+        : categoryId
+          ? {
+              categoryId,
+            }
+          : {};
+
+    const discountFilter =
+      discounted
+        ? {
+            isDiscountActive: true,
+
+            AND: [
+              {
+                OR: [
+                  {
+                    discountStartAt: null,
+                  },
+                  {
+                    discountStartAt: {
+                      lte: new Date(),
+                    },
+                  },
+                ],
+              },
+              {
+                OR: [
+                  {
+                    discountEndAt: null,
+                  },
+                  {
+                    discountEndAt: {
+                      gte: new Date(),
+                    },
+                  },
+                ],
+              },
+            ],
+          }
+        : {};
+
+    const where = {
+      deletedAt: null,
+
+      ...(search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                slug: {
+                  contains: search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                sku: {
+                  contains: search,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                skus: {
+                  some: {
+                    sku: {
+                      contains: search,
+                      mode: "insensitive" as const,
+                    },
+                    isActive: true,
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+
+      ...categoryFilter,
+
+      ...discountFilter,
+
+      ...(published !== undefined
+        ? {
+            isPublished: published,
+          }
+        : {}),
+
+      ...(featured !== undefined
+        ? {
+            featured,
+          }
+        : {}),
+    };
+
+    const safePage = Math.max(
+      1,
+      Math.floor(page)
+    );
+
+    const safeLimit = Math.min(
+      50,
+      Math.max(
+        1,
+        Math.floor(limit)
+      )
+    );
+
+    const skip =
+      (safePage - 1) * safeLimit;
+
+    const [items, total] =
+      await prisma.$transaction([
+        prisma.product.findMany({
+          where,
+
+          include: {
+            category: true,
+
+            images: {
+              orderBy: {
+                sortOrder: "asc",
+              },
+
+              take: 1,
+            },
+          },
+
+          orderBy: {
+            createdAt: "desc",
+          },
+
+          skip,
+
+          take: safeLimit,
+        }),
+
+        prisma.product.count({
+          where,
+        }),
+      ]);
+
+    return {
+      items,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages:
+        Math.ceil(
+          total / safeLimit
+        ),
+    };
+  }
+
+  /**
+   * ============================================================
    * FIND LATEST
    * ============================================================
    */
@@ -494,6 +685,34 @@ static async findMany(
       where: {
         slug,
         deletedAt: null,
+      },
+
+      include:
+        this.productInclude,
+    });
+  }
+
+    /**
+   * ============================================================
+   * FIND PUBLISHED PRODUCT BY SLUG
+   * ============================================================
+   *
+   * Digunakan oleh public/mobile product detail.
+   *
+   * Hanya product yang:
+   * - belum dihapus
+   * - sudah dipublish
+   *
+   * ============================================================
+   */
+  static async findPublishedBySlug(
+    slug: string
+  ) {
+    return prisma.product.findFirst({
+      where: {
+        slug,
+        deletedAt: null,
+        isPublished: true,
       },
 
       include:

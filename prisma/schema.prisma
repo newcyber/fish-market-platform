@@ -578,7 +578,7 @@ model CartItem {
    * ============================================================
    */
 
-  @@unique([cartId, productId, productVariant, productWeight])
+  @@unique([cartId, productId, skuId])
   @@index([cartId])
   @@index([productId])
   @@index([skuId])
