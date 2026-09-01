@@ -20,14 +20,20 @@ import {
  * Digunakan untuk:
  *
  * - Create Reward Catalog
+ * - Edit Reward Catalog
  *
  * Flow:
  *
  * 1. Admin mengisi data reward
- * 2. Admin memilih gambar
- * 3. Gambar diupload ke storage reward
- * 4. URL gambar diterima
- * 5. Reward Catalog dibuat
+ * 2. Admin memilih category
+ * 3. Admin memilih gambar
+ * 4. Gambar diupload ke storage reward
+ * 5. URL gambar diterima
+ * 6. Reward Catalog dibuat / diperbarui
+ *
+ * Category endpoint:
+ *
+ * GET /api/admin/reward-categories
  *
  * Image endpoint:
  *
@@ -36,6 +42,17 @@ import {
  * Create endpoint:
  *
  * POST /api/admin/reward-catalog
+ *
+ * Update endpoint:
+ *
+ * PATCH /api/admin/reward-catalog/[id]
+ *
+ * ============================================================
+ */
+
+/**
+ * ============================================================
+ * TYPES
  * ============================================================
  */
 
@@ -44,6 +61,8 @@ type RewardCatalogFormValues = {
 
   description: string;
 
+  categoryId: string;
+
   requiredPoints: string;
 
   stock: string;
@@ -51,6 +70,18 @@ type RewardCatalogFormValues = {
   sortOrder: string;
 
   isActive: boolean;
+};
+
+type RewardCategory = {
+  id: string;
+
+  name: string;
+
+  slug: string;
+
+  isActive: boolean;
+
+  sortOrder: number;
 };
 
 type RewardCatalogFormProps = {
@@ -64,6 +95,8 @@ type RewardCatalogFormProps = {
     description?: string | null;
 
     image?: string | null;
+
+    categoryId?: string | null;
 
     requiredPoints:
       | number
@@ -112,6 +145,9 @@ function getInitialValues(
 
     description:
       initialData?.description ?? "",
+
+    categoryId:
+      initialData?.categoryId ?? "",
 
     requiredPoints:
       initialData !== undefined
@@ -168,6 +204,34 @@ export function RewardCatalogForm({
       getInitialValues(
         initialData
       )
+    );
+
+  /**
+   * ----------------------------------------------------------
+   * CATEGORY STATE
+   * ----------------------------------------------------------
+   */
+
+  const [
+    categories,
+    setCategories,
+  ] =
+    useState<RewardCategory[]>(
+      []
+    );
+
+  const [
+    isLoadingCategories,
+    setIsLoadingCategories,
+  ] =
+    useState(true);
+
+  const [
+    categoryError,
+    setCategoryError,
+  ] =
+    useState<string | null>(
+      null
     );
 
   /**
@@ -234,9 +298,162 @@ export function RewardCatalogForm({
     useState(false);
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
+   * LOAD REWARD CATEGORIES
+   * ==========================================================
+   *
+   * CREATE:
+   *
+   * GET /api/admin/reward-categories
+   *
+   * Hanya category aktif.
+   *
+   * EDIT:
+   *
+   * GET /api/admin/reward-categories?currentId=<categoryId>
+   *
+   * Mengembalikan:
+   *
+   * - seluruh category aktif
+   * - category inactive yang sedang digunakan reward
+   *
+   * Dengan demikian category existing tidak hilang ketika
+   * category tersebut sudah dinonaktifkan.
+   *
+   * ==========================================================
+   */
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCategories() {
+      setIsLoadingCategories(
+        true
+      );
+
+      setCategoryError(
+        null
+      );
+
+      try {
+        /**
+         * ------------------------------------------------------
+         * BUILD ENDPOINT
+         * ------------------------------------------------------
+         */
+
+        const currentCategoryId =
+          mode === "edit"
+            ? initialData?.categoryId?.trim()
+            : undefined;
+
+        const endpoint =
+          currentCategoryId
+            ? `/api/admin/reward-categories?currentId=${encodeURIComponent(
+                currentCategoryId
+              )}`
+            : "/api/admin/reward-categories";
+
+        /**
+         * ------------------------------------------------------
+         * FETCH
+         * ------------------------------------------------------
+         */
+
+        const response =
+          await fetch(
+            endpoint,
+            {
+              method: "GET",
+
+              cache: "no-store",
+            }
+          );
+
+        /**
+         * ------------------------------------------------------
+         * PARSE RESPONSE
+         * ------------------------------------------------------
+         */
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result?.success
+        ) {
+          throw new Error(
+            result?.message ??
+              "Gagal mengambil kategori reward."
+          );
+        }
+
+        /**
+         * ------------------------------------------------------
+         * NORMALIZE DATA
+         * ------------------------------------------------------
+         */
+
+        const data =
+          Array.isArray(
+            result?.data
+          )
+            ? result.data
+            : [];
+
+        /**
+         * ------------------------------------------------------
+         * MOUNT CHECK
+         * ------------------------------------------------------
+         */
+
+        if (!isMounted) {
+          return;
+        }
+
+        setCategories(
+          data
+        );
+      } catch (
+        categoryLoadError
+      ) {
+        if (!isMounted) {
+          return;
+        }
+
+        setCategories(
+          []
+        );
+
+        setCategoryError(
+          categoryLoadError instanceof Error
+            ? categoryLoadError.message
+            : "Gagal mengambil kategori reward."
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoadingCategories(
+            false
+          );
+        }
+      }
+    }
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    mode,
+    initialData?.categoryId,
+  ]);
+
+  /**
+   * ==========================================================
    * CLEANUP OBJECT URL
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   useEffect(() => {
@@ -257,9 +474,9 @@ export function RewardCatalogForm({
   ]);
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
    * UPDATE FIELD
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   function updateField<
@@ -271,21 +488,24 @@ export function RewardCatalogForm({
     setForm(
       (previous) => ({
         ...previous,
+
         [key]: value,
       })
     );
   }
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
    * IMAGE VALIDATION
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   function validateImage(
     file: File
   ): string | null {
-    if (file.size <= 0) {
+    if (
+      file.size <= 0
+    ) {
       return "File gambar kosong.";
     }
 
@@ -308,15 +528,17 @@ export function RewardCatalogForm({
   }
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
    * SELECT IMAGE
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   function handleImageChange(
     event: ChangeEvent<HTMLInputElement>
   ) {
-    setError(null);
+    setError(
+      null
+    );
 
     const file =
       event.target.files?.[0];
@@ -326,9 +548,13 @@ export function RewardCatalogForm({
     }
 
     const validationError =
-      validateImage(file);
+      validateImage(
+        file
+      );
 
-    if (validationError) {
+    if (
+      validationError
+    ) {
       setSelectedFile(
         null
       );
@@ -384,13 +610,16 @@ export function RewardCatalogForm({
   }
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
    * REMOVE SELECTED IMAGE
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   function removeSelectedImage() {
-    if (isUploading || isSubmitting) {
+    if (
+      isUploading ||
+      isSubmitting
+    ) {
       return;
     }
 
@@ -413,22 +642,26 @@ export function RewardCatalogForm({
       imageUrl
     );
 
-    if (fileInputRef.current) {
+    if (
+      fileInputRef.current
+    ) {
       fileInputRef.current.value =
         "";
     }
   }
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
    * UPLOAD IMAGE
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   async function uploadImage(): Promise<
     string | null
   > {
-    if (!selectedFile) {
+    if (
+      !selectedFile
+    ) {
       return imageUrl;
     }
 
@@ -475,7 +708,7 @@ export function RewardCatalogForm({
 
       if (
         typeof uploadedImage !==
-        "string" ||
+          "string" ||
         !uploadedImage
       ) {
         throw new Error(
@@ -504,9 +737,9 @@ export function RewardCatalogForm({
   }
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
    * FORM VALIDATION
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   function validateForm():
@@ -514,6 +747,9 @@ export function RewardCatalogForm({
     | null {
     const name =
       form.name.trim();
+
+    const categoryId =
+      form.categoryId.trim();
 
     const requiredPoints =
       Number(
@@ -530,9 +766,31 @@ export function RewardCatalogForm({
         form.sortOrder
       );
 
+    /**
+     * --------------------------------------------------------
+     * NAME
+     * --------------------------------------------------------
+     */
+
     if (!name) {
       return "Nama hadiah wajib diisi.";
     }
+
+    /**
+     * --------------------------------------------------------
+     * CATEGORY
+     * --------------------------------------------------------
+     */
+
+    if (!categoryId) {
+      return "Kategori reward wajib dipilih.";
+    }
+
+    /**
+     * --------------------------------------------------------
+     * REQUIRED POINTS
+     * --------------------------------------------------------
+     */
 
     if (
       !Number.isInteger(
@@ -543,6 +801,12 @@ export function RewardCatalogForm({
       return "Required points harus berupa bilangan bulat lebih dari 0.";
     }
 
+    /**
+     * --------------------------------------------------------
+     * STOCK
+     * --------------------------------------------------------
+     */
+
     if (
       !Number.isInteger(
         stock
@@ -551,6 +815,12 @@ export function RewardCatalogForm({
     ) {
       return "Stock harus berupa bilangan bulat 0 atau lebih.";
     }
+
+    /**
+     * --------------------------------------------------------
+     * SORT ORDER
+     * --------------------------------------------------------
+     */
 
     if (
       !Number.isInteger(
@@ -565,9 +835,9 @@ export function RewardCatalogForm({
   }
 
   /**
-   * ----------------------------------------------------------
+   * ==========================================================
    * SUBMIT
-   * ----------------------------------------------------------
+   * ==========================================================
    */
 
   async function handleSubmit(
@@ -575,18 +845,34 @@ export function RewardCatalogForm({
   ) {
     event.preventDefault();
 
-    setError(null);
+    setError(
+      null
+    );
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE FORM
+     * --------------------------------------------------------
+     */
 
     const validationError =
       validateForm();
 
-    if (validationError) {
+    if (
+      validationError
+    ) {
       setError(
         validationError
       );
 
       return;
     }
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE EDIT ID
+     * --------------------------------------------------------
+     */
 
     if (
       mode === "edit" &&
@@ -598,6 +884,45 @@ export function RewardCatalogForm({
 
       return;
     }
+
+    /**
+     * --------------------------------------------------------
+     * VALIDATE CATEGORY EXISTENCE
+     * --------------------------------------------------------
+     *
+     * Pastikan category yang dipilih memang tersedia
+     * pada daftar category aktif yang dimuat dari server.
+     *
+     * Untuk edit, category lama yang sudah tidak aktif
+     * tetap diperbolehkan jika masih tersimpan pada
+     * initialData.
+     * --------------------------------------------------------
+     */
+
+    const selectedCategory =
+      categories.find(
+        (category) =>
+          category.id ===
+          form.categoryId
+      );
+
+    if (
+      !selectedCategory &&
+      form.categoryId !==
+        initialData?.categoryId
+    ) {
+      setError(
+        "Kategori reward yang dipilih tidak valid."
+      );
+
+      return;
+    }
+
+    /**
+     * --------------------------------------------------------
+     * START SUBMIT
+     * --------------------------------------------------------
+     */
 
     setIsSubmitting(
       true
@@ -633,6 +958,9 @@ export function RewardCatalogForm({
         image:
           uploadedImage,
 
+        categoryId:
+          form.categoryId.trim(),
+
         requiredPoints:
           Number(
             form.requiredPoints
@@ -663,6 +991,12 @@ export function RewardCatalogForm({
           ? "/api/admin/reward-catalog"
           : `/api/admin/reward-catalog/${initialData?.id}`;
 
+      /**
+       * ------------------------------------------------------
+       * REQUEST
+       * ------------------------------------------------------
+       */
+
       const response =
         await fetch(
           url,
@@ -686,6 +1020,12 @@ export function RewardCatalogForm({
 
       const result =
         await response.json();
+
+      /**
+       * ------------------------------------------------------
+       * RESPONSE VALIDATION
+       * ------------------------------------------------------
+       */
 
       if (
         !response.ok ||
@@ -725,13 +1065,20 @@ export function RewardCatalogForm({
 
   /**
    * ==========================================================
-   * RENDER
+   * DISABLED STATE
    * ==========================================================
    */
 
   const disabled =
     isSubmitting ||
-    isUploading;
+    isUploading ||
+    isLoadingCategories;
+
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
 
   return (
     <form
@@ -763,9 +1110,10 @@ export function RewardCatalogForm({
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Tentukan nama, deskripsi,
-            dan gambar hadiah yang
-            akan ditampilkan kepada
+            Tentukan nama, kategori,
+            deskripsi, dan gambar
+            hadiah yang akan
+            ditampilkan kepada
             customer.
           </p>
         </div>
@@ -802,6 +1150,109 @@ export function RewardCatalogForm({
               className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-gray-100"
             />
           </div>
+
+{/* CATEGORY */}
+
+<div>
+  <label
+    htmlFor="reward-category"
+    className="mb-2 block text-sm font-medium text-gray-700"
+  >
+    Kategori Reward
+  </label>
+
+  <select
+    id="reward-category"
+    value={form.categoryId}
+    onChange={(event) =>
+      updateField(
+        "categoryId",
+        event.target.value
+      )
+    }
+    disabled={disabled}
+    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-gray-100"
+  >
+    <option value="">
+      {isLoadingCategories
+        ? "Memuat kategori..."
+        : "Pilih kategori reward"}
+    </option>
+
+    {/*
+     * ==========================================================
+     * ACTIVE CATEGORIES
+     * ==========================================================
+     */}
+
+    {categories.map((category) => (
+      <option
+        key={category.id}
+        value={category.id}
+      >
+        {category.name}
+      </option>
+    ))}
+
+    {/*
+     * ==========================================================
+     * INACTIVE CATEGORY YANG SEDANG DIPAKAI
+     * ==========================================================
+     *
+     * Dalam mode edit, category lama yang sudah inactive
+     * tetap ditampilkan agar admin dapat melihat nilai
+     * category yang tersimpan.
+     *
+     * Category inactive ini tidak berasal dari daftar
+     * category aktif.
+     */}
+
+    {mode === "edit" &&
+    initialData?.categoryId &&
+    !categories.some(
+      (category) =>
+        category.id ===
+        initialData.categoryId
+    ) ? (
+      <option
+        value={initialData.categoryId}
+      >
+        {`Kategori saat ini (inactive)`}
+      </option>
+    ) : null}
+  </select>
+
+  {categoryError ? (
+    <p className="mt-1.5 text-xs font-medium text-red-600">
+      {categoryError}
+    </p>
+  ) : (
+    <p className="mt-1.5 text-xs text-gray-500">
+      {mode === "edit" &&
+      initialData?.categoryId &&
+      !categories.some(
+        (category) =>
+          category.id ===
+          initialData.categoryId
+      )
+        ? "Kategori saat ini sudah inactive. Pilih kategori aktif jika ingin memindahkan reward."
+        : "Pilih kategori aktif untuk mengelompokkan reward ini."}
+    </p>
+  )}
+
+  {!isLoadingCategories &&
+  !categoryError &&
+  categories.length === 0 &&
+  !(
+    mode === "edit" &&
+    initialData?.categoryId
+  ) ? (
+    <p className="mt-1.5 text-xs font-medium text-amber-600">
+      Belum ada kategori reward aktif.
+      Buat kategori terlebih dahulu.
+    </p>
+  ) : null}
+</div>
 
           {/* DESCRIPTION */}
 
@@ -1036,8 +1487,8 @@ export function RewardCatalogForm({
           </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Atur urutan tampil dan status
-            reward.
+            Atur urutan tampil dan
+            status reward.
           </p>
         </div>
 
@@ -1084,9 +1535,7 @@ export function RewardCatalogForm({
           {/* ACTIVE */}
 
           <div>
-            <label
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
+            <label className="mb-2 block text-sm font-medium text-gray-700">
               Status
             </label>
 
@@ -1149,17 +1598,21 @@ export function RewardCatalogForm({
         <button
           type="submit"
           disabled={
-            disabled
+            disabled ||
+            categories.length ===
+              0
           }
           className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isUploading
-            ? "Mengupload gambar..."
-            : isSubmitting
-              ? "Menyimpan..."
-              : mode === "create"
-                ? "Simpan Reward"
-                : "Simpan Perubahan"}
+          {isLoadingCategories
+            ? "Memuat kategori..."
+            : isUploading
+              ? "Mengupload gambar..."
+              : isSubmitting
+                ? "Menyimpan..."
+                : mode === "create"
+                  ? "Simpan Reward"
+                  : "Simpan Perubahan"}
         </button>
       </div>
     </form>

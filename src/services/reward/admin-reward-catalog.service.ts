@@ -1,8 +1,16 @@
 import {
+  Prisma,
+} from "@prisma/client";
+
+import {
   RewardCatalogRepository,
   CreateRewardCatalogInput,
   UpdateRewardCatalogInput,
 } from "@/repositories/reward/reward-catalog.repository";
+
+import {
+  RewardCategoryRepository,
+} from "@/repositories/reward/reward-category.repository";
 
 /**
  * ============================================================
@@ -13,31 +21,11 @@ import {
  * katalog hadiah fisik yang dapat ditukar menggunakan
  * reward point.
  *
- * Contoh reward:
- *
- * TV
- * Kulkas
- * Sepeda Gunung
- * Blender
- * Rice Cooker
- * dan lain-lain.
- *
  * Service ini TIDAK menangani proses claim customer.
  *
  * Proses claim akan ditangani oleh:
  *
  * RewardClaimService
- *
- * yang bertanggung jawab terhadap:
- *
- * - authentication / authorization melalui action
- * - pengecekan saldo point
- * - pengecekan stock
- * - row locking
- * - create RewardClaim
- * - create RewardPointTransaction REDEEM
- * - decrement rewardPointsBalance
- * - decrement stock
  *
  * ============================================================
  */
@@ -67,6 +55,7 @@ function normalizeName(
  *
  * - description
  * - image
+ * ============================================================
  */
 
 function normalizeOptionalString(
@@ -124,6 +113,7 @@ function parseRequiredPoints(
  * - tetapi belum dapat di-claim
  *
  * Stock tidak boleh negatif.
+ * ============================================================
  */
 
 function parseStock(
@@ -182,13 +172,79 @@ function parseSortOrder(
 
 /**
  * ============================================================
+ * VALIDATE CATEGORY ID
+ * ============================================================
+ *
+ * Aturan:
+ *
+ * CREATE:
+ * - category wajib dipilih
+ * - category harus ada
+ * - category harus aktif
+ *
+ * UPDATE:
+ * - category wajib berupa ID valid
+ * - category harus ada
+ * - category inactive hanya boleh dipertahankan jika
+ *   reward memang sudah menggunakan category tersebut
+ * ============================================================
+ */
+
+async function validateCategoryId(
+  categoryId: unknown,
+  options?: {
+    allowInactiveExisting?: boolean;
+  }
+): Promise<string> {
+  const normalizedId =
+    String(
+      categoryId ?? ""
+    ).trim();
+
+  if (!normalizedId) {
+    throw new Error(
+      "Kategori reward wajib dipilih."
+    );
+  }
+
+  const category =
+    await RewardCategoryRepository.findById(
+      normalizedId
+    );
+
+  if (!category) {
+    throw new Error(
+      "Reward category tidak ditemukan."
+    );
+  }
+
+  if (
+    !category.isActive &&
+    !options?.allowInactiveExisting
+  ) {
+    throw new Error(
+      "Reward category yang dipilih tidak aktif."
+    );
+  }
+
+  return normalizedId;
+}
+
+/**
+ * ============================================================
  * VALIDATE CREATE DATA
  * ============================================================
  */
 
-function validateCreateData(
+async function validateCreateData(
   input: CreateRewardCatalogInput
 ) {
+  /**
+   * ----------------------------------------------------------
+   * NAME
+   * ----------------------------------------------------------
+   */
+
   const name =
     normalizeName(
       input.name
@@ -200,30 +256,79 @@ function validateCreateData(
     );
   }
 
+  /**
+   * ----------------------------------------------------------
+   * CATEGORY
+   * ----------------------------------------------------------
+   *
+   * Category WAJIB untuk reward baru.
+   */
+
+  const categoryId =
+    await validateCategoryId(
+      input.categoryId
+    );
+
+  /**
+   * ----------------------------------------------------------
+   * REQUIRED POINTS
+   * ----------------------------------------------------------
+   */
+
   const requiredPoints =
     parseRequiredPoints(
       input.requiredPoints
     );
+
+  /**
+   * ----------------------------------------------------------
+   * STOCK
+   * ----------------------------------------------------------
+   */
 
   const stock =
     parseStock(
       input.stock ?? 0
     );
 
+  /**
+   * ----------------------------------------------------------
+   * SORT ORDER
+   * ----------------------------------------------------------
+   */
+
   const sortOrder =
     parseSortOrder(
       input.sortOrder
     );
+
+  /**
+   * ----------------------------------------------------------
+   * DESCRIPTION
+   * ----------------------------------------------------------
+   */
 
   const description =
     normalizeOptionalString(
       input.description
     );
 
+  /**
+   * ----------------------------------------------------------
+   * IMAGE
+   * ----------------------------------------------------------
+   */
+
   const image =
     normalizeOptionalString(
       input.image
     );
+
+  /**
+   * ----------------------------------------------------------
+   * RESULT
+   * ----------------------------------------------------------
+   */
 
   return {
     name,
@@ -231,6 +336,8 @@ function validateCreateData(
     description,
 
     image,
+
+    categoryId,
 
     requiredPoints,
 
@@ -251,10 +358,16 @@ function validateCreateData(
  * Update bersifat partial.
  *
  * Field yang tidak dikirim tidak akan diubah.
+ *
+ * existingCategoryId digunakan untuk mengetahui apakah
+ * category inactive yang dipilih adalah category yang memang
+ * sudah digunakan reward tersebut.
+ * ============================================================
  */
 
-function validateUpdateData(
-  input: UpdateRewardCatalogInput
+async function validateUpdateData(
+  input: UpdateRewardCatalogInput,
+  existingCategoryId?: string | null
 ) {
   const data: UpdateRewardCatalogInput =
     {};
@@ -279,7 +392,8 @@ function validateUpdateData(
       );
     }
 
-    data.name = name;
+    data.name =
+      name;
   }
 
   /**
@@ -310,6 +424,70 @@ function validateUpdateData(
       normalizeOptionalString(
         input.image
       );
+  }
+
+  /**
+   * ----------------------------------------------------------
+   * CATEGORY
+   * ----------------------------------------------------------
+   *
+   * Jika categoryId dikirim:
+   *
+   * 1. harus valid
+   * 2. category harus ada
+   * 3. category harus aktif
+   *
+   * Pengecualian:
+   *
+   * Jika category inactive adalah category yang memang sudah
+   * digunakan reward tersebut, category tersebut boleh tetap
+   * dipertahankan.
+   *
+   * Ini penting agar reward lama tidak rusak hanya karena
+   * category-nya kemudian dinonaktifkan.
+   * ----------------------------------------------------------
+   */
+
+  if (
+    input.categoryId !== undefined
+  ) {
+    const normalizedCategoryId =
+      String(
+        input.categoryId ?? ""
+      ).trim();
+
+    if (!normalizedCategoryId) {
+      throw new Error(
+        "Kategori reward wajib dipilih."
+      );
+    }
+
+    const category =
+      await RewardCategoryRepository.findById(
+        normalizedCategoryId
+      );
+
+    if (!category) {
+      throw new Error(
+        "Reward category tidak ditemukan."
+      );
+    }
+
+    const isExistingCategory =
+      normalizedCategoryId ===
+      existingCategoryId;
+
+    if (
+      !category.isActive &&
+      !isExistingCategory
+    ) {
+      throw new Error(
+        "Reward category yang dipilih tidak aktif."
+      );
+    }
+
+    data.categoryId =
+      normalizedCategoryId;
   }
 
   /**
@@ -351,10 +529,17 @@ function validateUpdateData(
   if (
     input.isActive !== undefined
   ) {
-    data.isActive =
-      Boolean(
-        input.isActive
+    if (
+      typeof input.isActive !==
+      "boolean"
+    ) {
+      throw new Error(
+        "Status aktif tidak valid."
       );
+    }
+
+    data.isActive =
+      input.isActive;
   }
 
   /**
@@ -387,8 +572,6 @@ export class AdminRewardCatalogService {
    * GET ALL
    * ==========================================================
    *
-   * Digunakan oleh halaman Admin.
-   *
    * Mengembalikan seluruh reward termasuk:
    *
    * - active
@@ -405,12 +588,7 @@ export class AdminRewardCatalogService {
    * GET ACTIVE
    * ==========================================================
    *
-   * Digunakan oleh halaman customer.
-   *
-   * Hanya mengembalikan reward:
-   *
-   * isActive = true
-   * stock > 0
+   * Hanya reward aktif dan memiliki stock.
    */
 
   static async getActive() {
@@ -461,13 +639,37 @@ export class AdminRewardCatalogService {
     input: CreateRewardCatalogInput
   ) {
     const data =
-      validateCreateData(
+      await validateCreateData(
         input
       );
 
-    return RewardCatalogRepository.create(
-      data
-    );
+    try {
+      return await RewardCatalogRepository.create(
+        data
+      );
+    } catch (error) {
+      /**
+       * Foreign key protection.
+       *
+       * Secara normal category sudah divalidasi di atas.
+       * Tetapi database tetap menjadi protection terakhir
+       * terhadap race condition.
+       */
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+      ) {
+        if (
+          error.code === "P2003"
+        ) {
+          throw new Error(
+            "Reward category tidak ditemukan."
+          );
+        }
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -492,8 +694,9 @@ export class AdminRewardCatalogService {
     }
 
     /**
-     * Pastikan reward memang ada
-     * sebelum melakukan update.
+     * --------------------------------------------------------
+     * PASTIKAN REWARD ADA
+     * --------------------------------------------------------
      */
 
     const existing =
@@ -507,13 +710,22 @@ export class AdminRewardCatalogService {
       );
     }
 
+    /**
+     * --------------------------------------------------------
+     * VALIDATE UPDATE DATA
+     * --------------------------------------------------------
+     */
+
     const data =
-      validateUpdateData(
-        input
+      await validateUpdateData(
+        input,
+        existing.categoryId
       );
 
     /**
-     * Tidak ada field yang dikirim.
+     * --------------------------------------------------------
+     * TIDAK ADA DATA
+     * --------------------------------------------------------
      */
 
     if (
@@ -525,10 +737,30 @@ export class AdminRewardCatalogService {
       );
     }
 
-    return RewardCatalogRepository.update(
-      normalizedId,
-      data
-    );
+    try {
+      return await RewardCatalogRepository.update(
+        normalizedId,
+        data
+      );
+    } catch (error) {
+      /**
+       * Foreign key protection.
+       */
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+      ) {
+        if (
+          error.code === "P2003"
+        ) {
+          throw new Error(
+            "Reward category tidak ditemukan."
+          );
+        }
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -569,7 +801,7 @@ export class AdminRewardCatalogService {
     );
   }
 
-    /**
+  /**
    * ==========================================================
    * DELETE
    * ==========================================================
@@ -602,9 +834,9 @@ export class AdminRewardCatalogService {
     }
 
     /**
-     * ----------------------------------------------------------
+     * --------------------------------------------------------
      * GET EXISTING REWARD
-     * ----------------------------------------------------------
+     * --------------------------------------------------------
      */
 
     const existing =
@@ -619,9 +851,9 @@ export class AdminRewardCatalogService {
     }
 
     /**
-     * ----------------------------------------------------------
+     * --------------------------------------------------------
      * CHECK CLAIM HISTORY
-     * ----------------------------------------------------------
+     * --------------------------------------------------------
      */
 
     const claimCount =
@@ -638,9 +870,9 @@ export class AdminRewardCatalogService {
     }
 
     /**
-     * ----------------------------------------------------------
+     * --------------------------------------------------------
      * HARD DELETE
-     * ----------------------------------------------------------
+     * --------------------------------------------------------
      */
 
     try {
@@ -667,5 +899,6 @@ export class AdminRewardCatalogService {
       throw error;
     }
   }
-  
 }
+
+export default AdminRewardCatalogService;

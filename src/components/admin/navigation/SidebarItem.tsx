@@ -21,6 +21,7 @@ import {
   HeartHandshake,
   Gift,
   Award,
+  Tags,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -75,6 +76,8 @@ const ICON_MAP: Record<
   "reward-voucher": Gift,
 
   "reward-catalog": Award,
+
+  "reward-category": Tags,
 };
 
 /**

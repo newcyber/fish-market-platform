@@ -12,23 +12,6 @@ import {
  * ============================================================
  * ADMIN REWARD CATALOG API
  * ============================================================
- *
- * GET
- * - Mengambil seluruh reward catalog.
- *
- * POST
- * - Membuat reward baru.
- *
- * Image upload TIDAK dilakukan di endpoint ini.
- *
- * Image sudah diupload melalui:
- *
- * POST /api/admin/reward-catalog/upload
- *
- * Endpoint ini hanya menerima URL image yang sudah
- * dikembalikan oleh endpoint upload.
- *
- * ============================================================
  */
 
 type CreateRewardRequestBody = {
@@ -37,6 +20,8 @@ type CreateRewardRequestBody = {
   description?: unknown;
 
   image?: unknown;
+
+  categoryId?: unknown;
 
   requiredPoints?: unknown;
 
@@ -99,7 +84,7 @@ function authErrorResponse(
 
 /**
  * ============================================================
- * GET /api/admin/reward-catalog
+ * GET
  * ============================================================
  */
 
@@ -150,19 +135,7 @@ export async function GET() {
 
 /**
  * ============================================================
- * POST /api/admin/reward-catalog
- * ============================================================
- *
- * CREATE REWARD
- *
- * Content-Type:
- *
- * application/json
- *
- * Image dikirim sebagai URL/path hasil dari:
- *
- * POST /api/admin/reward-catalog/upload
- *
+ * POST
  * ============================================================
  */
 
@@ -171,12 +144,6 @@ export async function POST(
 ) {
   try {
     await requireAdmin();
-
-    /**
-     * ========================================================
-     * PARSE JSON
-     * ========================================================
-     */
 
     let body:
       | CreateRewardRequestBody
@@ -190,6 +157,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
+
           message:
             "Format request tidak valid.",
         },
@@ -201,11 +169,13 @@ export async function POST(
 
     if (
       !body ||
-      typeof body !== "object"
+      typeof body !== "object" ||
+      Array.isArray(body)
     ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
             "Data reward tidak valid.",
         },
@@ -217,37 +187,66 @@ export async function POST(
 
     /**
      * ========================================================
-     * IMAGE
+     * NAME
      * ========================================================
-     *
-     * Image harus berupa string URL/path.
-     *
-     * Upload file dilakukan melalui endpoint upload
-     * terpisah.
      */
 
-    let image:
-      | string
-      | null
-      | undefined;
-
     if (
-      body.image === undefined
+      body.name !== undefined &&
+      typeof body.name !== "string"
     ) {
-      image = undefined;
-    } else if (
-      body.image === null
-    ) {
-      image = null;
-    } else if (
-      typeof body.image === "string"
-    ) {
-      image =
-        body.image.trim() || null;
-    } else {
       return NextResponse.json(
         {
           success: false,
+
+          message:
+            "Nama reward tidak valid.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ========================================================
+     * DESCRIPTION
+     * ========================================================
+     */
+
+    if (
+      body.description !== undefined &&
+      body.description !== null &&
+      typeof body.description !== "string"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Deskripsi reward tidak valid.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ========================================================
+     * IMAGE
+     * ========================================================
+     */
+
+    if (
+      body.image !== undefined &&
+      body.image !== null &&
+      typeof body.image !== "string"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
           message:
             "Format gambar reward tidak valid.",
         },
@@ -259,24 +258,21 @@ export async function POST(
 
     /**
      * ========================================================
-     * BASIC TYPE VALIDATION
+     * CATEGORY
      * ========================================================
      *
-     * Business validation tetap dilakukan oleh service.
-     *
-     * Route hanya memastikan payload memiliki tipe
-     * yang masuk akal.
+     * Category wajib dipilih.
      */
 
     if (
-      body.name !== undefined &&
-      typeof body.name !== "string"
+      typeof body.categoryId !== "string"
     ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
-            "Nama reward tidak valid.",
+            "Kategori reward wajib dipilih.",
         },
         {
           status: 400,
@@ -284,16 +280,121 @@ export async function POST(
       );
     }
 
+    const categoryId =
+      body.categoryId.trim();
+
+    if (!categoryId) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Kategori reward wajib dipilih.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ========================================================
+     * REQUIRED POINTS
+     * ========================================================
+     */
+
     if (
-      body.description !== undefined &&
-      body.description !== null &&
-      typeof body.description !== "string"
+      typeof body.requiredPoints !==
+        "number" ||
+      !Number.isInteger(
+        body.requiredPoints
+      )
     ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
-            "Deskripsi reward tidak valid.",
+            "Required points tidak valid.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ========================================================
+     * STOCK
+     * ========================================================
+     */
+
+    if (
+      body.stock !== undefined &&
+      (
+        typeof body.stock !== "number" ||
+        !Number.isInteger(
+          body.stock
+        )
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Stock tidak valid.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ========================================================
+     * ACTIVE STATUS
+     * ========================================================
+     */
+
+    if (
+      body.isActive !== undefined &&
+      typeof body.isActive !== "boolean"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Status aktif tidak valid.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ========================================================
+     * SORT ORDER
+     * ========================================================
+     */
+
+    if (
+      body.sortOrder !== undefined &&
+      (
+        typeof body.sortOrder !== "number" ||
+        !Number.isInteger(
+          body.sortOrder
+        )
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Sort order tidak valid.",
         },
         {
           status: 400,
@@ -317,38 +418,37 @@ export async function POST(
         description:
           body.description === null
             ? null
-            : typeof body.description ===
-                "string"
+            : typeof body.description === "string"
               ? body.description
               : undefined,
 
-        image,
+        image:
+          body.image === null
+            ? null
+            : typeof body.image === "string"
+              ? body.image.trim() || null
+              : undefined,
+
+        categoryId,
 
         requiredPoints:
-          body.requiredPoints as
-            number,
+          body.requiredPoints,
 
         stock:
           body.stock === undefined
             ? 0
-            : (body.stock as number),
+            : body.stock,
 
         isActive:
           body.isActive === undefined
             ? true
-            : (body.isActive as boolean),
+            : body.isActive,
 
         sortOrder:
           body.sortOrder === undefined
             ? 0
-            : (body.sortOrder as number),
+            : body.sortOrder,
       });
-
-    /**
-     * ========================================================
-     * SUCCESS
-     * ========================================================
-     */
 
     return NextResponse.json(
       {
@@ -384,6 +484,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
+
         message,
       },
       {

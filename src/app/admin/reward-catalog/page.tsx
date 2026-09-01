@@ -16,8 +16,25 @@ import {
  */
 
 export default async function AdminRewardCatalogPage() {
+  /**
+   * ==========================================================
+   * GET REWARD CATALOG
+   * ==========================================================
+   */
+
   const rewards =
     await AdminRewardCatalogService.getAll();
+
+  /**
+   * ==========================================================
+   * MAP DATA FOR TABLE
+   * ==========================================================
+   *
+   * Category berasal dari relation RewardCatalog.category.
+   *
+   * categoryName digunakan hanya untuk kebutuhan tampilan
+   * admin table.
+   */
 
   const rewardCatalogItems:
     RewardCatalogTableItem[] =
@@ -35,6 +52,13 @@ export default async function AdminRewardCatalogPage() {
         image:
           reward.image,
 
+        categoryId:
+          reward.categoryId,
+
+        categoryName:
+          reward.category?.name ??
+          null,
+
         requiredPoints:
           reward.requiredPoints,
 
@@ -51,6 +75,33 @@ export default async function AdminRewardCatalogPage() {
           reward.createdAt,
       })
     );
+
+  /**
+   * ==========================================================
+   * SUMMARY
+   * ==========================================================
+   */
+
+  const totalRewards =
+    rewardCatalogItems.length;
+
+  const activeRewards =
+    rewardCatalogItems.filter(
+      (reward) =>
+        reward.isActive
+    ).length;
+
+  const outOfStockRewards =
+    rewardCatalogItems.filter(
+      (reward) =>
+        reward.stock <= 0
+    ).length;
+
+  /**
+   * ==========================================================
+   * RENDER
+   * ==========================================================
+   */
 
   return (
     <div className="space-y-6">
@@ -84,6 +135,8 @@ export default async function AdminRewardCatalogPage() {
       ====================================================== */}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* TOTAL */}
+
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
           <p className="text-sm text-gray-500">
             Total Reward
@@ -91,10 +144,12 @@ export default async function AdminRewardCatalogPage() {
 
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {
-              rewardCatalogItems.length
+              totalRewards
             }
           </p>
         </div>
+
+        {/* ACTIVE */}
 
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
           <p className="text-sm text-gray-500">
@@ -103,13 +158,12 @@ export default async function AdminRewardCatalogPage() {
 
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {
-              rewardCatalogItems.filter(
-                (reward) =>
-                  reward.isActive
-              ).length
+              activeRewards
             }
           </p>
         </div>
+
+        {/* OUT OF STOCK */}
 
         <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
           <p className="text-sm text-gray-500">
@@ -118,10 +172,7 @@ export default async function AdminRewardCatalogPage() {
 
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {
-              rewardCatalogItems.filter(
-                (reward) =>
-                  reward.stock <= 0
-              ).length
+              outOfStockRewards
             }
           </p>
         </div>

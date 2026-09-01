@@ -179,10 +179,10 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
   {
     id: "loyalty",
     title: "Loyalty",
-    href: "/admin/reward-vouchers",
+    href: "/admin/reward-catalog",
     icon: "loyalty",
     roles: SUPER_ADMIN_ONLY,
-    order: 7,
+    order: 8,
 
     children: [
       {
@@ -201,6 +201,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         icon: "reward-catalog",
         roles: SUPER_ADMIN_ONLY,
         order: 2,
+      },
+
+      {
+        id: "reward-category",
+        title: "Reward Category",
+        href: "/admin/reward-categories",
+        icon: "reward-category",
+        roles: SUPER_ADMIN_ONLY,
+        order: 3,
       },
     ],
   },

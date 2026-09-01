@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server";
+import {
+  NextResponse,
+} from "next/server";
 
 import {
   requireAdmin,
@@ -37,6 +39,8 @@ type UpdateRewardRequestBody = {
 
   image?: unknown;
 
+  categoryId?: unknown;
+
   requiredPoints?: unknown;
 
   stock?: unknown;
@@ -68,6 +72,7 @@ function authErrorResponse(
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Anda harus login.",
       },
@@ -84,6 +89,7 @@ function authErrorResponse(
     return NextResponse.json(
       {
         success: false,
+
         message:
           "Anda tidak memiliki akses.",
       },
@@ -107,20 +113,46 @@ export async function GET(
   context: RouteContext
 ) {
   try {
+    /**
+     * --------------------------------------------------------
+     * AUTHORIZATION
+     * --------------------------------------------------------
+     */
+
     await requireAdmin();
 
-    const { id } =
-      await context.params;
+    /**
+     * --------------------------------------------------------
+     * GET ID
+     * --------------------------------------------------------
+     */
+
+    const {
+      id,
+    } = await context.params;
+
+    /**
+     * --------------------------------------------------------
+     * GET REWARD
+     * --------------------------------------------------------
+     */
 
     const reward =
       await AdminRewardCatalogService.getById(
         id
       );
 
+    /**
+     * --------------------------------------------------------
+     * SUCCESS
+     * --------------------------------------------------------
+     */
+
     return NextResponse.json({
       success: true,
 
-      data: reward,
+      data:
+        reward,
     });
   } catch (error) {
     console.error(
@@ -134,7 +166,9 @@ export async function GET(
         "Gagal mengambil reward catalog."
       );
 
-    if (authResponse) {
+    if (
+      authResponse
+    ) {
       return authResponse;
     }
 
@@ -143,6 +177,12 @@ export async function GET(
         ? error.message
         : "Gagal mengambil reward catalog.";
 
+    /**
+     * --------------------------------------------------------
+     * NOT FOUND
+     * --------------------------------------------------------
+     */
+
     if (
       message ===
       "Reward tidak ditemukan."
@@ -150,6 +190,7 @@ export async function GET(
       return NextResponse.json(
         {
           success: false,
+
           message,
         },
         {
@@ -161,6 +202,7 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
+
         message,
       },
       {
@@ -189,15 +231,11 @@ export async function GET(
  *
  *    POST /api/admin/reward-catalog/upload
  *
- * 2. Endpoint upload mengembalikan:
+ * 2. Endpoint upload mengembalikan path:
  *
  *    /uploads/rewards/xxxxx.webp
  *
- * 3. URL tersebut dikirim ke PATCH ini sebagai:
- *
- *    {
- *      "image": "/uploads/rewards/xxxxx.webp"
- *    }
+ * 3. Path tersebut dikirim ke PATCH.
  *
  * 4. Database di-update.
  *
@@ -217,11 +255,22 @@ export async function PATCH(
   request: Request,
   context: RouteContext
 ) {
+  /**
+   * Path image baru yang akan dibersihkan
+   * jika proses database gagal.
+   */
+
   let newImagePath:
     | string
     | null = null;
 
   try {
+    /**
+     * ========================================================
+     * AUTHORIZATION
+     * ========================================================
+     */
+
     await requireAdmin();
 
     /**
@@ -230,8 +279,9 @@ export async function PATCH(
      * ========================================================
      */
 
-    const { id } =
-      await context.params;
+    const {
+      id,
+    } = await context.params;
 
     /**
      * ========================================================
@@ -242,6 +292,11 @@ export async function PATCH(
      *
      * - memastikan reward ada
      * - mendapatkan image lama
+     * - mendapatkan category lama
+     *
+     * Category lama akan digunakan oleh service untuk
+     * menentukan apakah category inactive masih boleh
+     * dipertahankan.
      */
 
     const existing =
@@ -267,6 +322,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
+
           message:
             "Format request tidak valid.",
         },
@@ -276,13 +332,21 @@ export async function PATCH(
       );
     }
 
+    /**
+     * ========================================================
+     * ENSURE OBJECT
+     * ========================================================
+     */
+
     if (
       !body ||
-      typeof body !== "object"
+      typeof body !== "object" ||
+      Array.isArray(body)
     ) {
       return NextResponse.json(
         {
           success: false,
+
           message:
             "Data reward tidak valid.",
         },
@@ -305,6 +369,8 @@ export async function PATCH(
 
       image?: string | null;
 
+      categoryId?: string | null;
+
       requiredPoints?: number;
 
       stock?: number;
@@ -324,12 +390,12 @@ export async function PATCH(
       body.name !== undefined
     ) {
       if (
-        typeof body.name !==
-        "string"
+        typeof body.name !== "string"
       ) {
         return NextResponse.json(
           {
             success: false,
+
             message:
               "Nama reward tidak valid.",
           },
@@ -352,17 +418,16 @@ export async function PATCH(
      */
 
     if (
-      body.description !==
-      undefined
+      body.description !== undefined
     ) {
       if (
         body.description !== null &&
-        typeof body.description !==
-          "string"
+        typeof body.description !== "string"
       ) {
         return NextResponse.json(
           {
             success: false,
+
             message:
               "Deskripsi reward tidak valid.",
           },
@@ -382,6 +447,8 @@ export async function PATCH(
      * ========================================================
      *
      * Image harus berupa string path hasil upload.
+     *
+     * null diperbolehkan.
      */
 
     if (
@@ -389,12 +456,12 @@ export async function PATCH(
     ) {
       if (
         body.image !== null &&
-        typeof body.image !==
-          "string"
+        typeof body.image !== "string"
       ) {
         return NextResponse.json(
           {
             success: false,
+
             message:
               "Format gambar reward tidak valid.",
           },
@@ -405,20 +472,25 @@ export async function PATCH(
       }
 
       const normalizedImage =
-        typeof body.image ===
-        "string"
+        typeof body.image === "string"
           ? body.image.trim()
           : null;
 
       updateData.image =
-        normalizedImage || null;
+        normalizedImage ||
+        null;
 
       /**
-       * Simpan image baru untuk
-       * cleanup jika database gagal.
+       * ------------------------------------------------------
+       * NEW IMAGE CLEANUP TRACKING
+       * ------------------------------------------------------
        *
-       * Hanya path reward yang boleh
-       * diperlakukan sebagai file baru.
+       * Hanya path dari:
+       *
+       * /uploads/rewards/
+       *
+       * yang dianggap sebagai image baru milik
+       * reward catalog.
        */
 
       if (
@@ -429,8 +501,71 @@ export async function PATCH(
         normalizedImage !== existing.image
       ) {
         newImagePath =
-        normalizedImage;
+          normalizedImage;
       }
+    }
+
+    /**
+     * ========================================================
+     * CATEGORY ID
+     * ========================================================
+     *
+     * Jika categoryId dikirim:
+     *
+     * - harus string
+     * - tidak boleh kosong
+     *
+     * Validasi keberadaan category dan status active
+     * dilakukan oleh AdminRewardCatalogService.
+     *
+     * Service juga mengetahui existing.categoryId sehingga
+     * category inactive yang memang sudah terpasang pada
+     * reward tersebut tetap dapat dipertahankan.
+     */
+
+    if (
+      body.categoryId !== undefined
+    ) {
+      if (
+        body.categoryId !== null &&
+        typeof body.categoryId !== "string"
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Kategori reward tidak valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      const normalizedCategoryId =
+        typeof body.categoryId === "string"
+          ? body.categoryId.trim()
+          : "";
+
+      if (
+        !normalizedCategoryId
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+
+            message:
+              "Kategori reward wajib dipilih.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      updateData.categoryId =
+        normalizedCategoryId;
     }
 
     /**
@@ -440,12 +575,10 @@ export async function PATCH(
      */
 
     if (
-      body.requiredPoints !==
-      undefined
+      body.requiredPoints !== undefined
     ) {
       if (
-        typeof body.requiredPoints !==
-          "number" ||
+        typeof body.requiredPoints !== "number" ||
         !Number.isInteger(
           body.requiredPoints
         )
@@ -453,6 +586,7 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
+
             message:
               "Required points tidak valid.",
           },
@@ -476,8 +610,7 @@ export async function PATCH(
       body.stock !== undefined
     ) {
       if (
-        typeof body.stock !==
-          "number" ||
+        typeof body.stock !== "number" ||
         !Number.isInteger(
           body.stock
         )
@@ -485,6 +618,7 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
+
             message:
               "Stock tidak valid.",
           },
@@ -505,16 +639,15 @@ export async function PATCH(
      */
 
     if (
-      body.isActive !==
-      undefined
+      body.isActive !== undefined
     ) {
       if (
-        typeof body.isActive !==
-        "boolean"
+        typeof body.isActive !== "boolean"
       ) {
         return NextResponse.json(
           {
             success: false,
+
             message:
               "Status aktif tidak valid.",
           },
@@ -535,12 +668,10 @@ export async function PATCH(
      */
 
     if (
-      body.sortOrder !==
-      undefined
+      body.sortOrder !== undefined
     ) {
       if (
-        typeof body.sortOrder !==
-          "number" ||
+        typeof body.sortOrder !== "number" ||
         !Number.isInteger(
           body.sortOrder
         )
@@ -548,6 +679,7 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
+
             message:
               "Sort order tidak valid.",
           },
@@ -565,6 +697,15 @@ export async function PATCH(
      * ========================================================
      * UPDATE DATABASE
      * ========================================================
+     *
+     * Service akan:
+     *
+     * - validasi field
+     * - validasi category
+     * - memastikan category ada
+     * - memastikan category aktif jika category baru
+     * - mempertahankan category inactive lama jika memang
+     *   sudah digunakan reward tersebut
      */
 
     const reward =
@@ -578,12 +719,10 @@ export async function PATCH(
      * DELETE OLD IMAGE
      * ========================================================
      *
-     * Hanya dilakukan jika:
+     * Hanya dilakukan setelah database berhasil.
      *
-     * - image baru dikirim
-     * - database berhasil update
-     * - image lama memang ada
-     * - image lama berbeda dari image baru
+     * Ini penting supaya image lama tidak hilang apabila
+     * proses update database gagal.
      */
 
     if (
@@ -597,6 +736,13 @@ export async function PATCH(
           existing.image
         );
       } catch (cleanupError) {
+        /**
+         * Cleanup image lama gagal.
+         *
+         * Database tetap dianggap berhasil karena reward
+         * sudah tersimpan dengan benar.
+         */
+
         console.error(
           "[ADMIN_REWARD_CATALOG_OLD_IMAGE_DELETE]",
           cleanupError
@@ -613,7 +759,8 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
 
-      data: reward,
+      data:
+        reward,
     });
   } catch (error) {
     /**
@@ -621,13 +768,15 @@ export async function PATCH(
      * CLEANUP NEW IMAGE
      * ========================================================
      *
-     * Jika database gagal setelah image baru
-     * berhasil diupload, hapus image baru.
+     * Jika database gagal setelah image baru berhasil
+     * diupload, hapus image baru.
      *
      * Image lama tidak disentuh.
      */
 
-    if (newImagePath) {
+    if (
+      newImagePath
+    ) {
       try {
         await StorageService.deleteRewardImage(
           newImagePath
@@ -640,10 +789,22 @@ export async function PATCH(
       }
     }
 
+    /**
+     * ========================================================
+     * ERROR LOG
+     * ========================================================
+     */
+
     console.error(
       "[ADMIN_REWARD_CATALOG_UPDATE]",
       error
     );
+
+    /**
+     * ========================================================
+     * AUTH ERROR
+     * ========================================================
+     */
 
     const authResponse =
       authErrorResponse(
@@ -651,7 +812,9 @@ export async function PATCH(
         "Gagal memperbarui reward catalog."
       );
 
-    if (authResponse) {
+    if (
+      authResponse
+    ) {
       return authResponse;
     }
 
@@ -660,6 +823,12 @@ export async function PATCH(
         ? error.message
         : "Gagal memperbarui reward catalog.";
 
+    /**
+     * ========================================================
+     * NOT FOUND
+     * ========================================================
+     */
+
     if (
       message ===
       "Reward tidak ditemukan."
@@ -667,6 +836,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
+
           message,
         },
         {
@@ -675,9 +845,16 @@ export async function PATCH(
       );
     }
 
+    /**
+     * ========================================================
+     * VALIDATION / BUSINESS ERROR
+     * ========================================================
+     */
+
     return NextResponse.json(
       {
         success: false,
+
         message,
       },
       {
@@ -728,8 +905,9 @@ export async function DELETE(
      * ========================================================
      */
 
-    const { id } =
-      await context.params;
+    const {
+      id,
+    } = await context.params;
 
     /**
      * ========================================================
@@ -813,7 +991,9 @@ export async function DELETE(
         "Gagal menghapus reward catalog."
       );
 
-    if (authResponse) {
+    if (
+      authResponse
+    ) {
       return authResponse;
     }
 
@@ -835,6 +1015,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
+
           message,
         },
         {
@@ -857,6 +1038,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
+
           message,
         },
         {
@@ -874,6 +1056,7 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: false,
+
         message,
       },
       {

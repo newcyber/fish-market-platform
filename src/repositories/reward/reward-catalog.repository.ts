@@ -16,17 +16,21 @@ import {
  * Tanggung jawab:
  *
  * - membaca katalog reward
+ * - membaca reward aktif
  * - mencari reward berdasarkan ID
+ * - mencari reward dengan row lock
  * - membuat reward
  * - memperbarui reward
  * - mengaktifkan / menonaktifkan reward
  * - mengurangi stock ketika claim
  * - mengembalikan stock ketika claim dibatalkan / ditolak
+ * - menghitung histori claim
+ * - menghapus reward yang belum memiliki histori claim
  *
- * Repository TIDAK menangani business logic claim.
+ * Repository TIDAK menangani business logic.
  *
- * Proses claim reward fisik akan ditangani oleh
- * RewardClaimService dan berjalan dalam transaction.
+ * Business validation berada di service.
+ *
  * ============================================================
  */
 
@@ -46,6 +50,8 @@ export type CreateRewardCatalogInput = {
   description?: string | null;
 
   image?: string | null;
+
+  categoryId?: string | null;
 
   requiredPoints: number;
 
@@ -69,6 +75,8 @@ export type UpdateRewardCatalogInput = {
 
   image?: string | null;
 
+  categoryId?: string | null;
+
   requiredPoints?: number;
 
   stock?: number;
@@ -89,12 +97,39 @@ export class RewardCatalogRepository {
    * ==========================================================
    * FIND MANY
    * ==========================================================
+   *
+   * Mengambil seluruh reward catalog.
+   *
+   * Termasuk:
+   *
+   * - reward aktif
+   * - reward nonaktif
+   * - reward stock 0
+   * - reward tanpa category jika masih ada data legacy
+   *
+   * Relation category ikut diambil untuk kebutuhan:
+   *
+   * - Admin Reward Catalog
+   * - filter / grouping
+   * - tampilan nama category
+   *
+   * Urutan:
+   *
+   * 1. sortOrder ASC
+   * 2. requiredPoints ASC
+   * 3. createdAt ASC
+   *
+   * ==========================================================
    */
 
   static async findMany(
     client: RewardCatalogRepositoryClient = prisma
   ) {
     return client.rewardCatalog.findMany({
+      include: {
+        category: true,
+      },
+
       orderBy: [
         {
           sortOrder: "asc",
@@ -114,10 +149,17 @@ export class RewardCatalogRepository {
    * FIND ACTIVE
    * ==========================================================
    *
-   * Hanya reward:
+   * Hanya reward yang benar-benar dapat ditampilkan kepada
+   * customer:
    *
-   * - aktif
-   * - stock tersedia
+   * 1. Reward aktif
+   * 2. Stock > 0
+   * 3. Category aktif
+   *
+   * Category wajib aktif agar reward dari category yang sudah
+   * dinonaktifkan tidak muncul di customer catalog.
+   *
+   * ==========================================================
    */
 
   static async findActive(
@@ -130,6 +172,16 @@ export class RewardCatalogRepository {
         stock: {
           gt: 0,
         },
+
+        category: {
+          is: {
+            isActive: true,
+          },
+        },
+      },
+
+      include: {
+        category: true,
       },
 
       orderBy: [
@@ -150,6 +202,17 @@ export class RewardCatalogRepository {
    * ==========================================================
    * FIND BY ID
    * ==========================================================
+   *
+   * Digunakan untuk:
+   *
+   * - detail reward
+   * - edit reward
+   * - validasi reward
+   * - delete reward
+   *
+   * Relation category ikut dikembalikan.
+   *
+   * ==========================================================
    */
 
   static async findById(
@@ -159,6 +222,10 @@ export class RewardCatalogRepository {
     return client.rewardCatalog.findUnique({
       where: {
         id,
+      },
+
+      include: {
+        category: true,
       },
     });
   }
@@ -170,8 +237,24 @@ export class RewardCatalogRepository {
    *
    * PostgreSQL row lock.
    *
-   * Digunakan ketika claim reward untuk mencegah
-   * race condition pada stock.
+   * Digunakan ketika customer melakukan claim reward.
+   *
+   * Tujuannya mencegah race condition pada stock.
+   *
+   * Contoh:
+   *
+   * Stock = 1
+   *
+   * Customer A claim
+   * Customer B claim
+   *
+   * Tanpa row lock kedua transaksi dapat membaca stock
+   * yang sama.
+   *
+   * FOR UPDATE memastikan transaksi harus bergantian
+   * mengakses row tersebut.
+   *
+   * ==========================================================
    */
 
   static async findByIdForUpdate(
@@ -188,6 +271,8 @@ export class RewardCatalogRepository {
           description: string | null;
 
           image: string | null;
+
+          categoryId: string | null;
 
           requiredPoints: number;
 
@@ -208,6 +293,7 @@ export class RewardCatalogRepository {
             "name",
             "description",
             "image",
+            "categoryId",
             "requiredPoints",
             "stock",
             "isActive",
@@ -227,6 +313,13 @@ export class RewardCatalogRepository {
    * ==========================================================
    * CREATE
    * ==========================================================
+   *
+   * Membuat reward catalog baru.
+   *
+   * Relation category ikut dikembalikan supaya caller
+   * langsung mendapatkan data reward lengkap.
+   *
+   * ==========================================================
    */
 
   static async create(
@@ -235,13 +328,17 @@ export class RewardCatalogRepository {
   ) {
     return client.rewardCatalog.create({
       data: {
-        name: data.name,
+        name:
+          data.name,
 
         description:
           data.description ?? null,
 
         image:
           data.image ?? null,
+
+        categoryId:
+          data.categoryId ?? null,
 
         requiredPoints:
           data.requiredPoints,
@@ -255,12 +352,30 @@ export class RewardCatalogRepository {
         sortOrder:
           data.sortOrder ?? 0,
       },
+
+      include: {
+        category: true,
+      },
     });
   }
 
   /**
    * ==========================================================
    * UPDATE
+   * ==========================================================
+   *
+   * Update bersifat partial.
+   *
+   * Field yang undefined tidak akan dikirim ke Prisma.
+   *
+   * categoryId dapat:
+   *
+   * - diisi category baru
+   * - diganti category
+   * - di-set null jika business logic mengizinkan
+   *
+   * Validasi category tetap menjadi tanggung jawab service.
+   *
    * ==========================================================
    */
 
@@ -276,32 +391,48 @@ export class RewardCatalogRepository {
 
       data: {
         ...(data.name !== undefined && {
-          name: data.name,
+          name:
+            data.name,
         }),
 
         ...(data.description !== undefined && {
-          description: data.description,
+          description:
+            data.description,
         }),
 
         ...(data.image !== undefined && {
-          image: data.image,
+          image:
+            data.image,
+        }),
+
+        ...(data.categoryId !== undefined && {
+          categoryId:
+            data.categoryId,
         }),
 
         ...(data.requiredPoints !== undefined && {
-          requiredPoints: data.requiredPoints,
+          requiredPoints:
+            data.requiredPoints,
         }),
 
         ...(data.stock !== undefined && {
-          stock: data.stock,
+          stock:
+            data.stock,
         }),
 
         ...(data.isActive !== undefined && {
-          isActive: data.isActive,
+          isActive:
+            data.isActive,
         }),
 
         ...(data.sortOrder !== undefined && {
-          sortOrder: data.sortOrder,
+          sortOrder:
+            data.sortOrder,
         }),
+      },
+
+      include: {
+        category: true,
       },
     });
   }
@@ -309,6 +440,12 @@ export class RewardCatalogRepository {
   /**
    * ==========================================================
    * SET ACTIVE
+   * ==========================================================
+   *
+   * Mengaktifkan / menonaktifkan reward.
+   *
+   * Relation category ikut dikembalikan.
+   *
    * ==========================================================
    */
 
@@ -325,6 +462,10 @@ export class RewardCatalogRepository {
       data: {
         isActive,
       },
+
+      include: {
+        category: true,
+      },
     });
   }
 
@@ -337,8 +478,13 @@ export class RewardCatalogRepository {
    *
    * Digunakan dalam transaction claim.
    *
-   * Guard stock > 0 tetap dipertahankan sebagai
-   * protection tambahan.
+   * Guard:
+   *
+   * stock > 0
+   *
+   * tetap dipertahankan sebagai protection tambahan.
+   *
+   * ==========================================================
    */
 
   static async decrementStock(
@@ -362,7 +508,9 @@ export class RewardCatalogRepository {
         },
       });
 
-    if (result.count !== 1) {
+    if (
+      result.count !== 1
+    ) {
       throw new Error(
         "Stok hadiah sudah habis atau hadiah tidak ditemukan."
       );
@@ -371,6 +519,10 @@ export class RewardCatalogRepository {
     return client.rewardCatalog.findUnique({
       where: {
         id,
+      },
+
+      include: {
+        category: true,
       },
     });
   }
@@ -389,11 +541,13 @@ export class RewardCatalogRepository {
    *
    * sebelum fulfillment.
    *
-   * Method ini HARUS dipanggil dalam transaction
-   * yang sama dengan refund point.
+   * Method ini HARUS dipanggil dalam transaction yang sama
+   * dengan refund point.
+   *
+   * ==========================================================
    */
 
-    static async incrementStock(
+  static async incrementStock(
     id: string,
     client: Prisma.TransactionClient
   ) {
@@ -410,7 +564,9 @@ export class RewardCatalogRepository {
         },
       });
 
-    if (result.count !== 1) {
+    if (
+      result.count !== 1
+    ) {
       throw new Error(
         "Gagal mengembalikan stok hadiah."
       );
@@ -420,12 +576,27 @@ export class RewardCatalogRepository {
       where: {
         id,
       },
+
+      include: {
+        category: true,
+      },
     });
   }
 
   /**
    * ==========================================================
    * COUNT CLAIMS
+   * ==========================================================
+   *
+   * Menghitung seluruh histori RewardClaim untuk reward.
+   *
+   * Digunakan sebelum hard delete.
+   *
+   * Jika count > 0:
+   *
+   * reward tidak boleh dihapus karena histori harus
+   * tetap dipertahankan.
+   *
    * ==========================================================
    */
 
@@ -435,7 +606,8 @@ export class RewardCatalogRepository {
   ) {
     return client.rewardClaim.count({
       where: {
-        rewardCatalogId: id,
+        rewardCatalogId:
+          id,
       },
     });
   }
@@ -443,6 +615,25 @@ export class RewardCatalogRepository {
   /**
    * ==========================================================
    * DELETE
+   * ==========================================================
+   *
+   * Hard delete RewardCatalog.
+   *
+   * Business rule:
+   *
+   * Reward yang sudah memiliki claim tidak boleh dihapus.
+   *
+   * Protection utama berada di service.
+   *
+   * Foreign key:
+   *
+   * RewardClaim -> RewardCatalog
+   *
+   * dengan onDelete = Restrict
+   *
+   * menjadi protection database terakhir terhadap race
+   * condition.
+   *
    * ==========================================================
    */
 
@@ -457,3 +648,5 @@ export class RewardCatalogRepository {
     });
   }
 }
+
+export default RewardCatalogRepository;

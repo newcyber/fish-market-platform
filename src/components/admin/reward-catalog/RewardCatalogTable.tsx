@@ -4,6 +4,12 @@ import {
   DeleteRewardCatalogButton,
 } from "@/components/admin/reward-catalog/DeleteRewardCatalogButton";
 
+/**
+ * ============================================================
+ * REWARD CATALOG TABLE ITEM
+ * ============================================================
+ */
+
 export type RewardCatalogTableItem = {
   id: string;
 
@@ -12,6 +18,10 @@ export type RewardCatalogTableItem = {
   description: string | null;
 
   image: string | null;
+
+  categoryId: string | null;
+
+  categoryName: string | null;
 
   requiredPoints: number;
 
@@ -24,9 +34,21 @@ export type RewardCatalogTableItem = {
   createdAt: Date | string;
 };
 
+/**
+ * ============================================================
+ * PROPS
+ * ============================================================
+ */
+
 type RewardCatalogTableProps = {
   rewards: RewardCatalogTableItem[];
 };
+
+/**
+ * ============================================================
+ * FORMAT NUMBER
+ * ============================================================
+ */
 
 function formatNumber(
   value: number
@@ -35,6 +57,12 @@ function formatNumber(
     "id-ID"
   ).format(value);
 }
+
+/**
+ * ============================================================
+ * FORMAT DATE
+ * ============================================================
+ */
 
 function formatDate(
   value: Date | string
@@ -60,6 +88,12 @@ function formatDate(
   ).format(date);
 }
 
+/**
+ * ============================================================
+ * STATUS LABEL
+ * ============================================================
+ */
+
 function getStatusLabel(
   isActive: boolean
 ) {
@@ -68,9 +102,21 @@ function getStatusLabel(
     : "Nonaktif";
 }
 
+/**
+ * ============================================================
+ * REWARD CATALOG TABLE
+ * ============================================================
+ */
+
 export function RewardCatalogTable({
   rewards,
 }: RewardCatalogTableProps) {
+  /**
+   * ==========================================================
+   * EMPTY STATE
+   * ==========================================================
+   */
+
   if (
     rewards.length === 0
   ) {
@@ -97,31 +143,55 @@ export function RewardCatalogTable({
     );
   }
 
+  /**
+   * ==========================================================
+   * TABLE
+   * ==========================================================
+   */
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              {/* REWARD */}
+
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Reward
               </th>
+
+              {/* CATEGORY */}
+
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Kategori
+              </th>
+
+              {/* POINT */}
 
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Point
               </th>
 
+              {/* STOCK */}
+
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Stock
               </th>
+
+              {/* SORT ORDER */}
 
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Urutan
               </th>
 
+              {/* STATUS */}
+
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Status
               </th>
+
+              {/* ACTION */}
 
               <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Aksi
@@ -136,7 +206,9 @@ export function RewardCatalogTable({
                   key={reward.id}
                   className="transition hover:bg-gray-50"
                 >
-                  {/* REWARD */}
+                  {/* ==================================================
+                      REWARD
+                  ================================================== */}
 
                   <td className="px-6 py-4">
                     <div className="flex min-w-60 items-center gap-3">
@@ -144,7 +216,9 @@ export function RewardCatalogTable({
                         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={reward.image}
+                            src={
+                              reward.image
+                            }
                             alt={
                               reward.name
                             }
@@ -159,7 +233,9 @@ export function RewardCatalogTable({
 
                       <div className="flex min-w-0 flex-col">
                         <span className="truncate font-semibold text-gray-900">
-                          {reward.name}
+                          {
+                            reward.name
+                          }
                         </span>
 
                         {reward.description ? (
@@ -185,7 +261,29 @@ export function RewardCatalogTable({
                     </div>
                   </td>
 
-                  {/* POINT */}
+                  {/* ==================================================
+                      CATEGORY
+                  ================================================== */}
+
+                  <td className="px-6 py-4">
+                    {reward.categoryName ? (
+                      <div className="flex flex-col">
+                        <span className="inline-flex w-fit items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                          {
+                            reward.categoryName
+                          }
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs font-medium text-red-500">
+                        Belum ada kategori
+                      </span>
+                    )}
+                  </td>
+
+                  {/* ==================================================
+                      POINT
+                  ================================================== */}
 
                   <td className="whitespace-nowrap px-6 py-4">
                     <span className="font-semibold text-gray-900">
@@ -199,13 +297,16 @@ export function RewardCatalogTable({
                     </span>
                   </td>
 
-                  {/* STOCK */}
+                  {/* ==================================================
+                      STOCK
+                  ================================================== */}
 
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex flex-col">
                       <span
                         className={
-                          reward.stock > 0
+                          reward.stock >
+                          0
                             ? "font-semibold text-gray-900"
                             : "font-semibold text-red-600"
                         }
@@ -217,7 +318,8 @@ export function RewardCatalogTable({
 
                       <span
                         className={
-                          reward.stock > 0
+                          reward.stock >
+                          0
                             ? "text-xs text-gray-500"
                             : "text-xs font-medium text-red-500"
                         }
@@ -230,7 +332,9 @@ export function RewardCatalogTable({
                     </div>
                   </td>
 
-                  {/* SORT ORDER */}
+                  {/* ==================================================
+                      SORT ORDER
+                  ================================================== */}
 
                   <td className="whitespace-nowrap px-6 py-4">
                     <span className="inline-flex min-w-8 items-center justify-center rounded-lg bg-gray-100 px-2.5 py-1 text-sm font-semibold text-gray-700">
@@ -240,7 +344,9 @@ export function RewardCatalogTable({
                     </span>
                   </td>
 
-                  {/* STATUS */}
+                  {/* ==================================================
+                      STATUS
+                  ================================================== */}
 
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
@@ -264,24 +370,26 @@ export function RewardCatalogTable({
                     </span>
                   </td>
 
-                  {/* ACTION */}
+                  {/* ==================================================
+                      ACTION
+                  ================================================== */}
 
                   <td className="whitespace-nowrap px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                    <Link
-                      href={`/admin/reward-catalog/${reward.id}/edit`}
+                      <Link
+                        href={`/admin/reward-catalog/${reward.id}/edit`}
                         className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
-                    >
-                    Edit
-                    </Link>
+                      >
+                        Edit
+                      </Link>
 
                       <DeleteRewardCatalogButton
-                      rewardId={
-                      reward.id
-                    }
+                        rewardId={
+                          reward.id
+                        }
                         rewardName={
-                      reward.name
-                    }
+                          reward.name
+                        }
                       />
                     </div>
                   </td>

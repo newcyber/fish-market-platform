@@ -7,35 +7,26 @@ import {
 } from "@/lib/auth/admin";
 
 import {
-  AdminRewardCatalogService,
-} from "@/services/reward/admin-reward-catalog.service";
+  AdminRewardCategoryService,
+} from "@/services/reward/admin-reward-category.service";
 
 import {
-  RewardCatalogForm,
-} from "@/components/admin/reward-catalog/RewardCatalogForm";
+  RewardCategoryForm,
+} from "@/components/admin/reward-category/RewardCategoryForm";
 
 /**
  * ============================================================
- * ADMIN REWARD CATALOG EDIT PAGE
+ * ADMIN REWARD CATEGORY EDIT PAGE
  * ============================================================
  *
  * URL:
  *
- * /admin/reward-catalog/[id]/edit
- *
- * Tanggung jawab:
- *
- * - memastikan admin memiliki akses
- * - mengambil reward berdasarkan ID
- * - menampilkan form dalam mode edit
- * - meneruskan category reward ke form
- *
- * Business logic tetap berada di service.
+ * /admin/reward-categories/[id]/edit
  *
  * ============================================================
  */
 
-type RewardCatalogEditPageProps = {
+type RewardCategoryEditPageProps = {
   params: Promise<{
     id: string;
   }>;
@@ -47,9 +38,9 @@ type RewardCatalogEditPageProps = {
  * ============================================================
  */
 
-export default async function RewardCatalogEditPage({
+export default async function RewardCategoryEditPage({
   params,
-}: RewardCatalogEditPageProps) {
+}: RewardCategoryEditPageProps) {
   /**
    * ==========================================================
    * AUTHORIZATION
@@ -61,11 +52,6 @@ export default async function RewardCatalogEditPage({
   /**
    * ==========================================================
    * RESOLVE PARAMS
-   * ==========================================================
-   *
-   * Next.js App Router versi modern menggunakan
-   * async params.
-   *
    * ==========================================================
    */
 
@@ -90,28 +76,22 @@ export default async function RewardCatalogEditPage({
 
   /**
    * ==========================================================
-   * GET REWARD
+   * GET CATEGORY
    * ==========================================================
    */
 
-  let reward;
+  let category;
 
   try {
-    reward =
-      await AdminRewardCatalogService.getById(
+    category =
+      await AdminRewardCategoryService.getById(
         normalizedId
       );
   } catch (error) {
-    /**
-     * --------------------------------------------------------
-     * REWARD NOT FOUND
-     * --------------------------------------------------------
-     */
-
     if (
       error instanceof Error &&
       error.message ===
-        "Reward tidak ditemukan."
+        "Reward category tidak ditemukan."
     ) {
       notFound();
     }
@@ -126,62 +106,51 @@ export default async function RewardCatalogEditPage({
    */
 
   return (
-    <div className="space-y-6">
+    <main className="space-y-6">
       {/* ======================================================
-          PAGE HEADER
+          HEADER
       ====================================================== */}
 
-      <div>
-        <div className="mb-1 text-sm text-gray-500">
-          Reward Catalog
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-1 text-sm text-gray-500">
+            Reward Category
+          </div>
+
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Edit Reward Category
+          </h1>
+
+          <p className="mt-1 text-sm text-gray-500">
+            Perbarui nama, slug, urutan,
+            atau status category.
+          </p>
         </div>
-
-        <h1 className="text-2xl font-bold text-gray-900">
-          Edit Reward
-        </h1>
-
-        <p className="mt-1 text-sm text-gray-500">
-          Perbarui informasi hadiah,
-          kategori, gambar, point,
-          stock, dan status reward.
-        </p>
       </div>
 
       {/* ======================================================
           FORM
       ====================================================== */}
 
-      <RewardCatalogForm
+      <RewardCategoryForm
         mode="edit"
         initialData={{
           id:
-            reward.id,
+            category.id,
 
           name:
-            reward.name,
+            category.name,
 
-          description:
-            reward.description,
-
-          image:
-            reward.image,
-
-          categoryId:
-            reward.categoryId,
-
-          requiredPoints:
-            reward.requiredPoints,
-
-          stock:
-            reward.stock,
+          slug:
+            category.slug,
 
           sortOrder:
-            reward.sortOrder,
+            category.sortOrder,
 
           isActive:
-            reward.isActive,
+            category.isActive,
         }}
       />
-    </div>
+    </main>
   );
 }

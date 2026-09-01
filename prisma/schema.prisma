@@ -2106,6 +2106,106 @@ model RewardVoucherSetting {
 }
 
 // ============================================================
+// REWARD CATEGORY
+// ============================================================
+//
+// Kategori hadiah fisik yang digunakan untuk mengelompokkan
+// RewardCatalog.
+//
+// Contoh:
+//
+// Kebutuhan Rumah
+// Dapur
+// Elektronik
+// Lifestyle
+//
+// Category adalah data master yang dikelola Admin.
+// ============================================================
+
+model RewardCategory {
+  /**
+   * ============================================================
+   * PRIMARY KEY
+   * ============================================================
+   */
+
+  id String @id @default(uuid())
+
+  /**
+   * ============================================================
+   * BASIC INFORMATION
+   * ============================================================
+   */
+
+  name String
+
+  /**
+   * ============================================================
+   * SLUG
+   * ============================================================
+   * Digunakan untuk identifier yang stabil.
+   * Contoh:
+   * kebutuhan-rumah
+   * dapur
+   * elektronik
+   */
+
+  slug String @unique
+
+  /**
+   * ============================================================
+   * STATUS
+   * ============================================================
+   * Category yang tidak aktif tidak ditampilkan sebagai
+   * pilihan category baru.
+   * Reward yang sudah menggunakan category tersebut
+   * tetap mempertahankan relasinya.
+   */
+
+  isActive Boolean @default(true)
+
+  /**
+   * ============================================================
+   * SORT ORDER
+   * ============================================================
+   * Menentukan urutan category.
+   */
+
+  sortOrder Int @default(0)
+
+  /**
+   * ============================================================
+   * RELATION
+   * ============================================================
+   */
+
+  rewards RewardCatalog[]
+
+  /**
+   * ============================================================
+   * TIMESTAMPS
+   * ============================================================
+   */
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  /**
+   * ============================================================
+   * INDEXES
+   * ============================================================
+   */
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// ============================================================
+// REWARD CATALOG
+// ============================================================
+
+// ============================================================
 // REWARD CATALOG
 // ============================================================
 //
@@ -2146,6 +2246,20 @@ model RewardCatalog {
   description String?
 
   image String?
+
+  /**
+   * ============================================================
+   * REWARD CATEGORY
+   * ============================================================
+   * Nullable sementara pada tahap migrasi agar RewardCatalog
+   * existing tidak rusak.
+   * Setelah category master dan assignment selesai,
+   * field ini akan kita enforce menjadi required.
+   */
+
+  categoryId String?
+
+  category RewardCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   /**
    * ============================================================
@@ -2208,6 +2322,7 @@ model RewardCatalog {
    * ============================================================
    */
 
+  @@index([categoryId])
   @@index([isActive])
   @@index([requiredPoints])
   @@index([sortOrder])
