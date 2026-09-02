@@ -129,22 +129,19 @@ jobs:
           echo "$PRISMA_CLIENT_DIR"
 
           echo ""
-          echo "Generated Prisma Client contents:"
-          find "$PRISMA_CLIENT_DIR" \
-            -maxdepth 2 \
-            -type f \
-            -printf '%P\n' \
-            | sort
-
-          echo ""
-          echo "Checking Prisma default.js..."
+          echo "Checking generated Prisma Client..."
 
           if [ ! -f "$PRISMA_CLIENT_DIR/default.js" ]; then
             echo "ERROR: Prisma default.js not found"
             exit 1
           fi
 
-          echo "Prisma default.js found."
+          if [ ! -f "$PRISMA_CLIENT_DIR/libquery_engine-debian-openssl-3.0.x.so.node" ]; then
+            echo "ERROR: Linux Prisma query engine not found"
+            exit 1
+          fi
+
+          echo "Linux Prisma Client files OK."
 
           echo ""
           echo "Creating .next/node_modules/.prisma/client..."
@@ -157,61 +154,83 @@ jobs:
           echo ""
           echo "Packaged Prisma Client:"
           find .next/node_modules/.prisma/client \
-            -maxdepth 2 \
+            -maxdepth 1 \
             -type f \
-            -printf '%P\n' \
+            -printf '%f\n' \
             | sort
 
           echo ""
-          echo "Searching traced @prisma/client package..."
-
-          TRACED_PRISMA_DIR="$(
-            find .next/node_modules/@prisma \
-              -maxdepth 1 \
-              -type d \
-              -name 'client-*' \
-              -print -quit
-          )"
-
-          if [ -z "$TRACED_PRISMA_DIR" ]; then
-            echo "ERROR: Traced @prisma/client package not found"
-            exit 1
-          fi
-
-          echo ""
-          echo "Traced Prisma package:"
-          echo "$TRACED_PRISMA_DIR"
-
-          if [ ! -f "$TRACED_PRISMA_DIR/default.js" ]; then
-            echo "ERROR: Traced Prisma default.js not found"
-            exit 1
-          fi
-
-          echo ""
-          echo "Testing traced Prisma Client..."
+          echo "Validating packaged Prisma Client..."
 
           node -e "
-            const p = require('./$TRACED_PRISMA_DIR/default.js');
+            const p = require('./.next/node_modules/.prisma/client/default.js');
 
             if (typeof p.PrismaClient !== 'function') {
               throw new Error('PrismaClient export is not available');
             }
 
-            console.log('TRACED_PRISMA_OK');
+            console.log('PACKAGED_PRISMA_CLIENT_OK');
             console.log('PrismaClient:', typeof p.PrismaClient);
           "
 
           echo ""
-          echo "Verifying .prisma resolution..."
+          echo "Checking @prisma/client package inside production artifact..."
+
+          PRISMA_PACKAGE_COUNT="$(
+            find .next \
+              -type f \
+              -path '*/@prisma/client*/package.json' \
+              | wc -l
+          )"
+
+          echo "Detected @prisma/client package.json files: $PRISMA_PACKAGE_COUNT"
+
+          if [ "$PRISMA_PACKAGE_COUNT" -eq 0 ]; then
+            echo "ERROR: @prisma/client package was not included in production artifact"
+            exit 1
+          fi
+
+          echo ""
+          echo "Detected @prisma/client packages:"
+
+          find .next \
+            -type f \
+            -path '*/@prisma/client*/package.json' \
+            -print
+
+          echo ""
+          echo "Testing Prisma resolution from production artifact..."
+
+          PRISMA_PACKAGE_JSON="$(
+            find .next \
+              -type f \
+              -path '*/@prisma/client*/package.json' \
+              -print -quit
+          )"
+
+          PRISMA_PACKAGE_DIR="$(dirname "$PRISMA_PACKAGE_JSON")"
+
+          echo ""
+          echo "Prisma package directory:"
+          echo "$PRISMA_PACKAGE_DIR"
+
+          if [ ! -f "$PRISMA_PACKAGE_DIR/default.js" ]; then
+            echo "ERROR: @prisma/client default.js not found"
+            exit 1
+          fi
+
+          echo ""
+          echo "Testing @prisma/client default.js..."
 
           node -e "
-            const p = require('./$TRACED_PRISMA_DIR/default.js');
+            const p = require('./$PRISMA_PACKAGE_DIR/default.js');
 
-            if (!p.PrismaClient) {
-              throw new Error('Failed to resolve .prisma/client/default');
+            if (typeof p.PrismaClient !== 'function') {
+              throw new Error('PrismaClient export is not available from @prisma/client');
             }
 
-            console.log('PRISMA_RUNTIME_RESOLUTION_OK');
+            console.log('PRISMA_PACKAGE_RESOLUTION_OK');
+            console.log('PrismaClient:', typeof p.PrismaClient);
           "
 
           echo ""
