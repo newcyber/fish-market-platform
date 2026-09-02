@@ -16,17 +16,56 @@ type OrderWithRelations = Prisma.OrderGetPayload<{
 }>;
 
 type OrderListWithRelations = Prisma.OrderGetPayload<{
-  include: {
-    items: {
-      include: {
-        product: true;
-        sku: true;
+  select: {
+    id: true;
+    orderNumber: true;
+    status: true;
+    paymentStatus: true;
+    paymentMethod: true;
+    subtotal: true;
+    voucherDiscount: true;
+    shippingCost: true;
+    total: true;
+    createdAt: true;
+    updatedAt: true;
+
+    paymentChannel: {
+      select: {
+        id: true;
+        name: true;
+        slug: true;
+        type: true;
+        icon: true;
       };
     };
-    paymentProof: true;
-    paymentChannel: true;
+
+    paymentProof: {
+      select: {
+        id: true;
+        status: true;
+        rejectionReason: true;
+      };
+    };
+
+    items: {
+      select: {
+        id: true;
+        productId: true;
+        skuId: true;
+        productName: true;
+        productVariant: true;
+        productWeight: true;
+        weightSku: true;
+        customerNote: true;
+        price: true;
+        quantity: true;
+        subtotal: true;
+      };
+    };
   };
 }>;
+
+type OrderListItem = OrderListWithRelations["items"][number];
 
 function serializeDecimal(
   value: Prisma.Decimal | number | string | null | undefined
@@ -110,7 +149,7 @@ function serializePaymentProof(
 }
 
 function serializeOrderItem(
-  item: OrderWithRelations["items"][number]
+  item: OrderWithRelations["items"][number] | OrderListItem
 ) {
   return {
     id: item.id,

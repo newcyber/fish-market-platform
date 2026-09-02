@@ -19,6 +19,7 @@ let otherUserId: string | null = null;
 let testOrderId: string | null = null;
 let deletedOrderId: string | null = null;
 let otherOrderId: string | null = null;
+const paginationOrderIds: string[] = [];
 
 function assert(
   condition: unknown,
@@ -171,6 +172,57 @@ async function createTestOrder(
   });
 }
 
+async function createPaginationOrder(
+  userId: string,
+  createdAt: Date,
+  status: OrderStatus,
+) {
+  const { address, paymentChannel } =
+    await findFixtureData(userId);
+
+  const order = await prisma.order.create({
+    data: {
+      orderNumber:
+        `TEST-MOBILE-PAGE-${Date.now()}-${Math.floor(
+          Math.random() * 1000000
+        )}`,
+
+      userId,
+
+      addressId: address.id,
+
+      status,
+
+      paymentStatus:
+        PaymentStatus.PENDING,
+
+      paymentMethod:
+        PaymentMethod.BANK_TRANSFER,
+
+      paymentChannelId:
+        paymentChannel.id,
+
+      subtotal: 100000,
+
+      voucherDiscount: 0,
+
+      shippingCost: 10000,
+
+      total: 110000,
+
+      notes:
+        "Mobile Order pagination integration test",
+
+      createdAt,
+      updatedAt: createdAt,
+    },
+  });
+
+  paginationOrderIds.push(order.id);
+
+  return order;
+}
+
 async function cleanup() {
   console.log("");
   console.log(
@@ -189,16 +241,17 @@ async function cleanup() {
    * --------------------------------------------------------
    */
 
-  const orderIds = [
-    testOrderId,
-    deletedOrderId,
-    otherOrderId,
-  ].filter(
-    (
-      id
-    ): id is string =>
-      Boolean(id)
-  );
+const orderIds = [
+  testOrderId,
+  deletedOrderId,
+  otherOrderId,
+  ...paginationOrderIds,
+].filter(
+  (
+    id
+  ): id is string =>
+    Boolean(id)
+);
 
   if (orderIds.length > 0) {
     await prisma.order.deleteMany({
@@ -457,6 +510,56 @@ async function main() {
 
     otherOrderId =
       otherOrder.id;
+
+      /**
+ * ========================================================
+ * PAGINATION FIXTURES
+ * ========================================================
+ */
+
+const paginationBaseTime =
+  new Date(Date.now() - 60 * 60 * 1000);
+
+await createPaginationOrder(
+  user.id,
+  new Date(
+    paginationBaseTime.getTime() + 5 * 60 * 1000
+  ),
+  OrderStatus.PENDING,
+);
+
+await createPaginationOrder(
+  user.id,
+  new Date(
+    paginationBaseTime.getTime() + 4 * 60 * 1000
+  ),
+  OrderStatus.PROCESSING,
+);
+
+await createPaginationOrder(
+  user.id,
+  new Date(
+    paginationBaseTime.getTime() + 3 * 60 * 1000
+  ),
+  OrderStatus.SHIPPING,
+);
+
+await createPaginationOrder(
+  user.id,
+  new Date(
+    paginationBaseTime.getTime() + 2 * 60 * 1000
+  ),
+  OrderStatus.COMPLETED,
+
+);
+
+await createPaginationOrder(
+  user.id,
+  new Date(
+    paginationBaseTime.getTime() + 1 * 60 * 1000
+  ),
+  OrderStatus.CANCELLED,
+);
 
     /**
      * ========================================================
@@ -1058,6 +1161,355 @@ console.log(
     console.log(
       "PASS 25K"
     );
+
+    /**
+ * ========================================================
+ * TEST 25L
+ * ========================================================
+ */
+
+console.log("");
+console.log(
+  "TEST 25L - GET orders dengan limit"
+);
+
+const page1Response =
+  await getOrders(
+    new Request(
+      "http://localhost/api/mobile/orders?limit=2",
+      {
+        headers:
+          authHeaders(
+            auth.accessToken
+          ),
+      }
+    )
+  );
+
+const page1Body =
+  await readJson(page1Response);
+
+assert(
+  page1Response.status === 200,
+  `Expected 200, received ${page1Response.status}`
+);
+
+assert(
+  page1Body.success === true,
+  "Pagination request harus success."
+);
+
+assert(
+  page1Body.data.orders.length === 2,
+  "limit=2 harus mengembalikan maksimal 2 order."
+);
+
+assert(
+  page1Body.data.pagination.limit === 2,
+  "pagination.limit harus 2."
+);
+
+assert(
+  page1Body.data.pagination.hasNextPage === true,
+  "Page pertama harus memiliki halaman berikutnya."
+);
+
+assert(
+  typeof page1Body.data.pagination.nextCursor === "string",
+  "nextCursor harus tersedia."
+);
+
+console.log(
+  "PASS 25L"
+);
+
+/**
+ * ========================================================
+ * TEST 25M
+ * ========================================================
+ */
+
+console.log("");
+console.log(
+  "TEST 25M - GET orders halaman kedua dengan cursor"
+);
+
+const cursor =
+  page1Body.data.pagination.nextCursor;
+
+const page2Response =
+  await getOrders(
+    new Request(
+      `http://localhost/api/mobile/orders?limit=2&cursor=${encodeURIComponent(cursor)}`,
+      {
+        headers:
+          authHeaders(
+            auth.accessToken
+          ),
+      }
+    )
+  );
+
+const page2Body =
+  await readJson(page2Response);
+
+assert(
+  page2Response.status === 200,
+  `Expected 200, received ${page2Response.status}`
+);
+
+assert(
+  page2Body.success === true,
+  "Page kedua harus success."
+);
+
+assert(
+  page2Body.data.orders.length === 2,
+  "Page kedua harus mengembalikan 2 order."
+);
+
+const page1Ids =
+  page1Body.data.orders.map(
+    (item: { id: string }) =>
+      item.id
+  );
+
+const page2Ids =
+  page2Body.data.orders.map(
+    (item: { id: string }) =>
+      item.id
+  );
+
+assert(
+  !page2Ids.some(
+    (id: string) =>
+      page1Ids.includes(id)
+  ),
+  "Page kedua tidak boleh mengandung order dari page pertama."
+);
+
+console.log(
+  "PASS 25M"
+);
+
+/**
+ * ========================================================
+ * TEST 25N
+ * ========================================================
+ */
+
+const collectedIds = [
+  ...page1Ids,
+  ...page2Ids,
+];
+
+const {
+  nextCursor: initialNextCursor,
+  hasNextPage: initialHasNextPage,
+} = page2Body.data.pagination;
+
+let nextCursor = initialNextCursor;
+let hasNextPage = initialHasNextPage;
+
+while (hasNextPage && nextCursor) {
+  const response =
+    await getOrders(
+      new Request(
+        `http://localhost/api/mobile/orders?limit=2&cursor=${encodeURIComponent(
+          nextCursor
+        )}`,
+        {
+          headers:
+            authHeaders(
+              auth.accessToken
+            ),
+        }
+      )
+    );
+
+  const body =
+    await readJson(response);
+
+  assert(
+    response.status === 200,
+    "Request pagination lanjutan harus 200."
+  );
+
+  assert(
+    body.success === true,
+    "Request pagination lanjutan harus success."
+  );
+
+  const {
+    orders,
+    pagination,
+  } = body.data;
+
+  const ids =
+    orders.map(
+      (item: { id: string }) =>
+        item.id
+    );
+
+  for (const id of ids) {
+    assert(
+      !collectedIds.includes(id),
+      `Duplicate order ditemukan: ${id}`
+    );
+  }
+
+  collectedIds.push(...ids);
+
+  nextCursor =
+    pagination.nextCursor;
+
+  hasNextPage =
+    pagination.hasNextPage;
+}
+
+const paginationFixtureIds =
+  new Set(paginationOrderIds);
+
+for (const id of paginationFixtureIds) {
+  assert(
+    collectedIds.includes(id),
+    `Order pagination ${id} tidak ditemukan / ter-skip.`
+  );
+}
+
+console.log(
+  "PASS 25N"
+);
+
+/**
+ * ========================================================
+ * TEST 25O
+ * ========================================================
+ */
+
+console.log("");
+console.log(
+  "TEST 25O - filter order berdasarkan status"
+);
+
+const statusResponse =
+  await getOrders(
+    new Request(
+      `http://localhost/api/mobile/orders?status=${OrderStatus.PROCESSING}`,
+      {
+        headers:
+          authHeaders(
+            auth.accessToken
+          ),
+      }
+    )
+  );
+
+const statusBody =
+  await readJson(statusResponse);
+
+assert(
+  statusResponse.status === 200,
+  `Expected 200, received ${statusResponse.status}`
+);
+
+assert(
+  statusBody.success === true,
+  "Status filter harus success."
+);
+
+assert(
+  statusBody.data.orders.length > 0,
+  "Harus ada order PROCESSING."
+);
+
+for (
+  const orderItem of
+  statusBody.data.orders
+) {
+  assert(
+    orderItem.status ===
+      OrderStatus.PROCESSING,
+    `Order ${orderItem.id} memiliki status yang salah.`
+  );
+}
+
+console.log(
+  "PASS 25O"
+);
+
+/**
+ * ========================================================
+ * TEST 25P
+ * ========================================================
+ */
+
+console.log("");
+console.log(
+  "TEST 25P - invalid pagination parameters"
+);
+
+const invalidLimitResponse =
+  await getOrders(
+    new Request(
+      "http://localhost/api/mobile/orders?limit=0",
+      {
+        headers:
+          authHeaders(
+            auth.accessToken
+          ),
+      }
+    )
+  );
+
+const invalidLimitBody =
+  await readJson(
+    invalidLimitResponse
+  );
+
+assert(
+  invalidLimitResponse.status === 400,
+  "limit=0 harus 400."
+);
+
+assert(
+  invalidLimitBody.code ===
+    "INVALID_ORDER_LIMIT",
+  "Expected INVALID_ORDER_LIMIT."
+);
+
+const invalidCursorResponse =
+  await getOrders(
+    new Request(
+      "http://localhost/api/mobile/orders?cursor=invalid-cursor",
+      {
+        headers:
+          authHeaders(
+            auth.accessToken
+          ),
+      }
+    )
+  );
+
+const invalidCursorBody =
+  await readJson(
+    invalidCursorResponse
+  );
+
+assert(
+  invalidCursorResponse.status === 400,
+  "Cursor invalid harus 400."
+);
+
+assert(
+  invalidCursorBody.code ===
+    "INVALID_ORDER_CURSOR",
+  "Expected INVALID_ORDER_CURSOR."
+);
+
+console.log(
+  "PASS 25P"
+);
 
     /**
      * ========================================================

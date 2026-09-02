@@ -1,6 +1,9 @@
 import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import OrderRepository, { type OrderFilters, } from "@/repositories/OrderRepository";
+import OrderRepository, {
+    type CustomerOrderCursor,
+    type OrderFilters,
+} from "@/repositories/OrderRepository";
 import { StorageService, } from "@/services/storage/storage.service";
 import notificationService from "@/services/notification/notification.service";
 import ProductPricingService from "@/services/pricing/product-pricing.service";
@@ -20,6 +23,13 @@ export interface OrderDashboardSummary {
     completedOrders: number;
     deletedOrders: number;
 }
+
+export interface MobileOrderPaginationOptions {
+    limit: number;
+    cursor?: string | null;
+    status?: OrderStatus;
+}
+
 export interface CreateOrderItemInput {
     /**
      * Product parent.
@@ -80,9 +90,54 @@ export interface UpdateOrderInput {
     items: CreateOrderItemInput[];
 }
 export default class OrderService {
+    private static encodeOrderCursor(
+        cursor: CustomerOrderCursor
+    ): string {
+        const payload = JSON.stringify({
+            createdAt: cursor.createdAt.toISOString(),
+            id: cursor.id,
+        });
+
+        return Buffer.from(payload, "utf8").toString("base64url");
+    }
+
+    private static decodeOrderCursor(
+        cursor: string
+    ): CustomerOrderCursor {
+        try {
+            const decoded = Buffer.from(cursor, "base64url").toString("utf8");
+
+            const payload = JSON.parse(decoded) as {
+                createdAt?: unknown;
+                id?: unknown;
+            };
+
+            if (
+                typeof payload.createdAt !== "string" ||
+                typeof payload.id !== "string" ||
+                !payload.id.trim()
+            ) {
+                throw new Error("INVALID_CURSOR");
+            }
+
+            const createdAt = new Date(payload.createdAt);
+
+            if (Number.isNaN(createdAt.getTime())) {
+                throw new Error("INVALID_CURSOR");
+            }
+
+            return {
+                createdAt,
+                id: payload.id,
+            };
+        } catch {
+            throw new Error("INVALID_ORDER_CURSOR");
+        }
+    }
+
     /**
-      * Daftar order aktif.
-    */
+     * Daftar order aktif.
+     */
     static async getOrders(filters: OrderFilters = {}) {
         return OrderRepository.findMany(filters);
     }
@@ -136,6 +191,53 @@ export default class OrderService {
     static async getOrdersByUserId(userId: string, statuses?: OrderStatus[]) {
         return OrderRepository.findByUserId(userId, statuses);
     }
+
+    static async getOrdersByUserIdPaginated(
+    userId: string,
+    options: MobileOrderPaginationOptions
+) {
+    if (!userId) {
+        throw new Error("CUSTOMER wajib diidentifikasi.");
+    }
+
+    const limit = options.limit;
+
+    if (
+        !Number.isInteger(limit) ||
+        limit < 1 ||
+        limit > 50
+    ) {
+        throw new Error("INVALID_ORDER_LIMIT");
+    }
+
+    let cursor: CustomerOrderCursor | undefined;
+
+    if (options.cursor) {
+        cursor = this.decodeOrderCursor(options.cursor);
+    }
+
+    const result =
+        await OrderRepository.findByUserIdPaginated(
+            userId,
+            {
+                limit,
+                cursor,
+                status: options.status,
+            }
+        );
+
+    return {
+        orders: result.orders,
+        pagination: {
+            limit,
+            hasNextPage: result.hasNextPage,
+            nextCursor: result.nextCursor
+                ? this.encodeOrderCursor(result.nextCursor)
+                : null,
+        },
+    };
+}
+
     /**
       * Order terbaru.
     */

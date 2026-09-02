@@ -26,6 +26,17 @@ export interface OrderFilters {
   order?: "asc" | "desc";
 }
 
+export interface CustomerOrderCursor {
+  createdAt: Date;
+  id: string;
+}
+
+export interface CustomerOrderPaginationOptions {
+  limit: number;
+  cursor?: CustomerOrderCursor;
+  status?: OrderStatus;
+}
+
 const DEFAULT_INCLUDE = {
   user: true,
 
@@ -444,6 +455,140 @@ where: {
     },
   });
 }
+
+  /**
+   * ==========================================================
+   * CUSTOMER MOBILE ORDER LIST
+   * ==========================================================
+   *
+   * Cursor pagination dengan ordering deterministik:
+   *
+   * createdAt DESC
+   * id        DESC
+   *
+   * Method ini sengaja dipisahkan dari findByUserId()
+   * agar customer web tidak terkena perubahan contract.
+   */
+  static async findByUserIdPaginated(
+    userId: string,
+    options: CustomerOrderPaginationOptions
+  ) {
+    const { limit, cursor, status } = options;
+
+    const orders = await prisma.order.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+
+        ...(status
+          ? {
+              status,
+            }
+          : {}),
+
+        ...(cursor
+          ? {
+              OR: [
+                {
+                  createdAt: {
+                    lt: cursor.createdAt,
+                  },
+                },
+                {
+                  createdAt: cursor.createdAt,
+                  id: {
+                    lt: cursor.id,
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+
+      orderBy: [
+        {
+          createdAt: "desc",
+        },
+        {
+          id: "desc",
+        },
+      ],
+
+      take: limit + 1,
+
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        paymentStatus: true,
+        paymentMethod: true,
+
+        subtotal: true,
+        voucherDiscount: true,
+        shippingCost: true,
+        total: true,
+
+        createdAt: true,
+        updatedAt: true,
+
+        paymentChannel: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            type: true,
+            icon: true,
+          },
+        },
+
+        paymentProof: {
+          select: {
+            id: true,
+            status: true,
+            rejectionReason: true,
+          },
+        },
+
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            skuId: true,
+            productName: true,
+            productVariant: true,
+            productWeight: true,
+            weightSku: true,
+            customerNote: true,
+            price: true,
+            quantity: true,
+            subtotal: true,
+          },
+        },
+      },
+    });
+
+    const hasNextPage = orders.length > limit;
+
+    if (hasNextPage) {
+      orders.pop();
+    }
+
+    const lastOrder = orders[orders.length - 1];
+
+    const nextCursor =
+      hasNextPage && lastOrder
+        ? {
+            createdAt: lastOrder.createdAt,
+            id: lastOrder.id,
+          }
+        : null;
+
+    return {
+      orders,
+      hasNextPage,
+      nextCursor,
+    };
+  }
 
   /**
    * Membuat order baru.
