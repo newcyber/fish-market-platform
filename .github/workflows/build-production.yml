@@ -38,6 +38,7 @@ jobs:
       - name: Build production
         env:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
         run: pnpm build
 
       - name: Upload production build
