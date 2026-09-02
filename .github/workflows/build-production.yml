@@ -129,15 +129,6 @@ jobs:
           echo "$PRISMA_CLIENT_DIR"
 
           echo ""
-          echo "Generated Prisma Client files:"
-
-          find "$PRISMA_CLIENT_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -printf '%f\n' \
-            | sort
-
-          echo ""
           echo "Checking Linux Prisma query engine..."
 
           if [ ! -f "$PRISMA_CLIENT_DIR/libquery_engine-debian-openssl-3.0.x.so.node" ]; then
@@ -156,15 +147,17 @@ jobs:
             .next/node_modules/.prisma/client/
 
           echo ""
-          echo "Packaged Prisma Client:"
-          find .next/node_modules/.prisma/client \
-            -maxdepth 1 \
-            -type f \
-            -printf '%f\n' \
-            | sort
+          echo "Validating root packaged Prisma Client..."
 
-          echo ""
-          echo "Validating packaged Prisma Client..."
+          if [ ! -f ".next/node_modules/.prisma/client/default.js" ]; then
+            echo "ERROR: Root Prisma default.js missing"
+            exit 1
+          fi
+
+          if [ ! -f ".next/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node" ]; then
+            echo "ERROR: Root Linux Prisma engine missing"
+            exit 1
+          fi
 
           node -e "
             const p = require('./.next/node_modules/.prisma/client/default.js');
@@ -173,32 +166,79 @@ jobs:
               throw new Error('PrismaClient export is not available');
             }
 
-            console.log('PACKAGED_PRISMA_CLIENT_OK');
+            console.log('ROOT_PACKAGED_PRISMA_CLIENT_OK');
             console.log('PrismaClient:', typeof p.PrismaClient);
           "
 
           echo ""
-          echo "Inspecting .next/node_modules layout..."
+          echo "Searching hashed @prisma/client packages..."
 
-          if [ -d ".next/node_modules" ]; then
-            find .next/node_modules \
-              -maxdepth 4 \
-              -type f \
-              \( \
-                -name 'package.json' \
-                -o -name 'default.js' \
-              \) \
-              -print \
-              | sort \
-              | head -300
-          else
-            echo ".next/node_modules does not exist."
+          FOUND_PRISMA_PACKAGE=false
+
+          for PKG in .next/node_modules/@prisma/client-*; do
+            if [ ! -d "$PKG" ]; then
+              continue
+            fi
+
+            FOUND_PRISMA_PACKAGE=true
+
+            echo ""
+            echo "Found Prisma package:"
+            echo "  $PKG"
+
+            echo "Packaging Prisma runtime into:"
+            echo "  $PKG/node_modules/.prisma/client"
+
+            mkdir -p "$PKG/node_modules/.prisma"
+
+            rm -rf "$PKG/node_modules/.prisma/client"
+
+            cp -a .next/node_modules/.prisma/client \
+              "$PKG/node_modules/.prisma/"
+
+            if [ ! -f "$PKG/node_modules/.prisma/client/default.js" ]; then
+              echo "ERROR: Prisma default.js missing in:"
+              echo "  $PKG/node_modules/.prisma/client/default.js"
+              exit 1
+            fi
+
+            if [ ! -f "$PKG/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node" ]; then
+              echo "ERROR: Linux Prisma engine missing in:"
+              echo "  $PKG/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
+              exit 1
+            fi
+
+            echo "Validating Prisma package runtime..."
+
+            node -e "
+              const path = require('path');
+              const pkg = path.resolve('$PKG');
+              const p = require(path.join(
+                pkg,
+                'node_modules/.prisma/client/default.js'
+              ));
+
+              if (typeof p.PrismaClient !== 'function') {
+                throw new Error(
+                  'PrismaClient export is not available from ' + pkg
+                );
+              }
+
+              console.log('HASHED_PRISMA_CLIENT_OK');
+              console.log('Package:', pkg);
+              console.log('PrismaClient:', typeof p.PrismaClient);
+            "
+          done
+
+          if [ "$FOUND_PRISMA_PACKAGE" = false ]; then
+            echo "ERROR: No hashed @prisma/client-* package found"
+            exit 1
           fi
 
           echo ""
-          echo "Inspecting Prisma-related paths in .next..."
+          echo "Inspecting packaged Prisma paths..."
 
-          find .next \
+          find .next/node_modules \
             -type f \
             \( \
               -path '*/@prisma/*' \
