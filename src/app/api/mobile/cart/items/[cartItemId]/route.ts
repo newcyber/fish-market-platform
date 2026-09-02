@@ -7,6 +7,8 @@ import {
 
 import CartService from "@/services/cart/cart.service";
 
+import { CartError } from "@/services/cart/cart.error";
+
 import {
   serializeCart,
 } from "@/services/cart/cart.serializer";
@@ -118,16 +120,12 @@ export async function PATCH(
       );
     }
 
-await CartService.updateItem({
-  userId: user.id,
-  cartItemId,
-  quantity,
-});
-
 const cart =
-  await CartService.getCart(
-    user.id
-  );
+  await CartService.updateItem({
+    userId: user.id,
+    cartItemId,
+    quantity,
+  });
 
 return NextResponse.json({
   success: true,
@@ -173,36 +171,14 @@ return NextResponse.json({
       }
     }
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Gagal memperbarui jumlah produk.";
-
-    const badRequestMessages = [
-      "Item keranjang tidak ditemukan.",
-      "Anda tidak memiliki akses ke item keranjang ini.",
-      "Produk tidak ditemukan atau tidak tersedia.",
-      "Silakan pilih varian produk terlebih dahulu.",
-      "SKU produk tidak ditemukan atau sudah tidak tersedia.",
-    ];
-
-    const isBadRequest =
-      badRequestMessages.includes(
-        message
-      ) ||
-      message.startsWith(
-        "Jumlah melebihi stok tersedia."
-      ) ||
-      message.startsWith(
-        "Stok "
-      );
-
-    if (isBadRequest) {
+    if (
+      error instanceof CartError
+    ) {
       return NextResponse.json(
         {
           success: false,
-          code: "CART_ITEM_UPDATE_FAILED",
-          message,
+          code: error.code,
+          message: error.message,
         },
         {
           status: 400,
@@ -261,15 +237,11 @@ export async function DELETE(
       );
     }
 
-await CartService.removeItem({
-  userId: user.id,
-  cartItemId,
-});
-
 const cart =
-  await CartService.getCart(
-    user.id
-  );
+  await CartService.removeItem({
+    userId: user.id,
+    cartItemId,
+  });
 
 return NextResponse.json({
   success: true,
@@ -315,26 +287,14 @@ return NextResponse.json({
       }
     }
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Gagal menghapus produk dari keranjang.";
-
-    const badRequestMessages = [
-      "Item keranjang tidak ditemukan.",
-      "Anda tidak memiliki akses ke item keranjang ini.",
-    ];
-
     if (
-      badRequestMessages.includes(
-        message
-      )
+      error instanceof CartError
     ) {
       return NextResponse.json(
         {
           success: false,
-          code: "CART_ITEM_DELETE_FAILED",
-          message,
+          code: error.code,
+          message: error.message,
         },
         {
           status: 400,

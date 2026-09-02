@@ -1,14 +1,12 @@
-import {
-  Prisma,
-} from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
-import {
-  prisma,
-} from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 import CartRepository from "@/repositories/cart/cart.repository";
 
 import ProductPricingService from "@/services/pricing/product-pricing.service";
+
+import { CartError } from "@/services/cart/cart.error";
 
 /**
  * ============================================================
@@ -36,6 +34,12 @@ import ProductPricingService from "@/services/pricing/product-pricing.service";
  * tidak lagi menjadi sumber kebenaran.
  */
 
+/**
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
+
 export interface AddCartItemInput {
   userId: string;
   productId: string;
@@ -55,26 +59,52 @@ export interface RemoveCartItemInput {
   cartItemId: string;
 }
 
+/**
+ * ============================================================
+ * CART SERVICE
+ * ============================================================
+ */
+
 export default class CartService {
+  /**
+   * ============================================================
+   * VALIDATE USER ID
+   * ============================================================
+   */
+
   private static validateUserId(
     userId: string
   ) {
     if (!userId?.trim()) {
-      throw new Error(
+      throw new CartError(
+        "INVALID_USER",
         "Customer tidak valid."
       );
     }
   }
 
+  /**
+   * ============================================================
+   * VALIDATE CART ITEM ID
+   * ============================================================
+   */
+
   private static validateCartItemId(
     cartItemId: string
   ) {
     if (!cartItemId?.trim()) {
-      throw new Error(
+      throw new CartError(
+        "INVALID_CART_ITEM",
         "Item keranjang tidak valid."
       );
     }
   }
+
+  /**
+   * ============================================================
+   * VALIDATE QUANTITY
+   * ============================================================
+   */
 
   private static validateQuantity(
     quantity: number
@@ -83,11 +113,18 @@ export default class CartService {
       !Number.isInteger(quantity) ||
       quantity < 1
     ) {
-      throw new Error(
+      throw new CartError(
+        "INVALID_QUANTITY",
         "Jumlah produk minimal 1."
       );
     }
   }
+
+  /**
+   * ============================================================
+   * NORMALIZE CUSTOMER NOTE
+   * ============================================================
+   */
 
   private static normalizeCustomerNote(
     value?: string | null
@@ -103,10 +140,13 @@ export default class CartService {
    * GET CART
    * ============================================================
    *
-   * Repository lama belum include ProductSku pada CartItem.
-   * Karena SKU sekarang menjadi data penting untuk cart,
-   * query canonical dilakukan di sini.
+   * Query canonical Cart + Product + ProductSku.
+   *
+   * Legacy fields tetap dapat dibaca dari database untuk
+   * compatibility, tetapi tidak digunakan sebagai sumber
+   * kebenaran identity.
    */
+
   static async getCart(
     userId: string
   ) {
@@ -116,15 +156,18 @@ export default class CartService {
       where: {
         userId,
       },
+
       include: {
         items: {
           orderBy: {
             createdAt: "asc",
           },
+
           include: {
             product: {
               include: {
                 category: true,
+
                 images: {
                   orderBy: {
                     sortOrder: "asc",
@@ -132,6 +175,7 @@ export default class CartService {
                 },
               },
             },
+
             sku: {
               include: {
                 skuOptions: {
@@ -142,6 +186,7 @@ export default class CartService {
                       },
                     },
                   },
+
                   orderBy: {
                     createdAt: "asc",
                   },
@@ -159,6 +204,7 @@ export default class CartService {
    * GET OR CREATE CART
    * ============================================================
    */
+
   static async getOrCreateCart(
     userId: string
   ) {
@@ -194,7 +240,18 @@ export default class CartService {
    * ============================================================
    * ITEM COUNT
    * ============================================================
+   *
+   * Mengembalikan jumlah BARIS item di cart.
+   *
+   * Contoh:
+   *
+   * Product A - SKU 500gr
+   * Product A - SKU 1kg
+   * Product B - SKU 500gr
+   *
+   * Hasil = 3
    */
+
   static async getItemCount(
     userId: string
   ) {
@@ -215,6 +272,7 @@ export default class CartService {
    * Product.stock hanya dipakai jika product tidak mempunyai
    * active SKU.
    */
+
   private static async getAvailableProduct(
     tx: Prisma.TransactionClient,
     productId: string
@@ -226,15 +284,18 @@ export default class CartService {
           deletedAt: null,
           isPublished: true,
         },
+
         select: {
           id: true,
           name: true,
           price: true,
           stock: true,
+
           skus: {
             where: {
               isActive: true,
             },
+
             select: {
               id: true,
               sku: true,
@@ -247,7 +308,8 @@ export default class CartService {
       });
 
     if (!product) {
-      throw new Error(
+      throw new CartError(
+        "PRODUCT_NOT_AVAILABLE",
         "Produk tidak ditemukan atau tidak tersedia."
       );
     }
@@ -259,7 +321,20 @@ export default class CartService {
    * ============================================================
    * RESOLVE SELLABLE STOCK / SKU
    * ============================================================
+   *
+   * Rules:
+   *
+   * 1. Product memiliki active SKU
+   *    → skuId wajib diberikan.
+   *
+   * 2. Product tidak memiliki active SKU
+   *    → skuId boleh null selama migration.
+   *
+   * 3. skuId harus benar-benar milik product yang diminta.
+   *
+   * 4. SKU harus aktif.
    */
+
   private static async resolveSku(
     tx: Prisma.TransactionClient,
     input: {
@@ -281,11 +356,13 @@ export default class CartService {
     /**
      * Product dengan active SKU wajib memilih SKU.
      */
+
     if (
       product.skus.length > 0 &&
       !skuId
     ) {
-      throw new Error(
+      throw new CartError(
+        "SKU_REQUIRED",
         "Silakan pilih varian produk terlebih dahulu."
       );
     }
@@ -293,12 +370,21 @@ export default class CartService {
     /**
      * Product tanpa SKU tetap didukung selama migration.
      */
+
     if (!skuId) {
       return {
         product,
         sku: null,
       };
     }
+
+    /**
+     * SKU harus:
+     *
+     * - benar-benar ada
+     * - milik product
+     * - aktif
+     */
 
     const sku =
       await tx.productSku.findFirst({
@@ -307,6 +393,7 @@ export default class CartService {
           productId,
           isActive: true,
         },
+
         select: {
           id: true,
           sku: true,
@@ -317,7 +404,8 @@ export default class CartService {
       });
 
     if (!sku) {
-      throw new Error(
+      throw new CartError(
+        "SKU_NOT_AVAILABLE",
         "SKU produk tidak ditemukan atau sudah tidak tersedia."
       );
     }
@@ -332,14 +420,21 @@ export default class CartService {
    * ============================================================
    * VALIDATE FLASH SALE QUOTA
    * ============================================================
+   *
+   * quantity yang diterima method ini adalah FINAL quantity.
+   *
+   * Jangan menambahkan quantity existing item lagi.
    */
+
   private static validateFlashSaleQuota(
     flashSaleItem: {
       stockLimit: number;
       soldQuantity: number;
       perUserLimit: number | null;
     } | null,
+
     quantity: number,
+
     messagePrefix = "Flash Sale"
   ) {
     if (!flashSaleItem) {
@@ -353,27 +448,42 @@ export default class CartService {
           flashSaleItem.soldQuantity
       );
 
+    /**
+     * Flash Sale quota habis.
+     */
+
     if (remainingQuota <= 0) {
-      throw new Error(
+      throw new CartError(
+        "FLASH_SALE_QUOTA_EXHAUSTED",
         `Maaf, kuota ${messagePrefix} sudah habis.`
       );
     }
+
+    /**
+     * Quantity melebihi remaining quota.
+     */
 
     if (
       quantity >
       remainingQuota
     ) {
-      throw new Error(
+      throw new CartError(
+        "FLASH_SALE_QUOTA_INSUFFICIENT",
         `Kuota ${messagePrefix} tidak mencukupi. Sisa kuota: ${remainingQuota}.`
       );
     }
+
+    /**
+     * Per-user limit.
+     */
 
     if (
       flashSaleItem.perUserLimit !== null &&
       quantity >
         flashSaleItem.perUserLimit
     ) {
-      throw new Error(
+      throw new CartError(
+        "FLASH_SALE_USER_LIMIT",
         `Batas pembelian ${messagePrefix} untuk satu customer adalah ${flashSaleItem.perUserLimit} produk.`
       );
     }
@@ -383,84 +493,144 @@ export default class CartService {
    * ============================================================
    * ADD ITEM
    * ============================================================
+   *
+   * Canonical identity:
+   *
+   *   cartId + productId + skuId
+   *
+   * customerNote BUKAN identity.
    */
-  static async addItem({
-    userId,
-    productId,
-    skuId,
-    quantity,
-    customerNote,
-  }: AddCartItemInput) {
-    this.validateUserId(userId);
 
-    if (!productId?.trim()) {
-      throw new Error(
-        "Produk tidak valid."
-      );
-    }
+static async addItem({
+  userId,
+  productId,
+  skuId,
+  quantity,
+  customerNote,
+}: AddCartItemInput) {
+  this.validateUserId(userId);
 
-    this.validateQuantity(quantity);
+  /**
+   * Product ID wajib valid.
+   */
+  if (!productId?.trim()) {
+    throw new CartError(
+      "PRODUCT_NOT_AVAILABLE",
+      "Produk tidak valid."
+    );
+  }
 
-    const normalizedSkuId =
-      skuId?.trim() || null;
+  this.validateQuantity(quantity);
 
-    const normalizedCustomerNote =
-      this.normalizeCustomerNote(
-        customerNote
-      );
+  const normalizedSkuId = skuId?.trim() || null;
+  const normalizedCustomerNote =
+    this.normalizeCustomerNote(customerNote);
 
-    const user =
-      await prisma.user.findFirst({
-        where: {
-          id: userId,
-          deletedAt: null,
-          isActive: true,
-        },
-        select: {
-          id: true,
-        },
-      });
+  /**
+   * Pastikan customer masih aktif.
+   */
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      deletedAt: null,
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  });
 
-    if (!user) {
-      throw new Error(
-        "Customer tidak ditemukan atau tidak aktif."
-      );
-    }
+  if (!user) {
+    throw new CartError(
+      "INVALID_USER",
+      "Customer tidak ditemukan atau tidak aktif."
+    );
+  }
 
-    return prisma.$transaction(
-      async (tx) => {
-        const {
-          product,
-          sku,
-        } =
-          await this.resolveSku(
-            tx,
-            {
-              productId,
-              skuId:
-                normalizedSkuId,
-            }
-          );
+  /**
+   * ============================================================
+   * CONCURRENCY CONTROL
+   * ============================================================
+   *
+   * ADD bersifat incremental:
+   *
+   *   current quantity + requested quantity
+   *
+   * Karena beberapa request ADD dapat datang secara bersamaan,
+   * kita harus memastikan pembacaan dan perubahan quantity
+   * dilakukan secara serialized pada level Cart.
+   *
+   * PostgreSQL row-level lock pada Cart digunakan sebagai
+   * serialization point untuk seluruh operasi ADD dalam cart
+   * customer yang sama.
+   *
+   * Dengan demikian:
+   *
+   *   Request A -> lock Cart -> baca quantity -> update -> commit
+   *   Request B -> menunggu lock Cart
+   *             -> baca quantity terbaru -> update -> commit
+   *
+   * Unique constraint CartItem tetap menjadi protection layer
+   * untuk canonical identity:
+   *
+   *   cartId + productId + skuId
+   *
+   * Retry P2002 tetap dipertahankan sebagai defensive layer
+   * terhadap unique constraint race yang mungkin terjadi pada
+   * kondisi tertentu.
+   */
+  const MAX_CONCURRENCY_RETRIES = 5;
 
-        const availableStock =
-          sku?.stock ??
-          product.stock;
+  for (
+    let attempt = 0;
+    attempt <= MAX_CONCURRENCY_RETRIES;
+    attempt++
+  ) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          /**
+           * ======================================================
+           * RESOLVE PRODUCT + SKU
+           * ======================================================
+           */
+          const { product, sku } = await this.resolveSku(tx, {
+            productId,
+            skuId: normalizedSkuId,
+          });
 
-        if (
-          availableStock <= 0
-        ) {
-          throw new Error(
-            `Stok ${product.name} sedang habis.`
-          );
-        }
+          /**
+           * ======================================================
+           * STOCK CANONICAL
+           * ======================================================
+           *
+           * Jika menggunakan SKU:
+           *   gunakan sku.stock
+           *
+           * Jika product belum menggunakan SKU:
+           *   gunakan product.stock
+           */
+          const availableStock =
+            sku?.stock ?? product.stock;
 
-        /**
-         * Existing cart item diidentifikasi oleh SKU.
-         *
-         * customerNote BUKAN identitas item.
-         */
-        const currentCart =
-          await tx.cart.upsert({
+          /**
+           * Stock habis.
+           */
+          if (availableStock <= 0) {
+            throw new CartError(
+              "OUT_OF_STOCK",
+              `Stok ${sku?.sku ?? product.name} sedang habis.`
+            );
+          }
+
+          /**
+           * ======================================================
+           * GET / CREATE CART
+           * ======================================================
+           *
+           * Cart bersifat unique berdasarkan userId.
+           */
+          const currentCart = await tx.cart.upsert({
             where: {
               userId,
             },
@@ -470,151 +640,255 @@ export default class CartService {
             update: {},
           });
 
-        const existingItem =
-          await tx.cartItem.findFirst({
-            where: {
-              cartId:
-                currentCart.id,
-              productId:
-                product.id,
-              skuId:
-                normalizedSkuId,
-            },
-          });
+          /**
+           * ======================================================
+           * CART-LEVEL ROW LOCK
+           * ======================================================
+           *
+           * Cart digunakan sebagai serialization point.
+           *
+           * Semua concurrent ADD untuk customer yang sama
+           * akan diproses satu per satu.
+           *
+           * Penting:
+           * Lock dilakukan SEBELUM membaca CartItem.
+           *
+           * Jadi request berikutnya tidak akan membaca quantity
+           * lama ketika request sebelumnya masih melakukan
+           * update.
+           */
+          await tx.$queryRaw`
+            SELECT "id"
+            FROM "Cart"
+            WHERE "id" = ${currentCart.id}
+            FOR UPDATE
+          `;
 
-        const newQuantity =
-          (existingItem?.quantity ?? 0) +
-          quantity;
+          /**
+           * ======================================================
+           * FIND EXISTING CART ITEM
+           * ======================================================
+           *
+           * Dilakukan setelah Cart terkunci.
+           *
+           * Canonical identity:
+           *
+           *   cartId + productId + skuId
+           *
+           * customerNote BUKAN identity.
+           */
+          const existingItem =
+            await tx.cartItem.findFirst({
+              where: {
+                cartId: currentCart.id,
+                productId: product.id,
+                skuId: normalizedSkuId,
+              },
+            });
 
-        if (
-          newQuantity >
-          availableStock
-        ) {
-          throw new Error(
-            `Jumlah melebihi stok tersedia. Stok ${
-              sku?.sku ??
-              product.name
-            } hanya ${availableStock}.`
-          );
-        }
+          /**
+           * ======================================================
+           * CALCULATE FINAL QUANTITY
+           * ======================================================
+           *
+           * ADD bersifat incremental.
+           *
+           * Contoh:
+           *
+           * current = 3
+           * request = 2
+           * result = 5
+           */
+          const newQuantity =
+            (existingItem?.quantity ?? 0) + quantity;
 
-        /**
-         * Harga canonical berasal dari SKU.
-         *
-         * Untuk product tanpa SKU, fallback Product.price masih
-         * diperbolehkan selama migration.
-         */
-        const pricing =
-  await ProductPricingService.resolve(
-    tx,
-    {
-      productId:
-        product.id,
+          /**
+           * ======================================================
+           * STOCK VALIDATION
+           * ======================================================
+           *
+           * Validasi dilakukan terhadap FINAL quantity.
+           */
+          if (newQuantity > availableStock) {
+            throw new CartError(
+              "INSUFFICIENT_STOCK",
+              `Jumlah melebihi stok tersedia. Stok ${
+                sku?.sku ?? product.name
+              } hanya ${availableStock}.`
+            );
+          }
 
-      skuId:
-        normalizedSkuId,
-
-      /**
-       * Jika item sudah ada di Cart,
-       * pertahankan FlashSaleItem yang sebelumnya
-       * dipilih sebagai preferred candidate.
-       *
-       * ProductPricingService tetap melakukan validasi ulang
-       * terhadap status, waktu, SKU, dan quota Flash Sale.
-       */
-      preferredFlashSaleItemId:
-        existingItem?.flashSaleItemId ??
-        null,
-
-      fallbackPrice:
-        product.price,
-    }
-  );
-
-        if (existingItem) {
-          return tx.cartItem.update({
-            where: {
-              id:
-                existingItem.id,
-            },
-            data: {
-              quantity:
-                newQuantity,
+          /**
+           * ======================================================
+           * CANONICAL PRICING
+           * ======================================================
+           *
+           * ProductPricingService tetap menjadi sumber kebenaran
+           * seluruh pricing Cart.
+           */
+          const pricing =
+            await ProductPricingService.resolve(tx, {
+              productId: product.id,
+              skuId: normalizedSkuId,
 
               /**
-               * Note baru hanya menggantikan note jika dikirim.
-               * Note lama tidak dihapus hanya karena request tidak
-               * membawa note.
+               * Jika item sudah memiliki Flash Sale,
+               * pertahankan sebagai preferred candidate
+               * selama masih valid.
                */
-              ...(normalizedCustomerNote !==
-              null
-                ? {
-                    customerNote:
-                      normalizedCustomerNote,
-                  }
-                : {}),
+              preferredFlashSaleItemId:
+                existingItem?.flashSaleItemId ?? null,
 
-              price:
-                pricing.finalPrice,
+              fallbackPrice: product.price,
+            });
 
+          /**
+           * ======================================================
+           * UPDATE EXISTING ITEM
+           * ======================================================
+           */
+          if (existingItem) {
+            return tx.cartItem.update({
+              where: {
+                id: existingItem.id,
+              },
+              data: {
+                quantity: newQuantity,
+
+                /**
+                 * Note baru hanya menggantikan note jika
+                 * request memang mengirim note.
+                 *
+                 * Jika tidak ada note:
+                 * pertahankan note sebelumnya.
+                 */
+                ...(normalizedCustomerNote !== null
+                  ? {
+                      customerNote:
+                        normalizedCustomerNote,
+                    }
+                  : {}),
+
+                /**
+                 * Pricing snapshot.
+                 */
+                price: pricing.finalPrice,
+                isFlashSaleApplied:
+                  pricing.isFlashSaleApplied,
+                flashSaleId: pricing.flashSaleId,
+                flashSaleItemId:
+                  pricing.flashSaleItemId,
+              },
+            });
+          }
+
+          /**
+           * ======================================================
+           * CREATE NEW ITEM
+           * ======================================================
+           *
+           * Legacy fields sengaja tidak digunakan.
+           *
+           * Canonical identity:
+           *
+           *   cartId + productId + skuId
+           */
+          return tx.cartItem.create({
+            data: {
+              cartId: currentCart.id,
+              productId: product.id,
+
+              /**
+               * Canonical SKU.
+               */
+              skuId: normalizedSkuId,
+
+              /**
+               * Legacy fields:
+               *
+               *   productVariant
+               *   productWeight
+               *   weightSku
+               *
+               * tidak lagi digunakan sebagai identity.
+               */
+              customerNote:
+                normalizedCustomerNote,
+
+              quantity,
+
+              /**
+               * Final price snapshot.
+               */
+              price: pricing.finalPrice,
+
+              /**
+               * Flash Sale snapshot.
+               */
               isFlashSaleApplied:
                 pricing.isFlashSaleApplied,
-
               flashSaleId:
                 pricing.flashSaleId,
-
               flashSaleItemId:
                 pricing.flashSaleItemId,
             },
           });
         }
+      );
+    } catch (error) {
+      /**
+       * ==========================================================
+       * HANDLE CONCURRENCY P2002
+       * ==========================================================
+       *
+       * P2002 dapat terjadi apabila terdapat unique constraint
+       * conflict pada transaksi concurrent.
+       *
+       * Cart-level locking seharusnya mencegah race normal
+       * pada CartItem, tetapi unique constraint database tetap
+       * menjadi protection layer terakhir.
+       *
+       * Hanya P2002 yang boleh masuk retry.
+       * CartError dan error lainnya langsung diteruskan.
+       */
+      const isUniqueConstraintError =
+        error instanceof
+          Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002";
 
-        return tx.cartItem.create({
-          data: {
-            cartId:
-              currentCart.id,
-
-            productId:
-              product.id,
-
-            /**
-             * Canonical SKU.
-             */
-            skuId:
-              normalizedSkuId,
-
-            /**
-             * Legacy fields sengaja tidak diisi.
-             *
-             * productVariant
-             * productWeight
-             * weightSku
-             *
-             * bukan lagi sumber kebenaran.
-             */
-
-            customerNote:
-              normalizedCustomerNote,
-
-            quantity,
-
-            price:
-              pricing.finalPrice,
-
-            isFlashSaleApplied:
-              pricing.isFlashSaleApplied,
-
-            flashSaleId:
-              pricing.flashSaleId,
-
-            flashSaleItemId:
-              pricing.flashSaleItemId,
-          },
-        });
+      if (
+        !isUniqueConstraintError ||
+        attempt === MAX_CONCURRENCY_RETRIES
+      ) {
+        throw error;
       }
-    );
+
+      /**
+       * Exponential backoff sederhana.
+       *
+       * attempt 0 -> 10 ms
+       * attempt 1 -> 20 ms
+       * attempt 2 -> 30 ms
+       * attempt 3 -> 40 ms
+       * attempt 4 -> 50 ms
+       */
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          10 * (attempt + 1)
+        )
+      );
+    }
   }
 
+  /**
+   * Secara normal tidak pernah tercapai karena setiap attempt
+   * akan menghasilkan return atau throw.
+   */
+  throw new Error(
+    "Unexpected addItem retry termination."
+  );
+}
   /**
    * ============================================================
    * UPDATE ITEM QUANTITY
@@ -622,187 +896,375 @@ export default class CartService {
    *
    * quantity adalah FINAL quantity.
    *
-   * Harga dihitung ulang karena Product Discount / Flash Sale
-   * dapat berubah sejak item masuk cart.
+   * Contoh:
+   *
+   * current = 3
+   * request = 5
+   *
+   * hasil = 5
+   *
+   * BUKAN 3 + 5.
    */
-  static async updateItem({
-    userId,
-    cartItemId,
-    quantity,
-  }: UpdateCartItemInput) {
-    this.validateUserId(userId);
-    this.validateCartItemId(cartItemId);
-    this.validateQuantity(quantity);
 
-    const cartItem =
-      await CartRepository.findItemById(
-        cartItemId
-      );
+static async updateItem({
+  userId,
+  cartItemId,
+  quantity,
+}: UpdateCartItemInput) {
+  this.validateUserId(
+    userId
+  );
 
-    if (!cartItem) {
-      throw new Error(
-        "Item keranjang tidak ditemukan."
-      );
-    }
+  this.validateCartItemId(
+    cartItemId
+  );
 
-    if (
-      cartItem.cart.userId !==
-      userId
-    ) {
-      throw new Error(
-        "Anda tidak memiliki akses ke item keranjang ini."
-      );
-    }
+  this.validateQuantity(
+    quantity
+  );
 
-    await prisma.$transaction(
-      async (tx) => {
-        const {
-          product,
-          sku,
-        } =
-          await this.resolveSku(
-            tx,
-            {
-              productId:
-                cartItem.productId,
-              skuId:
-                cartItem.skuId,
-            }
-          );
+  /**
+   * ============================================================
+   * UPDATE CART ITEM
+   * ============================================================
+   *
+   * Seluruh proses dilakukan dalam satu transaction.
+   *
+   * Cart di-lock menggunakan FOR UPDATE agar concurrent
+   * mutation terhadap cart yang sama diserialisasikan.
+   *
+   * Quantity di sini adalah FINAL quantity, bukan additive.
+   *
+   * ============================================================
+   */
 
-        const availableStock =
-          sku?.stock ??
-          product.stock;
+  await prisma.$transaction(
+    async (tx) => {
+      /**
+       * ==========================================================
+       * FIND CART ITEM
+       * ==========================================================
+       *
+       * Lookup dilakukan di dalam transaction agar state item
+       * yang digunakan untuk update merupakan state yang dibaca
+       * pada transaction yang sama.
+       */
 
-        if (
-          availableStock <= 0
-        ) {
-          throw new Error(
-            `Stok ${
-              sku?.sku ??
-              product.name
-            } sedang habis.`
-          );
-        }
-
-                if (
-          quantity >
-          availableStock
-        ) {
-          throw new Error(
-            `Jumlah melebihi stok tersedia. Stok ${
-              sku?.sku ??
-              product.name
-            } hanya ${availableStock}.`
-          );
-        }
-
-        /**
-         * ======================================================
-         * RESOLVE CANONICAL PRICING
-         * ======================================================
-         *
-         * ProductPricingService menjadi satu-satunya sumber
-         * untuk menentukan Flash Sale dan harga final.
-         *
-         * CartItem.flashSaleItemId digunakan sebagai
-         * preferred candidate agar Flash Sale yang sebelumnya
-         * dipakai oleh CartItem tetap dipertahankan selama
-         * masih valid.
-         */
-        const pricing =
-          await ProductPricingService.resolve(
-            tx,
-            {
-              productId:
-                product.id,
-
-              skuId:
-                cartItem.skuId,
-
-              preferredFlashSaleItemId:
-                cartItem.flashSaleItemId,
-
-              fallbackPrice:
-                product.price,
-            }
-          );
-
-        /**
-         * ======================================================
-         * VALIDATE FINAL FLASH SALE QUOTA
-         * ======================================================
-         */
-        if (
-          pricing.isFlashSaleApplied &&
-          pricing.flashSaleItemId
-        ) {
-          const selectedFlashSaleItem =
-            await tx.flashSaleItem.findUnique({
-              where: {
-                id:
-                  pricing.flashSaleItemId,
-              },
-
-              select: {
-                stockLimit: true,
-
-                soldQuantity: true,
-
-                perUserLimit: true,
-              },
-            });
-
-          if (!selectedFlashSaleItem) {
-            throw new Error(
-              "Flash Sale yang digunakan untuk pricing tidak ditemukan."
-            );
-          }
-
-          this.validateFlashSaleQuota(
-            selectedFlashSaleItem,
-            quantity
-          );
-        }
-
-        /**
-         * ======================================================
-         * UPDATE CART ITEM
-         * ======================================================
-         */
-        await tx.cartItem.update({
+      const cartItem =
+        await tx.cartItem.findUnique({
           where: {
             id:
               cartItemId,
           },
 
-          data: {
-            quantity,
+          select: {
+            id: true,
 
-            price:
-              pricing.finalPrice,
+            cartId: true,
 
-            isFlashSaleApplied:
-              pricing.isFlashSaleApplied,
+            productId: true,
 
-            flashSaleId:
-              pricing.flashSaleId,
+            skuId: true,
 
-            flashSaleItemId:
-              pricing.flashSaleItemId,
+            flashSaleItemId: true,
+
+            cart: {
+              select: {
+                userId: true,
+              },
+            },
           },
         });
-      }
-    );
 
-    return this.getCart(userId);
-  }
+      /**
+       * Item tidak ditemukan.
+       */
+
+      if (!cartItem) {
+        throw new CartError(
+          "INVALID_CART_ITEM",
+          "Item keranjang tidak ditemukan."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * LOCK CART
+       * ==========================================================
+       *
+       * Cart adalah parent dari seluruh CartItem milik user.
+       *
+       * Lock ini memastikan dua mutation concurrent terhadap
+       * cart yang sama tidak berjalan bebas satu sama lain.
+       *
+       * Pola ini sama dengan protection yang sudah terbukti
+       * berhasil pada addItem().
+       */
+
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "Cart"
+        WHERE "id" = ${cartItem.cartId}
+        FOR UPDATE
+      `;
+
+const currentItem = await tx.cartItem.findUnique({
+  where: {
+    id: cartItem.id,
+  },
+  select: {
+    id: true,
+    cartId: true,
+    productId: true,
+    skuId: true,
+    flashSaleItemId: true,
+  },
+});
+
+if (!currentItem) {
+  throw new CartError(
+    "INVALID_CART_ITEM",
+    "Cart item tidak ditemukan."
+  );
+}
+
+if (currentItem.cartId !== cartItem.cartId) {
+  throw new CartError(
+    "INVALID_CART_ITEM",
+    "Cart item tidak valid."
+  );
+}
+
+      /**
+       * ==========================================================
+       * OWNERSHIP VALIDATION
+       * ==========================================================
+       */
+
+      if (
+        cartItem.cart.userId !==
+        userId
+      ) {
+        throw new CartError(
+          "INVALID_CART_ITEM",
+          "Anda tidak memiliki akses ke item keranjang ini."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * RE-RESOLVE PRODUCT + SKU
+       * ==========================================================
+       *
+       * Product/SKU wajib divalidasi ulang karena kondisi produk
+       * dapat berubah setelah item masuk ke cart.
+       */
+
+      const {
+        product,
+        sku,
+      } =
+        await this.resolveSku(
+          tx,
+          {
+            productId:
+              cartItem.productId,
+
+            skuId:
+              cartItem.skuId,
+          }
+        );
+
+      /**
+       * ==========================================================
+       * STOCK CANONICAL
+       * ==========================================================
+       */
+
+      const availableStock =
+        sku?.stock ??
+        product.stock;
+
+      /**
+       * ==========================================================
+       * STOCK HABIS
+       * ==========================================================
+       */
+
+      if (
+        availableStock <= 0
+      ) {
+        throw new CartError(
+          "OUT_OF_STOCK",
+          `Stok ${
+            sku?.sku ??
+            product.name
+          } sedang habis.`
+        );
+      }
+
+      /**
+       * ==========================================================
+       * FINAL QUANTITY VALIDATION
+       * ==========================================================
+       *
+       * quantity adalah FINAL quantity.
+       */
+
+      if (
+        quantity >
+        availableStock
+      ) {
+        throw new CartError(
+          "INSUFFICIENT_STOCK",
+          `Jumlah melebihi stok tersedia. Stok ${
+            sku?.sku ??
+            product.name
+          } hanya ${availableStock}.`
+        );
+      }
+
+      /**
+       * ==========================================================
+       * RESOLVE CANONICAL PRICING
+       * ==========================================================
+       *
+       * Harga cart adalah snapshot.
+       * Namun setiap update harus menghitung ulang pricing
+       * agar perubahan harga / promotion / flash sale tetap
+       * diperhitungkan.
+       */
+
+      const pricing =
+        await ProductPricingService.resolve(
+          tx,
+          {
+            productId:
+              product.id,
+
+            skuId:
+              cartItem.skuId,
+
+            /**
+             * Pertahankan Flash Sale sebelumnya jika masih valid.
+             */
+
+            preferredFlashSaleItemId:
+              cartItem.flashSaleItemId,
+
+            fallbackPrice:
+              product.price,
+          }
+        );
+
+      /**
+       * ==========================================================
+       * VALIDATE FINAL FLASH SALE QUOTA
+       * ==========================================================
+       *
+       * Cart tidak melakukan reservation Flash Sale.
+       *
+       * Di sini kita hanya memastikan FINAL quantity masih
+       * memenuhi quota Flash Sale yang sedang dipakai.
+       */
+
+      if (
+        pricing.isFlashSaleApplied &&
+        pricing.flashSaleItemId
+      ) {
+        const selectedFlashSaleItem =
+          await tx.flashSaleItem.findUnique({
+            where: {
+              id:
+                pricing.flashSaleItemId,
+            },
+
+            select: {
+              stockLimit: true,
+              soldQuantity: true,
+              perUserLimit: true,
+            },
+          });
+
+        if (
+          !selectedFlashSaleItem
+        ) {
+          throw new CartError(
+            "FLASH_SALE_QUOTA_EXHAUSTED",
+            "Flash Sale yang digunakan untuk pricing tidak ditemukan."
+          );
+        }
+
+        this.validateFlashSaleQuota(
+          selectedFlashSaleItem,
+          quantity
+        );
+      }
+
+      /**
+       * ==========================================================
+       * UPDATE CART ITEM
+       * ==========================================================
+       */
+
+      await tx.cartItem.update({
+        where: {
+          id:
+            cartItemId,
+        },
+
+        data: {
+          /**
+           * FINAL quantity.
+           */
+
+          quantity,
+
+          /**
+           * Final pricing snapshot.
+           */
+
+          price:
+            pricing.finalPrice,
+
+          isFlashSaleApplied:
+            pricing.isFlashSaleApplied,
+
+          flashSaleId:
+            pricing.flashSaleId,
+
+          flashSaleItemId:
+            pricing.flashSaleItemId,
+        },
+      });
+    }
+  );
 
   /**
    * ============================================================
-   * UPDATE ITEM QUANTITY
+   * RETURN CANONICAL CART
    * ============================================================
+   *
+   * Setelah transaction selesai, ambil ulang cart agar response
+   * selalu menggunakan DTO/state terbaru.
    */
+
+  return this.getCart(
+    userId
+  );
+}
+
+  /**
+   * ============================================================
+   * UPDATE ITEM QUANTITY - LEGACY WRAPPER
+   * ============================================================
+   *
+   * Method ini dipertahankan agar service lama tidak langsung
+   * rusak.
+   *
+   * API mobile sebaiknya menggunakan updateItem().
+   */
+
   static async updateItemQuantity(
     userId: string,
     cartItemId: string,
@@ -817,6 +1279,7 @@ export default class CartService {
 
       return {
         success: true,
+
         message:
           "Jumlah produk berhasil diperbarui.",
       };
@@ -828,6 +1291,7 @@ export default class CartService {
 
       return {
         success: false,
+
         message:
           error instanceof Error
             ? error.message
@@ -841,47 +1305,186 @@ export default class CartService {
    * REMOVE ITEM
    * ============================================================
    */
-  static async removeItem({
-    userId,
-    cartItemId,
-  }: RemoveCartItemInput) {
-    this.validateUserId(userId);
-    this.validateCartItemId(
-      cartItemId
-    );
 
-    const cartItem =
-      await CartRepository.findItemById(
-        cartItemId
-      );
+static async removeItem({
+  userId,
+  cartItemId,
+}: RemoveCartItemInput) {
+  this.validateUserId(
+    userId
+  );
 
-    if (!cartItem) {
-      throw new Error(
-        "Item keranjang tidak ditemukan."
-      );
-    }
-
-    if (
-      cartItem.cart.userId !==
-      userId
-    ) {
-      throw new Error(
-        "Anda tidak memiliki akses ke item keranjang ini."
-      );
-    }
-
-    await CartRepository.deleteItem(
-      cartItemId
-    );
-
-    return this.getCart(userId);
-  }
+  this.validateCartItemId(
+    cartItemId
+  );
 
   /**
    * ============================================================
-   * DELETE ITEM
+   * REMOVE CART ITEM
+   * ============================================================
+   *
+   * Seluruh proses dilakukan dalam satu transaction.
+   *
+   * Cart di-lock menggunakan FOR UPDATE agar mutation
+   * terhadap cart yang sama diserialisasikan.
+   *
+   * Dengan demikian removeItem() aman terhadap concurrent:
+   *
+   *   - addItem()
+   *   - updateItem()
+   *   - removeItem()
+   *
    * ============================================================
    */
+
+  await prisma.$transaction(
+    async (tx) => {
+      /**
+       * ==========================================================
+       * FIND CART ITEM
+       * ==========================================================
+       *
+       * Lookup dilakukan di dalam transaction.
+       */
+      const cartItem =
+        await tx.cartItem.findUnique({
+          where: {
+            id:
+              cartItemId,
+          },
+
+          select: {
+            id: true,
+
+            cartId: true,
+
+            cart: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        });
+
+      /**
+       * Item tidak ditemukan.
+       */
+      if (!cartItem) {
+        throw new CartError(
+          "INVALID_CART_ITEM",
+          "Item keranjang tidak ditemukan."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * LOCK CART
+       * ==========================================================
+       *
+       * Cart menjadi serialization point untuk seluruh
+       * mutation terhadap cart milik customer yang sama.
+       *
+       * Lock dilakukan sebelum DELETE.
+       */
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "Cart"
+        WHERE "id" = ${cartItem.cartId}
+        FOR UPDATE
+      `;
+
+      /**
+       * ==========================================================
+       * OWNERSHIP VALIDATION
+       * ==========================================================
+       */
+      if (
+        cartItem.cart.userId !==
+        userId
+      ) {
+        throw new CartError(
+          "INVALID_CART_ITEM",
+          "Anda tidak memiliki akses ke item keranjang ini."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * RE-CHECK CART ITEM
+       * ==========================================================
+       *
+       * Setelah Cart terkunci, baca kembali item.
+       *
+       * Ini penting untuk memastikan item yang akan dihapus
+       * masih ada setelah menunggu concurrent mutation.
+       */
+      const currentItem =
+        await tx.cartItem.findUnique({
+          where: {
+            id:
+              cartItemId,
+          },
+
+          select: {
+            id: true,
+
+            cartId: true,
+          },
+        });
+
+      if (!currentItem) {
+        throw new CartError(
+          "INVALID_CART_ITEM",
+          "Item keranjang tidak ditemukan."
+        );
+      }
+
+      /**
+       * Pastikan item masih berada pada Cart yang sama.
+       */
+      if (
+        currentItem.cartId !==
+        cartItem.cartId
+      ) {
+        throw new CartError(
+          "INVALID_CART_ITEM",
+          "Item keranjang tidak valid."
+        );
+      }
+
+      /**
+       * ==========================================================
+       * DELETE
+       * ==========================================================
+       */
+      await tx.cartItem.delete({
+        where: {
+          id:
+            cartItemId,
+        },
+      });
+    }
+  );
+
+  /**
+   * Setelah transaction selesai, ambil ulang cart agar response
+   * selalu menggunakan DTO/state terbaru.
+   */
+  return this.getCart(
+    userId
+  );
+}
+
+  /**
+   * ============================================================
+   * DELETE ITEM - LEGACY WRAPPER
+   * ============================================================
+   *
+   * Dipertahankan untuk compatibility dengan caller lama.
+   *
+   * API mobile menggunakan removeItem().
+   */
+
   static async deleteItem(
     userId: string,
     cartItemId: string
@@ -894,6 +1497,7 @@ export default class CartService {
 
       return {
         success: true,
+
         message:
           "Produk berhasil dihapus dari keranjang.",
       };
@@ -905,6 +1509,7 @@ export default class CartService {
 
       return {
         success: false,
+
         message:
           error instanceof Error
             ? error.message
@@ -918,37 +1523,84 @@ export default class CartService {
    * CLEAR CART
    * ============================================================
    */
-  static async clearCart(
-    userId: string
-  ) {
-    this.validateUserId(userId);
 
-    const cart =
-      await prisma.cart.findUnique({
+static async clearCart(
+  userId: string
+) {
+  this.validateUserId(userId);
+
+  await prisma.$transaction(
+    async (tx) => {
+      /**
+       * ==========================================================
+       * FIND CART
+       * ==========================================================
+       */
+      const cart =
+        await tx.cart.findUnique({
+          where: {
+            userId,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      /**
+       * Cart belum pernah dibuat.
+       *
+       * Tidak ada yang perlu dihapus.
+       */
+      if (!cart) {
+        return;
+      }
+
+      /**
+       * ==========================================================
+       * LOCK CART
+       * ==========================================================
+       *
+       * Cart menjadi serialization point untuk seluruh
+       * mutation terhadap cart milik customer yang sama.
+       *
+       * Dengan lock ini, clearCart() akan terserialisasi
+       * terhadap addItem(), updateItem(), dan removeItem().
+       */
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "Cart"
+        WHERE "id" = ${cart.id}
+        FOR UPDATE
+      `;
+
+      /**
+       * ==========================================================
+       * CLEAR CART ITEMS
+       * ==========================================================
+       *
+       * Jangan menggunakan CartRepository.clear() di sini
+       * karena repository menggunakan global prisma dan tidak
+       * ikut dalam transaction ini.
+       */
+      await tx.cartItem.deleteMany({
         where: {
-          userId,
-        },
-        select: {
-          id: true,
+          cartId: cart.id,
         },
       });
-
-    if (!cart) {
-      return null;
     }
+  );
 
-    await CartRepository.clear(
-      cart.id
-    );
-
-    return this.getCart(userId);
-  }
+  return this.getCart(
+    userId
+  );
+}
 
   /**
    * ============================================================
    * CALCULATE CART TOTAL
    * ============================================================
    */
+
   static calculateTotal(
     cart:
       | {
@@ -960,7 +1612,9 @@ export default class CartService {
       | null
   ) {
     if (!cart) {
-      return new Prisma.Decimal(0);
+      return new Prisma.Decimal(
+        0
+      );
     }
 
     return cart.items.reduce(
@@ -973,7 +1627,10 @@ export default class CartService {
             item.quantity
           )
         ),
-      new Prisma.Decimal(0)
+
+      new Prisma.Decimal(
+        0
+      )
     );
   }
 }

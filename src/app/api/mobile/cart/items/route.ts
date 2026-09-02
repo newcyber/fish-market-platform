@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/mobile-auth";
 
 import CartService from "@/services/cart/cart.service";
+import { CartError } from "@/services/cart/cart.error";
 
 import {
   serializeCart,
@@ -100,11 +101,21 @@ export async function POST(
   request: Request
 ) {
   try {
+    /**
+     * ==========================================================
+     * AUTHENTICATION
+     * ==========================================================
+     */
     const user =
       await requireMobileAuth(
         request
       );
 
+    /**
+     * ==========================================================
+     * PARSE REQUEST BODY
+     * ==========================================================
+     */
     let body: unknown;
 
     try {
@@ -141,6 +152,11 @@ export async function POST(
       );
     }
 
+    /**
+     * ==========================================================
+     * BASIC VALIDATION
+     * ==========================================================
+     */
     if (!input.productId) {
       return NextResponse.json(
         {
@@ -174,40 +190,54 @@ export async function POST(
       );
     }
 
-await CartService.addItem({
-  userId: user.id,
+    /**
+     * ==========================================================
+     * ADD ITEM
+     * ==========================================================
+     *
+     * CartService.addItem() mengembalikan CartItem,
+     * bukan Cart.
+     *
+     * Karena response API membutuhkan state Cart terbaru,
+     * ambil Cart kembali setelah addItem() selesai.
+     */
+    await CartService.addItem({
+      userId: user.id,
+      productId: input.productId,
+      skuId: input.skuId,
+      quantity: input.quantity,
+      customerNote:
+        input.customerNote,
+    });
 
-  productId:
-    input.productId,
+    const cart =
+      await CartService.getCart(
+        user.id
+      );
 
-  skuId:
-    input.skuId,
-
-  quantity:
-    input.quantity,
-
-  customerNote:
-    input.customerNote,
-});
-
-const cart =
-  await CartService.getCart(
-    user.id
-  );
-
-return NextResponse.json(
-  {
-    success: true,
-    data: {
-      cart:
-        serializeCart(cart),
-    },
-  },
-  {
-    status: 201,
-  }
-);
+    /**
+     * ==========================================================
+     * SUCCESS RESPONSE
+     * ==========================================================
+     */
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          cart:
+            serializeCart(cart),
+        },
+      },
+      {
+        status: 201,
+      }
+    );
   } catch (error) {
+    /**
+     * ==========================================================
+     * MOBILE AUTH ERROR
+     * ==========================================================
+     */
     if (
       error instanceof MobileAuthError
     ) {
@@ -244,52 +274,22 @@ return NextResponse.json(
       }
     }
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Gagal menambahkan produk ke keranjang.";
-
     /**
-     * Business validation errors dari
-     * CartService.
+     * ==========================================================
+     * CART BUSINESS ERROR
+     * ==========================================================
      *
-     * Kita belum membuat custom CartError,
-     * jadi untuk sementara mapping berdasarkan
-     * message yang memang sudah menjadi contract
-     * CartService.
+     * CartService sekarang menggunakan CartError.code
+     * sebagai contract error, bukan parsing message.
      */
-    const badRequestMessages = [
-      "Produk tidak valid.",
-      "Customer tidak valid.",
-      "Customer tidak ditemukan atau tidak aktif.",
-      "Produk tidak ditemukan atau tidak tersedia.",
-      "Silakan pilih varian produk terlebih dahulu.",
-      "SKU produk tidak ditemukan atau sudah tidak tersedia.",
-    ];
-
-    const isBadRequest =
-      badRequestMessages.includes(
-        message
-      ) ||
-      message.startsWith(
-        "Jumlah melebihi stok tersedia."
-      ) ||
-      message.startsWith(
-        "Stok "
-      ) ||
-      message.startsWith(
-        "Kuota "
-      ) ||
-      message.startsWith(
-        "Batas pembelian "
-      );
-
-    if (isBadRequest) {
+    if (
+      error instanceof CartError
+    ) {
       return NextResponse.json(
         {
           success: false,
-          code: "CART_ITEM_ADD_FAILED",
-          message,
+          code: error.code,
+          message: error.message,
         },
         {
           status: 400,
@@ -297,6 +297,11 @@ return NextResponse.json(
       );
     }
 
+    /**
+     * ==========================================================
+     * UNEXPECTED SERVER ERROR
+     * ==========================================================
+     */
     console.error(
       "[MOBILE_CART_ITEM_POST_ERROR]",
       error
@@ -305,7 +310,8 @@ return NextResponse.json(
     return NextResponse.json(
       {
         success: false,
-        code: "INTERNAL_SERVER_ERROR",
+        code:
+          "INTERNAL_SERVER_ERROR",
         message:
           "Terjadi kesalahan pada server.",
       },

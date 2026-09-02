@@ -7,6 +7,8 @@ import {
 
 import CartService from "@/services/cart/cart.service";
 
+import { CartError } from "@/services/cart/cart.error";
+
 import {
   serializeCart,
 } from "@/services/cart/cart.serializer";
@@ -21,23 +23,44 @@ export async function GET(
   request: Request
 ) {
   try {
+    /**
+     * ==========================================================
+     * AUTHENTICATION
+     * ==========================================================
+     */
     const user =
       await requireMobileAuth(
         request
       );
 
+    /**
+     * ==========================================================
+     * GET CART
+     * ==========================================================
+     */
     const cart =
       await CartService.getCart(
         user.id
       );
 
+    /**
+     * ==========================================================
+     * SUCCESS RESPONSE
+     * ==========================================================
+     */
     return NextResponse.json({
       success: true,
       data: {
-        cart: serializeCart(cart),
+        cart:
+          serializeCart(cart),
       },
     });
   } catch (error) {
+    /**
+     * ==========================================================
+     * MOBILE AUTH ERROR
+     * ==========================================================
+     */
     if (
       error instanceof MobileAuthError
     ) {
@@ -74,6 +97,37 @@ export async function GET(
       }
     }
 
+    /**
+     * ==========================================================
+     * CART BUSINESS ERROR
+     * ==========================================================
+     *
+     * Diseragamkan dengan endpoint:
+     *
+     * POST   /api/mobile/cart/items
+     * PATCH  /api/mobile/cart/items/[cartItemId]
+     * DELETE /api/mobile/cart/items/[cartItemId]
+     */
+    if (
+      error instanceof CartError
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: error.code,
+          message: error.message,
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /**
+     * ==========================================================
+     * UNEXPECTED SERVER ERROR
+     * ==========================================================
+     */
     console.error(
       "[MOBILE_CART_GET_ERROR]",
       error
@@ -82,6 +136,8 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
+        code:
+          "INTERNAL_SERVER_ERROR",
         message:
           "Terjadi kesalahan pada server.",
       },
