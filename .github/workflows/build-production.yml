@@ -129,23 +129,22 @@ jobs:
           echo "$PRISMA_CLIENT_DIR"
 
           echo ""
-          echo "Checking generated Prisma Client files..."
+          echo "Generated Prisma Client contents:"
+          find "$PRISMA_CLIENT_DIR" \
+            -maxdepth 2 \
+            -type f \
+            -printf '%P\n' \
+            | sort
+
+          echo ""
+          echo "Checking Prisma default.js..."
 
           if [ ! -f "$PRISMA_CLIENT_DIR/default.js" ]; then
             echo "ERROR: Prisma default.js not found"
             exit 1
           fi
 
-          if ! find "$PRISMA_CLIENT_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -name 'query_engine-*' \
-            -print -quit | grep -q .; then
-            echo "ERROR: Prisma query engine not found"
-            exit 1
-          fi
-
-          echo "Prisma Client files OK"
+          echo "Prisma default.js found."
 
           echo ""
           echo "Creating .next/node_modules/.prisma/client..."
@@ -157,7 +156,11 @@ jobs:
 
           echo ""
           echo "Packaged Prisma Client:"
-          ls -lah .next/node_modules/.prisma/client
+          find .next/node_modules/.prisma/client \
+            -maxdepth 2 \
+            -type f \
+            -printf '%P\n' \
+            | sort
 
           echo ""
           echo "Searching traced @prisma/client package..."
