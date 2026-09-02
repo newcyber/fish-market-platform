@@ -18,14 +18,32 @@ ADD COLUMN "userId" TEXT;
 
 -- 2. Backfill existing notifications.
 UPDATE "Notification"
-SET "userId" = 'dddd60c9-a468-4834-8b50-2fb4b58dcd88'
+SET "userId" = (
+  SELECT "id"
+  FROM "User"
+  WHERE "email" = 'admin@fishmarket.local'
+  LIMIT 1
+)
 WHERE "userId" IS NULL;
 
--- 3. userId must now be present for every notification.
+-- 3. Ensure every existing notification has an owner.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM "Notification"
+    WHERE "userId" IS NULL
+  ) THEN
+    RAISE EXCEPTION
+      'Cannot backfill Notification.userId: admin@fishmarket.local was not found';
+  END IF;
+END $$;
+
+-- 4. userId must now be present for every notification.
 ALTER TABLE "Notification"
 ALTER COLUMN "userId" SET NOT NULL;
 
--- 4. Add foreign key to User.
+-- 5. Add foreign key to User.
 ALTER TABLE "Notification"
 ADD CONSTRAINT "Notification_userId_fkey"
 FOREIGN KEY ("userId")
@@ -33,7 +51,7 @@ REFERENCES "User"("id")
 ON DELETE CASCADE
 ON UPDATE CASCADE;
 
--- 5. User-scoped indexes.
+-- 6. User-scoped indexes.
 CREATE INDEX "Notification_userId_idx"
 ON "Notification"("userId");
 
