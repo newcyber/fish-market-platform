@@ -3628,262 +3628,396 @@ export default class OrderService {
       * - Cleanup old proof safely
       * ============================================================
     */
-    static async submitPaymentProof(userId: string, input: {
+static async submitPaymentProof(
+    userId: string,
+    input: {
         orderId: string;
         file: File;
         bankName?: string | null;
         accountName?: string | null;
         accountNumber?: string | null;
-    }) {
-        let uploadedImagePath: string | null = null;
-        try {
-            /**
-              * ========================================================
-              * VALIDATE FILE
-              * ========================================================
-            */
-            if (!(input.file instanceof File)) {
-                return {
-                    success: false,
-                    message: "Bukti pembayaran wajib dipilih.",
-                };
-            }
-            if (input.file.size <= 0) {
-                return {
-                    success: false,
-                    message: "File bukti pembayaran tidak valid.",
-                };
-            }
-            /**
-              * ========================================================
-              * VALIDATE IMAGE TYPE
-              *
-              * Allowed:
-              * - JPG
-              * - JPEG
-              * - PNG
-              * - WEBP
-              * ========================================================
-            */
-            const allowedMimeTypes = [
-                "image/jpeg",
-                "image/jpg",
-                "image/png",
-                "image/webp",
-            ];
-            if (!allowedMimeTypes.includes(input.file.type)) {
-                return {
-                    success: false,
-                    message: "Format bukti pembayaran harus berupa JPG, JPEG, PNG, atau WEBP.",
-                };
-            }
-            /**
-              * ========================================================
-              * MAX FILE SIZE
-              *
-              * 5 MB
-              * ========================================================
-            */
-            const maxFileSize = 5 * 1024 * 1024;
-            if (input.file.size >
-                maxFileSize) {
-                return {
-                    success: false,
-                    message: "Ukuran bukti pembayaran maksimal 5 MB.",
-                };
-            }
-            /**
-              * ========================================================
-              * FIND ORDER
-              *
-              * Security:
-              * Customer hanya boleh mengupload
-              * bukti untuk order miliknya sendiri.
-              * ========================================================
-            */
-            const order = await prisma.order.findFirst({
-                where: {
-                    id: input.orderId,
-                    userId,
-                    deletedAt: null,
-                },
-                include: {
-                    paymentProof: true,
-                },
-            });
-            if (!order) {
-                return {
-                    success: false,
-                    message: "Pesanan tidak ditemukan atau Anda tidak memiliki akses.",
-                };
-            }
-            /**
-              * ========================================================
-              * VALIDATE ORDER STATUS
-              *
-              * Payment proof hanya boleh dikirim
-              * sebelum pesanan selesai atau dibatalkan.
-              * ========================================================
-            */
-            if (order.status ===
-                OrderStatus.COMPLETED ||
-                order.status ===
-                    OrderStatus.CANCELLED) {
-                return {
-                    success: false,
-                    message: "Bukti pembayaran tidak dapat dikirim untuk pesanan ini.",
-                };
-            }
-            /**
-              * ========================================================
-              * PAYMENT ALREADY VERIFIED
-              *
-              * Bukti tidak boleh diubah setelah
-              * pembayaran diverifikasi.
-              * ========================================================
-            */
-            if (order.paymentStatus ===
-                PaymentStatus.VERIFIED) {
-                return {
-                    success: false,
-                    message: "Pembayaran pesanan ini sudah diverifikasi dan tidak dapat diubah.",
-                };
-            }
-            /**
-              * ========================================================
-              * SAVE NEW IMAGE
-              * ========================================================
-            */
-            uploadedImagePath =
-                await StorageService.save(input.file);
-            /**
-              * ========================================================
-              * CREATE OR UPDATE PAYMENT PROOF
-              *
-              * Prisma schema menggunakan:
-              *
-              * orderId
-              * image
-              * bankName
-              * accountName
-              * accountNumber
-              * status
-              * ========================================================
-            */
-            const paymentProof = await prisma.$transaction(async (tx) => {
-                const proof = await tx.paymentProof.upsert({
-                    where: {
-                        orderId: order.id,
-                    },
-                    create: {
-                        orderId: order.id,
-                        image: uploadedImagePath!,
-                        bankName: input.bankName?.trim() ||
-                            null,
-                        accountName: input.accountName?.trim() ||
-                            null,
-                        accountNumber: input.accountNumber?.trim() ||
-                            null,
-                        status: PaymentStatus.PENDING,
-                        verifiedAt: null,
-                        verifiedById: null,
-                        rejectionReason: null,
-                    },
-                    update: {
-                        image: uploadedImagePath!,
-                        bankName: input.bankName?.trim() ||
-                            null,
-                        accountName: input.accountName?.trim() ||
-                            null,
-                        accountNumber: input.accountNumber?.trim() ||
-                            null,
-                        /**
-                          * Upload ulang akan
-                          * mengembalikan status
-                          * ke PENDING.
-                        */
-                        status: PaymentStatus.PENDING,
-                        verifiedAt: null,
-                        verifiedById: null,
-                        rejectionReason: null,
-                    },
-                });
+    }
+) {
+    let uploadedImagePath: string | null = null;
+
+    try {
+        /**
+         * ========================================================
+         * VALIDATE FILE
+         * ========================================================
+         */
+        if (!(input.file instanceof File)) {
+            return {
+                success: false,
+                message: "Bukti pembayaran wajib dipilih.",
+            };
+        }
+
+        if (input.file.size <= 0) {
+            return {
+                success: false,
+                message: "File bukti pembayaran tidak valid.",
+            };
+        }
+
+        /**
+         * ========================================================
+         * VALIDATE IMAGE TYPE
+         *
+         * Allowed:
+         * - JPG
+         * - JPEG
+         * - PNG
+         * - WEBP
+         * ========================================================
+         */
+        const allowedMimeTypes = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+        ];
+
+        if (!allowedMimeTypes.includes(input.file.type)) {
+            return {
+                success: false,
+                message:
+                    "Format bukti pembayaran harus berupa JPG, JPEG, PNG, atau WEBP.",
+            };
+        }
+
+        /**
+         * ========================================================
+         * MAX FILE SIZE
+         *
+         * 5 MB
+         * ========================================================
+         */
+        const maxFileSize = 5 * 1024 * 1024;
+
+        if (input.file.size > maxFileSize) {
+            return {
+                success: false,
+                message:
+                    "Ukuran bukti pembayaran maksimal 5 MB.",
+            };
+        }
+
+        /**
+         * ========================================================
+         * SAVE NEW IMAGE
+         *
+         * File system bukan bagian dari DB transaction.
+         *
+         * Karena itu file baru dibuat terlebih dahulu.
+         *
+         * Jika transaction gagal, catch block akan menghapus
+         * file baru tersebut.
+         * ========================================================
+         */
+        uploadedImagePath =
+            await StorageService.save(input.file);
+
+        /**
+         * ========================================================
+         * DATABASE TRANSACTION
+         *
+         * CRITICAL CONCURRENCY RULE:
+         *
+         * Order row harus dikunci terlebih dahulu.
+         *
+         * Dengan demikian concurrent payment-proof upload
+         * akan diproses secara serial:
+         *
+         * Request A
+         *   LOCK Order
+         *   READ PaymentProof
+         *   WRITE A
+         *   COMMIT
+         *
+         * Request B
+         *   WAIT LOCK
+         *   LOCK Order
+         *   READ PaymentProof = A
+         *   WRITE B
+         *   COMMIT
+         *
+         * Request B kemudian membersihkan A.
+         * ========================================================
+         */
+        const paymentProof = await prisma.$transaction(
+            async (tx) => {
                 /**
-                  * ====================================================
-                  * UPDATE ORDER PAYMENT STATUS
-                  *
-                  * Payment masih menunggu
-                  * verifikasi admin.
-                  *
-                  * Schema saat ini hanya memiliki:
-                  * PENDING
-                  * VERIFIED
-                  * REJECTED
-                  * ====================================================
-                */
+                 * ====================================================
+                 * 1. LOCK ORDER ROW
+                 * ====================================================
+                 */
+                const lockedOrder =
+                    await tx.$queryRaw<
+                        Array<{ id: string }>
+                    >`
+                        SELECT "id"
+                        FROM "Order"
+                        WHERE "id" = ${input.orderId}
+                        FOR UPDATE
+                    `;
+
+                if (lockedOrder.length === 0) {
+                    throw new Error(
+                        "Pesanan tidak ditemukan atau Anda tidak memiliki akses."
+                    );
+                }
+
+                /**
+                 * ====================================================
+                 * 2. READ LATEST ORDER STATE
+                 *
+                 * IMPORTANT:
+                 *
+                 * Query dilakukan SETELAH FOR UPDATE.
+                 *
+                 * Jadi status dan PaymentProof yang dibaca
+                 * adalah state terbaru setelah seluruh transaction
+                 * sebelumnya selesai.
+                 * ====================================================
+                 */
+                const order =
+                    await tx.order.findFirst({
+                        where: {
+                            id: input.orderId,
+                            userId,
+                            deletedAt: null,
+                        },
+                        include: {
+                            paymentProof: true,
+                        },
+                    });
+
+                if (!order) {
+                    throw new Error(
+                        "Pesanan tidak ditemukan atau Anda tidak memiliki akses."
+                    );
+                }
+
+                /**
+                 * ====================================================
+                 * 3. VALIDATE ORDER STATUS
+                 * ====================================================
+                 */
+                if (
+                    order.status ===
+                        OrderStatus.COMPLETED ||
+                    order.status ===
+                        OrderStatus.CANCELLED
+                ) {
+                    throw new Error(
+                        "Bukti pembayaran tidak dapat dikirim untuk pesanan ini."
+                    );
+                }
+
+                /**
+                 * ====================================================
+                 * 4. PAYMENT ALREADY VERIFIED
+                 * ====================================================
+                 */
+                if (
+                    order.paymentStatus ===
+                    PaymentStatus.VERIFIED
+                ) {
+                    throw new Error(
+                        "Pembayaran pesanan ini sudah diverifikasi dan tidak dapat diubah."
+                    );
+                }
+
+                /**
+                 * ====================================================
+                 * 5. CAPTURE CURRENT IMAGE
+                 *
+                 * Sangat penting:
+                 *
+                 * old image harus dibaca SETELAH Order lock.
+                 *
+                 * Jangan membaca dari snapshot sebelum transaction.
+                 * ====================================================
+                 */
+                const oldImagePath =
+                    order.paymentProof?.image ?? null;
+
+                /**
+                 * ====================================================
+                 * 6. CREATE OR UPDATE PAYMENT PROOF
+                 * ====================================================
+                 */
+                const proof =
+                    await tx.paymentProof.upsert({
+                        where: {
+                            orderId: order.id,
+                        },
+
+                        create: {
+                            orderId: order.id,
+                            image: uploadedImagePath!,
+                            bankName:
+                                input.bankName?.trim() ||
+                                null,
+                            accountName:
+                                input.accountName?.trim() ||
+                                null,
+                            accountNumber:
+                                input.accountNumber?.trim() ||
+                                null,
+                            status:
+                                PaymentStatus.PENDING,
+                            verifiedAt: null,
+                            verifiedById: null,
+                            rejectionReason: null,
+                        },
+
+                        update: {
+                            image: uploadedImagePath!,
+                            bankName:
+                                input.bankName?.trim() ||
+                                null,
+                            accountName:
+                                input.accountName?.trim() ||
+                                null,
+                            accountNumber:
+                                input.accountNumber?.trim() ||
+                                null,
+
+                            /**
+                             * Upload ulang mengembalikan
+                             * payment proof menjadi PENDING.
+                             */
+                            status:
+                                PaymentStatus.PENDING,
+                            verifiedAt: null,
+                            verifiedById: null,
+                            rejectionReason: null,
+                        },
+                    });
+
+                /**
+                 * ====================================================
+                 * 7. UPDATE ORDER PAYMENT STATUS
+                 * ====================================================
+                 */
                 await tx.order.update({
                     where: {
                         id: order.id,
                     },
                     data: {
-                        paymentStatus: PaymentStatus.PENDING,
-                        status: OrderStatus.WAITING_VERIFICATION,
+                        paymentStatus:
+                            PaymentStatus.PENDING,
+                        status:
+                            OrderStatus.WAITING_VERIFICATION,
                     },
                 });
-                return proof;
-            });
-            /**
-              * ========================================================
-              * CLEANUP OLD IMAGE
-              *
-              * Dilakukan setelah database berhasil.
-              * Jika cleanup gagal, database tetap aman.
-              * ========================================================
-            */
-            if (order.paymentProof?.image &&
-                order.paymentProof.image !==
-                    uploadedImagePath) {
-                try {
-                    await StorageService.delete(order.paymentProof.image);
-                }
-                catch (storageError) {
-                    console.error("[PAYMENT_PROOF_OLD_IMAGE_DELETE_ERROR]", storageError);
-                }
+
+                /**
+                 * ====================================================
+                 * 8. CLEANUP OLD IMAGE
+                 *
+                 * IMPORTANT:
+                 *
+                 * Cleanup dilakukan setelah DB state berhasil
+                 * diperbarui secara transactional.
+                 *
+                 * Karena oldImagePath diperoleh setelah Order lock,
+                 * concurrent request kedua akan mengetahui image
+                 * yang ditulis request pertama.
+                 *
+                 * File system cleanup tetap dilakukan di luar DB
+                 * transaction agar tidak memperpanjang database lock.
+                 * ====================================================
+                 */
+                return {
+                    proof,
+                    oldImagePath,
+                };
             }
-            /**
-              * ========================================================
-              * SUCCESS
-              * ========================================================
-            */
-            return {
-                success: true,
-                message: "Bukti pembayaran berhasil dikirim dan sedang menunggu verifikasi.",
-                data: paymentProof,
-            };
+        );
+
+        /**
+         * ========================================================
+         * DELETE OLD IMAGE
+         *
+         * Hanya request yang benar-benar menggantikan image lama
+         * yang memiliki oldImagePath.
+         * ========================================================
+         */
+        if (
+            paymentProof.oldImagePath &&
+            paymentProof.oldImagePath !==
+                uploadedImagePath
+        ) {
+            try {
+                await StorageService.delete(
+                    paymentProof.oldImagePath
+                );
+            } catch (storageError) {
+                /**
+                 * Database sudah benar.
+                 *
+                 * Kegagalan cleanup storage tidak boleh
+                 * membatalkan transaksi database yang sudah commit.
+                 */
+                console.error(
+                    "[PAYMENT_PROOF_OLD_IMAGE_DELETE_ERROR]",
+                    storageError
+                );
+            }
         }
-        catch (error) {
-            /**
-              * ========================================================
-              * CLEANUP NEW FILE IF DATABASE PROCESS FAILED
-              * ========================================================
-            */
-            if (uploadedImagePath) {
-                try {
-                    await StorageService.delete(uploadedImagePath);
-                }
-                catch (storageError) {
-                    console.error("[PAYMENT_PROOF_NEW_IMAGE_CLEANUP_ERROR]", storageError);
-                }
+
+        /**
+         * ========================================================
+         * SUCCESS
+         * ========================================================
+         */
+        return {
+            success: true,
+            message:
+                "Bukti pembayaran berhasil dikirim dan sedang menunggu verifikasi.",
+            data: paymentProof.proof,
+        };
+    } catch (error) {
+        /**
+         * ========================================================
+         * CLEANUP NEW FILE IF DATABASE PROCESS FAILED
+         *
+         * Jika transaction gagal:
+         *
+         * DB -> rollback
+         * File baru -> hapus
+         * ========================================================
+         */
+        if (uploadedImagePath) {
+            try {
+                await StorageService.delete(
+                    uploadedImagePath
+                );
+            } catch (storageError) {
+                console.error(
+                    "[PAYMENT_PROOF_NEW_IMAGE_CLEANUP_ERROR]",
+                    storageError
+                );
             }
-            console.error("[SUBMIT_PAYMENT_PROOF_ERROR]", error);
-            return {
-                success: false,
-                message: error instanceof Error
+        }
+
+        console.error(
+            "[SUBMIT_PAYMENT_PROOF_ERROR]",
+            error
+        );
+
+        return {
+            success: false,
+            message:
+                error instanceof Error
                     ? error.message
                     : "Gagal mengirim bukti pembayaran.",
-            };
-        }
+        };
     }
+}
     /**
       * ============================================================
       * CREATE CHECKOUT ORDER

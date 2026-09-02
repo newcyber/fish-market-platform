@@ -124,7 +124,7 @@ export default function RewardCard({
             NAME
         ================================================== */}
 
-        <h3 className="line-clamp-2 min-h-[2.25rem] text-[11px] font-bold leading-4 text-slate-900 sm:min-h-[2.75rem] sm:text-sm sm:leading-5 lg:text-base">
+        <h3 className="line-clamp-2 min-h-9 text-[11px] font-bold leading-4 text-slate-900 sm:min-h-11 sm:text-sm sm:leading-5 lg:text-base">
           {reward.name}
         </h3>
 

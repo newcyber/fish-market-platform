@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireAdmin } from "@/lib/auth/admin";
 import OrderService from "@/services/order/order.service";
 
 export async function cancelOrderAction(
   orderId: string
 ) {
   try {
+    await requireAdmin();
+
     console.log(
       "[CANCEL_ORDER_ACTION] START",
       orderId
