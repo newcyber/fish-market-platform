@@ -354,6 +354,32 @@ static async forceDelete(id: string) {
 });
   }
 
+  static async findByIdAndUserId(
+  id: string,
+  userId: string
+) {
+  return prisma.order.findFirst({
+    where: {
+      id,
+      userId,
+      deletedAt: null,
+    },
+
+    include: {
+      user: true,
+      address: true,
+      items: {
+        include: {
+          product: true,
+          sku: true,
+        },
+      },
+      paymentProof: true,
+      paymentChannel: true,
+    },
+  });
+}
+
   /**
    * Cari order berdasarkan nomor order.
    */
@@ -387,18 +413,18 @@ static async forceDelete(id: string) {
   statuses?: OrderStatus[]
 ) {
   return prisma.order.findMany({
-    where: {
-      userId,
+where: {
+  userId,
+  deletedAt: null,
 
-      ...(statuses &&
-      statuses.length > 0
-        ? {
-            status: {
-              in: statuses,
-            },
-          }
-        : {}),
-    },
+  ...(statuses && statuses.length > 0
+    ? {
+        status: {
+          in: statuses,
+        },
+      }
+    : {}),
+},
 
     orderBy: {
       createdAt: "desc",
@@ -408,6 +434,7 @@ static async forceDelete(id: string) {
       items: {
         include: {
           product: true,
+          sku: true,
         },
       },
 

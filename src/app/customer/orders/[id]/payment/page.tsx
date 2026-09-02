@@ -82,36 +82,11 @@ export default async function PaymentPage({
 
   try {
     order =
-      await OrderService.getOrderById(
-        id
+      await OrderService.getOrderByIdForUser(
+        id,
+        session.user.id
       );
   } catch {
-    notFound();
-  }
-
-  /**
-   * ==========================================================
-   * SECURITY
-   *
-   * Customer hanya boleh membuka
-   * halaman pembayaran miliknya sendiri.
-   * ==========================================================
-   */
-
-  if (
-    order.userId !==
-    session.user.id
-  ) {
-    notFound();
-  }
-
-  /**
-   * ==========================================================
-   * SOFT DELETE VALIDATION
-   * ==========================================================
-   */
-
-  if (order.deletedAt) {
     notFound();
   }
 

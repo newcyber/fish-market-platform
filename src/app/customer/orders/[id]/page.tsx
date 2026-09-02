@@ -232,42 +232,15 @@ export default async function CustomerOrderDetailPage({
 
   let order;
 
-  try {
-    order =
-      await OrderService.getOrderById(
-        id
-      );
-  } catch {
-    notFound();
-  }
-
-  /**
-   * ==========================================================
-   * SECURITY
-   *
-   * Customer hanya boleh melihat
-   * order miliknya sendiri.
-   * ==========================================================
-   */
-
-  if (
-    order.userId !==
-    session.user.id
-  ) {
-    notFound();
-  }
-
-  /**
-   * ==========================================================
-   * HIDE DELETED ORDER
-   * ==========================================================
-   */
-
-  if (
-    order.deletedAt
-  ) {
-    notFound();
-  }
+try {
+  order =
+    await OrderService.getOrderByIdForUser(
+      id,
+      session.user.id
+    );
+} catch {
+  notFound();
+}
 
   /**
    * ==========================================================
