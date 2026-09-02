@@ -35,6 +35,47 @@ jobs:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
         run: pnpm exec prisma generate
 
+      - name: Validate VAPID configuration
+        env:
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: |
+          node <<'NODE'
+          const webpush = require("web-push");
+
+          const publicKey = process.env.VAPID_PUBLIC_KEY?.trim();
+          const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
+          const subject = process.env.VAPID_SUBJECT?.trim();
+
+          console.log(
+            "VAPID_PUBLIC_KEY:",
+            publicKey ? `SET (${publicKey.length} chars)` : "MISSING"
+          );
+
+          console.log(
+            "VAPID_PRIVATE_KEY:",
+            privateKey ? `SET (${privateKey.length} chars)` : "MISSING"
+          );
+
+          console.log(
+            "VAPID_SUBJECT:",
+            subject ? "SET" : "MISSING"
+          );
+
+          if (!publicKey || !privateKey || !subject) {
+            throw new Error("VAPID environment variable is missing");
+          }
+
+          webpush.setVapidDetails(
+            subject,
+            publicKey,
+            privateKey
+          );
+
+          console.log("VAPID_CONFIG_OK");
+          NODE
+
       - name: Build production
         env:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
