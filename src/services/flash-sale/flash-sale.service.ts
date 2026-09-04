@@ -433,6 +433,26 @@ export default class FlashSaleService {
   }
 
   /**
+ * ============================================================
+ * GET ACTIVE ITEMS BY PRODUCT
+ * ============================================================
+ *
+ * Read-only Flash Sale data untuk satu product.
+ *
+ * Digunakan oleh:
+ *
+ * - Public Product Detail
+ * - Quick Add Product Card
+ */
+static async getActiveItemsByProductId(
+  productId: string
+) {
+  return FlashSaleRepository.findActiveItemsByProductId(
+    productId
+  );
+}
+
+  /**
    * ==========================================================
    * CREATE
    * ==========================================================

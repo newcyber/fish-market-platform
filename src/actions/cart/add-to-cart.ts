@@ -1,9 +1,13 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
-import CartService from "@/services/cart/cart.service";
+import CartService, {
+  CartOwner,
+} from "@/services/cart/cart.service";
 
 /**
  * ============================================================
@@ -39,15 +43,85 @@ export async function addToCartAction(
   try {
     /**
      * ==========================================================
-     * AUTHENTICATION
+     * RESOLVE CART OWNER
      * ==========================================================
+     *
+     * Customer:
+     *   session.user.id
+     *
+     * Guest:
+     *   httpOnly cookie guestCartId
+     *
+     * guestCartId TIDAK pernah dipercaya dari request body.
      */
     const session = await auth();
 
-    if (!session?.user?.id) {
-      return {
-        success: false,
-        message: "Silakan login terlebih dahulu.",
+    let owner: CartOwner;
+
+    if (session?.user?.id) {
+      /**
+       * ========================================================
+       * AUTHENTICATED CUSTOMER
+       * ========================================================
+       */
+      owner = {
+        type: "customer",
+        userId: session.user.id,
+      };
+    } else {
+      /**
+       * ========================================================
+       * GUEST CART
+       * ========================================================
+       */
+      const cookieStore =
+        await cookies();
+
+      let guestCartId =
+        cookieStore.get(
+          "guestCartId"
+        )?.value;
+
+      /**
+       * Buat identity guest baru jika belum ada.
+       */
+      if (!guestCartId) {
+        guestCartId =
+          randomUUID();
+
+        cookieStore.set(
+          "guestCartId",
+          guestCartId,
+          {
+            httpOnly: true,
+
+            secure:
+              process.env.NODE_ENV ===
+              "production",
+
+            sameSite: "lax",
+
+            path: "/",
+
+            /**
+             * Cookie guest berlaku 30 hari.
+             *
+             * Ini hanya lifetime cookie.
+             * Retention Cart database akan diatur
+             * secara terpisah.
+             */
+            maxAge:
+              60 *
+              60 *
+              24 *
+              30,
+          }
+        );
+      }
+
+      owner = {
+        type: "guest",
+        guestCartId,
       };
     }
 
@@ -92,12 +166,15 @@ export async function addToCartAction(
      * ==========================================================
      */
     if (
-      !Number.isInteger(input.quantity) ||
+      !Number.isInteger(
+        input.quantity
+      ) ||
       input.quantity < 1
     ) {
       return {
         success: false,
-        message: "Jumlah produk tidak valid.",
+        message:
+          "Jumlah produk tidak valid.",
       };
     }
 
@@ -107,8 +184,10 @@ export async function addToCartAction(
      * ==========================================================
      */
     const customerNote =
-      typeof input.customerNote === "string"
-        ? input.customerNote.trim() || null
+      typeof input.customerNote ===
+      "string"
+        ? input.customerNote.trim() ||
+          null
         : null;
 
     /**
@@ -116,11 +195,12 @@ export async function addToCartAction(
      * ADD TO CART
      * ==========================================================
      *
-     * CartService sekarang menggunakan skuId sebagai
-     * canonical product identity.
+     * CartService menggunakan CartOwner sehingga
+     * customer dan guest menggunakan business logic
+     * Cart yang sama.
      */
     await CartService.addItem({
-      userId: session.user.id,
+      owner,
       productId,
       skuId,
       quantity: input.quantity,
@@ -132,8 +212,13 @@ export async function addToCartAction(
      * REVALIDATE
      * ==========================================================
      */
-    revalidatePath("/customer/cart");
-    revalidatePath("/customer/products");
+    revalidatePath(
+      "/customer/cart"
+    );
+
+    revalidatePath(
+      "/customer/products"
+    );
 
     return {
       success: true,

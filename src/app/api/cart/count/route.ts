@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
 
@@ -16,7 +17,13 @@ import CartService from "@/services/cart/cart.service";
  * - Header
  * - Floating cart button
  *
- * Jika user belum login, endpoint mengembalikan count 0.
+ * Mendukung:
+ *
+ * - Customer yang sudah login
+ * - Guest yang memiliki guestCartId cookie
+ *
+ * guestCartId hanya dibaca dari httpOnly cookie.
+ * Tidak menerima guestCartId dari request.
  * ============================================================
  */
 
@@ -24,32 +31,52 @@ export async function GET() {
   try {
     const session = await auth();
 
-    const userId =
-      session?.user?.id;
+    /**
+     * --------------------------------------------------------
+     * CUSTOMER
+     * --------------------------------------------------------
+     */
+    if (session?.user?.id) {
+      const count =
+        await CartService.getItemCount({
+          type: "customer",
+          userId: session.user.id,
+        });
+
+      return NextResponse.json({
+        success: true,
+        count,
+      });
+    }
 
     /**
      * --------------------------------------------------------
-     * GUEST / NOT LOGGED IN
+     * GUEST
      * --------------------------------------------------------
      */
+    const cookieStore =
+      await cookies();
 
-    if (!userId) {
+    const guestCartId =
+      cookieStore.get(
+        "guestCartId"
+      )?.value;
+
+    /**
+     * Belum mempunyai guest cart.
+     */
+    if (!guestCartId) {
       return NextResponse.json({
         success: true,
         count: 0,
       });
     }
 
-    /**
-     * --------------------------------------------------------
-     * GET CART ITEM COUNT
-     * --------------------------------------------------------
-     */
-
     const count =
-      await CartService.getItemCount(
-        userId
-      );
+      await CartService.getItemCount({
+        type: "guest",
+        guestCartId,
+      });
 
     return NextResponse.json({
       success: true,

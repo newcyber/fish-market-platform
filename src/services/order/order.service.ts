@@ -4140,7 +4140,15 @@ static async submitPaymentProof(
       *
       * ============================================================
     */
-    static async createCheckoutOrder(userId: string, addressId: string, paymentChannelId: string, notes?: string | null, shippingProvider: ShippingProviderCode = "INTERNAL", voucherCode?: string | null) {
+    static async createCheckoutOrder(
+    userId: string,
+    addressId: string,
+    paymentChannelId: string,
+    notes?: string | null,
+    shippingProvider: ShippingProviderCode = "INTERNAL",
+    voucherCode?: string | null,
+    selectedItemIds?: string[] | null,
+) {
         const normalizedVoucherCode = voucherCode
             ?.trim()
             .toUpperCase() ||
@@ -4169,6 +4177,34 @@ static async submitPaymentProof(
                     message: "Metode pembayaran tidak valid.",
                 };
             }
+
+            /**
+ * ============================================================
+ * VALIDATE SELECTED CART ITEMS
+ * ============================================================
+ *
+ * Jika selectedItemIds dikirim, checkout hanya boleh
+ * menggunakan CartItem yang dipilih.
+ *
+ * CartItem.id adalah identity yang digunakan,
+ * bukan productId.
+ * ============================================================
+ */
+const normalizedSelectedItemIds =
+    selectedItemIds
+        ?.map((id) => id.trim())
+        .filter(Boolean) ?? null;
+
+if (
+    normalizedSelectedItemIds !== null &&
+    normalizedSelectedItemIds.length === 0
+) {
+    return {
+        success: false,
+        message: "Tidak ada produk yang dipilih untuk checkout.",
+    };
+}
+
             /**
               * ========================================================
               * VALIDATE SHIPPING PROVIDER
@@ -4350,6 +4386,47 @@ static async submitPaymentProof(
                     cart.items.length === 0) {
                     throw new Error("Keranjang belanja Anda kosong.");
                 }
+
+                /**
+ * ============================================================
+ * RESOLVE SELECTED CART ITEMS
+ * ============================================================
+ *
+ * Jika selectedItemIds dikirim:
+ *   checkout hanya menggunakan CartItem tersebut.
+ *
+ * Jika selectedItemIds tidak dikirim:
+ *   seluruh isi cart digunakan.
+ *
+ * Validasi dilakukan terhadap cart milik user yang sedang
+ * checkout, sehingga CartItem milik user lain tidak dapat
+ * digunakan.
+ * ============================================================
+ */
+
+const selectedCartItems =
+    normalizedSelectedItemIds === null
+        ? cart.items
+        : cart.items.filter((item) =>
+              normalizedSelectedItemIds.includes(item.id)
+          );
+
+if (selectedCartItems.length === 0) {
+    throw new Error(
+        "Tidak ada produk yang dipilih untuk checkout."
+    );
+}
+
+if (
+    normalizedSelectedItemIds !== null &&
+    selectedCartItems.length !==
+        normalizedSelectedItemIds.length
+) {
+    throw new Error(
+        "Sebagian produk yang dipilih tidak ditemukan di keranjang."
+    );
+}
+
                 /**
                  * ====================================================
                  * GENERATE ORDER NUMBER
@@ -4364,9 +4441,11 @@ static async submitPaymentProof(
                   * RE-VALIDATE CART ITEMS
                   * ====================================================
                 */
-                const productIds = [
-                    ...new Set(cart.items.map((item) => item.productId)),
-                ];
+const productIds = [
+    ...new Set(
+        selectedCartItems.map((item) => item.productId)
+    ),
+];
                 const products = await tx.product.findMany({
                     where: {
                         id: {
@@ -4396,7 +4475,7 @@ static async submitPaymentProof(
                   * Product.stock TIDAK lagi digunakan untuk stock checkout.
                   * Stock canonical berada pada ProductSku.stock.
                 */
-                for (const item of cart.items) {
+                for (const item of selectedCartItems) {
                     const product = productMap.get(item.productId);
                     if (!product) {
                         throw new Error(`Produk ${item.product.name} sudah tidak tersedia.`);
@@ -4425,7 +4504,7 @@ static async submitPaymentProof(
                 */
                 const normalizedItems = [];
                 const flashSaleRequirements: FlashSaleCheckoutRequirement[] = [];
-                for (const item of cart.items) {
+                for (const item of selectedCartItems) {
                     const product = productMap.get(item.productId);
                     if (!product) {
                         throw new Error("Produk tidak ditemukan.");
@@ -4991,11 +5070,27 @@ data: {
                  *
                  * ====================================================
                  */
-                await tx.cartItem.deleteMany({
-                    where: {
-                        cartId: cart.id,
-                    },
-                });
+/**
+ * ====================================================
+ * CLEAR SELECTED CART ITEMS
+ * ====================================================
+ *
+ * Hanya CartItem yang berhasil masuk ke Order yang
+ * boleh dihapus.
+ *
+ * Item yang tidak dipilih tetap berada di cart.
+ *
+ * Semua masih berada di dalam transaction yang sama.
+ * ====================================================
+ */
+await tx.cartItem.deleteMany({
+    where: {
+        cartId: cart.id,
+        id: {
+            in: selectedCartItems.map((item) => item.id),
+        },
+    },
+});
                 return createdOrder;
             });
             /**

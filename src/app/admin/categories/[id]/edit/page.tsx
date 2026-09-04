@@ -100,25 +100,29 @@ export default async function EditCategoryPage({
       <CategoryForm
         submitLabel="Update Kategori"
         action={action}
-        defaultValues={{
-          name:
-            category.name,
+defaultValues={{
+  name:
+    category.name,
 
-          slug:
-            category.slug,
+  slug:
+    category.slug,
 
-          description:
-            category.description ??
-            "",
+  description:
+    category.description ??
+    "",
 
-          sortOrder:
-            category.sortOrder ??
-            0,
+  image:
+    category.image ??
+    "",
 
-          isActive:
-            category.isActive ??
-            true,
-        }}
+  sortOrder:
+    category.sortOrder ??
+    0,
+
+  isActive:
+    category.isActive ??
+    true,
+}}
       />
     </div>
   );

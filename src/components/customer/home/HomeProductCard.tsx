@@ -1,11 +1,17 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
 import {
   Flame,
   Package,
+  Plus,
   Sparkles,
 } from "lucide-react";
+
+import HomeProductQuickAddSheet from "@/components/customer/home/HomeProductQuickAddSheet";
 
 /**
  * ============================================================
@@ -35,12 +41,12 @@ export interface HomeProductImage {
   id: string;
 
   image:
-    | string
-    | null;
+  | string
+  | null;
 
   sortOrder:
-    | number
-    | null;
+  | number
+  | null;
 
   isThumbnail?: boolean;
 }
@@ -54,11 +60,13 @@ export interface HomeProductCardProduct {
 
   price: number;
 
-  stock: number;
+  stock: number | null;
 
   images: HomeProductImage[];
 
   soldQuantity?: number;
+
+  hasVariants?: boolean;
 }
 
 export type HomeProductBadge =
@@ -69,7 +77,7 @@ export type HomeProductBadge =
 
 interface HomeProductCardProps {
   product:
-    HomeProductCardProduct;
+  HomeProductCardProduct;
 
   productsHref: string;
 
@@ -165,7 +173,7 @@ function ProductBadge({
           rounded-md
           border
           border-white/30
-          bg-[var(--fresh-600)]
+          bg-(--fresh-600)
           px-1.5
           py-1
           text-[8px]
@@ -226,7 +234,7 @@ function ProductBadge({
           rounded-md
           border
           border-orange-300/60
-          bg-gradient-to-r
+          bg-linear-to-r
           from-orange-500
           to-red-500
           px-1.5
@@ -278,6 +286,11 @@ export default function HomeProductCard({
   badge = null,
   rank,
 }: HomeProductCardProps) {
+  const [
+    quickAddOpen,
+    setQuickAddOpen,
+  ] = useState(false);
+
   const image =
     getProductImage(
       product.images
@@ -289,13 +302,22 @@ export default function HomeProductCard({
   const hasSoldQuantity =
     typeof product.soldQuantity ===
     "number";
+  const hasVariants =
+    product.hasVariants === true;
+
+  const displayPriceLabel =
+    hasVariants
+      ? "Mulai dari"
+      : null;
+
+  const hasStock =
+    typeof product.stock ===
+    "number";
 
   return (
-    <Link
-      href={
-        productHref
-      }
-      className="
+    <>
+      <div
+        className="
         group
         relative
         flex
@@ -304,7 +326,7 @@ export default function HomeProductCard({
         overflow-hidden
         rounded-lg
         border
-        border-[var(--ice-200)]
+        border-(--ice-200)
         bg-white
         shadow-[0_2px_8px_rgba(15,23,42,0.05)]
         transition
@@ -314,50 +336,54 @@ export default function HomeProductCard({
 
         sm:rounded-xl
         sm:hover:-translate-y-1
-        sm:hover:border-[var(--fresh-300)]
+        sm:hover:border-(--fresh-300)
         sm:hover:shadow-[0_12px_28px_rgba(15,23,42,0.10)]
       "
-    >
+      >
+        <Link
+          href={productHref}
+          className="block"
+        >
 
-      {/* ================================================== */}
-      {/* IMAGE */}
-      {/* ================================================== */}
+          {/* ================================================== */}
+          {/* IMAGE */}
+          {/* ================================================== */}
 
-      <div
-        className="
+          <div
+            className="
           relative
           aspect-square
           overflow-hidden
-          bg-[var(--ice-100)]
+          bg-(--ice-100)
         "
-      >
+          >
 
-        {image ? (
-          <Image
-            src={
-              image
-            }
-            alt={
-              product.name
-            }
-            fill
-            sizes="
+            {image ? (
+              <Image
+                src={
+                  image
+                }
+                alt={
+                  product.name
+                }
+                fill
+                sizes="
               (max-width: 639px) 33vw,
               (max-width: 1023px) 25vw,
               (max-width: 1279px) 20vw,
               16.66vw
             "
-            className="
+                className="
               object-cover
               transition
               duration-300
 
               sm:group-hover:scale-105
             "
-          />
-        ) : (
-          <div
-            className="
+              />
+            ) : (
+              <div
+                className="
               flex
               h-full
               w-full
@@ -366,58 +392,58 @@ export default function HomeProductCard({
               justify-center
               gap-1
               px-1
-              text-[var(--ink-400)]
+              text-(--ink-400)
             "
-          >
-            <Package
-              className="
+              >
+                <Package
+                  className="
                 h-5
                 w-5
 
                 sm:h-7
                 sm:w-7
               "
-            />
+                />
 
-            <span
-              className="
+                <span
+                  className="
                 text-center
                 text-[8px]
 
                 sm:text-[10px]
               "
-            >
-              Gambar belum tersedia
-            </span>
-          </div>
-        )}
+                >
+                  Gambar belum tersedia
+                </span>
+              </div>
+            )}
 
-        {/* ============================================== */}
-        {/* IMAGE OVERLAY */}
-        {/* ============================================== */}
+            {/* ============================================== */}
+            {/* IMAGE OVERLAY */}
+            {/* ============================================== */}
 
-        <div
-          className="
+            <div
+              className="
             pointer-events-none
             absolute
             inset-x-0
             bottom-0
             z-10
             h-10
-            bg-gradient-to-t
+            bg-linear-to-t
             from-black/10
             to-transparent
           "
-        />
+            />
 
-        {/* ============================================== */}
-        {/* RANK */}
-        {/* ============================================== */}
+            {/* ============================================== */}
+            {/* RANK */}
+            {/* ============================================== */}
 
-        {badge === "best-seller" &&
-          rank && (
-            <div
-              className="
+            {badge === "best-seller" &&
+              rank && (
+                <div
+                  className="
                 absolute
                 z-30
                 left-1
@@ -430,7 +456,7 @@ export default function HomeProductCard({
                 rounded-md
                 border
                 border-white/20
-                bg-[var(--ocean-950)]
+                bg-(--ocean-950)
                 px-1
                 text-[9px]
                 font-black
@@ -445,32 +471,32 @@ export default function HomeProductCard({
                 sm:px-2
                 sm:text-sm
               "
-            >
-              #{rank}
-            </div>
-          )}
+                >
+                  #{rank}
+                </div>
+              )}
 
-        {/* ============================================== */}
-        {/* BADGE */}
-        {/* ============================================== */}
+            {/* ============================================== */}
+            {/* BADGE */}
+            {/* ============================================== */}
 
-        <ProductBadge
-          badge={
-            badge
-          }
-          rank={
-            rank
-          }
-        />
+            <ProductBadge
+              badge={
+                badge
+              }
+              rank={
+                rank
+              }
+            />
 
-      </div>
+          </div>
 
-      {/* ================================================== */}
-      {/* CONTENT */}
-      {/* ================================================== */}
+          {/* ================================================== */}
+          {/* CONTENT */}
+          {/* ================================================== */}
 
-      <div
-        className="
+          <div
+            className="
           flex
           flex-1
           flex-col
@@ -478,65 +504,87 @@ export default function HomeProductCard({
 
           sm:p-3
         "
-      >
+          >
 
-        {/* PRODUCT NAME */}
+            {/* PRODUCT NAME */}
 
-        <h3
-          className="
-            line-clamp-2
-            min-h-[2rem]
-            text-[10px]
-            font-bold
-            leading-4
-            text-[var(--ocean-950)]
-            transition
+            <h3
+              className="
+              line-clamp-2
+              min-h-8
+              text-[10px]
+              font-bold
+              leading-4
+              text-(--ocean-950)
+              transition
 
-            sm:min-h-[2.5rem]
-            sm:text-sm
-            sm:leading-5
-            sm:group-hover:text-[var(--ocean-700)]
-          "
-        >
-          {product.name}
-        </h3>
+              sm:min-h-10
+              sm:text-sm
+              sm:leading-5
+              sm:group-hover:text-(--ocean-700)
+            "
+            >
+              {product.name}
+            </h3>
 
-        <div
-          className="
+            <div
+              className="
             mt-auto
             pt-1.5
 
             sm:pt-3
           "
-        >
+            >
 
-          {/* ============================================ */}
-          {/* PRICE */}
-          {/* ============================================ */}
+              {/* ============================================ */}
+              {/* PRICE */}
+              {/* ============================================ */}
 
-          <p
-            className="
-              truncate
-              text-[11px]
-              font-black
-              leading-4
-              text-[var(--fresh-700)]
+<div
+  className="
+    min-w-0
+  "
+>
+  {displayPriceLabel && (
+    <p
+      className="
+        text-[8px]
+        font-semibold
+        leading-3
+        text-(--ink-400)
 
-              sm:text-base
-              sm:leading-5
-            "
-          >
-            {formatRupiah(
-              product.price
-            )}
-          </p>
+        sm:text-[10px]
+        sm:leading-4
+      "
+    >
+      {displayPriceLabel}
+    </p>
+  )}
 
-          {/* ============================================ */}
-          {/* META */}
-          {/* ============================================ */}
+  <p
+    className="
+      truncate
+      text-[11px]
+      font-black
+      leading-4
+      text-(--fresh-700)
 
-          <div
-            className="
+      sm:text-base
+      sm:leading-5
+    "
+  >
+    {formatRupiah(
+      product.price
+    )}
+  </p>
+</div>
+
+              {/* ============================================ */}
+              {/* META */}
+              {/* ============================================ */}
+
+              <div
+                className="
               mt-1
               flex
               min-h-3
@@ -544,60 +592,122 @@ export default function HomeProductCard({
               justify-between
               gap-1
             "
-          >
-
-            {/* STOCK */}
-
-            <p
-              className="
-                truncate
-                text-[8px]
-                text-[var(--ink-400)]
-
-                sm:text-[11px]
-              "
-            >
-              <span className="hidden sm:inline">
-                Stok{" "}
-              </span>
-
-              <span
-                className="
-                  font-bold
-                  text-[var(--ink-600)]
-                "
               >
-                {product.stock}
-              </span>
-            </p>
 
-            {/* SOLD */}
+                {/* STOCK */}
 
-            {hasSoldQuantity && (
-              <p
-                className="
+{hasStock ? (
+  <p
+    className="
+      truncate
+      text-[8px]
+      text-(--ink-400)
+
+      sm:text-[11px]
+    "
+  >
+    <span className="hidden sm:inline">
+      Stok{" "}
+    </span>
+
+    <span
+      className="
+        font-bold
+        text-(--ink-600)
+      "
+    >
+      {product.stock}
+    </span>
+  </p>
+) : (
+  <span />
+)}
+
+                {/* SOLD */}
+
+                {hasSoldQuantity && (
+                  <p
+                    className="
                   shrink-0
                   text-[8px]
                   font-bold
-                  text-[var(--ocean-700)]
+                  text-(--ocean-700)
 
                   sm:text-[11px]
                 "
-              >
-                {product.soldQuantity}
-                <span className="hidden sm:inline">
-                  {" "}
-                  terjual
-                </span>
-              </p>
-            )}
+                  >
+                    {product.soldQuantity}
+                    <span className="hidden sm:inline">
+                      {" "}
+                      terjual
+                    </span>
+                  </p>
+                )}
+
+              </div>
+
+            </div>
 
           </div>
 
-        </div>
+        </Link>
 
+        {/* ================================================== */}
+        {/* QUICK ADD */}
+        {/* ================================================== */}
+
+        <button
+          type="button"
+          aria-label={`Tambah ${product.name} ke keranjang`}
+          onClick={() =>
+            setQuickAddOpen(true)
+          }
+          className="
+          absolute
+          bottom-2
+          right-2
+          z-40
+          flex
+          h-8
+          w-8
+          items-center
+          justify-center
+          rounded-full
+          bg-(--fresh-600)
+          text-white
+          shadow-lg
+          shadow-(--fresh-600)/25
+          transition
+          active:scale-90
+          hover:bg-(--fresh-700)
+
+          sm:bottom-3
+          sm:right-3
+          sm:h-9
+          sm:w-9
+        "
+        >
+          <Plus
+            className="
+            h-4
+            w-4
+            stroke-[2.5]
+
+            sm:h-5
+            sm:w-5
+          "
+          />
+        </button>
       </div>
 
-    </Link>
+      <HomeProductQuickAddSheet
+        productId={product.id}
+        productName={product.name}
+        open={quickAddOpen}
+        onClose={() =>
+          setQuickAddOpen(false)
+        }
+      />
+    </>
   );
 }

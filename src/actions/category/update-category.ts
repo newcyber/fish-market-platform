@@ -46,31 +46,36 @@ export async function updateCategoryAction(
      * ==========================================================
      */
 
-    const rawData = {
-      name:
-        String(
-          formData.get("name") ?? ""
-        ),
+const rawData = {
+  name:
+    String(
+      formData.get("name") ?? ""
+    ),
 
-      slug:
-        String(
-          formData.get("slug") ?? ""
-        ),
+  slug:
+    String(
+      formData.get("slug") ?? ""
+    ),
 
-      description:
-        String(
-          formData.get("description") ?? ""
-        ),
+  description:
+    String(
+      formData.get("description") ?? ""
+    ),
 
-      sortOrder:
-        Number(
-          formData.get("sortOrder") ?? 0
-        ),
+  image:
+    String(
+      formData.get("image") ?? ""
+    ).trim() || null,
 
-      isActive:
-        formData.get("isActive") ===
-        "true",
-    };
+  sortOrder:
+    Number(
+      formData.get("sortOrder") ?? 0
+    ),
+
+  isActive:
+    formData.get("isActive") ===
+    "true",
+};
 
     /**
      * ==========================================================

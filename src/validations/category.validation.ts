@@ -48,6 +48,13 @@ export const categorySchema =
         )
         .optional(),
 
+    image:
+      z
+    .string()
+    .trim()
+    .optional()
+    .nullable(),
+
     sortOrder:
       z
         .number({

@@ -77,11 +77,12 @@ export default async function ProductsPage({
   const params =
     (await searchParams) ?? {};
 
-  const categoryId =
-    params.category &&
-    params.category !== "all"
-      ? params.category
-      : undefined;
+const categorySlug =
+  params.category &&
+  params.category !== "all"
+    ? params.category.trim().toLowerCase()
+    : undefined;
+
   /**
    * ==========================================================
    * AUTH
@@ -109,43 +110,75 @@ export default async function ProductsPage({
    * → Hero Slider Slide 1
    */
 
-  const [
-    products,
-    categories,
-    storeSettings,
-  ] = await Promise.all([
-    prisma.product.findMany({
-      where: {
-        deletedAt: null,
+const [
+  categories,
+  storeSettings,
+] = await Promise.all([
+  CategoryService.getCategories({
+    active: true,
+  }),
 
-        isPublished: true,
+  prisma.storeSettings.findFirst(),
+]);
 
-        ...(categoryId
-          ? {
-              categoryId,
-            }
-          : {}),
-      },
+/**
+ * ==========================================================
+ * RESOLVE CATEGORY SLUG -> CATEGORY ID
+ * ==========================================================
+ *
+ * URL menggunakan slug.
+ * Database Product.categoryId menggunakan UUID.
+ */
 
-      include: {
-        images: {
-          orderBy: {
-            sortOrder: "asc",
+const selectedCategory =
+  categorySlug
+    ? categories.find(
+        (category) =>
+          category.slug ===
+          categorySlug
+      )
+    : undefined;
+
+const categoryId =
+  selectedCategory?.id;
+
+/**
+ * ==========================================================
+ * INVALID CATEGORY SLUG
+ * ==========================================================
+ *
+ * Jika URL membawa category slug yang tidak dikenal,
+ * jangan tampilkan seluruh produk.
+ */
+
+const products =
+  categorySlug && !selectedCategory
+    ? []
+    : await prisma.product.findMany({
+        where: {
+          deletedAt: null,
+
+          isPublished: true,
+
+          ...(categoryId
+            ? {
+                categoryId,
+              }
+            : {}),
+        },
+
+        include: {
+          images: {
+            orderBy: {
+              sortOrder: "asc",
+            },
           },
         },
-      },
 
-      orderBy: {
-        createdAt: "desc",
-      },
-    }),
-
-    CategoryService.getCategories({
-      active: true,
-    }),
-
-    prisma.storeSettings.findFirst(),
-  ]);
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
 
   /**
    * ==========================================================
@@ -222,17 +255,17 @@ export default async function ProductsPage({
    * ==========================================================
    */
 
-  const categoryUrl = (
-    nextCategoryId?: string
-  ) => {
-    if (!nextCategoryId) {
-      return "/products?category=all#categories";
-    }
+const categoryUrl = (
+  nextCategorySlug?: string
+) => {
+  if (!nextCategorySlug) {
+    return "/products?category=all#categories";
+  }
 
-    return `/products?category=${encodeURIComponent(
-      nextCategoryId
-    )}#categories`;
-  };
+  return `/products?category=${encodeURIComponent(
+    nextCategorySlug
+  )}#categories`;
+};
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -299,8 +332,8 @@ export default async function ProductsPage({
 
               lg:right-[6%]
               lg:top-1/2
-              lg:h-[460px]
-              lg:w-[460px]
+              lg:h-115
+              lg:w-115
               lg:-translate-y-1/2
             "
           />
@@ -348,15 +381,15 @@ export default async function ProductsPage({
 
               rounded-full
 
-              bg-[var(--fresh-500)]/[0.12]
+              bg-(--fresh-500)/12
 
               blur-3xl
 
               sm:h-80
               sm:w-80
 
-              lg:h-[520px]
-              lg:w-[520px]
+              lg:h-130
+              lg:w-130
             "
           />
 
@@ -416,17 +449,17 @@ export default async function ProductsPage({
       grid
       items-center
 
-      min-h-[320px]
+      min-h-80
 
       gap-6
 
-      sm:min-h-[350px]
+      sm:min-h-87.5
 
-      lg:min-h-[360px]
+      lg:min-h-90
       lg:grid-cols-[1.12fr_0.88fr]
       lg:gap-8
 
-      xl:min-h-[390px]
+      xl:min-h-97.5
       xl:gap-10
     "
           >
@@ -790,7 +823,7 @@ export default async function ProductsPage({
 
           right-[4%]
 
-          h-[190px]
+          h-47.5
           w-[190px]
 
           rounded-full
@@ -1098,15 +1131,16 @@ export default async function ProductsPage({
     </span>
   </div>
 
-  <ProductCategoryNavigation
+<ProductCategoryNavigation
   categories={categories.map(
     (category) => ({
       id: category.id,
       name: category.name,
+      slug: category.slug,
     })
   )}
-  activeCategoryId={categoryId}
-  basePath="/customer/products"
+  activeCategorySlug={categorySlug}
+  basePath="/products"
 />
 </div>
 

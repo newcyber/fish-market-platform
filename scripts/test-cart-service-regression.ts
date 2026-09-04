@@ -173,12 +173,6 @@ async function main() {
    * ------------------------------------------------------------
    * 3. Find another product/SKU for wrong-SKU test.
    * ------------------------------------------------------------
-   *
-   * We need:
-   *
-   * product A + SKU belonging to product B
-   *
-   * This must result in SKU_NOT_AVAILABLE.
    */
   const wrongSku = await prisma.productSku.findFirst({
     where: {
@@ -224,11 +218,25 @@ async function main() {
   console.log();
   console.log("PREPARE - Clear test carts");
 
-  await CartService.getOrCreateCart(userA.id);
-  await CartService.getOrCreateCart(userB.id);
+  await CartService.getOrCreateCart({
+    type: "customer",
+    userId: userA.id,
+  });
 
-  await CartService.clearCart(userA.id);
-  await CartService.clearCart(userB.id);
+  await CartService.getOrCreateCart({
+    type: "customer",
+    userId: userB.id,
+  });
+
+  await CartService.clearCart({
+    type: "customer",
+    userId: userA.id,
+  });
+
+  await CartService.clearCart({
+    type: "customer",
+    userId: userB.id,
+  });
 
   console.log("PASS");
 
@@ -243,13 +251,19 @@ async function main() {
   console.log("TEST #1 - Add SKU A x 1");
 
   await CartService.addItem({
-    userId: userA.id,
+    owner: {
+      type: "customer",
+      userId: userA.id,
+    },
     productId: product.id,
     skuId: skuA.id,
     quantity: 1,
   });
 
-  let cart = await CartService.getCart(userA.id);
+  let cart = await CartService.getCart({
+    type: "customer",
+    userId: userA.id,
+  });
 
   if (!cart) {
     throw new Error("Cart tidak ditemukan setelah addItem.");
@@ -284,13 +298,19 @@ async function main() {
   console.log("TEST #2 - Add same SKU A x 2");
 
   await CartService.addItem({
-    userId: userA.id,
+    owner: {
+      type: "customer",
+      userId: userA.id,
+    },
     productId: product.id,
     skuId: skuA.id,
     quantity: 2,
   });
 
-  cart = await CartService.getCart(userA.id);
+  cart = await CartService.getCart({
+    type: "customer",
+    userId: userA.id,
+  });
 
   if (!cart) {
     throw new Error("Cart tidak ditemukan.");
@@ -321,13 +341,19 @@ async function main() {
   console.log("TEST #3 - Add different SKU B x 1");
 
   await CartService.addItem({
-    userId: userA.id,
+    owner: {
+      type: "customer",
+      userId: userA.id,
+    },
     productId: product.id,
     skuId: skuB.id,
     quantity: 1,
   });
 
-  cart = await CartService.getCart(userA.id);
+  cart = await CartService.getCart({
+    type: "customer",
+    userId: userA.id,
+  });
 
   if (!cart) {
     throw new Error("Cart tidak ditemukan.");
@@ -383,7 +409,10 @@ async function main() {
   await expectCartError(
     () =>
       CartService.addItem({
-        userId: userA.id,
+        owner: {
+          type: "customer",
+          userId: userA.id,
+        },
         productId: product.id,
         skuId: null,
         quantity: 1,
@@ -408,7 +437,10 @@ async function main() {
   await expectCartError(
     () =>
       CartService.addItem({
-        userId: userA.id,
+        owner: {
+          type: "customer",
+          userId: userA.id,
+        },
         productId: product.id,
         skuId: wrongSku.id,
         quantity: 1,
@@ -433,7 +465,10 @@ async function main() {
   await expectCartError(
     () =>
       CartService.addItem({
-        userId: userA.id,
+        owner: {
+          type: "customer",
+          userId: userA.id,
+        },
         productId: product.id,
         skuId: skuA.id,
         quantity: 0,
@@ -458,7 +493,10 @@ async function main() {
   await expectCartError(
     () =>
       CartService.addItem({
-        userId: userA.id,
+        owner: {
+          type: "customer",
+          userId: userA.id,
+        },
         productId: product.id,
         skuId: skuA.id,
         quantity: skuA.stock + 1,
@@ -486,7 +524,10 @@ async function main() {
   await expectCartError(
     () =>
       CartService.updateItem({
-        userId: userB.id,
+        owner: {
+          type: "customer",
+          userId: userB.id,
+        },
         cartItemId: itemA.id,
         quantity: 1,
       }),
@@ -507,7 +548,10 @@ async function main() {
   await expectCartError(
     () =>
       CartService.removeItem({
-        userId: userB.id,
+        owner: {
+          type: "customer",
+          userId: userB.id,
+        },
         cartItemId: itemA.id,
       }),
     "INVALID_CART_ITEM",
@@ -522,7 +566,10 @@ async function main() {
   console.log();
   console.log("TEST #10 - Verify User A cart remains intact");
 
-  cart = await CartService.getCart(userA.id);
+  cart = await CartService.getCart({
+    type: "customer",
+    userId: userA.id,
+  });
 
   if (!cart) {
     throw new Error(
@@ -564,28 +611,17 @@ async function main() {
 
   console.log("PASS");
 
-    /**
+  /**
    * ------------------------------------------------------------
    * 15. TEST #11
    *
    * Concurrent updateItem() terhadap CartItem yang sama.
-   *
-   * updateItem() menggunakan FINAL quantity.
-   *
-   * Karena semua request mengunci Cart yang sama dengan
-   * FOR UPDATE, setiap update harus terserialisasi.
    * ------------------------------------------------------------
    */
-
   console.log();
   console.log(
     "TEST #11 - Concurrent updateItem()"
   );
-
-  /**
-   * Pastikan kita memiliki CartItem A yang akan digunakan
-   * sebagai target concurrency test.
-   */
 
   if (!itemA) {
     throw new Error(
@@ -593,22 +629,14 @@ async function main() {
     );
   }
 
-  /**
-   * Reset quantity terlebih dahulu agar kondisi awal
-   * deterministic.
-   */
-
   await CartService.updateItem({
-    userId: userA.id,
+    owner: {
+      type: "customer",
+      userId: userA.id,
+    },
     cartItemId: itemA.id,
     quantity: 1,
   });
-
-  /**
-   * Quantity yang akan dikirim oleh concurrent requests.
-   *
-   * Semua nilai valid terhadap stock SKU A.
-   */
 
   const concurrentQuantities = [
     2,
@@ -623,23 +651,16 @@ async function main() {
     11,
   ];
 
-  /**
-   * Jalankan seluruh update secara concurrent.
-   *
-   * Promise.all() hanya digunakan untuk menghasilkan
-   * contention nyata.
-   *
-   * Jangan menganggap index Promise sebagai urutan lock
-   * database.
-   */
-
   const concurrentResults =
     await Promise.all(
       concurrentQuantities.map(
         async (quantity) => {
           try {
             await CartService.updateItem({
-              userId: userA.id,
+              owner: {
+                type: "customer",
+                userId: userA.id,
+              },
               cartItemId: itemA.id,
               quantity,
             });
@@ -660,19 +681,12 @@ async function main() {
       )
     );
 
-  /**
-   * Semua request harus berhasil.
-   */
-
   const failedResults =
     concurrentResults.filter(
-      (result) =>
-        !result.success
+      (result) => !result.success
     );
 
-  if (
-    failedResults.length > 0
-  ) {
+  if (failedResults.length > 0) {
     console.error(
       "Concurrent update failures:"
     );
@@ -691,24 +705,17 @@ async function main() {
     );
   }
 
-  /**
-   * Ambil cart setelah seluruh concurrent update selesai.
-   */
-
   cart =
-    await CartService.getCart(
-      userA.id
-    );
+    await CartService.getCart({
+      type: "customer",
+      userId: userA.id,
+    });
 
   if (!cart) {
     throw new Error(
       "Cart User A tidak ditemukan setelah concurrent update test."
     );
   }
-
-  /**
-   * Harus tetap hanya ada satu CartItem untuk SKU A.
-   */
 
   const concurrentItemA =
     cart.items.filter(
@@ -723,11 +730,6 @@ async function main() {
       `Concurrent update corrupted cart identity. Expected 1 SKU A CartItem, got ${concurrentItemA.length}.`
     );
   }
-
-  /**
-   * Karena updateItem() adalah FINAL quantity, quantity akhir
-   * harus merupakan salah satu quantity request yang berhasil.
-   */
 
   const finalConcurrentQuantity =
     concurrentItemA[0].quantity;
@@ -758,40 +760,25 @@ async function main() {
     `CartItems for SKU A  : ${concurrentItemA.length}`
   );
 
-  console.log(
-    "PASS"
-  );
+  console.log("PASS");
 
-    /**
+  /**
    * ------------------------------------------------------------
    * 16. TEST #12
    *
    * Concurrent removeItem() terhadap CartItem yang sama.
-   *
-   * Hanya satu request yang seharusnya berhasil menghapus item.
-   * Request lainnya boleh mendapatkan INVALID_CART_ITEM karena
-   * item sudah dihapus oleh request sebelumnya.
-   *
-   * Yang tidak boleh terjadi:
-   * - P2025 / Prisma error mentah
-   * - item tetap tersisa
-   * - lebih dari satu CartItem
    * ------------------------------------------------------------
    */
-
   console.log();
   console.log(
     "TEST #12 - Concurrent removeItem()"
   );
 
-  /**
-   * Pastikan item A masih tersedia.
-   */
-
   cart =
-    await CartService.getCart(
-      userA.id
-    );
+    await CartService.getCart({
+      type: "customer",
+      userId: userA.id,
+    });
 
   if (!cart) {
     throw new Error(
@@ -814,8 +801,7 @@ async function main() {
   const concurrentRemoves =
     Array.from(
       { length: 10 },
-      (_, index) =>
-        index + 1
+      (_, index) => index + 1
     );
 
   const removeResults =
@@ -824,9 +810,11 @@ async function main() {
         async (requestNumber) => {
           try {
             await CartService.removeItem({
-              userId: userA.id,
-              cartItemId:
-                removeTarget.id,
+              owner: {
+                type: "customer",
+                userId: userA.id,
+              },
+              cartItemId: removeTarget.id,
             });
 
             return {
@@ -845,14 +833,9 @@ async function main() {
       )
     );
 
-  /**
-   * Tepat satu request harus berhasil.
-   */
-
   const successfulRemoves =
     removeResults.filter(
-      (result) =>
-        result.success
+      (result) => result.success
     );
 
   if (
@@ -863,15 +846,9 @@ async function main() {
     );
   }
 
-  /**
-   * Request yang gagal harus berupa CartError
-   * INVALID_CART_ITEM.
-   */
-
   const failedRemoves =
     removeResults.filter(
-      (result) =>
-        !result.success
+      (result) => !result.success
     );
 
   for (
@@ -895,14 +872,11 @@ async function main() {
     }
   }
 
-  /**
-   * Pastikan item benar-benar sudah hilang.
-   */
-
   cart =
-    await CartService.getCart(
-      userA.id
-    );
+    await CartService.getCart({
+      type: "customer",
+      userId: userA.id,
+    });
 
   if (!cart) {
     throw new Error(
@@ -913,8 +887,7 @@ async function main() {
   const remainingRemovedItem =
     cart.items.filter(
       (item) =>
-        item.id ===
-        removeTarget.id
+        item.id === removeTarget.id
     );
 
   if (
@@ -941,9 +914,7 @@ async function main() {
     `Remaining target     : ${remainingRemovedItem.length}`
   );
 
-  console.log(
-    "PASS"
-  );
+  console.log("PASS");
 
   /**
    * ------------------------------------------------------------
@@ -951,42 +922,28 @@ async function main() {
    *
    * Race antara updateItem() dan removeItem() terhadap CartItem
    * yang sama.
-   *
-   * Karena kedua mutation menggunakan Cart-level FOR UPDATE,
-   * keduanya harus terserialisasi.
-   *
-   * Hasil valid:
-   *
-   *   update -> remove
-   *     => update sukses, remove sukses
-   *
-   *   remove -> update
-   *     => remove sukses, update INVALID_CART_ITEM
-   *
-   * Tidak boleh ada Prisma error mentah.
    * ------------------------------------------------------------
    */
-
   console.log();
   console.log(
     "TEST #13 - Concurrent updateItem() vs removeItem()"
   );
 
-  /**
-   * Buat kembali CartItem A untuk race test.
-   */
-
   await CartService.addItem({
-    userId: userA.id,
+    owner: {
+      type: "customer",
+      userId: userA.id,
+    },
     productId: product.id,
     skuId: skuA.id,
     quantity: 1,
   });
 
   cart =
-    await CartService.getCart(
-      userA.id
-    );
+    await CartService.getCart({
+      type: "customer",
+      userId: userA.id,
+    });
 
   if (!cart) {
     throw new Error(
@@ -1006,13 +963,6 @@ async function main() {
     );
   }
 
-  /**
-   * Jalankan update dan remove secara bersamaan.
-   *
-   * Promise.all() hanya digunakan untuk menciptakan
-   * contention. Urutan lock ditentukan database.
-   */
-
   const [
     updateResult,
     removeResult,
@@ -1020,7 +970,10 @@ async function main() {
     (async () => {
       try {
         await CartService.updateItem({
-          userId: userA.id,
+          owner: {
+            type: "customer",
+            userId: userA.id,
+          },
           cartItemId:
             raceTarget.id,
           quantity: 2,
@@ -1043,7 +996,10 @@ async function main() {
     (async () => {
       try {
         await CartService.removeItem({
-          userId: userA.id,
+          owner: {
+            type: "customer",
+            userId: userA.id,
+          },
           cartItemId:
             raceTarget.id,
         });
@@ -1062,10 +1018,6 @@ async function main() {
       }
     })(),
   ]);
-
-  /**
-   * Minimal satu operation harus berhasil.
-   */
 
   const successfulRaceOperations =
     [
@@ -1092,12 +1044,6 @@ async function main() {
     );
   }
 
-  /**
-   * Jika update gagal, error yang diharapkan adalah
-   * INVALID_CART_ITEM karena remove sudah lebih dahulu
-   * menghapus item.
-   */
-
   if (
     !updateResult.success
   ) {
@@ -1118,11 +1064,6 @@ async function main() {
       );
     }
   }
-
-  /**
-   * Jika remove gagal, pada race ini kita tidak mengharapkan
-   * error bisnis selain INVALID_CART_ITEM.
-   */
 
   if (
     !removeResult.success
@@ -1145,20 +1086,11 @@ async function main() {
     }
   }
 
-  /**
-   * Final state harus konsisten.
-   *
-   * Jika remove sukses:
-   *   item harus tidak ada.
-   *
-   * Jika remove gagal karena update menang:
-   *   item harus ada dengan quantity 2.
-   */
-
   cart =
-    await CartService.getCart(
-      userA.id
-    );
+    await CartService.getCart({
+      type: "customer",
+      userId: userA.id,
+    });
 
   if (!cart) {
     throw new Error(
@@ -1220,63 +1152,38 @@ async function main() {
     );
   }
 
-  console.log(
-    "PASS"
-  );
+  console.log("PASS");
 
   /**
    * ------------------------------------------------------------
    * 18. TEST #14
    *
    * Race antara clearCart() dan addItem() terhadap Cart yang sama.
-   *
-   * Karena kedua mutation menggunakan Cart-level FOR UPDATE,
-   * keduanya harus terserialisasi.
-   *
-   * Hasil akhir bergantung pada urutan lock:
-   *
-   *   clear -> add
-   *     => item hasil add boleh tersisa
-   *
-   *   add -> clear
-   *     => cart harus kosong
-   *
-   * Yang tidak boleh terjadi:
-   *   - Prisma error mentah
-   *   - duplicate canonical CartItem
-   *   - CartItem dengan skuId yang tidak konsisten
    * ------------------------------------------------------------
    */
-
   console.log();
   console.log(
     "TEST #14 - Concurrent clearCart() vs addItem()"
   );
 
-  /**
-   * Pastikan Cart User A memiliki baseline item.
-   */
   await CartService.addItem({
-    userId: userA.id,
+    owner: {
+      type: "customer",
+      userId: userA.id,
+    },
     productId: product.id,
     skuId: skuA.id,
     quantity: 1,
   });
 
-  /**
-   * Jalankan clear dan beberapa add secara bersamaan.
-   *
-   * Promise.all() hanya digunakan untuk menciptakan
-   * contention. Serialisasi sebenarnya ditentukan
-   * oleh Cart-level FOR UPDATE di database.
-   */
   const concurrentClearAddResults =
     await Promise.all([
       (async () => {
         try {
-          await CartService.clearCart(
-            userA.id
-          );
+          await CartService.clearCart({
+            type: "customer",
+            userId: userA.id,
+          });
 
           return {
             operation: "clear",
@@ -1297,7 +1204,10 @@ async function main() {
         async () => {
           try {
             await CartService.addItem({
-              userId: userA.id,
+              owner: {
+                type: "customer",
+                userId: userA.id,
+              },
               productId: product.id,
               skuId: skuA.id,
               quantity: 1,
@@ -1319,13 +1229,6 @@ async function main() {
       ),
     ]);
 
-  /**
-   * Tidak boleh ada operation yang gagal dengan
-   * Prisma error mentah.
-   *
-   * Untuk TEST #14 kita mengharapkan seluruh mutation
-   * dapat menyelesaikan transaction tanpa error.
-   */
   const failedClearAddOperations =
     concurrentClearAddResults.filter(
       (result) =>
@@ -1345,13 +1248,11 @@ async function main() {
     );
   }
 
-  /**
-   * Ambil final cart.
-   */
   cart =
-    await CartService.getCart(
-      userA.id
-    );
+    await CartService.getCart({
+      type: "customer",
+      userId: userA.id,
+    });
 
   if (!cart) {
     throw new Error(
@@ -1359,12 +1260,6 @@ async function main() {
     );
   }
 
-  /**
-   * Hanya boleh ada maksimal satu CartItem
-   * untuk canonical identity:
-   *
-   *   cartId + productId + skuId
-   */
   const finalClearAddItems =
     cart.items.filter(
       (item) =>
@@ -1380,14 +1275,6 @@ async function main() {
     );
   }
 
-  /**
-   * Jika item tersisa, quantity harus sama dengan
-   * jumlah add yang berhasil setelah clear.
-   *
-   * Karena urutan lock database nondeterministic,
-   * kita hanya memastikan quantity tidak melebihi
-   * jumlah add concurrent yang sukses.
-   */
   const successfulAddOperations =
     concurrentClearAddResults.filter(
       (result) =>
@@ -1412,10 +1299,6 @@ async function main() {
     }
   }
 
-  /**
-   * Verifikasi canonical identity langsung
-   * dari hasil CartService.
-   */
   for (
     const item of finalClearAddItems
   ) {
@@ -1434,7 +1317,10 @@ async function main() {
   );
 
   console.log(
-    `Successful operations  : ${concurrentClearAddResults.length - failedClearAddOperations.length}`
+    `Successful operations  : ${
+      concurrentClearAddResults.length -
+      failedClearAddOperations.length
+    }`
   );
 
   console.log(
@@ -1453,24 +1339,37 @@ async function main() {
     );
   }
 
-  console.log(
-    "PASS"
-  );
+  console.log("PASS");
 
   /**
    * ------------------------------------------------------------
-   * 16. Cleanup
+   * 19. Cleanup
    * ------------------------------------------------------------
    */
-
   console.log();
   console.log("CLEANUP - Clear test carts");
 
-  await CartService.clearCart(userA.id);
-  await CartService.clearCart(userB.id);
+  await CartService.clearCart({
+    type: "customer",
+    userId: userA.id,
+  });
 
-  const finalCartA = await CartService.getCart(userA.id);
-  const finalCartB = await CartService.getCart(userB.id);
+  await CartService.clearCart({
+    type: "customer",
+    userId: userB.id,
+  });
+
+  const finalCartA =
+    await CartService.getCart({
+      type: "customer",
+      userId: userA.id,
+    });
+
+  const finalCartB =
+    await CartService.getCart({
+      type: "customer",
+      userId: userB.id,
+    });
 
   if (!finalCartA || !finalCartB) {
     throw new Error(

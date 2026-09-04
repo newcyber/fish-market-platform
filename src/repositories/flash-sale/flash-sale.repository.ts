@@ -192,6 +192,116 @@ export default class FlashSaleRepository {
   }
 
   /**
+ * ============================================================
+ * FIND ACTIVE FLASH SALE ITEMS BY PRODUCT
+ * ============================================================
+ *
+ * Read-only query untuk mengambil seluruh Flash Sale Item aktif
+ * yang terkait dengan satu product.
+ *
+ * Digunakan oleh:
+ *
+ * - Public Product Detail
+ * - Quick Add Product Card
+ *
+ * Aturan:
+ *
+ * - Campaign harus ACTIVE
+ * - Campaign belum soft-delete
+ * - Campaign sudah dimulai
+ * - Campaign belum berakhir
+ * - Item harus aktif
+ * - Item harus menggunakan canonical SKU
+ * - Quota harus masih tersedia
+ *
+ * remainingQuantity:
+ *
+ *   stockLimit - soldQuantity
+ *
+ * ProductSku.stock tetap merupakan physical stock.
+ * FlashSaleItem.stockLimit merupakan quota promo.
+ */
+
+  static async findActiveItemsByProductId(
+    productId: string,
+    now = new Date()
+  ) {
+    if (!productId?.trim()) {
+      return [];
+    }
+
+    const items =
+      await prisma.flashSaleItem.findMany({
+        where: {
+          productId: productId.trim(),
+
+          isActive: true,
+
+          skuId: {
+            not: null,
+          },
+
+          stockLimit: {
+            gt: 0,
+          },
+
+          flashSale: {
+            status: FlashSaleStatus.ACTIVE,
+
+            deletedAt: null,
+
+            startAt: {
+              lte: now,
+            },
+
+            endAt: {
+              gt: now,
+            },
+          },
+        },
+
+        include: {
+          flashSale: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              startAt: true,
+              endAt: true,
+              status: true,
+            },
+          },
+
+          sku: {
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption: true,
+                },
+              },
+            },
+          },
+        },
+
+        orderBy: [
+          {
+            sortOrder: "asc",
+          },
+
+          {
+            createdAt: "asc",
+          },
+        ],
+      });
+
+    return items.filter(
+      (item) =>
+        item.stockLimit >
+        item.soldQuantity
+    );
+  }
+  
+  /**
    * ============================================================
    * FIND ACTIVE FLASH SALE FOR HOMEPAGE
    * ============================================================
@@ -1575,7 +1685,7 @@ static async findDuplicateItem({
       hashtext(${purchase.flashSaleItemId})
     )
   `;
-  
+
       /**
        * --------------------------------------------------------
        * GUARDED SOLD QUANTITY DECREMENT

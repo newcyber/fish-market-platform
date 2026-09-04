@@ -108,13 +108,14 @@ export default async function CustomerAccountPage() {
     session.user.id
   ),
 
-  CartService.getItemCount(
-    session.user.id
-  ),
+CartService.getItemCount({
+  type: "customer",
+  userId: session.user.id,
+}),
 
-  getUnseenReward(
-    session.user.id
-  ),
+getUnseenReward(
+  session.user.id
+),
 
   getAvailableRewardVouchers(),
 ]);
@@ -675,7 +676,7 @@ const rewardVoucherItems =
               rewardVoucherItems
             }
           />
-          
+
         </div>
 
       </div>

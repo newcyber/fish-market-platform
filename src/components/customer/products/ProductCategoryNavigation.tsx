@@ -10,11 +10,12 @@ import Link from "next/link";
 interface ProductCategory {
   id: string;
   name: string;
+  slug: string;
 }
 
 interface ProductCategoryNavigationProps {
   categories: ProductCategory[];
-  activeCategoryId?: string;
+  activeCategorySlug?: string;
   basePath: string;
   searchQuery?: string;
 }
@@ -32,12 +33,28 @@ interface ProductCategoryNavigationProps {
  * - Micro-interaction
  * - Mempertahankan search query
  *
+ * ============================================================
+ *
+ * URL CONTRACT
+ *
+ * URL menggunakan Category.slug.
+ *
+ * Contoh:
+ *
+ * /products?category=ikan-laut#categories
+ *
+ * BUKAN:
+ *
+ * /products?category=8cc37fcb-...
+ *
+ * ============================================================
+ *
  * URL tetap menjadi source of truth.
  */
 
 export default function ProductCategoryNavigation({
   categories,
-  activeCategoryId,
+  activeCategorySlug,
   basePath,
   searchQuery,
 }: ProductCategoryNavigationProps) {
@@ -48,14 +65,10 @@ export default function ProductCategoryNavigation({
    */
 
   const scrollContainerRef =
-    useRef<HTMLDivElement | null>(
-      null
-    );
+    useRef<HTMLDivElement | null>(null);
 
   const activeItemRef =
-    useRef<HTMLAnchorElement | null>(
-      null
-    );
+    useRef<HTMLAnchorElement | null>(null);
 
   /**
    * ==========================================================
@@ -63,76 +76,63 @@ export default function ProductCategoryNavigation({
    * ==========================================================
    */
 
-  useEffect(
-    () => {
-      const container =
-        scrollContainerRef.current;
+  useEffect(() => {
+    const container =
+      scrollContainerRef.current;
 
-      const activeItem =
-        activeItemRef.current;
+    const activeItem =
+      activeItemRef.current;
 
-      if (
-        !container ||
-        !activeItem
-      ) {
-        return;
-      }
+    if (!container || !activeItem) {
+      return;
+    }
 
-      /**
-       * Gunakan requestAnimationFrame agar layout
-       * sudah selesai sebelum menghitung posisi.
-       */
+    /**
+     * Gunakan requestAnimationFrame agar layout
+     * sudah selesai sebelum menghitung posisi.
+     */
 
-      const frame =
-        window.requestAnimationFrame(
-          () => {
-            const containerRect =
-              container.getBoundingClientRect();
+    const frame =
+      window.requestAnimationFrame(() => {
+        const containerRect =
+          container.getBoundingClientRect();
 
-            const activeItemRect =
-              activeItem.getBoundingClientRect();
+        const activeItemRect =
+          activeItem.getBoundingClientRect();
 
-            const targetScrollLeft =
-              container.scrollLeft +
-              activeItemRect.left -
-              containerRect.left -
-              container.clientWidth / 2 +
-              activeItem.clientWidth / 2;
+        const targetScrollLeft =
+          container.scrollLeft +
+          activeItemRect.left -
+          containerRect.left -
+          container.clientWidth / 2 +
+          activeItem.clientWidth / 2;
 
-            container.scrollTo({
-              left: Math.max(
-                0,
-                targetScrollLeft
-              ),
-              behavior: "smooth",
-            });
-          }
-        );
+        container.scrollTo({
+          left: Math.max(
+            0,
+            targetScrollLeft
+          ),
+          behavior: "smooth",
+        });
+      });
 
-      return () => {
-        window.cancelAnimationFrame(
-          frame
-        );
-      };
-    },
-    [
-      activeCategoryId,
-    ]
-  );
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [activeCategorySlug]);
 
   /**
    * ==========================================================
    * CREATE CATEGORY URL
    * ==========================================================
    *
-   * URL dibuat di Client Component agar tidak
-   * mengirim function dari Server ke Client.
+   * URL menggunakan slug.
    *
    * Search query tetap dipertahankan.
    */
 
   const createCategoryUrl = (
-    categoryId?: string
+    categorySlug?: string
   ) => {
     const params =
       new URLSearchParams();
@@ -144,10 +144,10 @@ export default function ProductCategoryNavigation({
       );
     }
 
-    if (categoryId) {
+    if (categorySlug) {
       params.set(
         "category",
-        categoryId
+        categorySlug
       );
     }
 
@@ -274,26 +274,27 @@ export default function ProductCategoryNavigation({
 
       <Link
         ref={
-          !activeCategoryId
+          !activeCategorySlug
             ? activeItemRef
             : undefined
         }
         href={createCategoryUrl()}
         className={getItemClassName(
-          !activeCategoryId
+          !activeCategorySlug
         )}
       >
         <span>
           Semua
         </span>
 
-        {!activeCategoryId ? (
+        {!activeCategorySlug ? (
           <span
             aria-hidden="true"
             className="
               absolute
 
               inset-x-4
+
               -bottom-1
 
               h-0.5
@@ -310,52 +311,51 @@ export default function ProductCategoryNavigation({
       {/* CATEGORY LIST */}
       {/* ================================================== */}
 
-      {categories.map(
-        (category) => {
-          const isActive =
-            category.id ===
-            activeCategoryId;
+      {categories.map((category) => {
+        const isActive =
+          category.slug ===
+          activeCategorySlug;
 
-          return (
-            <Link
-              key={category.id}
-              ref={
-                isActive
-                  ? activeItemRef
-                  : undefined
-              }
-              href={createCategoryUrl(
-                category.id
-              )}
-              className={getItemClassName(
-                isActive
-              )}
-            >
-              <span>
-                {category.name}
-              </span>
+        return (
+          <Link
+            key={category.id}
+            ref={
+              isActive
+                ? activeItemRef
+                : undefined
+            }
+            href={createCategoryUrl(
+              category.slug
+            )}
+            className={getItemClassName(
+              isActive
+            )}
+          >
+            <span>
+              {category.name}
+            </span>
 
-              {isActive ? (
-                <span
-                  aria-hidden="true"
-                  className="
-                    absolute
+            {isActive ? (
+              <span
+                aria-hidden="true"
+                className="
+                  absolute
 
-                    inset-x-4
-                    -bottom-1
+                  inset-x-4
 
-                    h-0.5
+                  -bottom-1
 
-                    rounded-full
+                  h-0.5
 
-                    bg-white/80
-                  "
-                />
-              ) : null}
-            </Link>
-          );
-        }
-      )}
+                  rounded-full
+
+                  bg-white/80
+                "
+              />
+            ) : null}
+          </Link>
+        );
+      })}
     </div>
   );
 }

@@ -928,6 +928,48 @@ export class ProductService {
               }
             );
           }
+          /**
+           * ======================================================
+           * SYNC PRODUCT STOCK FROM SKU STOCK
+           * ======================================================
+           *
+           * Untuk product dengan variant:
+           * ProductSku.stock = canonical stock.
+           *
+           * Product.stock = agregasi stock SKU aktif.
+           *
+           * Contoh:
+           * SKU A = 20
+           * SKU B = 15
+           * SKU C = 10
+           *
+           * Product.stock = 45
+           */
+
+          const stockAggregate =
+            await tx.productSku.aggregate({
+              where: {
+                productId: product.id,
+                isActive: true,
+              },
+
+              _sum: {
+                stock: true,
+              },
+            });
+
+          const totalSkuStock =
+            stockAggregate._sum.stock ?? 0;
+
+          await tx.product.update({
+            where: {
+              id: product.id,
+            },
+
+            data: {
+              stock: totalSkuStock,
+            },
+          });
 
           /**
            * ======================================================

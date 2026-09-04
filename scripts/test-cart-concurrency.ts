@@ -27,9 +27,7 @@ async function main() {
   });
 
   if (!user) {
-    throw new Error(
-      "Tidak ditemukan CUSTOMER aktif."
-    );
+    throw new Error("Tidak ditemukan CUSTOMER aktif.");
   }
 
   /**
@@ -98,11 +96,19 @@ async function main() {
 
   /**
    * ------------------------------------------------------------
-   * 3. Ensure cart exists and remove previous test data.
+   * 3. Ensure customer cart exists and remove previous
+   *    test data.
    * ------------------------------------------------------------
    */
-  await CartService.getOrCreateCart(user.id);
-  await CartService.clearCart(user.id);
+  await CartService.getOrCreateCart({
+    type: "customer",
+    userId: user.id,
+  });
+
+  await CartService.clearCart({
+    type: "customer",
+    userId: user.id,
+  });
 
   /**
    * ------------------------------------------------------------
@@ -114,49 +120,54 @@ async function main() {
   console.log("=== RUNNING CONCURRENT REQUESTS ===");
   console.log("============================================================");
 
-  const results =
-    await Promise.allSettled([
-      CartService.addItem({
+  const results = await Promise.allSettled([
+    CartService.addItem({
+      owner: {
+        type: "customer",
         userId: user.id,
-        productId: product.id,
-        skuId: sku.id,
-        quantity: 1,
-      }),
+      },
+      productId: product.id,
+      skuId: sku.id,
+      quantity: 1,
+    }),
 
-      CartService.addItem({
+    CartService.addItem({
+      owner: {
+        type: "customer",
         userId: user.id,
-        productId: product.id,
-        skuId: sku.id,
-        quantity: 1,
-      }),
-    ]);
+      },
+      productId: product.id,
+      skuId: sku.id,
+      quantity: 1,
+    }),
+  ]);
 
+  /**
+   * ------------------------------------------------------------
+   * 5. Display request results.
+   * ------------------------------------------------------------
+   */
   console.log();
   console.log("REQUEST RESULTS");
 
   results.forEach((result, index) => {
     if (result.status === "fulfilled") {
-      console.log(
-        `Request ${index + 1}: SUCCESS`
-      );
+      console.log(`Request ${index + 1}: SUCCESS`);
     } else {
-      console.log(
-        `Request ${index + 1}: FAILED`
-      );
-
-      console.error(
-        result.reason
-      );
+      console.log(`Request ${index + 1}: FAILED`);
+      console.error(result.reason);
     }
   });
 
   /**
    * ------------------------------------------------------------
-   * 5. Inspect final cart state.
+   * 6. Inspect final cart state.
    * ------------------------------------------------------------
    */
-  const cart =
-    await CartService.getCart(user.id);
+  const cart = await CartService.getCart({
+    type: "customer",
+    userId: user.id,
+  });
 
   if (!cart) {
     throw new Error(
@@ -164,19 +175,16 @@ async function main() {
     );
   }
 
-  const items =
-    cart.items.filter(
-      (item) =>
-        item.productId === product.id &&
-        item.skuId === sku.id
-    );
+  const items = cart.items.filter(
+    (item) =>
+      item.productId === product.id &&
+      item.skuId === sku.id
+  );
 
-  const finalQuantity =
-    items.reduce(
-      (total, item) =>
-        total + item.quantity,
-      0
-    );
+  const finalQuantity = items.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
   console.log();
   console.log("FINAL CART STATE");
@@ -185,13 +193,15 @@ async function main() {
 
   /**
    * ------------------------------------------------------------
-   * 6. Business expectation
+   * 7. Business expectation
+   *
+   * Two concurrent +1 requests for the same SKU should result
+   * in exactly one CartItem with quantity = 2.
    * ------------------------------------------------------------
    */
   if (
     results.every(
-      (result) =>
-        result.status === "fulfilled"
+      (result) => result.status === "fulfilled"
     ) &&
     items.length === 1 &&
     finalQuantity === 2
@@ -200,17 +210,13 @@ async function main() {
     console.log("============================================================");
     console.log("=== RESULT ===");
     console.log("============================================================");
-    console.log(
-      "CONCURRENCY TEST PASSED"
-    );
+    console.log("CONCURRENCY TEST PASSED");
   } else {
     console.log();
     console.log("============================================================");
     console.log("=== RESULT ===");
     console.log("============================================================");
-    console.log(
-      "CONCURRENCY TEST FAILED"
-    );
+    console.log("CONCURRENCY TEST FAILED");
 
     throw new Error(
       `Expected 1 CartItem with quantity 2, got ${items.length} item(s) and quantity ${finalQuantity}.`
@@ -219,13 +225,16 @@ async function main() {
 
   /**
    * ------------------------------------------------------------
-   * 7. Cleanup
+   * 8. Cleanup
    * ------------------------------------------------------------
    */
   console.log();
   console.log("CLEANUP");
 
-  await CartService.clearCart(user.id);
+  await CartService.clearCart({
+    type: "customer",
+    userId: user.id,
+  });
 
   console.log("Cleanup completed.");
 }
@@ -233,9 +242,7 @@ async function main() {
 main()
   .catch((error) => {
     console.error();
-    console.error(
-      "[CART_CONCURRENCY_TEST_ERROR]"
-    );
+    console.error("[CART_CONCURRENCY_TEST_ERROR]");
     console.error(error);
 
     process.exitCode = 1;

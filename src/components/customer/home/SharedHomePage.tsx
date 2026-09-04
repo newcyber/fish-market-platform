@@ -137,16 +137,122 @@ function serializeFlashSale(
           },
 
           sku:
-  item.sku
-    ? {
-        id: item.sku.id,
-        sku: item.sku.sku,
-        price: item.sku.price.toNumber(),
-        stock: item.sku.stock,
-      }
-    : null,
+            item.sku
+              ? {
+                  id:
+                    item.sku.id,
+
+                  sku:
+                    item.sku.sku,
+
+                  price:
+                    item.sku.price.toNumber(),
+
+                  stock:
+                    item.sku.stock,
+                }
+              : null,
         })
       ),
+  };
+}
+
+/**
+ * ============================================================
+ * SERIALIZE HOMEPAGE PRODUCT
+ * ============================================================
+ *
+ * Harga homepage mengikuti SKU aktif dengan harga terendah.
+ *
+ * Untuk product single-SKU:
+ *
+ * - harga = SKU.price
+ * - stok  = SKU.stock
+ *
+ * Untuk product multi-variant:
+ *
+ * - harga = harga SKU aktif terendah
+ * - stok tidak ditampilkan sebagai stok product-level
+ *
+ * ============================================================
+ */
+
+function serializeHomepageProduct(
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    price: {
+      toNumber: () => number;
+    };
+    stock: number;
+    images: Array<{
+      id: string;
+      image: string | null;
+      sortOrder: number | null;
+      isThumbnail: boolean;
+    }>;
+    variantGroups: Array<{
+      id: string;
+    }>;
+    skus: Array<{
+      price: {
+        toNumber: () => number;
+      };
+      stock: number;
+    }>;
+  }
+) {
+  const hasVariants =
+    product.variantGroups.length > 0;
+
+  const lowestActiveSku =
+    product.skus[0] ?? null;
+
+  const displayPrice =
+    lowestActiveSku
+      ? lowestActiveSku.price.toNumber()
+      : product.price.toNumber();
+
+  const displayStock =
+    !hasVariants && lowestActiveSku
+      ? lowestActiveSku.stock
+      : null;
+
+  return {
+    id:
+      product.id,
+
+    name:
+      product.name,
+
+    slug:
+      product.slug,
+
+    price:
+      displayPrice,
+
+    stock:
+      displayStock,
+
+    images:
+      product.images.map(
+        (image) => ({
+          id:
+            image.id,
+
+          image:
+            image.image,
+
+          sortOrder:
+            image.sortOrder,
+
+          isThumbnail:
+            image.isThumbnail,
+        })
+      ),
+
+    hasVariants,
   };
 }
 
@@ -164,16 +270,6 @@ export default async function SharedHomePage({
    * ==========================================================
    * PRODUCTS HREF
    * ==========================================================
-   *
-   * Guest:
-   *
-   * /products
-   *
-   * Customer:
-   *
-   * /customer/products
-   *
-   * ==========================================================
    */
 
   const productsHref =
@@ -188,22 +284,18 @@ export default async function SharedHomePage({
    *
    * Semua data utama homepage diambil secara paralel.
    *
-   * CATEGORY TIDAK DIAMBIL DI SINI.
+   * Category berasal dari database agar:
    *
-   * HomeCategoryShortcuts sekarang menggunakan:
+   * - nama kategori mengikuti Admin
+   * - gambar kategori dapat diatur dari Admin
+   * - urutan mengikuti sortOrder
+   * - kategori nonaktif tidak ditampilkan
    *
-   * - Ikan Segar
-   * - Udang
-   * - Seafood
-   * - Frozen
-   * - Paket Hemat
-   * - Promo
+   * Product homepage:
    *
-   * sebagai shortcut bisnis dengan icon yang tetap.
-   *
-   * URL category dibangun oleh:
-   *
-   * HomeCategoryShortcuts
+   * - menggunakan SKU aktif
+   * - harga card menggunakan harga SKU terendah
+   * - single SKU menggunakan stock SKU
    *
    * ==========================================================
    */
@@ -213,6 +305,7 @@ export default async function SharedHomePage({
     featuredProducts,
     bestSellingGroups,
     newestProducts,
+    categories,
   ] =
     await Promise.all([
 
@@ -259,6 +352,44 @@ export default async function SharedHomePage({
               sortOrder:
                 "asc",
             },
+          },
+
+          variantGroups: {
+            where: {
+              isActive:
+                true,
+            },
+
+            select: {
+              id:
+                true,
+            },
+
+            take:
+              1,
+          },
+
+          skus: {
+            where: {
+              isActive:
+                true,
+            },
+
+            orderBy: {
+              price:
+                "asc",
+            },
+
+            select: {
+              price:
+                true,
+
+              stock:
+                true,
+            },
+
+            take:
+              1,
           },
         },
 
@@ -335,6 +466,44 @@ export default async function SharedHomePage({
                 "asc",
             },
           },
+
+          variantGroups: {
+            where: {
+              isActive:
+                true,
+            },
+
+            select: {
+              id:
+                true,
+            },
+
+            take:
+              1,
+          },
+
+          skus: {
+            where: {
+              isActive:
+                true,
+            },
+
+            orderBy: {
+              price:
+                "asc",
+            },
+
+            select: {
+              price:
+                true,
+
+              stock:
+                true,
+            },
+
+            take:
+              1,
+          },
         },
 
         orderBy: {
@@ -345,19 +514,59 @@ export default async function SharedHomePage({
         take:
           10,
       }),
+
+      /**
+       * ========================================================
+       * HOMEPAGE CATEGORIES
+       * ========================================================
+       */
+
+      prisma.category.findMany({
+        where: {
+          isActive:
+            true,
+
+          deletedAt:
+            null,
+        },
+
+        orderBy: [
+          {
+            sortOrder:
+              "asc",
+          },
+
+          {
+            name:
+              "asc",
+          },
+        ],
+
+        select: {
+          id:
+            true,
+
+          name:
+            true,
+
+          slug:
+            true,
+
+          image:
+            true,
+
+          description:
+            true,
+
+          sortOrder:
+            true,
+        },
+      }),
     ]);
 
   /**
    * ==========================================================
    * STORE SETTINGS
-   * ==========================================================
-   *
-   * Digunakan untuk:
-   *
-   * - Hero Slide 1
-   * - Hero Slide 2
-   * - Hero Slide 3
-   *
    * ==========================================================
    */
 
@@ -383,48 +592,15 @@ export default async function SharedHomePage({
 
   const serializedFeaturedProducts =
     featuredProducts.map(
-      (product) => ({
-        id:
-          product.id,
-
-        name:
-          product.name,
-
-        slug:
-          product.slug,
-
-        price:
-          product.price.toNumber(),
-
-        stock:
-          product.stock,
-
-        images:
-          product.images.map(
-            (image) => ({
-              id:
-                image.id,
-
-              image:
-                image.image,
-
-              sortOrder:
-                image.sortOrder,
-
-              isThumbnail:
-                image.isThumbnail,
-            })
-          ),
-      })
+      (product) =>
+        serializeHomepageProduct(
+          product
+        )
     );
 
   /**
    * ==========================================================
    * BEST SELLING PRODUCTS
-   * ==========================================================
-   *
-   * Ambil product berdasarkan ranking quantity.
-   *
    * ==========================================================
    */
 
@@ -457,6 +633,44 @@ export default async function SharedHomePage({
                   "asc",
               },
             },
+
+            variantGroups: {
+              where: {
+                isActive:
+                  true,
+              },
+
+              select: {
+                id:
+                  true,
+              },
+
+              take:
+                1,
+            },
+
+            skus: {
+              where: {
+                isActive:
+                  true,
+              },
+
+              orderBy: {
+                price:
+                  "asc",
+              },
+
+              select: {
+                price:
+                  true,
+
+                stock:
+                  true,
+              },
+
+              take:
+                1,
+            },
           },
         })
       : [];
@@ -464,10 +678,6 @@ export default async function SharedHomePage({
   /**
    * ==========================================================
    * PRODUCT MAP
-   * ==========================================================
-   *
-   * Digunakan agar urutan ranking dari groupBy tetap terjaga.
-   *
    * ==========================================================
    */
 
@@ -501,41 +711,13 @@ export default async function SharedHomePage({
           }
 
           return {
-            id:
-              product.id,
-
-            name:
-              product.name,
-
-            slug:
-              product.slug,
-
-            price:
-              product.price.toNumber(),
-
-            stock:
-              product.stock,
+            ...serializeHomepageProduct(
+              product
+            ),
 
             soldQuantity:
               group._sum.quantity ??
               0,
-
-            images:
-              product.images.map(
-                (image) => ({
-                  id:
-                    image.id,
-
-                  image:
-                    image.image,
-
-                  sortOrder:
-                    image.sortOrder,
-
-                  isThumbnail:
-                    image.isThumbnail,
-                })
-              ),
           };
         }
       )
@@ -556,39 +738,10 @@ export default async function SharedHomePage({
 
   const serializedNewestProducts =
     newestProducts.map(
-      (product) => ({
-        id:
-          product.id,
-
-        name:
-          product.name,
-
-        slug:
-          product.slug,
-
-        price:
-          product.price.toNumber(),
-
-        stock:
-          product.stock,
-
-        images:
-          product.images.map(
-            (image) => ({
-              id:
-                image.id,
-
-              image:
-                image.image,
-
-              sortOrder:
-                image.sortOrder,
-
-              isThumbnail:
-                image.isThumbnail,
-            })
-          ),
-      })
+      (product) =>
+        serializeHomepageProduct(
+          product
+        )
     );
 
   /**
@@ -602,7 +755,6 @@ export default async function SharedHomePage({
       className="
         min-h-screen
         overflow-x-hidden
-
         bg-(--ice-50)
       "
     >
@@ -644,6 +796,10 @@ export default async function SharedHomePage({
         <HomeCategoryShortcuts
           productsHref={
             productsHref
+          }
+
+          categories={
+            categories
           }
         />
       </div>
@@ -695,13 +851,9 @@ export default async function SharedHomePage({
       <div
         className="
           relative
-
           bg-(--ice-50)
-
           pb-10
-
           sm:pb-14
-
           lg:pb-16
         "
       >

@@ -113,8 +113,15 @@ async function main() {
   console.log();
   console.log("PREPARE - Clear test cart");
 
-  await CartService.getOrCreateCart(user.id);
-  await CartService.clearCart(user.id);
+  await CartService.getOrCreateCart({
+    type: "customer",
+    userId: user.id,
+  });
+
+  await CartService.clearCart({
+    type: "customer",
+    userId: user.id,
+  });
 
   console.log("PASS");
 
@@ -152,7 +159,10 @@ async function main() {
       { length: requestCount },
       () =>
         CartService.addItem({
-          userId: user.id,
+          owner: {
+            type: "customer",
+            userId: user.id,
+          },
           productId: product.id,
           skuId: sku.id,
           quantity: requestQuantity,
@@ -191,7 +201,10 @@ async function main() {
   console.log();
   console.log("VERIFY - Final cart");
 
-  const cart = await CartService.getCart(user.id);
+  const cart = await CartService.getCart({
+    type: "customer",
+    userId: user.id,
+  });
 
   if (!cart) {
     throw new Error(
@@ -199,13 +212,13 @@ async function main() {
     );
   }
 
-const finalTotalItems = cart.items.reduce(
-  (total, item) => total + item.quantity,
-  0
-);
+  const finalTotalItems = cart.items.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
-console.log(`CartItems : ${cart.items.length}`);
-console.log(`TotalItems: ${finalTotalItems}`);
+  console.log(`CartItems : ${cart.items.length}`);
+  console.log(`TotalItems: ${finalTotalItems}`);
 
   if (cart.items.length !== 1) {
     throw new Error(
@@ -240,11 +253,11 @@ console.log(`TotalItems: ${finalTotalItems}`);
     );
   }
 
-if (finalTotalItems !== expectedQuantity) {
-  throw new Error(
-    `CONCURRENCY FAILURE: Expected totalItems ${expectedQuantity}, got ${finalTotalItems}.`
-  );
-}
+  if (finalTotalItems !== expectedQuantity) {
+    throw new Error(
+      `CONCURRENCY FAILURE: Expected totalItems ${expectedQuantity}, got ${finalTotalItems}.`
+    );
+  }
 
   console.log("PASS");
 
@@ -307,10 +320,16 @@ if (finalTotalItems !== expectedQuantity) {
   console.log();
   console.log("CLEANUP - Clear test cart");
 
-  await CartService.clearCart(user.id);
+  await CartService.clearCart({
+    type: "customer",
+    userId: user.id,
+  });
 
   const cleanedCart =
-    await CartService.getCart(user.id);
+    await CartService.getCart({
+      type: "customer",
+      userId: user.id,
+    });
 
   if (!cleanedCart) {
     throw new Error(

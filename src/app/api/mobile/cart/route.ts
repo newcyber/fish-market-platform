@@ -38,10 +38,11 @@ export async function GET(
      * GET CART
      * ==========================================================
      */
-    const cart =
-      await CartService.getCart(
-        user.id
-      );
+const cart =
+  await CartService.getCart({
+    type: "customer",
+    userId: user.id,
+  });
 
     /**
      * ==========================================================

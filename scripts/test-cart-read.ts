@@ -24,15 +24,24 @@ async function main() {
   console.log("USER:", user.email);
 
   console.log("1. getOrCreateCart...");
-  await CartService.getOrCreateCart(user.id);
+  await CartService.getOrCreateCart({
+  type: "customer",
+  userId: user.id,
+});
   console.log("PASS");
 
   console.log("2. clearCart...");
-  await CartService.clearCart(user.id);
+  await CartService.clearCart({
+  type: "customer",
+  userId: user.id,
+});
   console.log("PASS");
 
   console.log("3. getCart...");
-  const cart = await CartService.getCart(user.id);
+  const cart = await CartService.getCart({
+  type: "customer",
+  userId: user.id,
+});
 
   console.log("PASS");
   console.log(

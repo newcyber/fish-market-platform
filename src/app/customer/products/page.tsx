@@ -1154,16 +1154,18 @@ const categoryIds =
     </span>
   </div>
 
-  <ProductCategoryNavigation
-    categories={categories.map(
-      (category) => ({
-        id: category.id,
-        name: category.name,
-      })
-    )}
-    activeCategoryId={categorySlug}
-    basePath="/customer/products"
-  />
+<ProductCategoryNavigation
+  categories={categories.map(
+    (category) => ({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+    })
+  )}
+  activeCategorySlug={categorySlug}
+  basePath="/customer/products"
+  searchQuery={search}
+/>
 </div>
 
         </div>
@@ -1545,7 +1547,7 @@ const categoryIds =
 
                       <Link
                         href={
-                          `/customer/products/${product.slug}`
+                          `/products/${product.slug}`
                         }
                         className="
                           block
@@ -1851,7 +1853,7 @@ const categoryIds =
 
                         <Link
                           href={
-                            `/customer/products/${product.slug}`
+                            `/products/${product.slug}`
                           }
                           className="
                             block
@@ -2080,7 +2082,7 @@ const categoryIds =
 
                           <Link
                             href={
-                              `/customer/products/${product.slug}`
+                              `/products/${product.slug}`
                             }
                             className={[
                               `

@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import {
   AlertCircle,
@@ -204,6 +207,27 @@ export default function CheckoutForm({
   internalShipping,
 }: CheckoutFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  /**
+   * ==========================================================
+   * SELECTED CART ITEMS
+   * ==========================================================
+   *
+   * Selection berasal dari query:
+   *
+   * /customer/checkout?selected=id1,id2
+   *
+   * Jika query tidak ada, null berarti seluruh item checkout.
+   * ==========================================================
+   */
+  const selectedItemIds = searchParams.get("selected")
+    ? searchParams
+        .get("selected")!
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+    : null;
 
   /**
    * ==========================================================
@@ -435,6 +459,17 @@ export default function CheckoutForm({
   ] = useState<string | null>(
     null
   );
+
+  /**
+   * ==========================================================
+   * CHECKOUT CONFIRMATION
+   * ==========================================================
+   */
+
+  const [
+    checkoutConfirmed,
+    setCheckoutConfirmed,
+  ] = useState(false);
 
   /**
    * ==========================================================
@@ -678,6 +713,14 @@ export default function CheckoutForm({
       return;
     }
 
+    if (!checkoutConfirmed) {
+      setErrorMessage(
+        "Silakan centang konfirmasi pesanan sebelum melanjutkan."
+      );
+
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -697,9 +740,15 @@ export default function CheckoutForm({
           notes:
             notes.trim() || null,
 
-          voucherCode:
-            appliedVoucher?.code ??
-            null,
+voucherCode:
+  appliedVoucher?.code ??
+  null,
+
+checkoutConfirmed:
+  checkoutConfirmed,
+
+selectedItemIds:
+  selectedItemIds,
         });
 
       if (
@@ -1926,6 +1975,60 @@ export default function CheckoutForm({
                   </p>
                 </div>
               )}
+
+              <label
+                className="
+                  mt-5
+                  flex
+                  cursor-pointer
+                  items-start
+                  gap-3
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-slate-50
+                  p-4
+
+                  transition-colors
+                  hover:border-cyan-200
+                  hover:bg-cyan-50/40
+                "
+              >
+                <input
+                  type="checkbox"
+                  checked={checkoutConfirmed}
+                  onChange={(event) => {
+                    setCheckoutConfirmed(
+                      event.target.checked
+                    );
+
+                    if (event.target.checked) {
+                      setErrorMessage(null);
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  className="
+                    mt-0.5
+                    h-5
+                    w-5
+                    shrink-0
+                    cursor-pointer
+                    accent-cyan-600
+                  "
+                />
+
+                <span
+                  className="
+                    text-sm
+                    leading-6
+                    text-slate-700
+                  "
+                >
+                  Saya sudah memeriksa detail pesanan, alamat
+                  pengiriman, metode pengiriman, dan metode
+                  pembayaran yang saya pilih.
+                </span>
+              </label>
 
               <button
                 type="button"

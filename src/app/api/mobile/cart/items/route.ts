@@ -201,19 +201,23 @@ export async function POST(
      * Karena response API membutuhkan state Cart terbaru,
      * ambil Cart kembali setelah addItem() selesai.
      */
-    await CartService.addItem({
-      userId: user.id,
-      productId: input.productId,
-      skuId: input.skuId,
-      quantity: input.quantity,
-      customerNote:
-        input.customerNote,
-    });
+await CartService.addItem({
+  owner: {
+    type: "customer",
+    userId: user.id,
+  },
+  productId: input.productId,
+  skuId: input.skuId,
+  quantity: input.quantity,
+  customerNote:
+    input.customerNote,
+});
 
-    const cart =
-      await CartService.getCart(
-        user.id
-      );
+const cart =
+  await CartService.getCart({
+    type: "customer",
+    userId: user.id,
+  });
 
     /**
      * ==========================================================

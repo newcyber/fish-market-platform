@@ -2,6 +2,7 @@ import {
   Prisma,
   RewardPointTransactionType,
   VoucherDiscountType,
+  RewardVoucherSetting,
 } from "@prisma/client";
 
 import { randomBytes } from "crypto";
@@ -55,17 +56,17 @@ import { VoucherRepository } from "@/repositories/voucher/voucher.repository";
  * yang sedang aktif.
  */
 
-export async function getAvailableRewardVouchers() {
+export async function getAvailableRewardVouchers(): Promise<
+  RewardVoucherSetting[]
+> {
   return prisma.rewardVoucherSetting.findMany({
     where: {
       isActive: true,
     },
-
     orderBy: [
       {
         sortOrder: "asc",
       },
-
       {
         requiredPoints: "asc",
       },

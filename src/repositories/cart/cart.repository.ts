@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+
+type DbClient = typeof prisma | Prisma.TransactionClient;
 
 /**
  * ============================================================
@@ -186,6 +189,96 @@ export class CartRepository {
       },
     });
   }
+
+  /**
+ * ============================================================
+ * GET CART BY GUEST CART ID
+ * ============================================================
+ */
+static async findByGuestCartId(
+  guestCartId: string,
+  db: DbClient = prisma
+) {
+  return db.cart.findUnique({
+    where: {
+      guestCartId,
+    },
+
+    include: {
+      items: {
+        orderBy: {
+          createdAt: "asc",
+        },
+
+        include: {
+          product: {
+            include: {
+              category: true,
+
+              images: {
+                orderBy: {
+                  sortOrder: "asc",
+                },
+              },
+            },
+          },
+
+          sku: {
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption: {
+                    include: {
+                      group: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+/**
+ * ============================================================
+ * FIND CART ITEMS FOR MERGE
+ * ============================================================
+ */
+static async findItemsForMerge(
+  cartId: string,
+  db: DbClient = prisma
+) {
+  return db.cartItem.findMany({
+    where: {
+      cartId,
+    },
+
+    orderBy: {
+      createdAt: "asc",
+    },
+
+    include: {
+      product: true,
+
+      sku: {
+        include: {
+          skuOptions: {
+            include: {
+              variantOption: {
+                include: {
+                  group: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
 
   /**
    * ============================================================

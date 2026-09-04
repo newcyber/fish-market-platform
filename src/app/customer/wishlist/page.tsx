@@ -128,7 +128,7 @@ export default async function CustomerWishlistPage() {
               "
             >
               <Link
-                href={`/customer/products/${product.slug}`}
+                href={`/products/${product.slug}`}
                 className="group block"
               >
                 <div className="relative aspect-square overflow-hidden bg-slate-100">
@@ -163,7 +163,7 @@ export default async function CustomerWishlistPage() {
                     )}
 
                     <Link
-                      href={`/customer/products/${product.slug}`}
+                      href={`/products/${product.slug}`}
                       className="mt-1 block"
                     >
                       <h2 className="truncate text-base font-bold text-slate-900 hover:text-cyan-600">
@@ -197,7 +197,7 @@ export default async function CustomerWishlistPage() {
                   </div>
 
                   <Link
-                    href={`/customer/products/${product.slug}`}
+                    href={`/products/${product.slug}`}
                     className="
                       inline-flex
                       h-10

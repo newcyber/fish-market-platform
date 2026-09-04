@@ -456,8 +456,10 @@ model EmailVerificationOtp {
 model Cart {
   id String @id @default(uuid())
 
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String? @unique
+  guestCartId String? @unique
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   items CartItem[]
 
@@ -465,6 +467,7 @@ model Cart {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([guestCartId])
 }
 
 model CartItem {

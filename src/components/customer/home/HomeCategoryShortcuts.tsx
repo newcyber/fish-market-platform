@@ -1,296 +1,77 @@
+"use client";
+
+import Image from "next/image";
 import Link from "next/link";
-
-import {
-  ChevronRight,
-  Fish,
-  Package,
-  Shell,
-  ShoppingBasket,
-  Shrimp,
-  Tag,
-} from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 /**
  * ============================================================
- * HOME CATEGORY SHORTCUTS
+ * HOME CATEGORY
  * ============================================================
  *
- * Icon dan tampilan dipertahankan.
+ * Data kategori berasal dari database Category.
  *
- * Link sekarang dinamis berdasarkan slug category.
+ * Image kategori dapat diatur melalui:
+ *
+ * Admin -> Categories
  *
  * ============================================================
  */
 
-type HomeCategoryShortcutsProps = {
-  productsHref: string;
-};
-
-/**
- * ============================================================
- * CATEGORY TONE
- * ============================================================
- */
-
-type CategoryTone =
-  | "ocean"
-  | "blue"
-  | "fresh";
-
-/**
- * ============================================================
- * CATEGORY SLUG
- * ============================================================
- *
- * Slug ini adalah logical category homepage.
- *
- * Backend akan menentukan bagaimana slug tersebut
- * diterjemahkan menjadi filter database.
- *
- * ============================================================
- */
-
-type CategorySlug =
-  | "ikan-segar"
-  | "udang"
-  | "seafood"
-  | "frozen"
-  | "paket-hemat"
-  | "promo";
-
-/**
- * ============================================================
- * CATEGORY ITEM
- * ============================================================
- */
-
-type CategoryItem = {
+export interface HomeCategory {
+  id: string;
   name: string;
-
-  description: string;
-
-  icon: typeof Fish;
-
-  tone: CategoryTone;
-
-  slug: CategorySlug;
-};
-
-/**
- * ============================================================
- * CATEGORY DATA
- * ============================================================
- *
- * PENTING:
- *
- * Jangan menggunakan category database langsung di sini.
- *
- * Shortcut homepage adalah shortcut bisnis.
- *
- * Contoh:
- *
- * Ikan Segar
- * -> backend dapat memetakan ke:
- *    - ikan-laut
- *    - ikan-air-tawar
- *
- * Seafood
- * -> backend dapat memetakan ke:
- *    - kepiting
- *    - cumi
- *    - kerang
- *
- * Promo
- * -> backend dapat memfilter berdasarkan discount aktif.
- *
- * ============================================================
- */
-
-const categories: CategoryItem[] = [
-  {
-    name: "Ikan Segar",
-
-    description:
-      "Pilihan ikan",
-
-    icon: Fish,
-
-    tone: "ocean",
-
-    slug: "ikan-segar",
-  },
-
-  {
-    name: "Udang",
-
-    description:
-      "Udang pilihan",
-
-    icon: Shrimp,
-
-    tone: "blue",
-
-    slug: "udang",
-  },
-
-  {
-    name: "Seafood",
-
-    description:
-      "Beragam seafood",
-
-    icon: Shell,
-
-    tone: "ocean",
-
-    slug: "seafood",
-  },
-
-  {
-    name: "Frozen",
-
-    description:
-      "Produk beku",
-
-    icon: Package,
-
-    tone: "blue",
-
-    slug: "frozen",
-  },
-
-  {
-    name: "Paket Hemat",
-
-    description:
-      "Lebih praktis",
-
-    icon: ShoppingBasket,
-
-    tone: "fresh",
-
-    slug: "paket-hemat",
-  },
-
-  {
-    name: "Promo",
-
-    description:
-      "Penawaran pilihan",
-
-    icon: Tag,
-
-    tone: "fresh",
-
-    slug: "promo",
-  },
-];
-
-/**
- * ============================================================
- * ICON TONE
- * ============================================================
- */
-
-function getIconTone(
-  tone: CategoryTone
-) {
-  switch (tone) {
-    case "fresh":
-      return {
-        wrapper:
-          "border-[var(--fresh-100)] bg-[var(--fresh-100)] text-[var(--fresh-600)] group-hover:bg-[var(--fresh-500)] group-hover:text-white",
-      };
-
-    case "blue":
-      return {
-        wrapper:
-          "border-[#e7f0f8] bg-[#edf5fb] text-[var(--ocean-700)] group-hover:bg-[var(--ocean-600)] group-hover:text-white",
-      };
-
-    case "ocean":
-    default:
-      return {
-        wrapper:
-          "border-[#e8f0f7] bg-[#eef4f8] text-[var(--ocean-800)] group-hover:bg-[var(--ocean-700)] group-hover:text-white",
-      };
-  }
+  slug: string;
+  image: string | null;
+  description: string | null;
+  sortOrder: number;
 }
 
 /**
  * ============================================================
- * CATEGORY URL
- * ============================================================
- *
- * Membuat URL berdasarkan logical category slug.
- *
- * Contoh:
- *
- * /customer/products
- * +
- * ikan-segar
- *
- * menjadi:
- *
- * /customer/products?category=ikan-segar
- *
+ * PROPS
  * ============================================================
  */
 
-function buildCategoryUrl(
-  productsHref: string,
-  categorySlug: CategorySlug
-) {
-  /**
-   * ----------------------------------------------------------
-   * Tentukan separator
-   * ----------------------------------------------------------
-   *
-   * Jika productsHref sudah memiliki query parameter:
-   *
-   * /customer/products?search=ikan
-   *
-   * maka gunakan:
-   *
-   * &
-   *
-   * Jika belum:
-   *
-   * /customer/products
-   *
-   * maka gunakan:
-   *
-   * ?
-   */
-
-  const separator =
-    productsHref.includes("?")
-      ? "&"
-      : "?";
-
-  return `${productsHref}${separator}category=${encodeURIComponent(
-    categorySlug
-  )}`;
+interface HomeCategoryShortcutsProps {
+  productsHref: string;
+  categories: HomeCategory[];
 }
 
 /**
  * ============================================================
- * HOME CATEGORY SHORTCUTS
+ * COMPONENT
  * ============================================================
  */
 
 export default function HomeCategoryShortcuts({
   productsHref,
+  categories,
 }: HomeCategoryShortcutsProps) {
+
+  /**
+   * ==========================================================
+   * EMPTY STATE
+   * ==========================================================
+   *
+   * Jika Admin belum memiliki kategori aktif,
+   * section tidak ditampilkan.
+   *
+   * ==========================================================
+   */
+
+  if (categories.length === 0) {
+    return null;
+  }
+
   return (
     <section
       className="
         w-full
-        py-6
-
-        sm:py-8
-
-        lg:py-10
+        bg-white
+        py-5
+        sm:py-7
+        lg:py-8
       "
     >
       <div
@@ -298,336 +79,204 @@ export default function HomeCategoryShortcuts({
           mx-auto
           w-full
           max-w-7xl
-
           px-4
-
           sm:px-6
-
           lg:px-8
         "
       >
 
-        {/* ================================================== */}
-        {/* SECTION HEADER */}
-        {/* ================================================== */}
+        {/* ====================================================
+            SECTION HEADER
+        ==================================================== */}
 
         <div
           className="
+            mb-4
             flex
-            items-end
+            items-center
             justify-between
-            gap-4
+            gap-3
+            sm:mb-5
           "
         >
-          <div
-            className="
-              min-w-0
-            "
-          >
-
-            {/* ==================================================
-                EYEBROW
-            ================================================== */}
+          <div>
+            <h2
+              className="
+                text-lg
+                font-bold
+                tracking-tight
+                text-slate-900
+                sm:text-xl
+              "
+            >
+              Belanja berdasarkan kategori
+            </h2>
 
             <p
               className="
-                text-[10px]
-                font-black
-                tracking-[0.2em]
-
-                text-[var(--ocean-700)]
-
-                sm:text-xs
-              "
-            >
-              BELANJA BERDASARKAN
-            </p>
-
-            {/* ==================================================
-                TITLE
-            ================================================== */}
-
-            <h2
-              className="
                 mt-1
-
-                text-xl
-                font-black
-                tracking-tight
-
-                text-[var(--ocean-950)]
-
-                sm:text-2xl
-
-                lg:text-[28px]
+                text-xs
+                text-slate-500
+                sm:text-sm
               "
             >
-              Kategori Pilihan
-            </h2>
-
+              Temukan produk sesuai kebutuhan Anda
+            </p>
           </div>
 
-          {/* ====================================================
-              VIEW ALL
-          ==================================================== */}
-
           <Link
-            href={
-              productsHref
-            }
+            href={productsHref}
             className="
-              group
-              inline-flex
+              flex
               shrink-0
               items-center
               gap-1
-
               text-xs
-              font-bold
-
-              text-[var(--ocean-800)]
-
+              font-semibold
+              text-slate-600
               transition
-
-              hover:text-[var(--ocean-600)]
-
+              hover:text-slate-900
               sm:text-sm
             "
           >
-            <span>
-              Lihat Semua
-            </span>
+            Lihat semua
 
             <ChevronRight
               className="
                 h-4
                 w-4
-
-                transition-transform
-                duration-200
-
-                group-hover:translate-x-1
               "
             />
           </Link>
-
         </div>
 
-        {/* ================================================== */}
-        {/* CATEGORY GRID */}
-        {/* ================================================== */}
+        {/* ====================================================
+            CATEGORY LIST
+        ==================================================== */}
 
         <div
           className="
-            mt-5
-
-            grid
-            grid-cols-3
+            flex
             gap-3
-
-            sm:mt-6
-            sm:grid-cols-6
+            overflow-x-auto
+            pb-2
+            scrollbar-none
+            sm:grid
+            sm:grid-cols-4
             sm:gap-4
-
-            lg:gap-5
+            sm:overflow-visible
+            lg:grid-cols-6
           "
         >
-
           {categories.map(
             (category) => {
 
-              /**
-               * ==================================================
-               * ICON
-               * ==================================================
-               */
-
-              const Icon =
-                category.icon;
-
-              /**
-               * ==================================================
-               * ICON TONE
-               * ==================================================
-               */
-
-              const tone =
-                getIconTone(
-                  category.tone
-                );
-
-              /**
-               * ==================================================
-               * CATEGORY URL
-               * ==================================================
-               *
-               * IMPORTANT:
-               *
-               * Gunakan category.slug.
-               *
-               * BUKAN:
-               *
-               * category.category
-               *
-               * karena property tersebut tidak ada.
-               * ==================================================
-               */
-
-              const href =
-                buildCategoryUrl(
-                  productsHref,
+              const categoryHref =
+                `${productsHref}?category=${encodeURIComponent(
                   category.slug
-                );
+                )}`;
 
               return (
                 <Link
-                  key={
-                    category.name
-                  }
-                  href={href}
+                  key={category.id}
+                  href={categoryHref}
                   className="
                     group
                     flex
-                    min-w-0
+                    min-w-24
+                    shrink-0
                     flex-col
                     items-center
-
-                    rounded-2xl
-
-                    border
-                    border-[var(--border)]
-
-                    bg-white
-
-                    px-2
-                    py-4
-
                     text-center
-
-                    shadow-[0_4px_18px_rgba(18,58,99,0.04)]
-
-                    transition
-                    duration-200
-
-                    active:scale-[0.98]
-
-                    sm:min-h-[188px]
-                    sm:justify-center
-                    sm:px-3
-                    sm:py-5
-
-                    sm:hover:-translate-y-1
-                    sm:hover:border-[#c9ddeb]
-                    sm:hover:shadow-[0_12px_30px_rgba(18,58,99,0.10)]
-
-                    lg:min-h-[196px]
+                    sm:min-w-0
                   "
                 >
 
                   {/* ==========================================
-                      ICON
+                      CATEGORY IMAGE
                   ========================================== */}
 
                   <div
-                    className={[
-                      `
-                        flex
-                        h-16
-                        w-16
-                        items-center
-                        justify-center
-
-                        rounded-full
-
-                        border
-
-                        transition
-                        duration-200
-
-                        sm:h-20
-                        sm:w-20
-
-                        lg:h-[88px]
-                        lg:w-[88px]
-                      `,
-                      tone.wrapper,
-                    ].join(" ")}
+                    className="
+                      relative
+                      h-20
+                      w-20
+                      overflow-hidden
+                      rounded-full
+                      bg-slate-100
+                      ring-1
+                      ring-slate-200
+                      transition
+                      duration-200
+                      group-hover:scale-105
+                      group-hover:ring-slate-300
+                      sm:h-24
+                      sm:w-24
+                      lg:h-28
+                      lg:w-28
+                    "
                   >
-                    <Icon
-                      className="
-                        h-7
-                        w-7
-
-                        transition
-                        duration-200
-
-                        sm:h-9
-                        sm:w-9
-
-                        lg:h-10
-                        lg:w-10
-                      "
-                    />
+                    {category.image ? (
+                      <Image
+                        src={category.image}
+                        alt={category.name}
+                        fill
+                        sizes="
+                          (max-width: 639px) 80px,
+                          (max-width: 1023px) 96px,
+                          112px
+                        "
+                        className="
+                          object-cover
+                        "
+                      />
+                    ) : (
+                      <div
+                        className="
+                          flex
+                          h-full
+                          w-full
+                          items-center
+                          justify-center
+                          px-2
+                          text-[10px]
+                          font-medium
+                          text-slate-400
+                          sm:text-xs
+                        "
+                      >
+                        Tidak ada gambar
+                      </div>
+                    )}
                   </div>
 
                   {/* ==========================================
-                      NAME
+                      CATEGORY NAME
                   ========================================== */}
 
-                  <h3
+                  <span
                     className="
-                      mt-3
-
-                      line-clamp-1
-
+                      mt-2
+                      line-clamp-2
+                      max-w-24
                       text-xs
-                      font-bold
-
-                      text-[var(--ink-900)]
-
+                      font-semibold
+                      leading-4
+                      text-slate-700
                       transition
-
-                      group-hover:text-[var(--ocean-700)]
-
-                      sm:mt-4
+                      group-hover:text-slate-900
+                      sm:max-w-28
                       sm:text-sm
-
-                      lg:text-[15px]
+                      sm:leading-5
                     "
                   >
-                    {
-                      category.name
-                    }
-                  </h3>
-
-                  {/* ==========================================
-                      DESCRIPTION
-                  ========================================== */}
-
-                  <p
-                    className="
-                      mt-1
-
-                      hidden
-                      line-clamp-1
-
-                      text-xs
-
-                      text-[var(--ink-500)]
-
-                      sm:block
-                    "
-                  >
-                    {
-                      category.description
-                    }
-                  </p>
+                    {category.name}
+                  </span>
 
                 </Link>
               );
             }
           )}
-
         </div>
 
       </div>

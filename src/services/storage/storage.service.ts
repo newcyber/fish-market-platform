@@ -89,6 +89,14 @@ const REWARD_UPLOAD_DIRECTORY =
     "rewards"
   );
 
+const CATEGORY_UPLOAD_DIRECTORY =
+  path.join(
+    PROJECT_ROOT,
+    "public",
+    "uploads",
+    "categories"
+  );
+
 const SETTINGS_UPLOAD_DIRECTORY =
   path.join(
     PROJECT_ROOT,
@@ -205,6 +213,48 @@ export class StorageService {
       "/uploads/rewards"
     );
   }
+
+  /**
+ * ==========================================================
+ * SAVE CATEGORY IMAGE
+ * ==========================================================
+ *
+ * Storage:
+ *
+ * public/uploads/categories
+ *
+ * Public URL:
+ *
+ * /uploads/categories/{filename}
+ *
+ * ==========================================================
+ */
+
+static async saveCategoryImage(
+  file: File
+): Promise<string> {
+  return this.saveToDirectory(
+    file,
+    CATEGORY_UPLOAD_DIRECTORY,
+    "/uploads/categories"
+  );
+}
+
+/**
+ * ==========================================================
+ * DELETE CATEGORY IMAGE
+ * ==========================================================
+ */
+
+static async deleteCategoryImage(
+  imagePath: string
+): Promise<void> {
+  await this.deleteFromDirectory(
+    imagePath,
+    "uploads/categories/",
+    CATEGORY_UPLOAD_DIRECTORY
+  );
+}
 
   /**
    * ==========================================================

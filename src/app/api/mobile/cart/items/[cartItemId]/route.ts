@@ -122,7 +122,10 @@ export async function PATCH(
 
 const cart =
   await CartService.updateItem({
-    userId: user.id,
+    owner: {
+      type: "customer",
+      userId: user.id,
+    },
     cartItemId,
     quantity,
   });
@@ -239,7 +242,10 @@ export async function DELETE(
 
 const cart =
   await CartService.removeItem({
-    userId: user.id,
+    owner: {
+      type: "customer",
+      userId: user.id,
+    },
     cartItemId,
   });
 

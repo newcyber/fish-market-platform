@@ -197,12 +197,15 @@ async function main() {
     // 6. CREATE EXACTLY ONE CART ITEM
     // ----------------------------------------------------------
 
-    await CartService.addItem({
-      userId: TEST_USER_ID,
-      productId: TEST_PRODUCT_ID,
-      skuId: TEST_SKU_ID,
-      quantity: TEST_QUANTITY,
-    });
+await CartService.addItem({
+  owner: {
+    type: "customer",
+    userId: TEST_USER_ID,
+  },
+  productId: TEST_PRODUCT_ID,
+  skuId: TEST_SKU_ID,
+  quantity: TEST_QUANTITY,
+});
 
     const cartBefore =
       await prisma.cart.findUnique({

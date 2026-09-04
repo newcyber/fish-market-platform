@@ -5509,8 +5509,11 @@ if (cartCheckoutExistingCart) {
 
 const cartCheckoutAdded =
   await CartService.addItem({
-    userId:
-      TEST_USER_ID,
+    owner: {
+      type: "customer",
+      userId:
+        TEST_USER_ID,
+    },
 
     productId:
       cartCheckoutSku.productId,
@@ -5537,7 +5540,6 @@ console.log(
 // ========================================================
 // VERIFY CART SNAPSHOT
 // ========================================================
-
 const cartCheckoutCart =
   await prisma.cart.findUnique({
     where: {

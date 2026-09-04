@@ -58,6 +58,18 @@ interface CreateCheckoutOrderInput {
    * Kode voucher customer.
    */
   voucherCode?: string | null;
+
+  /**
+   * Konfirmasi customer sebelum membuat pesanan.
+   */
+  checkoutConfirmed: boolean;
+
+  /**
+   * ID CartItem yang dipilih customer untuk checkout.
+   *
+   * Jika null/undefined, seluruh isi cart digunakan.
+   */
+  selectedItemIds?: string[] | null;
 }
 
 /**
@@ -116,6 +128,23 @@ export async function createCheckoutOrderAction(
 
         message:
           "Sesi Anda telah berakhir. Silakan login kembali.",
+      };
+    }
+
+    /**
+     * ==========================================================
+     * VALIDATE CHECKOUT CONFIRMATION
+     * ==========================================================
+     */
+
+    if (
+      input.checkoutConfirmed !== true
+    ) {
+      return {
+        success: false,
+
+        message:
+          "Konfirmasi checkout wajib disetujui sebelum membuat pesanan.",
       };
     }
 
@@ -229,20 +258,22 @@ export async function createCheckoutOrderAction(
      * 13. Buat Stock Ledger
      */
 
-    const result =
-      await OrderService.createCheckoutOrder(
-        session.user.id,
+const result =
+  await OrderService.createCheckoutOrder(
+    session.user.id,
 
-        addressId,
+    addressId,
 
-        paymentChannelId,
+    paymentChannelId,
 
-        input.notes ?? null,
+    input.notes ?? null,
 
-        shippingProvider,
+    shippingProvider,
 
-        voucherCode
-      );
+    voucherCode,
+
+    input.selectedItemIds
+  );
 
     /**
      * ==========================================================

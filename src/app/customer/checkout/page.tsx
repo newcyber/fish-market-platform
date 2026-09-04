@@ -52,7 +52,13 @@ import {
  * ============================================================
  */
 
-export default async function CheckoutPage() {
+export default async function CheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    selected?: string;
+  }>;
+}) {
   /**
    * ==========================================================
    * AUTHENTICATION
@@ -68,15 +74,60 @@ export default async function CheckoutPage() {
   const userId = session.user.id;
 
   /**
-   * ==========================================================
-   * GET CART
-   * ==========================================================
-   */
+ * ==========================================================
+ * SELECTED CART ITEMS
+ * ==========================================================
+ *
+ * Selection berasal dari:
+ *
+ * /customer/checkout?selected=id1,id2
+ *
+ * ID yang digunakan adalah CartItem.id,
+ * bukan Product.id.
+ * ==========================================================
+ */
 
-  const cart =
-    await CartService.getCart(
-      userId
-    );
+const { selected } = await searchParams;
+
+const selectedItemIds = selected
+  ? selected
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+  : null;
+
+/**
+ * ==========================================================
+ * GET CART
+ * ==========================================================
+ */
+
+const cart =
+  await CartService.getCart({
+    type: "customer",
+    userId,
+  });
+
+  /**
+ * ==========================================================
+ * SELECT CHECKOUT ITEMS
+ * ==========================================================
+ */
+
+const checkoutItems =
+  cart?.items.filter((item) =>
+    selectedItemIds === null
+      ? true
+      : selectedItemIds.includes(item.id)
+  ) ?? [];
+
+  if (
+  selectedItemIds !== null &&
+  selectedItemIds.length > 0 &&
+  checkoutItems.length !== selectedItemIds.length
+) {
+  redirect("/cart");
+}
 
   /**
    * ==========================================================
@@ -170,8 +221,8 @@ export default async function CheckoutPage() {
    * ==========================================================
    */
 
-  const subtotal =
-    cart.items.reduce(
+const subtotal =
+  checkoutItems.reduce(
       (total, item) => {
         return (
           total +
@@ -252,8 +303,8 @@ export default async function CheckoutPage() {
    * ==========================================================
    */
 
-  const serializedItems =
-    cart.items.map(
+const serializedItems =
+  checkoutItems.map(
       (item) => ({
         id:
           item.id,
