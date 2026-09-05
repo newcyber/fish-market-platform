@@ -19,6 +19,8 @@ import {
 import MobileLoginContent from
   "@/components/auth/MobileLoginContent";
 
+export const dynamic = "force-dynamic";
+
 /**
  * ============================================================
  * METADATA
