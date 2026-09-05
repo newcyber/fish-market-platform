@@ -1,0 +1,647 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* ============================================================
+   DARK VARIANT
+============================================================ */
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   PISJO MARKET DESIGN TOKENS
+============================================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(
+    --sidebar-accent-foreground
+  );
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(
+    --sidebar-primary-foreground
+  );
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+
+  --color-destructive: var(--destructive);
+
+  --color-accent-foreground: var(
+    --accent-foreground
+  );
+  --color-accent: var(--accent);
+
+  --color-muted-foreground: var(
+    --muted-foreground
+  );
+  --color-muted: var(--muted);
+
+  --color-secondary-foreground: var(
+    --secondary-foreground
+  );
+  --color-secondary: var(--secondary);
+
+  --color-primary-foreground: var(
+    --primary-foreground
+  );
+  --color-primary: var(--primary);
+
+  --color-popover-foreground: var(
+    --popover-foreground
+  );
+  --color-popover: var(--popover);
+
+  --color-card-foreground: var(
+    --card-foreground
+  );
+  --color-card: var(--card);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ============================================================
+   PISJO MARKET - BRIGHT LIGHT THEME
+============================================================ */
+
+:root {
+  /* ----------------------------------------------------------
+     CORE
+  ---------------------------------------------------------- */
+
+  --background: #f8fcff;
+  --foreground: #17324d;
+
+  --card: #ffffff;
+  --card-foreground: #17324d;
+
+  --popover: #ffffff;
+  --popover-foreground: #17324d;
+
+  /* ----------------------------------------------------------
+     BRAND PRIMARY
+     Bright Ocean Blue
+  ---------------------------------------------------------- */
+
+  --primary: #1677c8;
+  --primary-foreground: #ffffff;
+
+  /* ----------------------------------------------------------
+     SECONDARY
+     Bright Sky Surface
+  ---------------------------------------------------------- */
+
+  --secondary: #eaf7ff;
+  --secondary-foreground: #125b91;
+
+  /* ----------------------------------------------------------
+     MUTED
+  ---------------------------------------------------------- */
+
+  --muted: #f0f8fc;
+  --muted-foreground: #64748b;
+
+  /* ----------------------------------------------------------
+     ACCENT
+     Fresh Aqua
+  ---------------------------------------------------------- */
+
+  --accent: #ddf4ff;
+  --accent-foreground: #075985;
+
+  /* ----------------------------------------------------------
+     DANGER
+  ---------------------------------------------------------- */
+
+  --destructive: #ef4444;
+
+  /* ----------------------------------------------------------
+     BORDER / INPUT / FOCUS
+  ---------------------------------------------------------- */
+
+  --border: #d9eaf5;
+  --input: #d9eaf5;
+  --ring: #38a4e8;
+
+  /* ----------------------------------------------------------
+     CHART
+  ---------------------------------------------------------- */
+
+  --chart-1: #1677c8;
+  --chart-2: #38a4e8;
+  --chart-3: #72b84a;
+  --chart-4: #fbbf24;
+  --chart-5: #ef4444;
+
+  /* ----------------------------------------------------------
+     RADIUS
+  ---------------------------------------------------------- */
+
+  --radius: 0.875rem;
+
+  /* ----------------------------------------------------------
+     SIDEBAR
+  ---------------------------------------------------------- */
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #17324d;
+
+  --sidebar-primary: #1677c8;
+  --sidebar-primary-foreground: #ffffff;
+
+  --sidebar-accent: #eaf7ff;
+  --sidebar-accent-foreground: #125b91;
+
+  --sidebar-border: #d9eaf5;
+  --sidebar-ring: #38a4e8;
+
+  /* ==========================================================
+     CUSTOM PISJO MARKET TOKENS
+  ========================================================== */
+
+  /*
+   * OCEAN
+   * Bright, clean, modern blue palette
+   */
+
+  --ocean-950: #12304a;
+  --ocean-900: #164f78;
+  --ocean-800: #1b6699;
+  --ocean-700: #237db8;
+  --ocean-600: #3296d5;
+  --ocean-500: #55ace6;
+
+  /*
+   * FRESH
+   * More vibrant but still natural
+   */
+
+  --fresh-700: #3f7d2b;
+  --fresh-600: #559b38;
+  --fresh-500: #72b84a;
+  --fresh-400: #91d468;
+  --fresh-100: #effae9;
+
+  /*
+   * ICE
+   * Brighter surfaces
+   */
+
+  --ice-50: #ffffff;
+  --ice-100: #f8fcff;
+  --ice-200: #eaf4fa;
+
+  /*
+   * INK
+   */
+
+  --ink-900: #17324d;
+  --ink-700: #36516b;
+  --ink-600: #526b82;
+  --ink-500: #73869a;
+}
+
+/* ============================================================
+   DARK THEME
+============================================================ */
+
+.dark {
+  --background: #091827;
+  --foreground: #f0f8ff;
+
+  --card: #10253a;
+  --card-foreground: #f0f8ff;
+
+  --popover: #10253a;
+  --popover-foreground: #f0f8ff;
+
+  --primary: #63b9ef;
+  --primary-foreground: #082137;
+
+  --secondary: #15334c;
+  --secondary-foreground: #e7f4ff;
+
+  --muted: #15334c;
+  --muted-foreground: #9fb6c8;
+
+  --accent: #174562;
+  --accent-foreground: #e1f4ff;
+
+  --destructive: #fb7185;
+
+  --border: rgb(175 220 245 / 15%);
+  --input: rgb(175 220 245 / 18%);
+  --ring: #63b9ef;
+
+  --chart-1: #63b9ef;
+  --chart-2: #3fa8e8;
+  --chart-3: #91d468;
+  --chart-4: #facc15;
+  --chart-5: #fb7185;
+
+  --sidebar: #0c1f31;
+  --sidebar-foreground: #f0f8ff;
+
+  --sidebar-primary: #63b9ef;
+  --sidebar-primary-foreground: #082137;
+
+  --sidebar-accent: #15334c;
+  --sidebar-accent-foreground: #f0f8ff;
+
+  --sidebar-border: rgb(175 220 245 / 15%);
+  --sidebar-ring: #63b9ef;
+}
+
+/* ============================================================
+   BASE + GLOBAL AMBIENT BACKGROUND
+============================================================ */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+
+    min-height: 100%;
+
+    background:
+      radial-gradient(
+        circle at top left,
+        rgb(85 172 230 / 0.12),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 90% 15%,
+        rgb(114 184 74 / 0.10),
+        transparent 28%
+      ),
+      linear-gradient(
+        180deg,
+        #ffffff 0%,
+        var(--background) 48%,
+        #f4fbff 100%
+      );
+
+    background-attachment: fixed;
+  }
+
+  body {
+    @apply text-foreground;
+
+    position: relative;
+
+    min-height: 100vh;
+
+    background:
+      linear-gradient(
+        180deg,
+        rgb(255 255 255 / 0.72),
+        rgb(248 252 255 / 0.88)
+      );
+
+    isolation: isolate;
+  }
+}
+
+/* ============================================================
+   GLOBAL AMBIENT GLOW
+============================================================ */
+
+body::before,
+body::after {
+  content: "";
+
+  position: fixed;
+
+  pointer-events: none;
+
+  z-index: -1;
+
+  border-radius: 9999px;
+
+  filter: blur(90px);
+
+  opacity: 0.45;
+
+  transform: translateZ(0);
+
+  will-change: transform;
+}
+
+/*
+ * OCEAN GLOW
+ */
+
+body::before {
+  width: 42rem;
+  height: 42rem;
+
+  top: -18rem;
+  left: -16rem;
+
+  background:
+    rgb(85 172 230 / 0.20);
+}
+
+/*
+ * FRESH GLOW
+ */
+
+body::after {
+  width: 36rem;
+  height: 36rem;
+
+  top: 28vh;
+  right: -18rem;
+
+  background:
+    rgb(114 184 74 / 0.14);
+}
+
+/* ============================================================
+   MOBILE OPTIMIZATION
+============================================================ */
+
+@media (max-width: 640px) {
+  html {
+    background:
+      radial-gradient(
+        circle at top left,
+        rgb(85 172 230 / 0.09),
+        transparent 38%
+      ),
+      linear-gradient(
+        180deg,
+        #ffffff 0%,
+        var(--background) 100%
+      );
+
+    background-attachment: scroll;
+  }
+
+  body::before,
+  body::after {
+    filter: blur(70px);
+    opacity: 0.32;
+  }
+
+  body::before {
+    width: 24rem;
+    height: 24rem;
+
+    top: -10rem;
+    left: -12rem;
+  }
+
+  body::after {
+    width: 22rem;
+    height: 22rem;
+
+    top: 38vh;
+    right: -14rem;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION / PERFORMANCE
+============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    background-attachment: scroll;
+  }
+}
+
+/* =========================================================
+   HERO FLOATING IMAGE ANIMATION
+========================================================= */
+
+@keyframes heroFloat {
+  0%,
+  100% {
+    transform: translate3d(
+      0,
+      0,
+      0
+    ) rotate(0deg);
+  }
+
+  25% {
+    transform: translate3d(
+      4px,
+      -8px,
+      0
+    ) rotate(0.4deg);
+  }
+
+  50% {
+    transform: translate3d(
+      0,
+      -14px,
+      0
+    ) rotate(0deg);
+  }
+
+  75% {
+    transform: translate3d(
+      -4px,
+      -7px,
+      0
+    ) rotate(-0.4deg);
+  }
+}
+
+/* =========================================================
+   HERO FLOATING GLOW
+========================================================= */
+
+@keyframes heroGlow {
+  0%,
+  100% {
+    transform:
+      translate(-50%, -50%)
+      scale(0.9);
+
+    opacity: 0.3;
+  }
+
+  50% {
+    transform:
+      translate(-50%, -50%)
+      scale(1.12);
+
+    opacity: 0.6;
+  }
+}
+
+/* =========================================================
+   MOBILE CART BADGE ANIMATION
+========================================================= */
+
+@keyframes cart-badge-pop {
+  0% {
+    transform: scale(0.65);
+    opacity: 0;
+  }
+
+  45% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+
+  70% {
+    transform: scale(0.92);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-cart-badge-pop {
+  animation:
+    cart-badge-pop
+    420ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-cart-badge-pop {
+    animation: none;
+  }
+}
+
+/* =========================================================
+   PRODUCT GRID TRANSITION
+========================================================= */
+
+@keyframes product-grid-enter {
+  0% {
+    opacity: 0;
+    transform:
+      translateY(10px)
+      scale(0.99);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+.product-grid-transition {
+  will-change:
+    transform,
+    opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-grid-transition {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* =========================================================
+   PRODUCT CARD STAGGER ANIMATION
+========================================================= */
+
+@keyframes product-card-enter {
+  from {
+    opacity: 0;
+    transform:
+      translateY(14px)
+      scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+.product-card-stagger {
+  opacity: 0;
+
+  will-change:
+    transform,
+    opacity;
+
+  animation:
+    product-card-enter
+    480ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card-stagger {
+    opacity: 1;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* =========================================================
+   QUANTITY STEPPER ANIMATION
+========================================================= */
+
+.quantity-value-pop {
+  display: inline-block;
+  animation: quantity-value-pop 220ms ease-out;
+}
+
+@keyframes quantity-value-pop {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+
+  65% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quantity-value-pop {
+    animation: none;
+  }
+}

@@ -352,7 +352,7 @@ const imageFiles =
         value instanceof File &&
         value.size > 0
     );
-    
+
     /**
      * ==========================================================
      *
@@ -889,7 +889,7 @@ const imageFiles =
     ),
 };
 
-    
+
     /**
      * ==========================================================
      *
@@ -963,29 +963,63 @@ const imageFiles =
      */
 
     await ProductService.updateProduct(
-  productId,
-  parsed.data
-);
+      productId,
+      parsed.data
+    );
 
-/**
- * ==========================================================
- *
- * UPLOAD NEW PRODUCT IMAGES
- *
- * ==========================================================
- *
- * Gambar lama tidak dihapus.
- *
- * Hanya gambar baru yang dipilih
- * pada ProductForm yang akan ditambahkan.
- */
+    /**
+     * ==========================================================
+     *
+     * UPLOAD NEW PRODUCT IMAGES
+     *
+     * ==========================================================
+     *
+     * Gambar lama tidak dihapus.
+     *
+     * Hanya gambar baru yang dipilih
+     * pada ProductForm yang akan ditambahkan.
+     */
 
-if (imageFiles.length > 0) {
-  await ProductImageService.upload(
-    productId,
-    imageFiles
-  );
-}
+    if (imageFiles.length > 0) {
+      await ProductImageService.upload(
+        productId,
+        imageFiles
+      );
+    }
+
+    /**
+     * ==========================================================
+     *
+     * GET UPDATED PRODUCT
+     *
+     * ==========================================================
+     *
+     * Ambil data produk setelah seluruh proses update selesai.
+     *
+     * Data ini dipakai oleh ProductForm untuk:
+     * - productId
+     * - productSlug
+     * - status publish
+     *
+     * Sehingga tombol Preview selalu menggunakan
+     * slug terbaru setelah update.
+     *
+     * ==========================================================
+     */
+
+    const updatedProduct =
+      await ProductService.getProductForAdmin(
+        productId
+      );
+
+    if (!updatedProduct) {
+      return {
+        success: false,
+
+        message:
+          "Produk berhasil diperbarui, tetapi data produk tidak ditemukan.",
+      };
+    }
 
     /**
      * ==========================================================
@@ -1044,6 +1078,12 @@ if (imageFiles.length > 0) {
 
       message:
         "Produk berhasil diperbarui.",
+
+      data: {
+        productId: updatedProduct.id,
+        productSlug: updatedProduct.slug,
+        isPublished: updatedProduct.isPublished,
+      },
     };
   } catch (error) {
     console.error(

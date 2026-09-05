@@ -16,6 +16,7 @@ import {
 } from "next/navigation";
 
 import {
+  Eye,
   ImagePlus,
   Plus,
   Save,
@@ -169,6 +170,7 @@ interface ProductFormProps {
 
   submitLabel?: string;
   showImageUpload?: boolean;
+  showPreviewAfterSuccess?: boolean;
 
   action: (
     state: ActionResult,
@@ -661,9 +663,13 @@ export function ProductForm({
   submitLabel = "Simpan Produk",
   action,
   showImageUpload = true,
+  showPreviewAfterSuccess = false,
 }: ProductFormProps) {
   const router =
     useRouter();
+
+const previewButtonRef =
+  useRef<HTMLAnchorElement>(null);
 
   /**
    * ==========================================================
@@ -793,7 +799,7 @@ const slugManuallyEditedRef =
 
       isPublished:
         defaultValues?.isPublished ??
-        true,
+        false,
 
       featured:
         defaultValues?.featured ??
@@ -907,19 +913,30 @@ const slugManuallyEditedRef =
       return;
     }
 
-    if (state.success) {
-      window.alert(
-        state.message
-      );
+if (state.success) {
+  if (showPreviewAfterSuccess) {
+    requestAnimationFrame(() => {
+      previewButtonRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
 
-      router.push(
-        "/admin/products"
-      );
+    return;
+  }
 
-      router.refresh();
+  window.alert(
+    state.message
+  );
 
-      return;
-    }
+  router.push(
+    "/admin/products"
+  );
+
+  router.refresh();
+
+  return;
+}
 
     window.alert(
       state.message
@@ -928,7 +945,44 @@ const slugManuallyEditedRef =
     state.success,
     state.message,
     router,
+    showPreviewAfterSuccess,
   ]);
+
+  /**
+   * ============================================================
+   * SUCCESS PREVIEW DATA
+   * ============================================================
+   *
+   * Server Action mengembalikan:
+   * - productId
+   * - productSlug
+   * - isPublished
+   *
+   * Data ini dipakai untuk membuat URL preview
+   * tanpa meminta admin memasukkan slug secara manual.
+   * ============================================================
+   */
+
+  const successData =
+    state.success &&
+    state.data &&
+    typeof state.data === "object"
+      ? (state.data as {
+          productId?: string;
+          productSlug?: string;
+          isPublished?: boolean;
+        })
+      : null;
+
+  const previewSlug =
+    successData?.productSlug?.trim() ?? "";
+
+const previewHref =
+  previewSlug
+    ? `/products/${encodeURIComponent(
+        previewSlug
+      )}?preview=1`
+    : null;
 
   /**
    * ==========================================================
@@ -1437,6 +1491,52 @@ const totalSkuStock =
       onSubmit={handleFormSubmit}
       className="space-y-5 sm:space-y-6"
     >
+      {/* ====================================================== */}
+      {/* SUCCESS / PREVIEW */}
+      {/* ====================================================== */}
+
+      {showPreviewAfterSuccess &&
+        state.success &&
+        state.message && (
+          <Card className="border-green-200 bg-green-50 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold text-green-800">
+                  {state.message}
+                </p>
+
+                <p className="mt-1 text-sm text-green-700">
+                  Produk sudah tersimpan. Anda dapat
+                  melihat tampilan produk sebagai
+                  administrator sebelum melanjutkan.
+                </p>
+              </div>
+
+               <div className="flex flex-col gap-2 sm:flex-row">
+                {previewHref ? (
+                  <Link
+  ref={previewButtonRef}
+  href={previewHref}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex h-10 items-center justify-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+>
+  <Eye className="mr-2 h-4 w-4" />
+  Preview Produk
+</Link>
+                ) : null}
+
+                <Link
+                  href="/admin/products"
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Kembali ke Daftar
+                </Link>
+              </div>
+            </div>
+          </Card>
+        )}
+
       {/* ====================================================== */}
       {/* ERROR MESSAGE */}
       {/* ====================================================== */}
@@ -2133,7 +2233,7 @@ const totalSkuStock =
 
       <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold">
               Varian Produk
             </h2>
@@ -2148,9 +2248,8 @@ const totalSkuStock =
           <Button
             type="button"
             variant="outline"
-            onClick={
-              addVariantGroup
-            }
+            onClick={addVariantGroup}
+            className="w-full sm:w-auto"
           >
             <Plus className="mr-2 h-4 w-4" />
             Tambah Group
@@ -2173,8 +2272,9 @@ const totalSkuStock =
                   key={group.clientKey}
                   className="rounded-xl border p-4"
                 >
+                  {/* GROUP HEADER */}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <div className="flex-1 space-y-2">
+                    <div className="min-w-0 flex-1 space-y-2">
                       <Label
                         htmlFor={`variant-group-${groupIndex}`}
                       >
@@ -2183,13 +2283,9 @@ const totalSkuStock =
 
                       <Input
                         id={`variant-group-${groupIndex}`}
-                        value={
-                          group.name
-                        }
+                        value={group.name}
                         placeholder="Contoh: Berat, Kondisi, Grade"
-                        onChange={(
-                          event
-                        ) =>
+                        onChange={(event) =>
                           updateVariantGroupName(
                             groupIndex,
                             event.target.value
@@ -2202,10 +2298,9 @@ const totalSkuStock =
                       type="button"
                       variant="outline"
                       size="icon"
+                      className="min-h-11 min-w-11 shrink-0"
                       onClick={() =>
-                        removeVariantGroup(
-                          groupIndex
-                        )
+                        removeVariantGroup(groupIndex)
                       }
                       aria-label={`Hapus group ${
                         group.name ||
@@ -2217,12 +2312,14 @@ const totalSkuStock =
                     </Button>
                   </div>
 
+                  {/* OPTIONS */}
                   <div className="mt-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
                         <p className="text-sm font-medium">
                           Options
                         </p>
+
                         <p className="text-xs text-muted-foreground">
                           Minimal satu option per group.
                         </p>
@@ -2233,10 +2330,9 @@ const totalSkuStock =
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          addVariantOption(
-                            groupIndex
-                          )
+                          addVariantOption(groupIndex)
                         }
+                        className="w-full sm:w-auto"
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Tambah Option
@@ -2260,18 +2356,14 @@ const totalSkuStock =
                                 option.key ??
                                 `${group.clientKey}-${optionIndex}`
                               }
-                              className="flex gap-2"
+                              className="flex items-stretch gap-2"
                             >
                               <Input
-                                value={
-                                  option.label
-                                }
+                                value={option.label}
                                 placeholder={`Option ${
                                   optionIndex + 1
                                 }`}
-                                onChange={(
-                                  event
-                                ) =>
+                                onChange={(event) =>
                                   updateVariantOptionLabel(
                                     groupIndex,
                                     optionIndex,
@@ -2284,6 +2376,7 @@ const totalSkuStock =
                                 type="button"
                                 variant="outline"
                                 size="icon"
+                                className="min-h-11 min-w-11 shrink-0"
                                 onClick={() =>
                                   removeVariantOption(
                                     groupIndex,
@@ -2311,7 +2404,6 @@ const totalSkuStock =
       {/* ====================================================== */}
       {/* SKU COMBINATIONS */}
       {/* ====================================================== */}
-
       {form.variantGroups.length > 0 && (
         <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
           <div>

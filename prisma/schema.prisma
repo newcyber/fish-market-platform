@@ -2968,9 +2968,13 @@ model StoreSettings {
 
   internalShippingPerKmFee Decimal @default(0) @db.Decimal(12, 2)
 
+  internalShippingMinFee Decimal @default(0) @db.Decimal(12, 2)
+
   internalShippingMaxDistance Decimal @default(10) @db.Decimal(10, 2)
 
   internalShippingFreeThreshold Decimal? @db.Decimal(14, 2)
+
+  internalShippingFreeMaxDiscount Decimal @default(0) @db.Decimal(12, 2)
 
   // ----------------------------------------------------------
   // OPERASIONAL

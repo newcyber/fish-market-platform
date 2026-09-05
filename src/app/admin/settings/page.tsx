@@ -48,8 +48,8 @@ export default async function AdminSettingsPage() {
    * getSettings() mengambil StoreSettings dari database.
    *
    * Prisma Decimal tidak dapat langsung dikirim dari Server
-   * Component ke Client Component, sehingga latitude dan
-   * longitude harus dikonversi menjadi number.
+   * Component ke Client Component, sehingga field Decimal
+   * dikonversi menjadi number.
    */
 
   const settings =
@@ -59,6 +59,9 @@ export default async function AdminSettingsPage() {
    * ==========================================================
    * SERIALIZE SETTINGS FOR CLIENT COMPONENT
    * ==========================================================
+   *
+   * Prisma Decimal harus dikonversi menjadi number
+   * sebelum dikirim ke SettingsForm.
    */
 
   const serializedSettings = {
@@ -84,6 +87,8 @@ export default async function AdminSettingsPage() {
      * ========================================================
      * INTERNAL SHIPPING
      * ========================================================
+     *
+     * Semua field Decimal dikonversi ke number.
      */
 
     internalShippingBaseFee:
@@ -91,6 +96,9 @@ export default async function AdminSettingsPage() {
 
     internalShippingPerKmFee:
       Number(settings.internalShippingPerKmFee),
+
+    internalShippingMinFee:
+      Number(settings.internalShippingMinFee),
 
     internalShippingMaxDistance:
       Number(settings.internalShippingMaxDistance),
@@ -101,6 +109,11 @@ export default async function AdminSettingsPage() {
             settings.internalShippingFreeThreshold
           )
         : null,
+
+    internalShippingFreeMaxDiscount:
+      Number(
+        settings.internalShippingFreeMaxDiscount
+      ),
   };
 
   /**

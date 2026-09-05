@@ -18,19 +18,21 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  const settings =
-    await settingsService.getSettings();
+  const settings = await settingsService.getSettings();
 
   const user = {
-    name: session.user.name ?? null,
-    email: session.user.email ?? null,
+    id: session.user.id,
+    name: session.user.name ?? "",
+    email: session.user.email ?? "",
     role: session.user.role ?? "ADMIN",
   };
 
   return (
     <AppShell
-      storeName={settings.storeName}
       user={user}
+      storeName={settings.storeName}
+      siteLogo={settings.siteLogo}
+      siteDescription={settings.storeDescription}
     >
       {children}
     </AppShell>

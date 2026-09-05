@@ -77,25 +77,31 @@ import {
  * ============================================================
  * LOGIN FORM
  * ============================================================
+ *
+ * Catatan:
+ * - Logic authentication dipertahankan.
+ * - Callback URL tetap divalidasi sebelum redirect.
+ * - EMAIL_NOT_VERIFIED tetap diarahkan ke /verify-email.
+ * - Field errors dari server tetap dipasang ke react-hook-form.
+ * - Perubahan pada file ini fokus pada UX mobile + Pisjo theme.
  */
 
 export function LoginForm() {
-  const router =
-    useRouter();
+  const router = useRouter();
 
   const searchParams =
     useSearchParams();
-
-  const rawCallbackUrl =
-    searchParams.get(
-      "callbackUrl"
-    );
 
   /**
    * ==========================================================
    * SAFE CALLBACK URL
    * ==========================================================
    */
+
+  const rawCallbackUrl =
+    searchParams.get(
+      "callbackUrl"
+    );
 
   const callbackUrl =
     rawCallbackUrl &&
@@ -141,7 +147,6 @@ export function LoginForm() {
     register,
     handleSubmit,
     setError,
-
     formState: {
       errors,
     },
@@ -177,17 +182,16 @@ export function LoginForm() {
             await login(values);
 
           /**
-           * ====================================================
+           * ==================================================
            * LOGIN FAILED
-           * ====================================================
+           * ==================================================
            */
 
           if (!result.success) {
-
             /**
-             * ==================================================
+             * ================================================
              * EMAIL NOT VERIFIED
-             * ==================================================
+             * ================================================
              */
 
             if (
@@ -211,9 +215,9 @@ export function LoginForm() {
             }
 
             /**
-             * ==================================================
+             * ================================================
              * FIELD ERRORS
-             * ==================================================
+             * ================================================
              */
 
             if (
@@ -242,9 +246,9 @@ export function LoginForm() {
             }
 
             /**
-             * ==================================================
+             * ================================================
              * SERVER ERROR
-             * ==================================================
+             * ================================================
              */
 
             const message =
@@ -277,16 +281,6 @@ export function LoginForm() {
            * ==================================================
            * REDIRECT
            * ==================================================
-           *
-           * Jika ada callbackUrl:
-           *
-           * /customer/cart
-           *
-           * maka user dikembalikan ke sana.
-           *
-           * Jika tidak ada:
-           *
-           * /
            */
 
           router.replace(
@@ -294,9 +288,7 @@ export function LoginForm() {
           );
 
           router.refresh();
-
         } catch (error) {
-
           console.error(
             "[LOGIN_FORM_ERROR]",
             error
@@ -325,37 +317,32 @@ export function LoginForm() {
 
   return (
     <AuthCard>
-
       <AuthHeader
         title="Masuk"
         description="Masuk ke akun Anda untuk melanjutkan."
       />
 
-      {/* ======================================================
-          FORM
-      ====================================================== */}
-
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(
+          onSubmit
+        )}
         className="
           space-y-5
           sm:space-y-6
         "
         noValidate
       >
-
         {/* ====================================================
             EMAIL
         ==================================================== */}
 
         <div className="space-y-2">
-
           <Label
             htmlFor="email"
             className="
               text-sm
               font-medium
-              text-slate-800
+              text-[var(--pisjo-navy)]
             "
           >
             Email
@@ -377,8 +364,9 @@ export function LoginForm() {
             }
             disabled={isPending}
             {...register("email")}
-            className="
+            className={`
               h-12
+              w-full
               rounded-xl
               border-slate-200
               bg-white
@@ -388,16 +376,21 @@ export function LoginForm() {
               transition-all
               duration-200
               placeholder:text-slate-400
-              focus:border-sky-500
+              focus:border-[var(--pisjo-primary)]
               focus:ring-2
-              focus:ring-sky-500/20
+              focus:ring-[rgba(7,136,232,0.18)]
               disabled:cursor-not-allowed
               disabled:opacity-60
               sm:text-sm
-            "
+              ${
+                errors.email
+                  ? "border-red-300 focus:border-red-500 focus:ring-red-500/20"
+                  : ""
+              }
+            `}
           />
 
-          {errors.email && (
+          {errors.email ? (
             <p
               id="email-error"
               role="alert"
@@ -407,10 +400,11 @@ export function LoginForm() {
                 gap-1.5
                 text-sm
                 leading-5
-                text-destructive
+                text-red-600
               "
             >
               <AlertCircle
+                aria-hidden="true"
                 className="
                   mt-0.5
                   h-4
@@ -423,8 +417,7 @@ export function LoginForm() {
                 {errors.email.message}
               </span>
             </p>
-          )}
-
+          ) : null}
         </div>
 
         {/* ====================================================
@@ -432,6 +425,7 @@ export function LoginForm() {
         ==================================================== */}
 
         <PasswordField
+          id="password"
           label="Password"
           placeholder="Masukkan password"
           autoComplete="current-password"
@@ -450,13 +444,13 @@ export function LoginForm() {
           className="
             flex
             flex-col
-            gap-3
+            gap-1
             sm:flex-row
             sm:items-center
             sm:justify-between
+            sm:gap-3
           "
         >
-
           {/* REMEMBER ME */}
 
           <div
@@ -466,7 +460,6 @@ export function LoginForm() {
               items-center
             "
           >
-
             <div
               className="
                 flex
@@ -474,25 +467,28 @@ export function LoginForm() {
                 gap-2.5
               "
             >
-
               <Checkbox
                 id="rememberMe"
                 checked={rememberMe}
                 disabled={isPending}
                 onCheckedChange={(
                   checked
-                ) =>
+                ) => {
                   setRememberMe(
                     Boolean(checked)
-                  )
-                }
+                  );
+                }}
                 className="
                   h-5
                   w-5
                   rounded-md
                   border-slate-300
-                  data-[state=checked]:border-sky-600
-                  data-[state=checked]:bg-sky-600
+                  data-[state=checked]:border-[var(--pisjo-primary)]
+                  data-[state=checked]:bg-[var(--pisjo-primary)]
+                  data-[state=checked]:text-white
+                  focus-visible:ring-2
+                  focus-visible:ring-[var(--pisjo-primary)]
+                  focus-visible:ring-offset-2
                 "
               />
 
@@ -508,9 +504,7 @@ export function LoginForm() {
               >
                 Ingat saya
               </Label>
-
             </div>
-
           </div>
 
           {/* FORGOT PASSWORD */}
@@ -527,32 +521,31 @@ export function LoginForm() {
               min-h-11
               w-fit
               items-center
-              font-medium
-              text-sky-700
+              rounded-md
+              px-1
+              text-sm
+              font-semibold
+              text-[var(--pisjo-ocean)]
               transition-colors
               duration-200
-              hover:text-sky-800
+              hover:text-[var(--pisjo-primary)]
               hover:underline
               focus:outline-none
-              focus-visible:rounded-md
               focus-visible:ring-2
-              focus-visible:ring-sky-500
+              focus-visible:ring-[var(--pisjo-primary)]
               focus-visible:ring-offset-2
-              disabled:pointer-events-none
               sm:min-h-0
-              sm:text-sm
             "
           >
             Lupa password?
           </Link>
-
         </div>
 
         {/* ====================================================
             SERVER ERROR
         ==================================================== */}
 
-        {serverError && (
+        {serverError ? (
           <Alert
             variant="destructive"
             className="
@@ -562,8 +555,8 @@ export function LoginForm() {
               text-red-900
             "
           >
-
             <AlertCircle
+              aria-hidden="true"
               className="h-4 w-4"
             />
 
@@ -578,9 +571,8 @@ export function LoginForm() {
             >
               {serverError}
             </AlertDescription>
-
           </Alert>
-        )}
+        ) : null}
 
         {/* ====================================================
             LOGIN BUTTON
@@ -590,33 +582,7 @@ export function LoginForm() {
           loading={isPending}
           text="Masuk"
           loadingText="Memproses..."
-          className="
-            h-12
-            w-full
-            rounded-xl
-            bg-sky-700
-            px-5
-            text-sm
-            font-semibold
-            text-white
-            shadow-md
-            shadow-sky-700/15
-            transition-all
-            duration-200
-            hover:bg-sky-800
-            hover:shadow-lg
-            hover:shadow-sky-700/20
-            active:scale-[0.99]
-            focus-visible:outline-none
-            focus-visible:ring-2
-            focus-visible:ring-sky-500
-            focus-visible:ring-offset-2
-            disabled:cursor-not-allowed
-            disabled:opacity-60
-            sm:h-12
-          "
         />
-
       </form>
 
       {/* ======================================================
@@ -632,11 +598,12 @@ export function LoginForm() {
           gap-2
           text-center
           text-xs
+          leading-5
           text-slate-400
         "
       >
-
         <ShieldCheck
+          aria-hidden="true"
           className="
             h-4
             w-4
@@ -647,7 +614,6 @@ export function LoginForm() {
         <span>
           Login Anda aman dan terenkripsi.
         </span>
-
       </div>
 
       {/* ======================================================
@@ -662,7 +628,6 @@ export function LoginForm() {
           gap-3
         "
       >
-
         <div
           className="
             h-px
@@ -673,6 +638,7 @@ export function LoginForm() {
 
         <span
           className="
+            shrink-0
             text-xs
             font-medium
             uppercase
@@ -690,7 +656,6 @@ export function LoginForm() {
             bg-slate-200
           "
         />
-
       </div>
 
       {/* ======================================================
@@ -704,7 +669,6 @@ export function LoginForm() {
           text-muted-foreground
         "
       >
-
         <span>
           Belum punya akun?
         </span>{" "}
@@ -716,16 +680,17 @@ export function LoginForm() {
             min-h-11
             items-center
             gap-1
+            rounded-md
+            px-1
             font-semibold
-            text-sky-700
+            text-[var(--pisjo-ocean)]
             transition-colors
             duration-200
-            hover:text-sky-800
+            hover:text-[var(--pisjo-primary)]
             hover:underline
             focus:outline-none
-            focus-visible:rounded-md
             focus-visible:ring-2
-            focus-visible:ring-sky-500
+            focus-visible:ring-[var(--pisjo-primary)]
             focus-visible:ring-offset-2
             sm:min-h-0
           "
@@ -733,18 +698,16 @@ export function LoginForm() {
           Daftar sekarang
 
           <ArrowRight
+            aria-hidden="true"
             className="
               h-4
               w-4
               transition-transform
               duration-200
-              group-hover:translate-x-0.5
             "
           />
         </Link>
-
       </div>
-
     </AuthCard>
   );
 }

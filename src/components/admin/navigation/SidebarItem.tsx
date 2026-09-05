@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -35,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface SidebarItemProps {
   item: NavigationItem;
+  onNavigate?: () => void;
 }
 
 /**
@@ -50,33 +50,19 @@ const ICON_MAP: Record<
   }>
 > = {
   dashboard: LayoutDashboard,
-
   products: Package,
-
   categories: FolderTree,
-
   orders: ShoppingCart,
-
   customers: Users,
-
   payments: CreditCard,
-
   reports: BarChart3,
-
   settings: Settings,
-
   promotions: Megaphone,
-
   "flash-sale": Zap,
-
   voucher: TicketPercent,
-
   loyalty: HeartHandshake,
-
   "reward-voucher": Gift,
-
   "reward-catalog": Award,
-
   "reward-category": Tags,
 };
 
@@ -88,6 +74,7 @@ const ICON_MAP: Record<
 
 export function SidebarItem({
   item,
+  onNavigate,
 }: SidebarItemProps) {
   const pathname = usePathname();
 
@@ -99,16 +86,10 @@ export function SidebarItem({
 
   const children =
     item.children
-      ?.filter(
-        (child) => !child.hidden
-      )
-      .sort(
-        (a, b) =>
-          a.order - b.order
-      ) ?? [];
+      ?.filter((child) => !child.hidden)
+      .sort((a, b) => a.order - b.order) ?? [];
 
-  const hasChildren =
-    children.length > 0;
+  const hasChildren = children.length > 0;
 
   /**
    * ==========================================================
@@ -124,46 +105,20 @@ export function SidebarItem({
       (child) =>
         pathname === child.href ||
         (child.href !== "/admin" &&
-          pathname.startsWith(
-            `${child.href}/`
-          ))
+          pathname.startsWith(`${child.href}/`))
     );
 
   const isActive =
-    isDirectActive ||
-    isChildActive;
+    isDirectActive || isChildActive;
 
   /**
    * ==========================================================
    * EXPAND STATE
    * ==========================================================
-   *
-   * State ini digunakan ketika user membuka atau menutup
-   * submenu secara manual.
-   *
-   * Initial value mengikuti apakah salah satu child sedang aktif.
    */
 
   const [isOpen, setIsOpen] =
     useState(isChildActive);
-
-  /**
-   * ==========================================================
-   * SUBMENU OPEN STATE
-   * ==========================================================
-   *
-   * Jika sedang berada pada halaman child,
-   * submenu akan selalu terbuka.
-   *
-   * Contoh:
-   *
-   * /admin/settings
-   * /admin/payment-channels
-   *
-   * Tidak menggunakan useEffect agar tidak terjadi warning:
-   *
-   * Calling setState synchronously within an effect
-   */
 
   const isSubmenuOpen =
     isOpen || isChildActive;
@@ -174,8 +129,25 @@ export function SidebarItem({
    * ==========================================================
    */
 
-  const Icon =
-    ICON_MAP[item.icon];
+  const Icon = ICON_MAP[item.icon];
+
+  /**
+   * ==========================================================
+   * NAVIGATION HANDLER
+   * ==========================================================
+   *
+   * Pada mobile, setelah user memilih menu:
+   *
+   * 1. Navigasi tetap berjalan melalui Link.
+   * 2. Sidebar langsung ditutup.
+   *
+   * Pada desktop onNavigate tidak memberikan efek visual
+   * karena sidebar memang selalu terbuka.
+   */
+
+  function handleNavigate() {
+    onNavigate?.();
+  }
 
   /**
    * ==========================================================
@@ -189,34 +161,28 @@ export function SidebarItem({
         <button
           type="button"
           onClick={() => {
-            setIsOpen(
-              (current) => !current
-            );
+            setIsOpen((current) => !current);
           }}
           className={cn(
-            "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-
+            "group flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+            "touch-manipulation",
             isActive
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           )}
-          aria-expanded={
-            isSubmenuOpen
-          }
+          aria-expanded={isSubmenuOpen}
           aria-controls={`${item.id}-submenu`}
         >
           <Icon className="h-5 w-5 shrink-0" />
 
-          <span className="flex-1 truncate text-left">
+          <span className="min-w-0 flex-1 truncate text-left">
             {item.title}
           </span>
 
           <ChevronDown
             className={cn(
               "h-4 w-4 shrink-0 transition-transform duration-200",
-
-              isSubmenuOpen &&
-                "rotate-180"
+              isSubmenuOpen && "rotate-180"
             )}
           />
         </button>
@@ -224,74 +190,68 @@ export function SidebarItem({
         {isSubmenuOpen ? (
           <ul
             id={`${item.id}-submenu`}
-            className="ml-5 space-y-1 border-l pl-3"
+            className="ml-4 space-y-1 border-l pl-3 sm:ml-5"
           >
-            {children.map(
-              (child) => {
-                const ChildIcon =
-                  ICON_MAP[
-                    child.icon
-                  ];
+            {children.map((child) => {
+              const ChildIcon =
+                ICON_MAP[child.icon];
 
-                const isChildItemActive =
-                  pathname ===
-                    child.href ||
-                  (child.href !==
-                    "/admin" &&
-                    pathname.startsWith(
-                      `${child.href}/`
-                    ));
+              const isChildItemActive =
+                pathname === child.href ||
+                (child.href !== "/admin" &&
+                  pathname.startsWith(
+                    `${child.href}/`
+                  ));
 
-                return (
-                  <li
-                    key={child.id}
+              return (
+                <li
+                  key={child.id}
+                >
+                  <Link
+                    href={
+                      child.disabled
+                        ? "#"
+                        : child.href
+                    }
+                    aria-disabled={
+                      child.disabled
+                    }
+                    onClick={() => {
+                      if (!child.disabled) {
+                        handleNavigate();
+                      }
+                    }}
+                    className={cn(
+                      "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors touch-manipulation",
+                      isChildItemActive
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      child.disabled &&
+                        "pointer-events-none opacity-50"
+                    )}
                   >
-                    <Link
-                      href={
-                        child.disabled
-                          ? "#"
-                          : child.href
-                      }
-                      aria-disabled={
-                        child.disabled
-                      }
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                    <ChildIcon className="h-4 w-4 shrink-0" />
 
-                        isChildItemActive
-                          ? "bg-primary/10 font-medium text-primary"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    <span className="min-w-0 flex-1 truncate">
+                      {child.title}
+                    </span>
 
-                        child.disabled &&
-                          "pointer-events-none opacity-50"
-                      )}
-                    >
-                      <ChildIcon className="h-4 w-4 shrink-0" />
-
-                      <span className="flex-1 truncate">
-                        {child.title}
-                      </span>
-
-                      {child.badge ? (
-                        <Badge
-                          variant={
-                            child.badge
-                              .variant ??
-                            "secondary"
-                          }
-                          className="rounded-full px-2"
-                        >
-                          {
-                            child.badge
-                              .value
-                          }
-                        </Badge>
-                      ) : null}
-                    </Link>
-                  </li>
-                );
-              }
-            )}
+                    {child.badge ? (
+                      <Badge
+                        variant={
+                          child.badge
+                            .variant ??
+                          "secondary"
+                        }
+                        className="shrink-0 rounded-full px-2"
+                      >
+                        {child.badge.value}
+                      </Badge>
+                    ) : null}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </div>
@@ -311,23 +271,25 @@ export function SidebarItem({
           ? "#"
           : item.href
       }
-      aria-disabled={
-        item.disabled
-      }
+      aria-disabled={item.disabled}
+      onClick={() => {
+        if (!item.disabled) {
+          handleNavigate();
+        }
+      }}
       className={cn(
-        "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-
+        "group flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+        "touch-manipulation",
         isActive
           ? "bg-primary text-primary-foreground shadow-sm"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-
         item.disabled &&
           "pointer-events-none opacity-50"
       )}
     >
       <Icon className="h-5 w-5 shrink-0" />
 
-      <span className="flex-1 truncate">
+      <span className="min-w-0 flex-1 truncate">
         {item.title}
       </span>
 
@@ -337,7 +299,7 @@ export function SidebarItem({
             item.badge.variant ??
             "secondary"
           }
-          className="rounded-full px-2"
+          className="shrink-0 rounded-full px-2"
         >
           {item.badge.value}
         </Badge>

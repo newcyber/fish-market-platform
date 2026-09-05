@@ -9,6 +9,7 @@ import {
 import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import MobileBottomNavigation from "@/components/layout/MobileBottomNavigation";
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
+import { isAdmin } from "@/lib/auth/permissions";
 
 import {
   Check,
@@ -57,6 +58,9 @@ interface ProductDetailPageProps {
   params: Promise<{
     slug: string;
   }>;
+  searchParams: Promise<{
+    preview?: string;
+  }>;
 }
 
 /**
@@ -67,10 +71,10 @@ interface ProductDetailPageProps {
 
 export default async function ProductDetailPage({
   params,
+  searchParams,
 }: ProductDetailPageProps) {
-  const {
-    slug,
-  } = await params;
+  const { slug } = await params;
+  const { preview } = await searchParams;
 
   /**
    * ==========================================================
@@ -83,27 +87,33 @@ export default async function ProductDetailPage({
       slug
     );
 
+  const session = await auth();
+
+  const isAdminPreview =
+    preview === "1" &&
+    !!session?.user?.id &&
+    session.user.isActive &&
+    isAdmin(session.user.role);
+
   /**
    * ==========================================================
    * PRODUCT VALIDATION
    * ==========================================================
    */
 
-  if (
-    !product ||
-    !product.isPublished
-  ) {
-    notFound();
-  }
+if (!product) {
+  notFound();
+}
+
+if (!product.isPublished && !isAdminPreview) {
+  notFound();
+}
 
   /**
    * ==========================================================
    * AUTH / WISHLIST
    * ==========================================================
    */
-
-  const session =
-    await auth();
 
   const initialInWishlist =
     session?.user?.id
@@ -638,6 +648,20 @@ const normalizedFlashSaleItems =
       <DynamicSiteHeader activePage="products" />
 
       <main className="min-h-screen bg-[#f5f5f5]">
+
+        {isAdminPreview && (
+  <div className="border-b border-amber-200 bg-amber-50">
+    <div className="mx-auto flex max-w-300 items-center gap-3 px-4 py-3 lg:px-0">
+      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
+        Mode Preview
+      </span>
+
+      <p className="text-sm text-amber-800">
+        Produk ini belum dipublish dan hanya dapat dilihat oleh administrator.
+      </p>
+    </div>
+  </div>
+)}
 
         {/* ==================================================== */}
         {/* BREADCRUMB */}

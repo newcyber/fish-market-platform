@@ -132,31 +132,76 @@ export function CustomerAccountMenu({
           ACCOUNT BUTTON
       ======================================================== */}
 
-      <button
-        type="button"
-        onClick={() =>
-          setIsOpen((current) => !current)
-        }
-        aria-expanded={isOpen}
-        aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-full border bg-white py-1 pl-1 pr-3 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-      >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-          {customerInitial}
-        </div>
+<button
+  type="button"
+  onClick={() =>
+    setIsOpen((current) => !current)
+  }
+  aria-expanded={isOpen}
+  aria-haspopup="menu"
+  aria-label={`Menu akun ${customerName}`}
+  className="
+    flex
+    items-center
+    gap-2
+    rounded-full
+    border
+    border-slate-200
+    bg-white
+    py-1
+    pl-1
+    pr-2
+    sm:pr-3
+    transition
+    hover:bg-slate-50
+    focus:outline-none
+    focus:ring-2
+    focus:ring-[var(--pisjo-primary)]/30
+  "
+>
+  <div
+    className="
+      flex
+      h-8
+      w-8
+      shrink-0
+      items-center
+      justify-center
+      rounded-full
+      bg-[var(--pisjo-primary)]
+      text-xs
+      font-semibold
+      text-white
+    "
+  >
+    {customerInitial}
+  </div>
 
-        <span className="hidden max-w-24 truncate text-sm font-medium sm:block">
-          {customerName}
-        </span>
+  <span
+    className="
+      hidden
+      max-w-24
+      truncate
+      text-sm
+      font-medium
+      sm:block
+    "
+  >
+    {customerName}
+  </span>
 
-        <ChevronDown
-          className={`hidden h-4 w-4 text-slate-400 transition-transform sm:block ${
-            isOpen
-              ? "rotate-180"
-              : ""
-          }`}
-        />
-      </button>
+  <ChevronDown
+    className={`
+      hidden
+      h-4
+      w-4
+      text-slate-400
+      transition-transform
+      sm:block
+      ${isOpen ? "rotate-180" : ""}
+    `}
+  />
+</button>
 
       {/* ========================================================
           DROPDOWN MENU

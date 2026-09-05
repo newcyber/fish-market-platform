@@ -283,7 +283,7 @@ export default async function AdminReportsPage() {
           {/* PENDING */}
 
           <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Pending
               </span>
@@ -299,7 +299,7 @@ export default async function AdminReportsPage() {
           {/* WAITING PAYMENT */}
 
           <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Menunggu Pembayaran
               </span>
@@ -317,7 +317,7 @@ export default async function AdminReportsPage() {
           {/* WAITING VERIFICATION */}
 
           <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Menunggu Verifikasi
               </span>
@@ -335,7 +335,7 @@ export default async function AdminReportsPage() {
           {/* PROCESSING */}
 
           <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Diproses
               </span>
@@ -351,7 +351,7 @@ export default async function AdminReportsPage() {
           {/* SHIPPING */}
 
           <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Dikirim
               </span>
@@ -367,7 +367,7 @@ export default async function AdminReportsPage() {
           {/* COMPLETED */}
 
           <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Selesai
               </span>
@@ -383,7 +383,7 @@ export default async function AdminReportsPage() {
           {/* CANCELLED */}
 
           <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 Dibatalkan
               </span>

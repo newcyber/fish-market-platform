@@ -183,74 +183,75 @@ export default async function EditProductPage({
       {/* PRODUCT FORM */}
       {/* ====================================================== */}
 
-      <ProductForm
-        categories={categories}
-        submitLabel="Update Produk"
-        action={updateAction}
-        defaultValues={{
-          categoryId: product.categoryId,
+<ProductForm
+  categories={categories}
+  submitLabel="Update Produk"
+  action={updateAction}
+  showPreviewAfterSuccess
+  defaultValues={{
+    categoryId: product.categoryId,
 
-          name: product.name,
+    name: product.name,
 
-          slug: product.slug,
+    slug: product.slug,
 
-          description:
-            product.description ?? "",
+    description:
+      product.description ?? "",
 
-          sku:
-            product.sku ?? "",
+    sku:
+      product.sku ?? "",
 
-          price:
-            Number(product.price),
+    price:
+      Number(product.price),
 
-          isDiscountActive:
-            product.isDiscountActive,
+    isDiscountActive:
+      product.isDiscountActive,
 
-          discountType:
-            product.discountType ?? "",
+    discountType:
+      product.discountType ?? "",
 
-          discountValue:
-            product.discountValue !== null
-              ? Number(product.discountValue)
-              : "",
+    discountValue:
+      product.discountValue !== null
+        ? Number(product.discountValue)
+        : "",
 
-          discountStartAt:
+    discountStartAt:
+      product.discountStartAt
+        ? new Date(
             product.discountStartAt
-              ? new Date(
-                  product.discountStartAt
-                )
-                  .toISOString()
-                  .slice(0, 16)
-              : "",
+          )
+            .toISOString()
+            .slice(0, 16)
+        : "",
 
-          discountEndAt:
+    discountEndAt:
+      product.discountEndAt
+        ? new Date(
             product.discountEndAt
-              ? new Date(
-                  product.discountEndAt
-                )
-                  .toISOString()
-                  .slice(0, 16)
-              : "",
+          )
+            .toISOString()
+            .slice(0, 16)
+        : "",
 
-          stock:
-            product.stock,
+    stock:
+      product.stock,
 
-          /**
-           * ====================================================
-           * NEW VARIANT SYSTEM
-           * ====================================================
-           */
-          variantGroups,
+    /**
+     * ====================================================
+     * NEW VARIANT SYSTEM
+     * ====================================================
+     */
+    variantGroups,
 
-          skus,
+    skus,
 
-          isPublished:
-            product.isPublished,
+    isPublished:
+      product.isPublished,
 
-          featured:
-            product.featured,
-        }}
-      />
+    featured:
+      product.featured,
+  }}
+/>
     </div>
   );
 }

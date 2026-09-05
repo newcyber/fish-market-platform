@@ -595,7 +595,7 @@ export class ProductService {
 
                 isPublished:
                   input.isPublished ??
-                  true,
+                  false,
 
                 featured:
                   input.featured ??

@@ -97,17 +97,21 @@ export interface UpdateSettingsActionInput {
    * ==========================================================
    */
 
-  internalShippingEnabled?: boolean;
+internalShippingEnabled?: boolean;
 
-  internalShippingName?: string | null;
+internalShippingName?: string | null;
 
-  internalShippingBaseFee?: number;
+internalShippingBaseFee?: number;
 
-  internalShippingPerKmFee?: number;
+internalShippingPerKmFee?: number;
 
-  internalShippingMaxDistance?: number;
+internalShippingMinFee?: number;
 
-  internalShippingFreeThreshold?: number | null;
+internalShippingMaxDistance?: number;
+
+internalShippingFreeThreshold?: number | null;
+
+internalShippingFreeMaxDiscount?: number;
 
   /**
    * ==========================================================
@@ -265,11 +269,17 @@ export async function updateSettingsAction(
       internalShippingPerKmFee:
         input.internalShippingPerKmFee,
 
+      internalShippingMinFee:
+        input.internalShippingMinFee,
+
       internalShippingMaxDistance:
         input.internalShippingMaxDistance,
 
       internalShippingFreeThreshold:
         input.internalShippingFreeThreshold,
+
+      internalShippingFreeMaxDiscount:
+        input.internalShippingFreeMaxDiscount,
 
       /**
        * ------------------------------------------------------

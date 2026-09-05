@@ -1,115 +1,70 @@
 "use client";
 
-import {
-  Loader2,
-} from "lucide-react";
+import type { ButtonHTMLAttributes } from "react";
 
-import {
-  Button,
-} from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
-/**
- * ============================================================
- * SUBMIT BUTTON
- * ============================================================
- *
- * Shared submit button untuk authentication forms.
- *
- * Features:
- * - Responsive
- * - Mobile friendly
- * - Touch friendly
- * - Loading state
- * - Accessible disabled state
- * - Keyboard focus state
- * - Prevent accidental double submit
- *
- * ============================================================
- */
+import { Button } from "@/components/ui/button";
 
-interface SubmitButtonProps {
+interface SubmitButtonProps
+  extends Omit<
+    ButtonHTMLAttributes<HTMLButtonElement>,
+    "type"
+  > {
   loading?: boolean;
-
-  disabled?: boolean;
-
   text: string;
-
   loadingText?: string;
-
-  className?: string;
 }
 
 export function SubmitButton({
   loading = false,
-  disabled = false,
   text,
-  loadingText = "Loading...",
+  loadingText = "Memproses...",
+  disabled,
   className,
+  ...props
 }: SubmitButtonProps) {
-  /**
-   * ==========================================================
-   * BUTTON DISABLED STATE
-   * ==========================================================
-   */
-
-  const isDisabled =
-    loading || disabled;
-
-  /**
-   * ==========================================================
-   * RENDER
-   * ==========================================================
-   */
-
   return (
     <Button
+      {...props}
       type="submit"
-      disabled={isDisabled}
-      aria-disabled={isDisabled}
-      aria-busy={loading}
-      className={[
-        `
-          flex
-          h-12
-          w-full
-          items-center
-          justify-center
-          gap-2
-          rounded-xl
-          px-5
-          text-sm
-          font-semibold
-          transition-all
-          duration-200
-
-          active:scale-[0.99]
-
-          focus-visible:outline-none
-          focus-visible:ring-2
-          focus-visible:ring-sky-500
-          focus-visible:ring-offset-2
-
-          disabled:cursor-not-allowed
-          disabled:opacity-60
-          disabled:active:scale-100
-
-          sm:h-12
-        `,
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      disabled={loading || disabled}
+      className={`
+        h-12
+        w-full
+        rounded-xl
+        bg-[var(--pisjo-primary)]
+        px-5
+        text-sm
+        font-semibold
+        text-white
+        shadow-md
+        shadow-[rgba(7,136,232,0.18)]
+        transition-all
+        duration-200
+        hover:bg-[var(--pisjo-ocean)]
+        hover:shadow-lg
+        hover:shadow-[rgba(7,136,232,0.22)]
+        active:scale-[0.99]
+        focus-visible:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-[var(--pisjo-primary)]
+        focus-visible:ring-offset-2
+        disabled:cursor-not-allowed
+        disabled:opacity-60
+        ${className ?? ""}
+      `}
     >
       {loading ? (
         <>
           <Loader2
+            aria-hidden="true"
             className="
+              mr-2
               h-4
               w-4
-              shrink-0
               animate-spin
             "
-            aria-hidden="true"
           />
 
           <span>
@@ -117,9 +72,7 @@ export function SubmitButton({
           </span>
         </>
       ) : (
-        <span>
-          {text}
-        </span>
+        text
       )}
     </Button>
   );

@@ -412,7 +412,7 @@ export async function createProductAction(
             formData.get(
               "isPublished"
             ),
-            true
+            false
           ),
 
         featured:
@@ -607,6 +607,12 @@ export async function createProductAction(
 
       message:
         "Produk berhasil ditambahkan.",
+
+      data: {
+        productId: product.id,
+        productSlug: product.slug,
+        isPublished: product.isPublished,
+      },
     };
   } catch (error) {
     console.error(

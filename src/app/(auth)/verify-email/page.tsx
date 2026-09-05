@@ -763,12 +763,12 @@ function VerifyEmailContent() {
             items-center
             justify-center
             rounded-2xl
-            bg-sky-700
-            text-white
+            bg-[var(--pisjo-primary)]
+          text-white
             shadow-lg
-            shadow-sky-700/20
+            shadow-[var(--pisjo-primary)]/20
             ring-4
-            ring-sky-50
+            ring-[var(--pisjo-soft-blue)]
             transition-transform
             duration-300
             hover:scale-105
@@ -937,11 +937,11 @@ function VerifyEmailContent() {
 
                   hover:border-slate-300
 
-                  focus:border-sky-500
-                  focus:bg-white
-                  focus:ring-4
-                  focus:ring-sky-500/10
-                  focus:shadow-[0_0_0_1px_rgba(14,165,233,0.15)]
+focus:border-[var(--pisjo-primary)]
+focus:bg-white
+focus:ring-4
+focus:ring-[var(--pisjo-primary)]/10
+focus:shadow-[0_0_0_1px_rgba(7,136,232,0.15)]
 
                   disabled:cursor-not-allowed
                   disabled:bg-slate-50
@@ -1055,15 +1055,15 @@ function VerifyEmailContent() {
           className="
             h-12
             rounded-xl
-            bg-sky-700
-            shadow-md
+            bg-[var(--pisjo-primary)]
+            shadow-[var(--pisjo-primary)]/15
             shadow-sky-700/15
             transition-all
             duration-200
 
-            hover:bg-sky-800
+            hover:bg-[var(--pisjo-ocean)]
             hover:shadow-lg
-            hover:shadow-sky-700/20
+            hover:shadow-[var(--pisjo-primary)]/20
 
             disabled:bg-slate-300
             disabled:text-white
@@ -1117,7 +1117,7 @@ function VerifyEmailContent() {
               <span
                 className="
                   font-semibold
-                  text-sky-700
+                  text-[var(--pisjo-ocean)]
                 "
               >
                 {cooldown} detik
@@ -1143,16 +1143,16 @@ function VerifyEmailContent() {
               px-4
               text-sm
               font-semibold
-              text-sky-700
+              text-[var(--pisjo-ocean)]
               transition-all
               duration-200
 
-              hover:bg-sky-50
-              hover:text-sky-800
+              hover:bg-[var(--pisjo-soft-blue)]
+              hover:text-[var(--pisjo-primary)]
 
               focus:outline-none
               focus-visible:ring-2
-              focus-visible:ring-sky-500
+              focus-visible:ring-[var(--pisjo-primary)]
               focus-visible:ring-offset-2
 
               disabled:cursor-not-allowed
@@ -1209,17 +1209,17 @@ function VerifyEmailContent() {
             items-center
             gap-1.5
             font-semibold
-            text-sky-700
+            text-[var(--pisjo-ocean)]
             transition-colors
             duration-200
 
-            hover:text-sky-800
+            hover:text-[var(--pisjo-primary)]
             hover:underline
 
             focus:outline-none
             focus-visible:rounded-md
             focus-visible:ring-2
-            focus-visible:ring-sky-500
+            focus-visible:ring-[var(--pisjo-primary)]
             focus-visible:ring-offset-2
 
             sm:min-h-0
@@ -1272,7 +1272,7 @@ export default function VerifyEmailPage() {
                 rounded-full
                 border-2
                 border-slate-200
-                border-t-sky-700
+                border-t-[var(--pisjo-primary)]
               "
             />
           </div>

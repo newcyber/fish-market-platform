@@ -22,6 +22,8 @@ import { ForgotPasswordSchema } from "@/validations/auth/forgot-password.schema"
  * - Token lama akan dihapus ketika request baru dibuat.
  * - Raw token tidak disimpan di database.
  * - Hanya token hash yang disimpan.
+ * - Reset URL menggunakan APP_URL sebagai canonical
+ *   application URL server-side.
  * - Reset URL dikirim melalui email.
  */
 
@@ -89,24 +91,6 @@ export async function POST(
      * ==========================================================
      * CREATE PASSWORD RESET REQUEST
      * ==========================================================
-     *
-     * Method ini mengembalikan:
-     *
-     * PasswordResetRequestResult | null
-     *
-     * Jika user ditemukan:
-     *
-     * {
-     *   rawToken: string,
-     *   user: {
-     *     name: string | null,
-     *     email: string
-     *   }
-     * }
-     *
-     * Jika user tidak ditemukan:
-     *
-     * null
      */
 
     const resetRequest =
@@ -150,13 +134,45 @@ export async function POST(
      * ==========================================================
      * BUILD APPLICATION URL
      * ==========================================================
+     *
+     * APP_URL adalah canonical URL aplikasi untuk kebutuhan
+     * server-side seperti:
+     *
+     * - Password reset email
+     * - Email verification
+     * - Notification links
+     * - System-generated links
+     *
+     * Jangan menggunakan request URL sebagai sumber utama karena
+     * request dapat datang melalui proxy/reverse proxy.
      */
 
+    const configuredAppUrl =
+      process.env.APP_URL?.trim();
+
+    if (!configuredAppUrl) {
+      console.error(
+        "[FORGOT_PASSWORD_CONFIG_ERROR] APP_URL is not configured."
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Terjadi kesalahan konfigurasi server. Silakan coba lagi.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
     const appUrl =
-      (
-        process.env.NEXT_PUBLIC_APP_URL ??
-        "http://localhost:3000"
-      ).replace(/\/$/, "");
+      configuredAppUrl.replace(
+        /\/$/,
+        ""
+      );
 
     /**
      * ==========================================================
@@ -178,7 +194,8 @@ export async function POST(
     const emailTemplate =
       createPasswordResetEmail({
         userName:
-          user.name?.trim() || "Pelanggan",
+          user.name?.trim() ||
+          "Pelanggan",
 
         resetUrl,
       });

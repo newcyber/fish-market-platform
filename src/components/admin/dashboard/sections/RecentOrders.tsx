@@ -79,10 +79,12 @@ export function RecentOrders({
   orders,
 }: RecentOrdersProps) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Pesanan Terbaru</CardTitle>
+    <Card className="min-w-0 overflow-hidden">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <CardTitle className="text-base sm:text-lg">
+            Pesanan Terbaru
+          </CardTitle>
 
           <CardDescription>
             Transaksi terbaru pelanggan.
@@ -91,63 +93,80 @@ export function RecentOrders({
 
         <Link
           href="/admin/orders"
-          className="text-sm font-medium text-primary transition-colors hover:underline"
+          className="shrink-0 self-start text-sm font-medium text-primary transition-colors hover:underline sm:self-auto"
         >
           Lihat Semua
         </Link>
       </CardHeader>
 
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>No. Order</TableHead>
-              <TableHead>Pelanggan</TableHead>
-              <TableHead className="text-right">
-                Total
-              </TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {orders.length === 0 ? (
+      <CardContent className="px-0 sm:px-6">
+        <div className="w-full overflow-x-auto">
+          <Table className="min-w-[620px]">
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  Belum ada transaksi.
-                </TableCell>
+                <TableHead className="whitespace-nowrap">
+                  No. Order
+                </TableHead>
+
+                <TableHead className="whitespace-nowrap">
+                  Pelanggan
+                </TableHead>
+
+                <TableHead className="whitespace-nowrap text-right">
+                  Total
+                </TableHead>
+
+                <TableHead className="whitespace-nowrap">
+                  Status
+                </TableHead>
               </TableRow>
-            ) : (
-              orders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">
-                    {order.orderNumber}
-                  </TableCell>
+            </TableHeader>
 
-                  <TableCell>
-                    {order.customer}
-                  </TableCell>
-
-                  <TableCell className="text-right font-medium">
-                    Rp{" "}
-                    {order.total.toLocaleString("id-ID")}
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge
-                      variant={getStatusVariant(order.status)}
-                    >
-                      {getStatusLabel(order.status)}
-                    </Badge>
+            <TableBody>
+              {orders.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    Belum ada transaksi.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="whitespace-nowrap font-medium">
+                      {order.orderNumber}
+                    </TableCell>
+
+                    <TableCell className="max-w-55 truncate">
+                      {order.customer}
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap text-right font-medium">
+                      Rp{" "}
+                      {order.total.toLocaleString(
+                        "id-ID"
+                      )}
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap">
+                      <Badge
+                        variant={getStatusVariant(
+                          order.status
+                        )}
+                      >
+                        {getStatusLabel(
+                          order.status
+                        )}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

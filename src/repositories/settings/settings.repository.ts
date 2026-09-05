@@ -32,7 +32,7 @@ export interface UpdateSettingsPayload {
 
   footerDescription?: string | null;
 
-    /**
+  /**
    * ==========================================================
    * BRANDING
    * ==========================================================
@@ -86,17 +86,69 @@ export interface UpdateSettingsPayload {
    * ==========================================================
    */
 
+  /**
+   * Mengaktifkan / menonaktifkan kurir internal.
+   */
   internalShippingEnabled?: boolean;
 
+  /**
+   * Nama layanan kurir internal.
+   */
   internalShippingName?: string | null;
 
+  /**
+   * Biaya dasar ongkir.
+   */
   internalShippingBaseFee?: number;
 
+  /**
+   * Biaya tambahan per kilometer.
+   */
   internalShippingPerKmFee?: number;
 
+  /**
+   * Minimum ongkir kotor sebelum subsidi gratis ongkir.
+   *
+   * Contoh:
+   *
+   * baseFee = 5.000
+   * perKmFee = 1.000
+   * distance = 1 km
+   *
+   * hasil:
+   * 5.000 + 1.000 = 6.000
+   *
+   * Jika minimum ongkir = 5.000,
+   * maka gross shipping tetap minimal 5.000.
+   */
+  internalShippingMinFee?: number;
+
+  /**
+   * Jarak maksimum yang dilayani kurir internal.
+   */
   internalShippingMaxDistance?: number;
 
+  /**
+   * Minimum subtotal transaksi agar customer
+   * mendapatkan subsidi gratis ongkir.
+   *
+   * null berarti fitur subsidi berdasarkan minimum
+   * belanja tidak digunakan.
+   */
   internalShippingFreeThreshold?: number | null;
+
+  /**
+   * Maksimum nominal subsidi ongkir yang ditanggung toko.
+   *
+   * Contoh:
+   *
+   * gross shipping = Rp25.000
+   * max subsidy = Rp10.000
+   *
+   * customer membayar:
+   * Rp25.000 - Rp10.000 = Rp15.000
+   */
+  internalShippingFreeMaxDiscount?: number;
 
   /**
    * ==========================================================
@@ -162,10 +214,24 @@ class SettingsRepository {
 
         footerDescription: null,
 
+        /**
+         * ------------------------------------------------------
+         * BRANDING
+         * ------------------------------------------------------
+         */
+
         siteLogo: null,
 
+        /**
+         * ------------------------------------------------------
+         * HERO SLIDER IMAGES
+         * ------------------------------------------------------
+         */
+
         heroSlide1Image: null,
+
         heroSlide2Image: null,
+
         heroSlide3Image: null,
 
         email: null,
@@ -201,8 +267,12 @@ class SettingsRepository {
          * INTERNAL SHIPPING CONFIGURATION
          * ------------------------------------------------------
          *
-         * Explicit default di sini membuat konfigurasi awal
-         * konsisten jika StoreSettings belum pernah dibuat.
+         * Default awal konfigurasi kurir internal.
+         *
+         * Nilai default ini akan digunakan hanya ketika
+         * StoreSettings belum memiliki record.
+         *
+         * ------------------------------------------------------
          */
 
         internalShippingEnabled: true,
@@ -214,9 +284,13 @@ class SettingsRepository {
 
         internalShippingPerKmFee: 0,
 
+        internalShippingMinFee: 0,
+
         internalShippingMaxDistance: 10,
 
         internalShippingFreeThreshold: null,
+
+        internalShippingFreeMaxDiscount: 0,
 
         /**
          * ------------------------------------------------------
@@ -263,7 +337,8 @@ class SettingsRepository {
          * ------------------------------------------------------
          */
 
-        storeName: data.storeName,
+        storeName:
+          data.storeName,
 
         storeDescription:
           data.storeDescription ?? null,
@@ -271,19 +346,19 @@ class SettingsRepository {
         footerDescription:
           data.footerDescription ?? null,
 
-                /**
-         * ====================================================
+        /**
+         * ------------------------------------------------------
          * BRANDING
-         * ====================================================
+         * ------------------------------------------------------
          */
 
         siteLogo:
           data.siteLogo ?? null,
 
         /**
-         * ====================================================
+         * ------------------------------------------------------
          * HERO SLIDER IMAGES
-         * ====================================================
+         * ------------------------------------------------------
          */
 
         heroSlide1Image:
@@ -350,11 +425,26 @@ class SettingsRepository {
         internalShippingPerKmFee:
           data.internalShippingPerKmFee ?? 0,
 
+        /**
+         * Minimum gross shipping fee sebelum subsidi.
+         */
+        internalShippingMinFee:
+          data.internalShippingMinFee ?? 0,
+
         internalShippingMaxDistance:
           data.internalShippingMaxDistance ?? 10,
 
+        /**
+         * Minimum subtotal untuk mendapatkan subsidi.
+         */
         internalShippingFreeThreshold:
           data.internalShippingFreeThreshold ?? null,
+
+        /**
+         * Maksimum subsidi ongkir yang ditanggung toko.
+         */
+        internalShippingFreeMaxDiscount:
+          data.internalShippingFreeMaxDiscount ?? 0,
 
         /**
          * ------------------------------------------------------

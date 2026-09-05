@@ -96,8 +96,10 @@ interface SettingsFormProps {
     internalShippingName: string;
     internalShippingBaseFee: number;
     internalShippingPerKmFee: number;
+    internalShippingMinFee: number;
     internalShippingMaxDistance: number;
     internalShippingFreeThreshold: number | null;
+    internalShippingFreeMaxDiscount: number;
 
         /**
      * ==========================================================
@@ -1110,6 +1112,14 @@ heroSlide3Image,
           0
         ),
 
+      internalShippingMinFee:
+        parseNumber(
+          formData.get(
+            "internalShippingMinFee"
+          ),
+          0
+        ),
+
       internalShippingMaxDistance:
         parseNumber(
           formData.get(
@@ -1123,6 +1133,14 @@ heroSlide3Image,
           formData.get(
             "internalShippingFreeThreshold"
           )
+        ),
+
+      internalShippingFreeMaxDiscount:
+        parseNumber(
+          formData.get(
+            "internalShippingFreeMaxDiscount"
+          ),
+        0
         ),
 
             /**
@@ -2067,85 +2085,162 @@ heroSlide3Image,
             </div>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <div>
-              <label
-                htmlFor="internalShippingMaxDistance"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Jarak Maksimum Pengiriman
-              </label>
+<div className="grid gap-5 md:grid-cols-2">
+  {/* MINIMUM ONGKIR */}
+  <div>
+    <label
+      htmlFor="internalShippingMinFee"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Minimum Ongkir
+    </label>
 
-              <div className="relative">
-                <input
-                  id="internalShippingMaxDistance"
-                  name="internalShippingMaxDistance"
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  defaultValue={
-                    settings.internalShippingMaxDistance
-                  }
-                  disabled={
-                    isPending ||
-                    !internalShippingEnabled
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  placeholder="10"
-                />
+    <div className="relative">
+      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+        Rp
+      </span>
 
-                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-                  KM
-                </span>
-              </div>
-            </div>
+      <input
+        id="internalShippingMinFee"
+        name="internalShippingMinFee"
+        type="number"
+        min="0"
+        step="1"
+        defaultValue={settings.internalShippingMinFee}
+        disabled={
+          isPending ||
+          !internalShippingEnabled
+        }
+        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+        placeholder="5000"
+      />
+    </div>
 
-            <div>
-              <label
-                htmlFor="internalShippingFreeThreshold"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Gratis Ongkir Minimum Belanja
-              </label>
+    <p className="mt-2 text-xs leading-5 text-slate-500">
+      Batas minimum ongkir kotor sebelum subsidi gratis ongkir diterapkan.
+    </p>
+  </div>
 
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-                  Rp
-                </span>
+  {/* JARAK MAKSIMUM */}
+  <div>
+    <label
+      htmlFor="internalShippingMaxDistance"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Jarak Maksimum Pengiriman
+    </label>
 
-                <input
-                  id="internalShippingFreeThreshold"
-                  name="internalShippingFreeThreshold"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={
-                    settings.internalShippingFreeThreshold ??
-                    ""
-                  }
-                  disabled={
-                    isPending ||
-                    !internalShippingEnabled
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  placeholder="Opsional"
-                />
-              </div>
-            </div>
-          </div>
+    <div className="relative">
+      <input
+        id="internalShippingMaxDistance"
+        name="internalShippingMaxDistance"
+        type="number"
+        min="0.1"
+        step="0.1"
+        defaultValue={settings.internalShippingMaxDistance}
+        disabled={
+          isPending ||
+          !internalShippingEnabled
+        }
+        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+        placeholder="20"
+      />
 
-          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-            <p className="text-xs leading-5 text-blue-700">
-              Ongkir akan dihitung dari lokasi origin toko ke lokasi alamat customer.
-              Perhitungan dasar:
-              <strong>
-                {" "}
-                biaya dasar + (jarak × biaya per KM).
-              </strong>
-              {" "}
-              Jika nilai belanja mencapai minimum gratis ongkir, biaya pengiriman menjadi Rp0.
-            </p>
-          </div>
+      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+        KM
+      </span>
+    </div>
+
+    <p className="mt-2 text-xs leading-5 text-slate-500">
+      Pesanan di luar jarak ini tidak dapat menggunakan kurir internal.
+    </p>
+  </div>
+
+  {/* MINIMUM BELANJA GRATIS ONGKIR */}
+  <div>
+    <label
+      htmlFor="internalShippingFreeThreshold"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Minimum Belanja untuk Subsidi Ongkir
+    </label>
+
+    <div className="relative">
+      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+        Rp
+      </span>
+
+      <input
+        id="internalShippingFreeThreshold"
+        name="internalShippingFreeThreshold"
+        type="number"
+        min="0"
+        step="1"
+        defaultValue={
+          settings.internalShippingFreeThreshold ?? ""
+        }
+        disabled={
+          isPending ||
+          !internalShippingEnabled
+        }
+        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+        placeholder="250000"
+      />
+    </div>
+
+    <p className="mt-2 text-xs leading-5 text-slate-500">
+      Minimum subtotal agar customer mendapatkan subsidi ongkir.
+    </p>
+  </div>
+
+  {/* MAKSIMUM SUBSIDI */}
+  <div>
+    <label
+      htmlFor="internalShippingFreeMaxDiscount"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Maksimum Subsidi Gratis Ongkir
+    </label>
+
+    <div className="relative">
+      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+        Rp
+      </span>
+
+      <input
+        id="internalShippingFreeMaxDiscount"
+        name="internalShippingFreeMaxDiscount"
+        type="number"
+        min="0"
+        step="1"
+        defaultValue={
+          settings.internalShippingFreeMaxDiscount
+        }
+        disabled={
+          isPending ||
+          !internalShippingEnabled
+        }
+        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+        placeholder="10000"
+      />
+    </div>
+
+    <p className="mt-2 text-xs leading-5 text-slate-500">
+      Batas maksimal subsidi yang ditanggung toko untuk satu transaksi.
+    </p>
+  </div>
+</div>
+
+<div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+  <p className="text-xs leading-5 text-blue-700">
+    Ongkir dihitung dari lokasi toko ke alamat customer berdasarkan
+    <strong> biaya dasar + (jarak × biaya per KM)</strong>.
+    Hasilnya memiliki batas minimum sesuai pengaturan Minimum Ongkir.
+    Jika subtotal mencapai minimum belanja subsidi, toko memberikan
+    subsidi ongkir maksimal sesuai Maksimum Subsidi Gratis Ongkir.
+    Customer membayar sisa ongkir setelah subsidi.
+  </p>
+</div>
         </div>
       </section>
 
@@ -2287,17 +2382,17 @@ heroSlide3Image,
       {/* SUBMIT */}
       {/* ====================================================== */}
 
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={
-  isPending ||
-  isLocating ||
-  isUploadingLogo ||
-  uploadingHeroSlide !== null
-}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+<div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+  <button
+    type="submit"
+    disabled={
+      isPending ||
+      isLocating ||
+      isUploadingLogo ||
+      uploadingHeroSlide !== null
+    }
+    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+  >
           {isPending ? (
   <>
     <Loader2 className="h-4 w-4 animate-spin" />

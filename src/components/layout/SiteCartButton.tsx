@@ -117,9 +117,9 @@ export default function SiteCartButton({
         bg-white
         text-slate-700
         transition
-        hover:border-cyan-200
-        hover:bg-cyan-50
-        hover:text-cyan-700
+        hover:border-[var(--pisjo-soft-blue)]
+        hover:bg-[var(--pisjo-soft-blue)]
+        hover:text-[var(--pisjo-ocean)]
       "
     >
       <ShoppingCart className="h-5 w-5" />
@@ -136,7 +136,7 @@ export default function SiteCartButton({
             items-center
             justify-center
             rounded-full
-            bg-cyan-600
+            bg-[var(--pisjo-primary)]
             px-1
             text-[10px]
             font-bold

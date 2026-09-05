@@ -109,11 +109,12 @@ export default async function CreateProductPage() {
         </p>
       </div>
 
-      <ProductForm
-        categories={categories}
-        submitLabel="Simpan Produk"
-        action={action}
-      />
+<ProductForm
+  categories={categories}
+  submitLabel="Simpan Produk"
+  action={action}
+  showPreviewAfterSuccess
+/>
     </div>
   );
 }

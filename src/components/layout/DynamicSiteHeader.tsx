@@ -282,7 +282,7 @@ export default async function DynamicSiteHeader({
                 font-semibold
                 uppercase
                 tracking-[0.18em]
-                text-cyan-600
+                text-[var(--pisjo-primary)]
               "
             >
               {storeDescription}
@@ -310,7 +310,7 @@ export default async function DynamicSiteHeader({
               "text-sm font-medium transition",
               activePage === "home"
                 ? "text-slate-950"
-                : "text-slate-600 hover:text-cyan-600",
+                : "text-slate-600 hover:text-[var(--pisjo-primary)]",
             ].join(" ")}
           >
             Beranda
@@ -328,7 +328,7 @@ export default async function DynamicSiteHeader({
               "text-sm font-medium transition",
               activePage === "products"
                 ? "text-slate-950"
-                : "text-slate-600 hover:text-cyan-600",
+                : "text-slate-600 hover:text-[var(--pisjo-primary)]",
             ].join(" ")}
           >
             Produk
@@ -345,7 +345,7 @@ export default async function DynamicSiteHeader({
                   font-medium
                   text-slate-600
                   transition
-                  hover:text-cyan-600
+                  hover:text-[var(--pisjo-primary)]
                 "
               >
                 Reward
@@ -358,7 +358,7 @@ export default async function DynamicSiteHeader({
                   font-medium
                   text-slate-600
                   transition
-                  hover:text-cyan-600
+                  hover:text-[var(--pisjo-primary)]
                 "
               >
                 Pesanan
@@ -374,7 +374,7 @@ export default async function DynamicSiteHeader({
                 font-medium
                 text-slate-600
                 transition
-                hover:text-cyan-600
+                hover:text-[var(--pisjo-primary)]
               "
             >
               Belanja
@@ -631,40 +631,18 @@ export default async function DynamicSiteHeader({
 
               {/* ACCOUNT */}
 
-              <Link
-                href="/customer/account"
-                aria-label="Buka akun"
-                className="
-                  inline-flex
-                  h-10
-                  w-10
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-xl
-                  border
-                  border-slate-200
-                  bg-white
-                  transition
-                  hover:bg-slate-50
-                "
-              >
-                <span
-                  className="
-                    text-sm
-                    font-bold
-                    text-slate-900
-                  "
-                >
-                  {(
-                    customerInitial ||
-                    customerName?.charAt(0) ||
-                    "C"
-                  )
-                    .charAt(0)
-                    .toUpperCase()}
-                </span>
-              </Link>
+<CustomerAccountMenu
+  customerName={customerName || "Customer"}
+  customerInitial={
+    (
+      customerInitial ||
+      customerName?.charAt(0) ||
+      "C"
+    )
+      .charAt(0)
+      .toUpperCase()
+  }
+/>
             </>
           ) : (
             /* PUBLIC MOBILE ACCOUNT */

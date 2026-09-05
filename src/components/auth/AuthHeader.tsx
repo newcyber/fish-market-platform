@@ -1,8 +1,10 @@
+"use client";
+
 import { Fish } from "lucide-react";
 
 interface AuthHeaderProps {
   title: string;
-  description: string;
+  description?: string;
 }
 
 export function AuthHeader({
@@ -10,20 +12,10 @@ export function AuthHeader({
   description,
 }: AuthHeaderProps) {
   return (
-    <div
-      className="
-        mb-6
-        flex
-        flex-col
-        items-center
-        text-center
-        sm:mb-8
-      "
-    >
-      {/* BRAND ICON */}
-
+    <div className="mb-6 text-center sm:mb-8">
       <div
         className="
+          mx-auto
           mb-4
           flex
           h-14
@@ -31,61 +23,50 @@ export function AuthHeader({
           items-center
           justify-center
           rounded-2xl
-          bg-cyan-600
+          bg-[var(--pisjo-primary)]
           text-white
           shadow-lg
-          shadow-cyan-600/20
+          shadow-[rgba(7,136,232,0.22)]
           ring-4
-          ring-cyan-50
-          transition-transform
-          duration-300
-          hover:scale-105
+          ring-[var(--pisjo-soft-blue)]
+          sm:mb-5
           sm:h-16
           sm:w-16
         "
       >
         <Fish
-          className="
-            h-7
-            w-7
-            sm:h-8
-            sm:w-8
-          "
-          strokeWidth={2}
+          aria-hidden="true"
+          className="h-7 w-7 sm:h-8 sm:w-8"
         />
       </div>
 
-      {/* TITLE */}
-
       <h1
         className="
-          max-w-full
           text-2xl
           font-bold
-          leading-tight
           tracking-tight
-          text-slate-950
+          text-[var(--pisjo-navy)]
           sm:text-3xl
         "
       >
         {title}
       </h1>
 
-      {/* DESCRIPTION */}
-
-      <p
-        className="
-          mt-2
-          max-w-sm
-          px-2
-          text-sm
-          leading-6
-          text-slate-500
-          sm:px-0
-        "
-      >
-        {description}
-      </p>
+      {description ? (
+        <p
+          className="
+            mx-auto
+            mt-2
+            max-w-sm
+            text-sm
+            leading-6
+            text-[var(--pisjo-text-secondary)]
+            sm:mt-3
+          "
+        >
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }

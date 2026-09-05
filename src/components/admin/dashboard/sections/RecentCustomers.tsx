@@ -47,10 +47,10 @@ export function RecentCustomers({
   customers,
 }: RecentCustomersProps) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>
+    <Card className="min-w-0 overflow-hidden">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <CardTitle className="text-base sm:text-lg">
             Pelanggan Terbaru
           </CardTitle>
 
@@ -61,78 +61,88 @@ export function RecentCustomers({
 
         <Link
           href="/admin/customers"
-          className="text-sm font-medium text-primary hover:underline"
+          className="shrink-0 self-start text-sm font-medium text-primary hover:underline sm:self-auto"
         >
           Lihat Semua
         </Link>
       </CardHeader>
 
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Pelanggan</TableHead>
-
-              <TableHead>Email</TableHead>
-
-              <TableHead>Telepon</TableHead>
-
-              <TableHead>Bergabung</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {customers.length === 0 ? (
+      <CardContent className="px-0 sm:px-6">
+        <div className="w-full overflow-x-auto">
+          <Table className="min-w-[760px]">
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="py-10 text-center text-muted-foreground"
-                >
-                  Belum ada pelanggan.
-                </TableCell>
+                <TableHead className="whitespace-nowrap">
+                  Pelanggan
+                </TableHead>
+
+                <TableHead className="whitespace-nowrap">
+                  Email
+                </TableHead>
+
+                <TableHead className="whitespace-nowrap">
+                  Telepon
+                </TableHead>
+
+                <TableHead className="whitespace-nowrap">
+                  Bergabung
+                </TableHead>
               </TableRow>
-            ) : (
-              customers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback>
-                          {getInitials(
-                            customer.name
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
+            </TableHeader>
 
-                      <span className="font-medium">
-                        {customer.name}
-                      </span>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    {customer.email}
-                  </TableCell>
-
-                  <TableCell>
-                    {customer.phone ?? "-"}
-                  </TableCell>
-
-                  <TableCell>
-                    {customer.joinedAt.toLocaleDateString(
-                      "id-ID",
-                      {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      }
-                    )}
+            <TableBody>
+              {customers.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="py-10 text-center text-muted-foreground"
+                  >
+                    Belum ada pelanggan.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                customers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarFallback>
+                            {getInitials(
+                              customer.name
+                            )}
+                          </AvatarFallback>
+                        </Avatar>
+
+                        <span className="max-w-50 truncate font-medium">
+                          {customer.name}
+                        </span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="max-w-60 truncate">
+                      {customer.email}
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap">
+                      {customer.phone ?? "-"}
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap">
+                      {customer.joinedAt.toLocaleDateString(
+                        "id-ID",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

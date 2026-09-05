@@ -38,9 +38,10 @@ export interface UpdateStoreSettingsPayload {
   /**
    * URL atau path logo situs.
    */
+
   siteLogo?: string | null;
 
-    /**
+  /**
    * ==========================================================
    * HERO SLIDER IMAGES
    * ==========================================================
@@ -96,9 +97,28 @@ export interface UpdateStoreSettingsPayload {
 
   internalShippingPerKmFee?: number;
 
+  /**
+   * Batas bawah ongkir normal sebelum subsidi.
+   */
+
+  internalShippingMinFee?: number;
+
   internalShippingMaxDistance?: number;
 
+  /**
+   * Minimum subtotal agar customer mendapatkan
+   * subsidi gratis ongkir.
+   *
+   * null = fitur gratis ongkir tidak aktif.
+   */
+
   internalShippingFreeThreshold?: number | null;
+
+  /**
+   * Nilai maksimum subsidi ongkir yang ditanggung toko.
+   */
+
+  internalShippingFreeMaxDiscount?: number;
 
   /**
    * ==========================================================
@@ -364,6 +384,28 @@ class SettingsService {
 
     /**
      * --------------------------------------------------------
+     * MINIMUM ONGKIR
+     * --------------------------------------------------------
+     *
+     * Menjadi batas bawah ongkir normal sebelum subsidi.
+     */
+
+    const internalShippingMinFee =
+      normalizeNumber(
+        payload.internalShippingMinFee,
+        0
+      );
+
+    if (
+      internalShippingMinFee < 0
+    ) {
+      throw new Error(
+        "Minimum ongkir tidak boleh kurang dari 0."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
      * MAKSIMUM JARAK
      * --------------------------------------------------------
      */
@@ -424,6 +466,29 @@ class SettingsService {
 
     /**
      * --------------------------------------------------------
+     * MAKSIMUM SUBSIDI GRATIS ONGKIR
+     * --------------------------------------------------------
+     *
+     * Nilai maksimum yang boleh ditanggung toko
+     * ketika customer memenuhi minimum belanja gratis ongkir.
+     */
+
+    const internalShippingFreeMaxDiscount =
+      normalizeNumber(
+        payload.internalShippingFreeMaxDiscount,
+        0
+      );
+
+    if (
+      internalShippingFreeMaxDiscount < 0
+    ) {
+      throw new Error(
+        "Maksimum subsidi gratis ongkir tidak boleh kurang dari 0."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
      * VALIDASI NAMA LAYANAN
      * --------------------------------------------------------
      */
@@ -467,7 +532,7 @@ class SettingsService {
           payload.siteLogo
         ),
 
-              /**
+      /**
        * ======================================================
        * HERO SLIDER IMAGES
        * ======================================================
@@ -545,9 +610,13 @@ class SettingsService {
 
       internalShippingPerKmFee,
 
+      internalShippingMinFee,
+
       internalShippingMaxDistance,
 
       internalShippingFreeThreshold,
+
+      internalShippingFreeMaxDiscount,
 
       /**
        * ------------------------------------------------------

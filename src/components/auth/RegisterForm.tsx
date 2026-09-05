@@ -17,7 +17,6 @@ import {
 
 import {
   AlertCircle,
-  Fish,
   ShieldCheck,
 } from "lucide-react";
 
@@ -195,9 +194,6 @@ export default function RegisterForm() {
 
   return (
     <AuthCard>
-
-      
-
       {/* ======================================================
           HEADER
       ====================================================== */}
@@ -223,19 +219,17 @@ export default function RegisterForm() {
         "
         noValidate
       >
-
         {/* ====================================================
             NAME
         ==================================================== */}
 
         <div className="space-y-2">
-
           <label
             htmlFor="name"
             className="
               text-sm
               font-medium
-              text-slate-800
+              text-[var(--pisjo-navy)]
             "
           >
             Nama Lengkap
@@ -275,11 +269,11 @@ export default function RegisterForm() {
 
               hover:border-slate-300
 
-              focus:border-sky-500
+              focus:border-[var(--pisjo-primary)]
               focus:bg-white
               focus:ring-4
-              focus:ring-sky-500/10
-              focus:shadow-[0_0_0_1px_rgba(14,165,233,0.12)]
+              focus:ring-[var(--pisjo-primary)]/10
+              focus:shadow-[0_0_0_1px_rgba(7,136,232,0.12)]
 
               disabled:cursor-not-allowed
               disabled:bg-slate-50
@@ -317,7 +311,6 @@ export default function RegisterForm() {
               </span>
             </p>
           )}
-
         </div>
 
         {/* ====================================================
@@ -325,13 +318,12 @@ export default function RegisterForm() {
         ==================================================== */}
 
         <div className="space-y-2">
-
           <label
             htmlFor="email"
             className="
               text-sm
               font-medium
-              text-slate-800
+              text-[var(--pisjo-navy)]
             "
           >
             Email
@@ -372,11 +364,11 @@ export default function RegisterForm() {
 
               hover:border-slate-300
 
-              focus:border-sky-500
+              focus:border-[var(--pisjo-primary)]
               focus:bg-white
               focus:ring-4
-              focus:ring-sky-500/10
-              focus:shadow-[0_0_0_1px_rgba(14,165,233,0.12)]
+              focus:ring-[var(--pisjo-primary)]/10
+              focus:shadow-[0_0_0_1px_rgba(7,136,232,0.12)]
 
               disabled:cursor-not-allowed
               disabled:bg-slate-50
@@ -414,7 +406,6 @@ export default function RegisterForm() {
               </span>
             </p>
           )}
-
         </div>
 
         {/* ====================================================
@@ -465,13 +456,13 @@ export default function RegisterForm() {
             gap-2.5
             rounded-xl
             border
-            border-sky-100
-            bg-sky-50
+            border-[var(--pisjo-soft-blue)]
+            bg-[var(--pisjo-soft-blue)]
             px-3.5
             py-3
             text-xs
             leading-5
-            text-sky-800
+            text-[var(--pisjo-ocean)]
           "
         >
           <ShieldCheck
@@ -480,7 +471,7 @@ export default function RegisterForm() {
               h-4
               w-4
               shrink-0
-              text-sky-600
+              text-[var(--pisjo-primary)]
             "
             aria-hidden="true"
           />
@@ -500,16 +491,7 @@ export default function RegisterForm() {
           loading={isSubmitting}
           text="Daftar Sekarang"
           loadingText="Mendaftarkan..."
-          className="
-            bg-sky-700
-            hover:bg-sky-800
-            shadow-md
-            shadow-sky-700/15
-            hover:shadow-lg
-            hover:shadow-sky-700/20
-          "
         />
-
       </form>
 
       {/* ======================================================
@@ -536,15 +518,15 @@ export default function RegisterForm() {
             min-h-11
             items-center
             font-semibold
-            text-sky-700
+            text-[var(--pisjo-ocean)]
             transition-colors
             duration-200
-            hover:text-sky-800
+            hover:text-[var(--pisjo-primary)]
             hover:underline
             focus:outline-none
             focus-visible:rounded-md
             focus-visible:ring-2
-            focus-visible:ring-sky-500
+            focus-visible:ring-[var(--pisjo-primary)]
             focus-visible:ring-offset-2
             sm:min-h-0
           "
@@ -552,7 +534,6 @@ export default function RegisterForm() {
           Login di sini
         </Link>
       </div>
-
     </AuthCard>
   );
 }
