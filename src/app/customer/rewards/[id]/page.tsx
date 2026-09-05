@@ -9,9 +9,13 @@ import {
   Coins,
 } from "lucide-react";
 
+import { auth } from "@/auth";
+
 import {
   RewardCatalogService,
 } from "@/services/reward/reward-catalog.service";
+
+import AddressService from "@/services/address/address.service";
 
 import RewardClaimButton from "@/components/customer/reward/RewardClaimButton";
 
@@ -76,6 +80,47 @@ export default async function RewardDetailPage({
    */
 
   const { id } = await params;
+
+    /**
+   * ==========================================================
+   * GET CUSTOMER SESSION
+   * ==========================================================
+   */
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    notFound();
+  }
+
+  /**
+   * ==========================================================
+   * GET CUSTOMER ADDRESSES
+   * ==========================================================
+   */
+
+const addressResult =
+  await AddressService.getAddressesByUserId(
+    session.user.id
+  );
+
+const addresses =
+  addressResult.success
+    ? addressResult.data.map((address) => ({
+        id: address.id,
+        receiverName: address.receiverName,
+        receiverPhone: address.receiverPhone,
+        province: address.province,
+        city: address.city,
+        district: address.district,
+        village: address.village,
+        postalCode: address.postalCode,
+        fullAddress: address.fullAddress,
+        label: address.label,
+        notes: address.notes,
+        isDefault: address.isDefault,
+      }))
+    : [];
 
   /**
    * ==========================================================
@@ -302,13 +347,12 @@ export default async function RewardDetailPage({
 
                 <div className="mt-7">
 
-                        <RewardClaimButton
-                    rewardCatalogId={reward.id}
-                  rewardName={reward.name}
-                requiredPoints={
-              reward.requiredPoints
-                      }
-                        />
+<RewardClaimButton
+  rewardCatalogId={reward.id}
+  rewardName={reward.name}
+  requiredPoints={reward.requiredPoints}
+  addresses={addresses}
+/>
 
               </div>
 

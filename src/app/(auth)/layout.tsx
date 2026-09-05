@@ -497,7 +497,7 @@ export default async function AuthLayout({
               justify-between
               gap-4
               px-4
-              sm:h-[72px]
+              sm:h-18
               sm:px-6
               lg:px-8
             "
@@ -651,7 +651,7 @@ export default async function AuthLayout({
             relative
             isolate
             overflow-hidden
-            bg-gradient-to-br
+            bg-linear-to-br
             from-sky-950
             via-sky-800
             to-blue-950
@@ -684,8 +684,8 @@ export default async function AuthLayout({
               absolute
               -right-32
               top-0
-              h-[30rem]
-              w-[30rem]
+              h-120
+              w-120
               rounded-full
               bg-blue-300/15
               blur-3xl
@@ -707,7 +707,7 @@ export default async function AuthLayout({
               inset-x-0
               top-0
               h-72
-              bg-gradient-to-b
+              bg-linear-to-b
               from-white/[0.07]
               to-transparent
             "
@@ -980,7 +980,7 @@ export default async function AuthLayout({
                       my-7
                       h-px
                       w-20
-                      bg-gradient-to-r
+                      bg-linear-to-r
                       from-transparent
                       via-white/50
                       to-transparent
@@ -1175,7 +1175,7 @@ export default async function AuthLayout({
                 left-[-8%]
                 h-28
                 w-[116%]
-                min-w-[900px]
+                min-w-225
                 sm:h-32
               "
               viewBox="0 0 1440 220"
@@ -1203,11 +1203,11 @@ export default async function AuthLayout({
               className="
                 auth-wave-medium
                 absolute
-                bottom-[-8px]
+                -bottom-2
                 left-[-10%]
                 h-24
                 w-[120%]
-                min-w-[900px]
+                min-w-225
                 sm:h-28
               "
               viewBox="0 0 1440 220"
@@ -1235,11 +1235,11 @@ export default async function AuthLayout({
               className="
                 auth-wave-fast
                 absolute
-                bottom-[-16px]
+                -bottom-4
                 left-[-12%]
                 h-20
                 w-[124%]
-                min-w-[900px]
+                min-w-225
                 sm:h-24
               "
               viewBox="0 0 1440 220"
@@ -1270,7 +1270,7 @@ export default async function AuthLayout({
                 left-0
                 h-px
                 w-full
-                bg-gradient-to-r
+                bg-linear-to-r
                 from-transparent
                 via-white/25
                 to-transparent
@@ -1348,7 +1348,7 @@ function FeatureItem({
         rounded-xl
         border
         border-white/10
-        bg-white/[0.06]
+        bg-white/6
         px-2
         py-3
         backdrop-blur-md

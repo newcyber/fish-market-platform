@@ -37,27 +37,27 @@ export function QuickActionCard({
           : "hover:-translate-y-1 hover:shadow-lg",
       ].join(" ")}
     >
-      <CardContent className="flex items-center justify-between gap-4 p-5">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Icon className="h-6 w-6" />
-          </div>
+<CardContent className="flex items-center justify-between gap-4 p-5">
+  <div className="flex min-w-0 items-center gap-4">
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-primary)]">
+      <Icon className="h-6 w-6" />
+    </div>
 
-          <div>
-            <h3 className="font-semibold">
-              {title}
-            </h3>
+    <div className="min-w-0">
+      <h3 className="truncate font-semibold">
+        {title}
+      </h3>
 
-            <p className="mt-1 text-sm text-muted-foreground">
-              {description}
-            </p>
-          </div>
-        </div>
+      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  </div>
 
-        {!disabled && (
-          <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
-        )}
-      </CardContent>
+  {!disabled && (
+    <ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+  )}
+</CardContent>
     </Card>
   );
 

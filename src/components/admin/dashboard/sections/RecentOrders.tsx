@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 
 interface RecentOrdersProps {
-  orders: RecentOrderDTO[];
+  data: RecentOrderDTO[];
 }
 
 function getStatusVariant(
@@ -45,9 +45,7 @@ function getStatusVariant(
   }
 }
 
-function getStatusLabel(
-  status: RecentOrderDTO["status"]
-): string {
+function getStatusLabel(status: RecentOrderDTO["status"]): string {
   switch (status) {
     case "PENDING":
       return "Pending";
@@ -75,9 +73,7 @@ function getStatusLabel(
   }
 }
 
-export function RecentOrders({
-  orders,
-}: RecentOrdersProps) {
+export function RecentOrders({ data }: RecentOrdersProps) {
   return (
     <Card className="min-w-0 overflow-hidden">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -86,7 +82,7 @@ export function RecentOrders({
             Pesanan Terbaru
           </CardTitle>
 
-          <CardDescription>
+          <CardDescription className="mt-1">
             Transaksi terbaru pelanggan.
           </CardDescription>
         </div>
@@ -101,64 +97,69 @@ export function RecentOrders({
 
       <CardContent className="px-0 sm:px-6">
         <div className="w-full overflow-x-auto">
-          <Table className="min-w-[620px]">
+          <Table className="min-w-[760px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="whitespace-nowrap">
+                <TableHead className="w-[240px] whitespace-nowrap px-3">
                   No. Order
                 </TableHead>
 
-                <TableHead className="whitespace-nowrap">
+                <TableHead className="w-[210px] whitespace-nowrap px-3">
                   Pelanggan
                 </TableHead>
 
-                <TableHead className="whitespace-nowrap text-right">
+                <TableHead className="w-[140px] whitespace-nowrap px-3 text-right">
                   Total
                 </TableHead>
 
-                <TableHead className="whitespace-nowrap">
+                <TableHead className="w-[170px] whitespace-nowrap px-3">
                   Status
                 </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {orders.length === 0 ? (
+              {data.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={4}
-                    className="h-24 text-center text-muted-foreground"
+                    className="h-24 px-3 text-center text-muted-foreground"
                   >
                     Belum ada transaksi.
                   </TableCell>
                 </TableRow>
               ) : (
-                orders.map((order) => (
+                data.map((order) => (
                   <TableRow key={order.id}>
-                    <TableCell className="whitespace-nowrap font-medium">
-                      {order.orderNumber}
-                    </TableCell>
-
-                    <TableCell className="max-w-55 truncate">
-                      {order.customer}
-                    </TableCell>
-
-                    <TableCell className="whitespace-nowrap text-right font-medium">
-                      Rp{" "}
-                      {order.total.toLocaleString(
-                        "id-ID"
-                      )}
-                    </TableCell>
-
-                    <TableCell className="whitespace-nowrap">
-                      <Badge
-                        variant={getStatusVariant(
-                          order.status
-                        )}
+                    <TableCell className="w-[240px] px-3">
+                      <span
+                        className="block truncate font-medium text-foreground"
+                        title={order.orderNumber}
                       >
-                        {getStatusLabel(
-                          order.status
-                        )}
+                        {order.orderNumber}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="w-[210px] px-3">
+                      <span
+                        className="block truncate text-foreground"
+                        title={order.customer}
+                      >
+                        {order.customer}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="w-[140px] whitespace-nowrap px-3 text-right font-medium text-foreground">
+                      Rp{" "}
+                      {order.total.toLocaleString("id-ID")}
+                    </TableCell>
+
+                    <TableCell className="w-[170px] whitespace-nowrap px-3">
+                      <Badge
+                        variant={getStatusVariant(order.status)}
+                        className="whitespace-nowrap"
+                      >
+                        {getStatusLabel(order.status)}
                       </Badge>
                     </TableCell>
                   </TableRow>

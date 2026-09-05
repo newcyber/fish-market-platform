@@ -8,15 +8,49 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { DashboardKpiCard } from "@/components/admin/dashboard/cards/DashboardKpiCard";
+import { DashboardTodayCards } from "@/components/admin/dashboard/cards/DashboardTodayCards";
+import { QuickActionCard } from "@/components/admin/dashboard/cards/QuickActionCard";
+import { CategorySalesChart } from "@/components/admin/dashboard/charts/CategorySalesChart";
+import { OrderStatusDonut } from "@/components/admin/dashboard/charts/OrderStatusDonut";
+import { SalesChart } from "@/components/admin/dashboard/charts/SalesChart";
+import { DashboardHeader } from "@/components/admin/dashboard/sections/DashboardHeader";
+import { LowStockAlert } from "@/components/admin/dashboard/sections/LowStockAlert";
+import { RecentActivity } from "@/components/admin/dashboard/sections/RecentActivity";
+import { RecentCustomers } from "@/components/admin/dashboard/sections/RecentCustomers";
+import { RecentOrders } from "@/components/admin/dashboard/sections/RecentOrders";
+
 import { DashboardService } from "@/services/dashboard/dashboard.service";
 
-import { DashboardHeader } from "@/components/admin/dashboard/sections/DashboardHeader";
+function formatCompactCurrency(value: number) {
+  if (value >= 1_000_000_000) {
+    return `Rp ${(value / 1_000_000_000)
+      .toFixed(2)
+      .replace(".", ",")} M`;
+  }
 
-import { StatCard } from "@/components/admin/dashboard/cards/StatCard";
-import { QuickActionCard } from "@/components/admin/dashboard/cards/QuickActionCard";
+  if (value >= 1_000_000) {
+    return `Rp ${(value / 1_000_000)
+      .toFixed(2)
+      .replace(".", ",")} jt`;
+  }
 
-import { RecentOrders } from "@/components/admin/dashboard/sections/RecentOrders";
-import { RecentCustomers } from "@/components/admin/dashboard/sections/RecentCustomers";
+  if (value >= 1_000) {
+    return `Rp ${(value / 1_000)
+      .toFixed(0)
+      .replace(".", ",")} rb`;
+  }
+
+  return `Rp ${value.toLocaleString("id-ID")}`;
+}
+
+function formatFullCurrency(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -26,42 +60,62 @@ export default async function AdminDashboardPage() {
   const { stats } = dashboard;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <DashboardHeader />
 
-      {/* Statistics */}
-      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Total Produk"
-          value={stats.totalProducts}
-          description="Produk aktif"
-          icon={Boxes}
+      {/* =========================================================
+       * OVERVIEW
+       * ========================================================= */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <DashboardKpiCard
+          title="Total Pesanan"
+          value={stats.totalOrders.toLocaleString("id-ID")}
+          description="Seluruh pesanan"
+          icon={ShoppingCart}
         />
 
-        <StatCard
+        <DashboardKpiCard
+          title="Total Penjualan"
+          value={formatCompactCurrency(stats.totalSales)}
+          description="Pembayaran terverifikasi"
+          icon={Wallet}
+        />
+
+        <DashboardKpiCard
+          title="Total Poin Customer"
+          value={stats.totalRewardPoints.toLocaleString("id-ID")}
+          description="Saldo poin seluruh customer"
+          icon={Wallet}
+        />
+
+        <DashboardKpiCard
           title="Total Customer"
-          value={stats.totalCustomers}
+          value={stats.totalCustomers.toLocaleString("id-ID")}
           description="Customer terdaftar"
           icon={Users}
         />
 
-        <StatCard
-          title="Total Order"
-          value={stats.totalOrders}
-          description="Seluruh transaksi"
-          icon={ShoppingCart}
-        />
-
-        <StatCard
-          title="Menunggu Verifikasi"
-          value={stats.pendingPayments}
-          description="Transfer belum diverifikasi"
-          icon={Wallet}
+        <DashboardKpiCard
+          title="Total Produk"
+          value={stats.totalProducts.toLocaleString("id-ID")}
+          description="Produk aktif dalam katalog"
+          icon={Boxes}
         />
       </section>
 
-      {/* Quick Actions */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {/* =========================================================
+       * TODAY SUMMARY
+       * ========================================================= */}
+      <DashboardTodayCards
+        orders={dashboard.today.orders}
+        sales={dashboard.today.sales}
+        pendingPayments={stats.pendingPayments}
+      />
+
+      {/* =========================================================
+       * QUICK ACTIONS
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <QuickActionCard
           title="Tambah Produk"
           description="Tambah produk baru"
@@ -91,15 +145,38 @@ export default async function AdminDashboardPage() {
         />
       </section>
 
-      {/* Tables */}
-      <section className="grid gap-6 xl:grid-cols-2">
-        <RecentOrders
-          orders={dashboard.recentOrders}
-        />
+      {/* =========================================================
+       * SALES & ORDER STATUS
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)]">
+        <SalesChart data={dashboard.salesLast7Days} />
 
-        <RecentCustomers
-          customers={dashboard.recentCustomers}
-        />
+        <OrderStatusDonut data={dashboard.orderStatusSummary} />
+      </section>
+
+      {/* =========================================================
+       * SALES BY CATEGORY
+       * ========================================================= */}
+      <section className="min-w-0">
+        <CategorySalesChart data={dashboard.salesByCategory} />
+      </section>
+
+      {/* =========================================================
+       * RECENT ORDERS & LOW STOCK
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+        <RecentOrders data={dashboard.recentOrders} />
+
+        <LowStockAlert data={dashboard.lowStockSkus} />
+      </section>
+
+      {/* =========================================================
+       * RECENT ACTIVITY & CUSTOMERS
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)]">
+        <RecentActivity data={dashboard.recentActivities} />
+
+        <RecentCustomers data={dashboard.recentCustomers} />
       </section>
     </div>
   );

@@ -211,6 +211,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         roles: SUPER_ADMIN_ONLY,
         order: 3,
       },
+
+      {
+      id: "reward-claims",
+      title: "Reward Claims",
+      href: "/admin/reward-claims",
+      icon: "reward-catalog",
+      roles: SUPER_ADMIN_ONLY,
+      order: 4,
+      },
     ],
   },
 

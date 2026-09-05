@@ -102,45 +102,45 @@ export function CategoryForm({
    * ==========================================================
    */
 
-const [
-  form,
-  setForm,
-] = useState<CategoryFormValues>({
-  name:
-    defaultValues?.name ?? "",
+  const [
+    form,
+    setForm,
+  ] = useState<CategoryFormValues>({
+    name:
+      defaultValues?.name ?? "",
 
-  slug:
-    defaultValues?.slug ?? "",
+    slug:
+      defaultValues?.slug ?? "",
 
-  description:
-    defaultValues?.description ?? "",
+    description:
+      defaultValues?.description ?? "",
 
-  image:
-    defaultValues?.image ?? "",
+    image:
+      defaultValues?.image ?? "",
 
-  sortOrder:
-    defaultValues?.sortOrder ?? 0,
+    sortOrder:
+      defaultValues?.sortOrder ?? 0,
 
-  isActive:
-    defaultValues?.isActive ?? true,
-});
+    isActive:
+      defaultValues?.isActive ?? true,
+  });
 
-const [
-  selectedFile,
-  setSelectedFile,
-] = useState<File | null>(null);
+  const [
+    selectedFile,
+    setSelectedFile,
+  ] = useState<File | null>(null);
 
-const [
-  previewUrl,
-  setPreviewUrl,
-] = useState<string>(
-  defaultValues?.image ?? ""
-);
+  const [
+    previewUrl,
+    setPreviewUrl,
+  ] = useState<string>(
+    defaultValues?.image ?? ""
+  );
 
-const [
-  isUploading,
-  setIsUploading,
-] = useState(false);
+  const [
+    isUploading,
+    setIsUploading,
+  ] = useState(false);
 
   /**
    * ==========================================================
@@ -230,85 +230,85 @@ const [
  * ============================================================
  */
 
-async function uploadCategoryImage(
-  file: File
-): Promise<void> {
-  setIsUploading(true);
-  setMessage(null);
+  async function uploadCategoryImage(
+    file: File
+  ): Promise<void> {
+    setIsUploading(true);
+    setMessage(null);
 
-  try {
-    const formData =
-      new FormData();
+    try {
+      const formData =
+        new FormData();
 
-    formData.append(
-      "image",
-      file
-    );
-
-    const response =
-      await fetch(
-        "/api/admin/categories/upload",
-        {
-          method: "POST",
-          body: formData,
-        }
+      formData.append(
+        "image",
+        file
       );
 
-    const result =
-      await response.json();
+      const response =
+        await fetch(
+          "/api/admin/categories/upload",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
-    if (
-      !response.ok ||
-      !result?.success
-    ) {
-      throw new Error(
-        result?.message ??
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result?.success
+      ) {
+        throw new Error(
+          result?.message ??
           "Gagal mengupload gambar kategori."
-      );
-    }
+        );
+      }
 
-    const uploadedImage =
-      result?.image;
+      const uploadedImage =
+        result?.image;
 
-    if (
-      typeof uploadedImage !==
+      if (
+        typeof uploadedImage !==
         "string" ||
-      !uploadedImage
-    ) {
-      throw new Error(
-        "Server tidak mengembalikan path gambar."
+        !uploadedImage
+      ) {
+        throw new Error(
+          "Server tidak mengembalikan path gambar."
+        );
+      }
+
+      setForm(
+        (prev) => ({
+          ...prev,
+          image:
+            uploadedImage,
+        })
       );
+
+      setPreviewUrl(
+        uploadedImage
+      );
+
+      setSelectedFile(
+        file
+      );
+
+      setMessage(
+        "Gambar kategori berhasil diupload."
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengupload gambar kategori."
+      );
+    } finally {
+      setIsUploading(false);
     }
-
-    setForm(
-      (prev) => ({
-        ...prev,
-        image:
-          uploadedImage,
-      })
-    );
-
-    setPreviewUrl(
-      uploadedImage
-    );
-
-    setSelectedFile(
-      file
-    );
-
-    setMessage(
-      "Gambar kategori berhasil diupload."
-    );
-  } catch (error) {
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Gagal mengupload gambar kategori."
-    );
-  } finally {
-    setIsUploading(false);
   }
-}
 
   /**
    * ==========================================================
@@ -327,11 +327,10 @@ async function uploadCategoryImage(
 
       {state.message && (
         <div
-          className={`rounded-lg border p-4 text-sm ${
-            state.success
+          className={`rounded-lg border p-4 text-sm ${state.success
               ? "border-green-200 bg-green-50 text-green-700"
               : "border-red-200 bg-red-50 text-red-700"
-          }`}
+            }`}
         >
           {state.message}
         </div>
@@ -380,8 +379,8 @@ async function uploadCategoryImage(
                       slugEdited
                         ? prev.slug
                         : slugify(
-                            name
-                          ),
+                          name
+                        ),
                   })
                 );
               }}
@@ -513,99 +512,99 @@ async function uploadCategoryImage(
           </div>
         </FormGrid>
 
-{/* ====================================================
+        {/* ====================================================
     CATEGORY IMAGE
 ==================================================== */}
 
-<div className="mt-6 space-y-3">
-  <Label htmlFor="category-image">
-    Gambar Kategori
-  </Label>
+        <div className="mt-6 space-y-3">
+          <Label htmlFor="category-image">
+            Gambar Kategori
+          </Label>
 
-  <input
-    id="category-image"
-    type="hidden"
-    name="image"
-    value={form.image}
-    readOnly
-  />
+          <input
+            id="category-image"
+            type="hidden"
+            name="image"
+            value={form.image}
+            readOnly
+          />
 
-  {previewUrl ? (
-    <div className="relative aspect-[16/9] w-full max-w-md overflow-hidden rounded-xl border bg-muted">
-      <Image
-        src={previewUrl}
-        alt={
-          form.name ||
-          "Preview gambar kategori"
-        }
-        fill
-        className="object-cover"
-        sizes="(max-width: 768px) 100vw, 448px"
-      />
-    </div>
-  ) : (
-    <div className="flex aspect-[16/9] w-full max-w-md items-center justify-center rounded-xl border border-dashed bg-muted text-sm text-muted-foreground">
-      Belum ada gambar kategori
-    </div>
-  )}
+          {previewUrl ? (
+            <div className="relative aspect-video w-full max-w-md overflow-hidden rounded-xl border bg-muted">
+              <Image
+                src={previewUrl}
+                alt={
+                  form.name ||
+                  "Preview gambar kategori"
+                }
+                fill
+                unoptimized
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 448px"
+              />
+            </div>
+          ) : (
+            <div className="flex aspect-video w-full max-w-md items-center justify-center rounded-xl border border-dashed bg-muted text-sm text-muted-foreground">
+              Belum ada gambar kategori
+            </div>
+          )}
 
-  <div className="flex items-center gap-3">
-    <label
-      htmlFor="category-image-file"
-      className={`inline-flex cursor-pointer items-center rounded-lg border px-4 py-2 text-sm font-medium transition ${
-        isUploading
-          ? "cursor-not-allowed opacity-50"
-          : "hover:bg-muted"
-      }`}
-    >
-      {isUploading
-        ? "Mengupload..."
-        : previewUrl
-          ? "Ganti Gambar"
-          : "Pilih Gambar"}
+          <div className="flex items-center gap-3">
+            <label
+              htmlFor="category-image-file"
+              className={`inline-flex cursor-pointer items-center rounded-lg border px-4 py-2 text-sm font-medium transition ${isUploading
+                  ? "cursor-not-allowed opacity-50"
+                  : "hover:bg-muted"
+                }`}
+            >
+              {isUploading
+                ? "Mengupload..."
+                : previewUrl
+                  ? "Ganti Gambar"
+                  : "Pilih Gambar"}
 
-      <input
-        id="category-image-file"
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        className="hidden"
-        disabled={isUploading}
-        onChange={async (event) => {
-          const file =
-            event.target.files?.[0];
+              <input
+                id="category-image-file"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                disabled={isUploading}
+                onChange={async (event) => {
+                  const file =
+                    event.target.files?.[0];
 
-          if (!file) {
-            return;
-          }
+                  if (!file) {
+                    return;
+                  }
 
-          await uploadCategoryImage(
-            file
-          );
+                  await uploadCategoryImage(
+                    file
+                  );
 
-          event.target.value =
-            "";
-        }}
-      />
-    </label>
+                  event.target.value =
+                    "";
+                }}
+              />
+            </label>
 
-    {selectedFile && (
-      <span className="text-xs text-muted-foreground">
-        {selectedFile.name}
-      </span>
-    )}
-  </div>
+            {selectedFile && (
+              <span className="text-xs text-muted-foreground">
+                {selectedFile.name}
+              </span>
+            )}
+          </div>
 
-  <p className="text-xs text-muted-foreground">
-    Gunakan gambar produk/kategori yang jelas.
-    Format PNG, JPG, atau WEBP.
-  </p>
+          <p className="text-xs text-muted-foreground">
+            Gunakan gambar produk/kategori yang jelas.
+            Format PNG, JPG, atau WEBP.
+          </p>
 
-  {state.errors?.image?.[0] && (
-    <p className="text-xs text-red-600">
-      {state.errors.image[0]}
-    </p>
-  )}
-</div>
+          {state.errors?.image?.[0] && (
+            <p className="text-xs text-red-600">
+              {state.errors.image[0]}
+            </p>
+          )}
+        </div>
 
         {/* ====================================================
             STATUS

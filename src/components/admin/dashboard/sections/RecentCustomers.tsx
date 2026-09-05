@@ -31,7 +31,7 @@ export interface RecentCustomerItem {
 }
 
 interface RecentCustomersProps {
-  customers: RecentCustomerItem[];
+  data: RecentCustomerItem[];
 }
 
 function getInitials(name: string) {
@@ -43,9 +43,7 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-export function RecentCustomers({
-  customers,
-}: RecentCustomersProps) {
+export function RecentCustomers({ data }: RecentCustomersProps) {
   return (
     <Card className="min-w-0 overflow-hidden">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -54,14 +52,14 @@ export function RecentCustomers({
             Pelanggan Terbaru
           </CardTitle>
 
-          <CardDescription>
+          <CardDescription className="mt-1">
             Customer yang baru bergabung.
           </CardDescription>
         </div>
 
         <Link
           href="/admin/customers"
-          className="shrink-0 self-start text-sm font-medium text-primary hover:underline sm:self-auto"
+          className="shrink-0 self-start text-sm font-medium text-primary transition-colors hover:underline sm:self-auto"
         >
           Lihat Semua
         </Link>
@@ -69,73 +67,81 @@ export function RecentCustomers({
 
       <CardContent className="px-0 sm:px-6">
         <div className="w-full overflow-x-auto">
-          <Table className="min-w-[760px]">
+          <Table className="min-w-[760px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="whitespace-nowrap">
+                <TableHead className="w-[220px] whitespace-nowrap px-3">
                   Pelanggan
                 </TableHead>
 
-                <TableHead className="whitespace-nowrap">
+                <TableHead className="w-[250px] whitespace-nowrap px-3">
                   Email
                 </TableHead>
 
-                <TableHead className="whitespace-nowrap">
+                <TableHead className="w-[150px] whitespace-nowrap px-3">
                   Telepon
                 </TableHead>
 
-                <TableHead className="whitespace-nowrap">
+                <TableHead className="w-[140px] whitespace-nowrap px-3">
                   Bergabung
                 </TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {customers.length === 0 ? (
+              {data.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={4}
-                    className="py-10 text-center text-muted-foreground"
+                    className="h-24 px-3 text-center text-muted-foreground"
                   >
                     Belum ada pelanggan.
                   </TableCell>
                 </TableRow>
               ) : (
-                customers.map((customer) => (
+                data.map((customer) => (
                   <TableRow key={customer.id}>
-                    <TableCell>
+                    <TableCell className="w-[220px] px-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <Avatar className="h-9 w-9 shrink-0">
                           <AvatarFallback>
-                            {getInitials(
-                              customer.name
-                            )}
+                            {getInitials(customer.name)}
                           </AvatarFallback>
                         </Avatar>
 
-                        <span className="max-w-50 truncate font-medium">
+                        <span
+                          className="block min-w-0 truncate font-medium text-foreground"
+                          title={customer.name}
+                        >
                           {customer.name}
                         </span>
                       </div>
                     </TableCell>
 
-                    <TableCell className="max-w-60 truncate">
-                      {customer.email}
+                    <TableCell className="w-[250px] px-3">
+                      <span
+                        className="block truncate text-foreground"
+                        title={customer.email}
+                      >
+                        {customer.email}
+                      </span>
                     </TableCell>
 
-                    <TableCell className="whitespace-nowrap">
-                      {customer.phone ?? "-"}
+                    <TableCell className="w-[150px] px-3">
+                      <span
+                        className="block truncate text-muted-foreground"
+                        title={customer.phone ?? "-"}
+                      >
+                        {customer.phone ?? "-"}
+                      </span>
                     </TableCell>
 
-                    <TableCell className="whitespace-nowrap">
-                      {customer.joinedAt.toLocaleDateString(
-                        "id-ID",
-                        {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        }
-                      )}
+                    <TableCell className="w-[140px] whitespace-nowrap px-3 text-muted-foreground">
+                      {customer.joinedAt.toLocaleDateString("id-ID", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
                     </TableCell>
                   </TableRow>
                 ))

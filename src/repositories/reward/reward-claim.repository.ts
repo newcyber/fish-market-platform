@@ -60,6 +60,20 @@ export type CreateRewardClaimInput = {
 
   rewardImage?: string | null;
 
+  receiverName: string;
+  receiverPhone: string;
+
+  province: string;
+  city: string;
+  district: string;
+  village: string;
+
+  postalCode: string;
+  fullAddress: string;
+
+  latitude?: Prisma.Decimal | number | null;
+  longitude?: Prisma.Decimal | number | null;
+
   status?: RewardClaimStatus;
 };
 
@@ -126,7 +140,49 @@ export class RewardClaimRepository {
     });
   }
 
-  /**
+/**
+ * ==========================================================
+ * FIND BY ID FOR ADMIN
+ * ==========================================================
+ *
+ * Digunakan oleh halaman detail Reward Claim Admin.
+ * Menampilkan customer + reward.
+ */
+
+static async findByIdForAdmin(
+  id: string,
+  client: RewardClaimRepositoryClient = prisma
+) {
+  const db =
+    this.getClient(client);
+
+  return db.rewardClaim.findUnique({
+    where: {
+      id,
+    },
+
+    include: {
+      rewardCatalog: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+        },
+      },
+
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  });
+}
+
+/**
  * ==========================================================
  * FIND BY ID FOR UPDATE
  * ==========================================================
@@ -143,45 +199,76 @@ static async findByIdForUpdate(
 ) {
   const rows =
     await client.$queryRaw<
-      Array<{
-        id: string;
-        userId: string;
-        rewardCatalogId: string;
-        pointsSpent: number;
-        rewardName: string;
-        rewardDescription: string | null;
-        rewardImage: string | null;
-        status: RewardClaimStatus;
-        rejectionReason: string | null;
-        refundedAt: Date | null;
-        approvedAt: Date | null;
-        shippedAt: Date | null;
-        completedAt: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
-      }>
+Array<{
+  id: string;
+  userId: string;
+  rewardCatalogId: string;
+  pointsSpent: number;
+
+  rewardName: string;
+  rewardDescription: string | null;
+  rewardImage: string | null;
+
+  receiverName: string;
+  receiverPhone: string;
+
+  province: string;
+  city: string;
+  district: string;
+  village: string;
+
+  postalCode: string;
+  fullAddress: string;
+
+  latitude: Prisma.Decimal | null;
+  longitude: Prisma.Decimal | null;
+
+  status: RewardClaimStatus;
+
+  rejectionReason: string | null;
+  refundedAt: Date | null;
+
+  approvedAt: Date | null;
+  shippedAt: Date | null;
+  completedAt: Date | null;
+
+  createdAt: Date;
+  updatedAt: Date;
+}>
     >(
-      Prisma.sql`
-        SELECT
-          "id",
-          "userId",
-          "rewardCatalogId",
-          "pointsSpent",
-          "rewardName",
-          "rewardDescription",
-          "rewardImage",
-          "status",
-          "rejectionReason",
-          "refundedAt",
-          "approvedAt",
-          "shippedAt",
-          "completedAt",
-          "createdAt",
-          "updatedAt"
-        FROM "RewardClaim"
-        WHERE "id" = ${id}
-        FOR UPDATE
-      `
+Prisma.sql`
+  SELECT
+    "id",
+    "userId",
+    "rewardCatalogId",
+    "pointsSpent",
+    "rewardName",
+    "rewardDescription",
+    "rewardImage",
+
+    "receiverName",
+    "receiverPhone",
+    "province",
+    "city",
+    "district",
+    "village",
+    "postalCode",
+    "fullAddress",
+    "latitude",
+    "longitude",
+
+    "status",
+    "rejectionReason",
+    "refundedAt",
+    "approvedAt",
+    "shippedAt",
+    "completedAt",
+    "createdAt",
+    "updatedAt"
+  FROM "RewardClaim"
+  WHERE "id" = ${id}
+  FOR UPDATE
+`
     );
 
   return rows[0] ?? null;
@@ -333,29 +420,55 @@ static async findByIdForUpdate(
       this.getClient(client);
 
     return db.rewardClaim.create({
-      data: {
-        userId:
-          data.userId,
+data: {
+  userId: data.userId,
 
-        rewardCatalogId:
-          data.rewardCatalogId,
+  rewardCatalogId: data.rewardCatalogId,
 
-        pointsSpent:
-          data.pointsSpent,
+  pointsSpent: data.pointsSpent,
 
-        rewardName:
-          data.rewardName,
+  rewardName: data.rewardName,
 
-        rewardDescription:
-          data.rewardDescription ?? null,
+  rewardDescription:
+    data.rewardDescription ?? null,
 
-        rewardImage:
-          data.rewardImage ?? null,
+  rewardImage:
+    data.rewardImage ?? null,
 
-        status:
-          data.status ??
-          RewardClaimStatus.PENDING,
-      },
+  receiverName:
+    data.receiverName,
+
+  receiverPhone:
+    data.receiverPhone,
+
+  province:
+    data.province,
+
+  city:
+    data.city,
+
+  district:
+    data.district,
+
+  village:
+    data.village,
+
+  postalCode:
+    data.postalCode,
+
+  fullAddress:
+    data.fullAddress,
+
+  latitude:
+    data.latitude ?? null,
+
+  longitude:
+    data.longitude ?? null,
+
+  status:
+    data.status ??
+    RewardClaimStatus.PENDING,
+},
     });
   }
 

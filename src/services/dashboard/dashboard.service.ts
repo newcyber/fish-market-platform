@@ -6,14 +6,32 @@ export class DashboardService {
       totalProducts,
       totalCustomers,
       totalOrders,
+      totalSales,
+      totalRewardPoints,
       pendingPayments,
+      todayOrders,
+      todaySales,
+      salesLast7Days,
+      orderStatusSummary,
+      salesByCategory,
+      lowStockSkus,
+      recentActivities,
       recentOrders,
       recentCustomers,
     ] = await Promise.all([
       DashboardRepository.countProducts(),
       DashboardRepository.countCustomers(),
       DashboardRepository.countOrders(),
+      DashboardRepository.sumTotalSales(),
+      DashboardRepository.sumCustomerRewardPoints(),
       DashboardRepository.countPendingPayments(),
+      DashboardRepository.countTodayOrders(),
+      DashboardRepository.sumTodaySales(),
+      DashboardRepository.findSalesLast7Days(),
+      DashboardRepository.countOrdersByStatus(),
+      DashboardRepository.findSalesByCategory(),
+      DashboardRepository.findLowStockSkus(5, 10),
+      DashboardRepository.findRecentActivities(8),
       DashboardRepository.findRecentOrders(5),
       DashboardRepository.findRecentCustomers(5),
     ]);
@@ -23,8 +41,25 @@ export class DashboardService {
         totalProducts,
         totalCustomers,
         totalOrders,
+        totalSales,
+        totalRewardPoints,
         pendingPayments,
       },
+
+      today: {
+        orders: todayOrders,
+        sales: todaySales,
+      },
+
+      salesLast7Days,
+
+      orderStatusSummary,
+
+      salesByCategory,
+
+      lowStockSkus,
+
+      recentActivities,
 
       recentOrders: recentOrders.map((order) => ({
         id: order.id,

@@ -45,7 +45,8 @@ import {
 
 export async function claimReward(
   userId: string,
-  rewardCatalogId: string
+  rewardCatalogId: string,
+  addressId: string
 ) {
   /**
    * ==========================================================
@@ -53,11 +54,14 @@ export async function claimReward(
    * ==========================================================
    */
 
-  const normalizedUserId =
-    String(userId ?? "").trim();
+const normalizedUserId =
+  String(userId ?? "").trim();
 
-  const normalizedRewardCatalogId =
-    String(rewardCatalogId ?? "").trim();
+const normalizedRewardCatalogId =
+  String(rewardCatalogId ?? "").trim();
+
+const normalizedAddressId =
+  String(addressId ?? "").trim();
 
   /**
    * ==========================================================
@@ -76,6 +80,12 @@ export async function claimReward(
       "Reward tidak valid."
     );
   }
+
+  if (!normalizedAddressId) {
+  throw new Error(
+    "Alamat pengiriman wajib dipilih."
+  );
+}
 
   /**
    * ==========================================================
@@ -131,6 +141,35 @@ export async function claimReward(
         "Customer tidak ditemukan."
       );
     }
+
+    /**
+ * ========================================================
+ * 1B. VALIDATE SHIPPING ADDRESS
+ * ========================================================
+ *
+ * Address harus:
+ *
+ * - milik customer yang sedang claim
+ * - masih aktif
+ *
+ * Address diambil langsung dari database,
+ * bukan dipercaya dari client.
+ */
+
+const address =
+  await tx.address.findFirst({
+    where: {
+      id: normalizedAddressId,
+      userId: normalizedUserId,
+      deletedAt: null,
+    },
+  });
+
+if (!address) {
+  throw new Error(
+    "Alamat pengiriman tidak ditemukan atau bukan milik Anda."
+  );
+}
 
     /**
      * ========================================================
@@ -235,32 +274,62 @@ export async function claimReward(
      * ========================================================
      */
 
-    const claim =
-      await RewardClaimRepository.create(
-        {
-          userId:
-            normalizedUserId,
+const claim =
+  await RewardClaimRepository.create(
+    {
+      userId:
+        normalizedUserId,
 
-          rewardCatalogId:
-            reward.id,
+      rewardCatalogId:
+        reward.id,
 
-          pointsSpent:
-            reward.requiredPoints,
+      pointsSpent:
+        reward.requiredPoints,
 
-          rewardName:
-            reward.name,
+      rewardName:
+        reward.name,
 
-          rewardDescription:
-            reward.description,
+      rewardDescription:
+        reward.description,
 
-          rewardImage:
-            reward.image,
+      rewardImage:
+        reward.image,
 
-          status:
-            RewardClaimStatus.PENDING,
-        },
-        tx
-      );
+      receiverName:
+        address.receiverName,
+
+      receiverPhone:
+        address.receiverPhone,
+
+      province:
+        address.province,
+
+      city:
+        address.city,
+
+      district:
+        address.district,
+
+      village:
+        address.village,
+
+      postalCode:
+        address.postalCode,
+
+      fullAddress:
+        address.fullAddress,
+
+      latitude:
+        address.latitude,
+
+      longitude:
+        address.longitude,
+
+      status:
+        RewardClaimStatus.PENDING,
+    },
+    tx
+  );
 
     /**
      * ========================================================
@@ -397,6 +466,54 @@ export async function getCustomerRewardClaims(
 
 /**
  * ============================================================
+ * GET ADMIN REWARD CLAIM
+ * ============================================================
+ */
+
+export async function getAdminRewardClaim(
+  claimId: string
+) {
+  const normalizedClaimId =
+    String(claimId ?? "").trim();
+
+  if (!normalizedClaimId) {
+    throw new Error(
+      "Claim ID tidak valid."
+    );
+  }
+
+  return RewardClaimRepository.findByIdForAdmin(
+    normalizedClaimId
+  );
+}
+
+/**
+ * ============================================================
+ * GET ADMIN REWARD CLAIMS
+ * ============================================================
+ */
+
+export async function getAdminRewardClaims(
+  options?: {
+    status?: RewardClaimStatus;
+    userId?: string;
+    rewardCatalogId?: string;
+    skip?: number;
+    take?: number;
+  }
+) {
+  return RewardClaimRepository.findMany({
+    status: options?.status,
+    userId: options?.userId,
+    rewardCatalogId:
+      options?.rewardCatalogId,
+    skip: options?.skip,
+    take: options?.take,
+  });
+}
+
+/**
+ * ============================================================
  * UPDATE REWARD CLAIM STATUS
  * ============================================================
  *
@@ -416,34 +533,6 @@ export async function getCustomerRewardClaims(
  * SHIPPED
  *   └── COMPLETED
  *
- * Terminal:
- *
- * COMPLETED
- * REJECTED
- * CANCELLED
- *
- * tidak dapat diubah lagi.
- *
- * ============================================================
- *
- * REFUND:
- *
- * Jika status berubah menjadi:
- *
- * REJECTED
- * atau
- * CANCELLED
- *
- * maka:
- *
- * 1. Lock claim
- * 2. Lock user
- * 3. Restore stock
- * 4. Create REFUND ledger
- * 5. Restore user point balance
- * 6. Update claim status
- *
- * semuanya dalam satu transaction.
  * ============================================================
  */
 

@@ -19,7 +19,8 @@ import {
  * Request body:
  *
  * {
- *   "rewardCatalogId": "..."
+ * "rewardCatalogId": "...",
+ * "addressId": "..."
  * }
  *
  * SECURITY:
@@ -164,6 +165,12 @@ export async function POST(
         ? body.rewardCatalogId.trim()
         : "";
 
+        const addressId =
+  "addressId" in body &&
+  typeof body.addressId === "string"
+    ? body.addressId.trim()
+    : "";
+
     if (!rewardCatalogId) {
       return NextResponse.json(
         {
@@ -177,34 +184,48 @@ export async function POST(
       );
     }
 
-    /**
-     * ========================================================
-     * 6. CLAIM REWARD
-     * ========================================================
-     *
-     * userId berasal dari authenticated session.
-     *
-     * BUKAN dari request body.
-     */
+    if (!addressId) {
+  return NextResponse.json(
+    {
+      success: false,
+      message:
+        "Alamat pengiriman wajib dipilih.",
+    },
+    {
+      status: 400,
+    }
+  );
+}
 
-    const result =
-      await claimReward(
-        session.user.id,
-        rewardCatalogId
-      );
+/**
+ * ========================================================
+ * 6. CLAIM REWARD
+ * ========================================================
+ *
+ * userId berasal dari authenticated session.
+ *
+ * BUKAN dari request body.
+ */
 
-    /**
-     * ========================================================
-     * 7. SUCCESS RESPONSE
-     * ========================================================
-     */
+const result =
+  await claimReward(
+    session.user.id,
+    rewardCatalogId,
+    addressId
+  );
 
-    return NextResponse.json(
-      result,
-      {
-        status: 201,
-      }
-    );
+/**
+ * ========================================================
+ * 7. SUCCESS RESPONSE
+ * ========================================================
+ */
+
+return NextResponse.json(
+  result,
+  {
+    status: 201,
+  }
+);
   } catch (error) {
     /**
      * ========================================================

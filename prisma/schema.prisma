@@ -2384,6 +2384,30 @@ model RewardClaim {
 
   rewardCatalogId String
 
+    /**
+   * ============================================================
+   * SHIPPING ADDRESS SNAPSHOT
+   * ============================================================
+   *
+   * Alamat dibekukan pada saat customer melakukan claim.
+   * Perubahan alamat customer setelah claim tidak mengubah
+   * tujuan pengiriman reward yang sudah dibuat.
+   */
+
+  receiverName  String
+  receiverPhone String
+
+  province String
+  city     String
+  district String
+  village  String
+
+  postalCode  String
+  fullAddress String
+
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
   rewardCatalog RewardCatalog @relation(fields: [rewardCatalogId], references: [id], onDelete: Restrict)
 
   /**
