@@ -1,6 +1,7 @@
 import {
   OrderStatus,
   PaymentStatus,
+  Prisma,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,62 @@ export interface OrderFilters {
     | "total";
 
   order?: "asc" | "desc";
+}
+
+function buildAdminOrderWhere(
+  filters: Pick<
+    OrderFilters,
+    "search" | "status" | "paymentStatus"
+  > = {}
+): Prisma.OrderWhereInput {
+  const search = filters.search?.trim();
+
+  return {
+    deletedAt: null,
+
+    ...(search
+      ? {
+          OR: [
+            {
+              orderNumber: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+            {
+              user: {
+                name: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            },
+            {
+              items: {
+                some: {
+                  productName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+
+    ...(filters.status
+      ? {
+          status: filters.status,
+        }
+      : {}),
+
+    ...(filters.paymentStatus
+      ? {
+          paymentStatus: filters.paymentStatus,
+        }
+      : {}),
+  };
 }
 
 export interface CustomerOrderCursor {
@@ -106,6 +163,263 @@ static async getDeletedTotal() {
     },
   });
 }
+
+  /**
+   * ==========================================================
+   * ADMIN ORDER STATS
+   * ==========================================================
+   *
+   * Statistik khusus halaman Admin Order.
+   *
+   * Definisi:
+   *
+   * totalOrders
+   *   = seluruh order aktif
+   *
+   * totalSales
+   *   = Order.total dari order aktif
+   *     dengan payment VERIFIED
+   *
+   * verifiedOrders
+   *   = jumlah order aktif dengan payment VERIFIED
+   *
+   * averageOrder
+   *   = totalSales / verifiedOrders
+   *
+   * completedOrders
+   *   = jumlah order aktif dengan status COMPLETED
+   *
+   * pendingPayments
+   *   = jumlah order aktif dengan payment PENDING
+   */
+  static async getAdminOrderStats() {
+    const [
+      totalOrders,
+      verifiedSales,
+      verifiedOrders,
+      completedOrders,
+      pendingPayments,
+    ] = await Promise.all([
+      /**
+       * --------------------------------------------------------
+       * TOTAL ORDER
+       * --------------------------------------------------------
+       */
+      prisma.order.count({
+        where: {
+          deletedAt: null,
+        },
+      }),
+
+      /**
+       * --------------------------------------------------------
+       * TOTAL SALES
+       * --------------------------------------------------------
+       *
+       * Hanya pembayaran yang sudah VERIFIED
+       * yang dianggap sebagai penjualan terealisasi.
+       */
+      prisma.order.aggregate({
+        where: {
+          deletedAt: null,
+          paymentStatus: PaymentStatus.VERIFIED,
+        },
+        _sum: {
+          total: true,
+        },
+      }),
+
+      /**
+       * --------------------------------------------------------
+       * VERIFIED ORDERS
+       * --------------------------------------------------------
+       */
+      prisma.order.count({
+        where: {
+          deletedAt: null,
+          paymentStatus: PaymentStatus.VERIFIED,
+        },
+      }),
+
+      /**
+       * --------------------------------------------------------
+       * COMPLETED ORDERS
+       * --------------------------------------------------------
+       */
+      prisma.order.count({
+        where: {
+          deletedAt: null,
+          status: OrderStatus.COMPLETED,
+        },
+      }),
+
+      /**
+       * --------------------------------------------------------
+       * PENDING PAYMENTS
+       * --------------------------------------------------------
+       *
+       * Ini berdasarkan PaymentStatus, bukan OrderStatus.
+       *
+       * Tujuannya agar kartu "Menunggu Pembayaran"
+       * benar-benar menunjukkan order yang pembayarannya
+       * masih PENDING.
+       */
+      prisma.order.count({
+        where: {
+          deletedAt: null,
+          paymentStatus: PaymentStatus.PENDING,
+        },
+      }),
+    ]);
+
+    /**
+     * ==========================================================
+     * NORMALIZE SALES
+     * ==========================================================
+     */
+    const totalSales = Number(
+      verifiedSales._sum.total ?? 0
+    );
+
+    /**
+     * ==========================================================
+     * AVERAGE ORDER VALUE
+     * ==========================================================
+     */
+    const averageOrder =
+      verifiedOrders > 0
+        ? totalSales / verifiedOrders
+        : 0;
+
+    return {
+      totalOrders,
+      totalSales,
+      averageOrder,
+      completedOrders,
+      pendingPayments,
+    };
+  }
+
+  /**
+   * ==========================================================
+   * ADMIN ORDER STATUS COUNTS
+   * ==========================================================
+   */
+  static async getAdminOrderStatusCounts() {
+    const rows = await prisma.order.groupBy({
+      by: ["status"],
+      where: {
+        deletedAt: null,
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    const counts: Record<OrderStatus, number> = {
+      [OrderStatus.PENDING]: 0,
+      [OrderStatus.WAITING_PAYMENT]: 0,
+      [OrderStatus.WAITING_VERIFICATION]: 0,
+      [OrderStatus.PROCESSING]: 0,
+      [OrderStatus.SHIPPING]: 0,
+      [OrderStatus.COMPLETED]: 0,
+      [OrderStatus.CANCELLED]: 0,
+    };
+
+    for (const row of rows) {
+      counts[row.status] = row._count._all;
+    }
+
+    const total = Object.values(counts).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    return {
+      total,
+      ...counts,
+    };
+  }
+
+  /**
+   * ==========================================================
+   * ADMIN ORDER LIST
+   * ==========================================================
+   *
+   * Query ringan khusus tabel Admin Order.
+   *
+   * Tidak menggunakan DEFAULT_INCLUDE karena halaman list
+   * tidak membutuhkan address, paymentProof, paymentChannel,
+   * dan seluruh detail product.
+   */
+  static async findManyForAdminList(
+    filters: Pick<
+      OrderFilters,
+      "search" | "status" | "paymentStatus"
+    > & {
+      skip?: number;
+      take?: number;
+    } = {}
+  ) {
+    const {
+      skip = 0,
+      take = 20,
+    } = filters;
+
+    return prisma.order.findMany({
+      where: buildAdminOrderWhere(filters),
+
+      skip,
+      take,
+
+      orderBy: {
+        createdAt: "desc",
+      },
+
+      select: {
+        id: true,
+        orderNumber: true,
+        total: true,
+        status: true,
+        paymentStatus: true,
+        createdAt: true,
+
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        items: {
+          select: {
+            id: true,
+            productName: true,
+            productVariant: true,
+            productWeight: true,
+            quantity: true,
+            price: true,
+            subtotal: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Total row untuk pagination Admin Order.
+   */
+  static async countForAdminList(
+    filters: Pick<
+      OrderFilters,
+      "search" | "status" | "paymentStatus"
+    > = {}
+  ) {
+    return prisma.order.count({
+      where: buildAdminOrderWhere(filters),
+    });
+  }
 
   /**
    * ==========================================================

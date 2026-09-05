@@ -30,6 +30,14 @@ export interface MobileOrderPaginationOptions {
     status?: OrderStatus;
 }
 
+export interface AdminOrderListOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: OrderStatus;
+  paymentStatus?: PaymentStatus;
+}
+
 export interface CreateOrderItemInput {
     /**
      * Product parent.
@@ -140,6 +148,96 @@ export default class OrderService {
      */
     static async getOrders(filters: OrderFilters = {}) {
         return OrderRepository.findMany(filters);
+    }
+        /**
+     * ==========================================================
+     * ADMIN ORDER LIST
+     * ==========================================================
+     *
+     * Pagination berbasis page/offset khusus Admin Order.
+     *
+     * Tidak mengubah contract getOrders() existing.
+     */
+    static async getAdminOrders(
+        options: AdminOrderListOptions = {}
+    ) {
+        const page = options.page ?? 1;
+        const limit = options.limit ?? 20;
+
+        if (
+            !Number.isInteger(page) ||
+            page < 1
+        ) {
+            throw new Error("INVALID_ORDER_PAGE");
+        }
+
+        if (
+            !Number.isInteger(limit) ||
+            limit < 1 ||
+            limit > 100
+        ) {
+            throw new Error("INVALID_ORDER_LIMIT");
+        }
+
+        const search =
+            options.search?.trim() || undefined;
+
+        const filters = {
+            search,
+            status: options.status,
+            paymentStatus:
+                options.paymentStatus,
+        };
+
+        const skip = (page - 1) * limit;
+
+        const [
+            orders,
+            total,
+        ] = await Promise.all([
+            OrderRepository.findManyForAdminList({
+                ...filters,
+                skip,
+                take: limit,
+            }),
+
+            OrderRepository.countForAdminList(
+                filters
+            ),
+        ]);
+
+        const totalPages =
+            total > 0
+                ? Math.ceil(total / limit)
+                : 1;
+
+        return {
+            orders,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+                hasNextPage:
+                    page < totalPages,
+                hasPreviousPage:
+                    page > 1,
+            },
+        };
+    }
+
+    /**
+     * Statistik untuk dashboard Admin Order.
+     */
+    static async getAdminOrderStats() {
+        return OrderRepository.getAdminOrderStats();
+    }
+
+    /**
+     * Jumlah order per status untuk tab Admin Order.
+     */
+    static async getAdminOrderStatusCounts() {
+        return OrderRepository.getAdminOrderStatusCounts();
     }
     /**
       * Daftar order yang sudah dihapus.

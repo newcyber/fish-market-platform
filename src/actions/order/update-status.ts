@@ -4,6 +4,7 @@ import {
   OrderStatus,
 } from "@prisma/client";
 
+import { requireAdmin } from "@/lib/auth/admin";
 import OrderService from "@/services/order/order.service";
 
 /**
@@ -19,15 +20,26 @@ export async function updateOrderStatusAction(
   try {
     /**
      * ========================================================
+     * AUTHORIZATION
+     * ========================================================
+     *
+     * Hanya ADMIN / SUPER_ADMIN yang boleh mengubah
+     * lifecycle order.
+     */
+    await requireAdmin();
+
+    /**
+     * ========================================================
      * VALIDATE ORDER ID
      * ========================================================
      */
 
-    if (!orderId) {
+    const normalizedOrderId = String(orderId ?? "").trim();
+
+    if (!normalizedOrderId) {
       return {
         success: false,
-        message:
-          "Order ID wajib diisi.",
+        message: "Order ID wajib diisi.",
       };
     }
 
@@ -40,8 +52,7 @@ export async function updateOrderStatusAction(
     if (!status) {
       return {
         success: false,
-        message:
-          "Status order wajib diisi.",
+        message: "Status order wajib diisi.",
       };
     }
 
@@ -49,13 +60,17 @@ export async function updateOrderStatusAction(
      * ========================================================
      * UPDATE ORDER STATUS
      * ========================================================
+     *
+     * Lifecycle tetap sepenuhnya dikontrol oleh
+     * OrderService.updateStatus().
+     *
+     * Action ini hanya menjadi authorization boundary.
      */
 
-    const result =
-      await OrderService.updateStatus(
-        orderId,
-        status
-      );
+    const result = await OrderService.updateStatus(
+      normalizedOrderId,
+      status
+    );
 
     /**
      * ========================================================
@@ -63,10 +78,7 @@ export async function updateOrderStatusAction(
      * ========================================================
      */
 
-    if (
-      !result.success ||
-      !result.data
-    ) {
+    if (!result.success || !result.data) {
       return {
         success: false,
         message:
@@ -89,11 +101,8 @@ export async function updateOrderStatusAction(
         "Status order berhasil diperbarui.",
 
       data: {
-        id:
-          result.data.id,
-
-        status:
-          result.data.status,
+        id: result.data.id,
+        status: result.data.status,
       },
     };
   } catch (error) {

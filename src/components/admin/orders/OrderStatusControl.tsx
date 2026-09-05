@@ -5,6 +5,8 @@ import {
   useTransition,
 } from "react";
 
+import { useRouter } from "next/navigation";
+
 import {
   CheckCircle2,
   ChevronRight,
@@ -33,9 +35,7 @@ import {
 
 interface OrderStatusControlProps {
   orderId: string;
-
   status: OrderStatus;
-
   paymentStatus: PaymentStatus;
 }
 
@@ -69,11 +69,48 @@ function getStatusLabel(
   }
 }
 
+function getStatusDescription(
+  status: OrderStatus,
+  paymentVerified: boolean
+) {
+  switch (status) {
+    case OrderStatus.PENDING:
+      return paymentVerified
+        ? "Pembayaran sudah terverifikasi. Order siap diproses."
+        : "Order belum dapat diproses sebelum pembayaran diverifikasi.";
+
+    case OrderStatus.WAITING_PAYMENT:
+      return "Menunggu customer menyelesaikan pembayaran.";
+
+    case OrderStatus.WAITING_VERIFICATION:
+      return paymentVerified
+        ? "Pembayaran sudah terverifikasi. Order siap diproses."
+        : "Periksa bukti pembayaran dan verifikasi terlebih dahulu.";
+
+    case OrderStatus.PROCESSING:
+      return "Order sedang dipersiapkan untuk pengiriman.";
+
+    case OrderStatus.SHIPPING:
+      return "Order sedang dalam proses pengiriman.";
+
+    case OrderStatus.COMPLETED:
+      return "Order sudah selesai dan reward point telah diproses.";
+
+    case OrderStatus.CANCELLED:
+      return "Order telah dibatalkan dan tidak dapat diproses kembali.";
+
+    default:
+      return "Kelola lifecycle order sesuai proses operasional.";
+  }
+}
+
 export default function OrderStatusControl({
   orderId,
   status,
   paymentStatus,
 }: OrderStatusControlProps) {
+  const router = useRouter();
+
   const [
     isPending,
     startTransition,
@@ -90,37 +127,28 @@ export default function OrderStatusControl({
   ] = useState("");
 
   const isTerminal =
-    status ===
-      OrderStatus.COMPLETED ||
-    status ===
-      OrderStatus.CANCELLED;
+    status === OrderStatus.COMPLETED ||
+    status === OrderStatus.CANCELLED;
 
   const paymentVerified =
-    paymentStatus ===
-    PaymentStatus.VERIFIED;
+    paymentStatus === PaymentStatus.VERIFIED;
 
   let nextStatus:
     | OrderStatus
     | null = null;
 
-  let actionLabel =
-    "Lanjutkan";
+  let actionLabel = "Lanjutkan";
 
-  let ActionIcon =
-    ChevronRight;
+  let ActionIcon = ChevronRight;
 
   if (
-    status ===
-    OrderStatus.PENDING
+    status === OrderStatus.PENDING
   ) {
     nextStatus =
       OrderStatus.PROCESSING;
 
-    actionLabel =
-      "Mulai Proses";
-
-    ActionIcon =
-      PackageCheck;
+    actionLabel = "Mulai Proses";
+    ActionIcon = PackageCheck;
   }
 
   if (
@@ -130,39 +158,28 @@ export default function OrderStatusControl({
     nextStatus =
       OrderStatus.PROCESSING;
 
-    actionLabel =
-      "Mulai Proses";
-
-    ActionIcon =
-      PackageCheck;
+    actionLabel = "Mulai Proses";
+    ActionIcon = PackageCheck;
   }
 
   if (
-    status ===
-    OrderStatus.PROCESSING
+    status === OrderStatus.PROCESSING
   ) {
     nextStatus =
       OrderStatus.SHIPPING;
 
-    actionLabel =
-      "Tandai Dikirim";
-
-    ActionIcon =
-      Truck;
+    actionLabel = "Tandai Dikirim";
+    ActionIcon = Truck;
   }
 
   if (
-    status ===
-    OrderStatus.SHIPPING
+    status === OrderStatus.SHIPPING
   ) {
     nextStatus =
       OrderStatus.COMPLETED;
 
-    actionLabel =
-      "Selesaikan Order";
-
-    ActionIcon =
-      CheckCircle2;
+    actionLabel = "Selesaikan Order";
+    ActionIcon = CheckCircle2;
   }
 
   function updateStatus(
@@ -171,34 +188,35 @@ export default function OrderStatusControl({
     setError("");
     setSuccess("");
 
-    startTransition(
-      async () => {
-        const result =
-          await updateOrderStatusAction(
-            orderId,
-            targetStatus
-          );
-
-        if (!result.success) {
-          setError(
-            result.message ??
-              "Gagal memperbarui status order."
-          );
-
-          return;
-        }
-
-        setSuccess(
-          result.message ??
-            "Status order berhasil diperbarui."
+    startTransition(async () => {
+      const result =
+        await updateOrderStatusAction(
+          orderId,
+          targetStatus
         );
 
-        window.location.reload();
+      if (!result.success) {
+        setError(
+          result.message ??
+            "Gagal memperbarui status order."
+        );
+
+        return;
       }
-    );
+
+      setSuccess(
+        result.message ??
+          "Status order berhasil diperbarui."
+      );
+
+      router.refresh();
+    });
   }
 
   function handleNext() {
+    setError("");
+    setSuccess("");
+
     if (!nextStatus) {
       return;
     }
@@ -215,26 +233,23 @@ export default function OrderStatusControl({
       return;
     }
 
-    updateStatus(
-      nextStatus
-    );
+    updateStatus(nextStatus);
   }
 
   function handleCancel() {
-  setError("");
-  setSuccess("");
+    setError("");
+    setSuccess("");
 
-  const confirmed =
-    window.confirm(
-      "Yakin ingin membatalkan order ini?\n\nStock produk akan dikembalikan dan order yang sudah dibatalkan tidak dapat diproses kembali."
-    );
+    const confirmed =
+      window.confirm(
+        "Yakin ingin membatalkan order ini?\n\nStock produk akan dikembalikan dan order yang sudah dibatalkan tidak dapat diproses kembali."
+      );
 
-  if (!confirmed) {
-    return;
-  }
+    if (!confirmed) {
+      return;
+    }
 
-  startTransition(
-    async () => {
+    startTransition(async () => {
       const result =
         await cancelOrderAction(
           orderId
@@ -254,43 +269,58 @@ export default function OrderStatusControl({
           "Order berhasil dibatalkan."
       );
 
-      window.location.reload();
-    }
-  );
-}
+      router.refresh();
+    });
+  }
 
   return (
-    <section className="rounded-xl border bg-background">
-      {/* HEADER */}
+    <section className="rounded-xl border border-[var(--pisjo-soft-blue)] bg-white shadow-sm">
+      {/* =====================================================
+          HEADER
+          ===================================================== */}
 
-      <div className="border-b px-6 py-4">
-        <h2 className="font-semibold">
+      <div className="border-b border-[var(--pisjo-soft-blue)] px-4 py-4 sm:px-6">
+        <h2 className="font-semibold text-[var(--pisjo-navy)]">
           Kontrol Status Order
         </h2>
 
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm leading-5 text-[var(--pisjo-text-secondary)]">
           Kelola lifecycle order sesuai proses operasional.
         </p>
       </div>
 
-      <div className="space-y-5 p-6">
-        {/* CURRENT STATUS */}
+      <div className="space-y-5 p-4 sm:p-6">
+        {/* ===================================================
+            CURRENT STATUS
+            =================================================== */}
 
-        <div className="rounded-lg border bg-muted/30 p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground">
+        <div className="rounded-xl border border-[var(--pisjo-soft-blue)] bg-[var(--pisjo-bg)] p-4">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">
                 Status Saat Ini
               </p>
 
-              <p className="mt-1 text-lg font-semibold">
-                {getStatusLabel(
-                  status
+              <p className="mt-1 text-lg font-semibold text-[var(--pisjo-navy)]">
+                {getStatusLabel(status)}
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                {getStatusDescription(
+                  status,
+                  paymentVerified
                 )}
               </p>
             </div>
 
-            <div className="rounded-full border px-3 py-1 text-xs font-medium">
+            <div
+              className={[
+                "inline-flex w-fit shrink-0 items-center rounded-full border px-3 py-1.5 text-xs font-semibold",
+                paymentVerified
+                  ? "border-green-200 bg-green-50 text-green-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700",
+              ].join(" ")}
+            >
               {paymentVerified
                 ? "Payment Verified"
                 : "Payment Belum Verified"}
@@ -298,45 +328,103 @@ export default function OrderStatusControl({
           </div>
         </div>
 
-        {/* ERROR */}
+        {/* ===================================================
+            ERROR
+            =================================================== */}
 
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700"
+          >
             {error}
           </div>
         )}
 
-        {/* SUCCESS */}
+        {/* ===================================================
+            SUCCESS
+            =================================================== */}
 
         {success && (
-          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <div
+            role="status"
+            className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm leading-5 text-green-700"
+          >
             {success}
           </div>
         )}
 
-        {/* TERMINAL */}
+        {/* ===================================================
+            TERMINAL
+            =================================================== */}
 
         {isTerminal ? (
-          <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
+          <div
+            className={[
+              "rounded-xl border px-4 py-3 text-sm leading-5",
+              status === OrderStatus.COMPLETED
+                ? "border-green-200 bg-green-50 text-green-800"
+                : "border-slate-200 bg-slate-50 text-[var(--pisjo-text-secondary)]",
+            ].join(" ")}
+          >
             {status ===
             OrderStatus.COMPLETED
               ? "Order sudah selesai dan merupakan status final."
               : "Order sudah dibatalkan dan tidak dapat diproses kembali."}
           </div>
         ) : (
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {/* NEXT */}
+          <div className="space-y-3">
+            {/* =================================================
+                PAYMENT WARNING
+                ================================================= */}
 
-            {nextStatus && (
+            {(status === OrderStatus.PENDING ||
+              status ===
+                OrderStatus.WAITING_VERIFICATION) &&
+              !paymentVerified && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-800">
+                  Verifikasi pembayaran terlebih dahulu sebelum
+                  melanjutkan order ke tahap proses.
+                </div>
+              )}
+
+            {/* =================================================
+                ACTIONS
+                ================================================= */}
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              {nextStatus && (
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={
+                    isPending ||
+                    (nextStatus ===
+                      OrderStatus.PROCESSING &&
+                      !paymentVerified)
+                  }
+                  className="min-h-11 w-full flex-1 bg-[var(--pisjo-primary)] text-white hover:bg-[var(--pisjo-ocean)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Memproses...
+                    </>
+                  ) : (
+                    <>
+                      <ActionIcon className="mr-2 h-4 w-4" />
+                      {actionLabel}
+                    </>
+                  )}
+                </Button>
+              )}
+
               <Button
                 type="button"
-                onClick={
-                  handleNext
-                }
-                disabled={
-                  isPending
-                }
-                className="flex-1"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isPending}
+                className="min-h-11 w-full flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
               >
                 {isPending ? (
                   <>
@@ -345,38 +433,12 @@ export default function OrderStatusControl({
                   </>
                 ) : (
                   <>
-                    <ActionIcon className="mr-2 h-4 w-4" />
-                    {actionLabel}
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Batalkan Order
                   </>
                 )}
               </Button>
-            )}
-
-            {/* CANCEL */}
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={
-                handleCancel
-              }
-              disabled={
-                isPending
-              }
-              className="flex-1"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Memproses...
-                </>
-              ) : (
-                <>
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Batalkan Order
-                </>
-              )}
-            </Button>
+            </div>
           </div>
         )}
       </div>

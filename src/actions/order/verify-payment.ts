@@ -4,23 +4,49 @@ import {
   PaymentStatus,
 } from "@prisma/client";
 
+import { requireAdmin } from "@/lib/auth/admin";
 import OrderService from "@/services/order/order.service";
 
 export async function verifyOrderPaymentAction(
   orderId: string
 ) {
   try {
-    if (!orderId) {
+    /**
+     * ========================================================
+     * AUTHORIZATION
+     * ========================================================
+     *
+     * Hanya ADMIN / SUPER_ADMIN yang boleh memverifikasi
+     * pembayaran.
+     */
+    await requireAdmin();
+
+    /**
+     * ========================================================
+     * VALIDATE ORDER ID
+     * ========================================================
+     */
+
+    const normalizedOrderId = String(orderId ?? "").trim();
+
+    if (!normalizedOrderId) {
       return {
         success: false,
-        message:
-          "Order ID wajib diisi.",
+        message: "Order ID wajib diisi.",
       };
     }
 
+    /**
+     * ========================================================
+     * VERIFY PAYMENT
+     * ========================================================
+     *
+     * markAsPaid() tetap menjadi satu-satunya pintu
+     * perubahan payment menjadi VERIFIED.
+     */
     const order =
       await OrderService.markAsPaid(
-        orderId
+        normalizedOrderId
       );
 
     return {
@@ -40,6 +66,11 @@ export async function verifyOrderPaymentAction(
       },
     };
   } catch (error) {
+    console.error(
+      "[VERIFY_ORDER_PAYMENT_ACTION_ERROR]",
+      error
+    );
+
     return {
       success: false,
 
@@ -55,17 +86,42 @@ export async function rejectOrderPaymentAction(
   orderId: string
 ) {
   try {
-    if (!orderId) {
+    /**
+     * ========================================================
+     * AUTHORIZATION
+     * ========================================================
+     *
+     * Hanya ADMIN / SUPER_ADMIN yang boleh menolak
+     * pembayaran.
+     */
+    await requireAdmin();
+
+    /**
+     * ========================================================
+     * VALIDATE ORDER ID
+     * ========================================================
+     */
+
+    const normalizedOrderId = String(orderId ?? "").trim();
+
+    if (!normalizedOrderId) {
       return {
         success: false,
-        message:
-          "Order ID wajib diisi.",
+        message: "Order ID wajib diisi.",
       };
     }
 
+    /**
+     * ========================================================
+     * REJECT PAYMENT
+     * ========================================================
+     *
+     * Tetap menggunakan lifecycle payment yang sudah
+     * diaudit di OrderService.
+     */
     const order =
       await OrderService.updatePaymentStatus(
-        orderId,
+        normalizedOrderId,
         PaymentStatus.REJECTED
       );
 
@@ -83,6 +139,11 @@ export async function rejectOrderPaymentAction(
       },
     };
   } catch (error) {
+    console.error(
+      "[REJECT_ORDER_PAYMENT_ACTION_ERROR]",
+      error
+    );
+
     return {
       success: false,
 
