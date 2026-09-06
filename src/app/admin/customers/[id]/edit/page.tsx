@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import CustomerForm from "@/components/admin/customers/CustomerForm";
 
 import CustomerService from "@/services/customer/customer.service";
+import { requireAdmin } from "@/lib/auth/admin";
 
 import {
   updateCustomerAction,
@@ -19,6 +20,8 @@ interface EditCustomerPageProps {
 export default async function EditCustomerPage({
   params,
 }: EditCustomerPageProps) {
+  await requireAdmin();
+
   const { id } = await params;
 
   const customer =

@@ -21,6 +21,7 @@ import {
   Gift,
   Award,
   Tags,
+  Calculator,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ const ICON_MAP: Record<
   "reward-voucher": Gift,
   "reward-catalog": Award,
   "reward-category": Tags,
+  "reward-points": Calculator,
 };
 
 /**

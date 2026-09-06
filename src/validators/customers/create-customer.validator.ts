@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { Role } from "@prisma/client";
-
 export const createCustomerSchema = z.object({
   name: z
     .string()
@@ -24,7 +22,7 @@ export const createCustomerSchema = z.object({
     .optional()
     .or(z.literal("")),
 
-  role: z.nativeEnum(Role),
+  role: z.literal("CUSTOMER"),
 
   isActive: z.coerce
     .boolean()

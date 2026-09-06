@@ -26,64 +26,112 @@ import {
 
 interface CustomerToolbarProps {
   search?: string;
-  role?: string;
   status?: string;
+  segment?: string;
+  area?: string;
+  areas?: string[];
 }
 
 export default function CustomerToolbar({
   search = "",
-  role = "all",
   status = "all",
+  segment = "all",
+  area = "all",
+  areas = [],
 }: CustomerToolbarProps) {
   const router = useRouter();
-
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const searchParams =
-    useSearchParams();
-
+  /**
+   * Search membutuhkan local state karena user
+   * mengetik secara bertahap sebelum URL diperbarui.
+   */
   const [searchValue, setSearchValue] =
-  useState<string>(search);
+    useState(search);
 
-const [roleValue, setRoleValue] =
-  useState<string>(role);
+  /**
+   * URL menjadi source of truth untuk filter.
+   */
+  const segmentValue =
+    searchParams.get("segment") ??
+    segment ??
+    "all";
 
-const [statusValue, setStatusValue] =
-  useState<string>(status);
+  const statusValue =
+    searchParams.get("status") ??
+    status ??
+    "all";
 
+  const areaValue =
+    searchParams.get("area") ??
+    area ??
+    "all";
+
+  /**
+   * Sinkronisasi search dari URL dilakukan tanpa
+   * setState di useEffect.
+   *
+   * Search state hanya berubah ketika user mengetik.
+   */
+  useEffect(() => {
+    if (searchValue === search) {
+      return;
+    }
+
+    /**
+     * Tidak perlu melakukan setState.
+     *
+     * Perubahan search dari URL tidak akan mengganggu
+     * filter lain. State search tetap mengikuti input user.
+     */
+  }, [search, searchValue]);
+
+  /**
+   * Debounce search.
+   *
+   * Filter lain langsung menggunakan URL sebagai source
+   * of truth.
+   */
   useEffect(() => {
     const timeout = setTimeout(() => {
-      const params =
-        new URLSearchParams(
-          searchParams.toString()
-        );
+      const params = new URLSearchParams(
+        searchParams.toString()
+      );
 
-      if (searchValue.trim()) {
+      const currentSearch =
+        params.get("search") ?? "";
+
+      const nextSearch =
+        searchValue.trim();
+
+      if (
+        currentSearch === nextSearch
+      ) {
+        return;
+      }
+
+      if (nextSearch) {
         params.set(
           "search",
-          searchValue.trim()
+          nextSearch
         );
       } else {
         params.delete("search");
       }
 
-      if (roleValue !== "all") {
-        params.set("role", roleValue);
-      } else {
-        params.delete("role");
-      }
+      /**
+       * Search berubah → kembali ke page 1.
+       */
+      params.delete("page");
 
-      if (statusValue !== "all") {
-        params.set(
-          "status",
-          statusValue
-        );
-      } else {
-        params.delete("status");
-      }
+      const queryString =
+        params.toString();
 
       router.replace(
-        `${pathname}?${params.toString()}`
+        queryString
+          ? `${pathname}?${queryString}`
+          : pathname
       );
     }, 400);
 
@@ -91,12 +139,42 @@ const [statusValue, setStatusValue] =
       clearTimeout(timeout);
   }, [
     searchValue,
-    roleValue,
-    statusValue,
     pathname,
     router,
     searchParams,
   ]);
+
+  /**
+   * Update filter.
+   *
+   * Setiap filter baru menghapus page sehingga
+   * hasil selalu dimulai dari halaman pertama.
+   */
+  const updateFilter = (
+    key: "segment" | "status" | "area",
+    value: string
+  ) => {
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
+
+    if (value === "all") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+
+    params.delete("page");
+
+    const queryString =
+      params.toString();
+
+    router.replace(
+      queryString
+        ? `${pathname}?${queryString}`
+        : pathname
+    );
+  };
 
   return (
     <AdminToolbar
@@ -104,42 +182,64 @@ const [statusValue, setStatusValue] =
         <AdminSearch
           value={searchValue}
           onChange={setSearchValue}
-          placeholder="Cari customer..."
+          placeholder="Cari nama, HP/WA, atau email..."
         />
       }
       filters={
         <>
           <Select
-  value={roleValue}
-  onValueChange={(value) => {
-    setRoleValue(value ?? "all");
-  }}
->
+            value={segmentValue}
+            onValueChange={(value) => {
+              updateFilter(
+                "segment",
+                value ?? "all"
+              );
+            }}
+          >
             <SelectTrigger className="w-full md:w-44">
-              <SelectValue placeholder="Role" />
+              <SelectValue placeholder="Segmen" />
             </SelectTrigger>
 
             <SelectContent>
               <SelectItem value="all">
-                Semua Role
+                Semua Segmen
               </SelectItem>
 
-              <SelectItem value="CUSTOMER">
-                Customer
+              <SelectItem value="BARU">
+                Baru
               </SelectItem>
 
-              <SelectItem value="ADMIN">
-                Admin
+              <SelectItem value="REPEAT">
+                Repeat
+              </SelectItem>
+
+              <SelectItem value="LOYAL">
+                Loyal
+              </SelectItem>
+
+              <SelectItem value="VIP">
+                VIP
+              </SelectItem>
+
+              <SelectItem value="AKTIF">
+                Aktif
+              </SelectItem>
+
+              <SelectItem value="DORMANT">
+                Dormant
               </SelectItem>
             </SelectContent>
           </Select>
 
           <Select
-  value={statusValue}
-  onValueChange={(value) => {
-    setStatusValue(value ?? "all");
-  }}
->
+            value={statusValue}
+            onValueChange={(value) => {
+              updateFilter(
+                "status",
+                value ?? "all"
+              );
+            }}
+          >
             <SelectTrigger className="w-full md:w-44">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -156,6 +256,35 @@ const [statusValue, setStatusValue] =
               <SelectItem value="inactive">
                 Nonaktif
               </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={areaValue}
+            onValueChange={(value) => {
+              updateFilter(
+                "area",
+                value ?? "all"
+              );
+            }}
+          >
+            <SelectTrigger className="w-full md:w-44">
+              <SelectValue placeholder="Area" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="all">
+                Semua Area
+              </SelectItem>
+
+              {areas.map((item) => (
+                <SelectItem
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </>

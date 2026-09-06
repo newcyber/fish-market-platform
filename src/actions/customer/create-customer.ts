@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import type { ActionResult } from "@/types/action-result";
 
 import CustomerService from "@/services/customer/customer.service";
+import { requireAdmin } from "@/lib/auth/admin";
 
 import {
   createCustomerSchema,
@@ -17,6 +18,7 @@ export async function createCustomerAction(
   _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAdmin();
   const parsed =
     createCustomerSchema.safeParse({
       name: formData.get("name"),

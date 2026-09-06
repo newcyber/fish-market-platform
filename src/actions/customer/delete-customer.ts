@@ -5,10 +5,12 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types/action-result";
 
 import CustomerService from "@/services/customer/customer.service";
+import { requireAdmin } from "@/lib/auth/admin";
 
 export async function deleteCustomerAction(
   id: string
 ): Promise<ActionResult> {
+  await requireAdmin();
   try {
     await CustomerService.deleteCustomer(id);
 

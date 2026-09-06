@@ -11,6 +11,8 @@ import {
   calculateRewardPointsFromGrams,
 } from "./reward-point.calculator";
 
+import rewardPointSettingsRepository from "@/repositories/reward-point/reward-point-settings.repository";
+
 /**
  * ============================================================
  * REWARD POINT SERVICE
@@ -387,8 +389,15 @@ export async function getSkuRewardPoints(
     return 0;
   }
 
+  const settings =
+    await rewardPointSettingsRepository.getOrCreate();
+
+  const pointsPerKg =
+    settings.pointsPerKg;
+
   return calculateRewardPointsFromGrams(
-    grams
+    grams,
+    pointsPerKg,
   );
 }
 
@@ -470,8 +479,7 @@ export async function getOrderRewardSummary(
       points: 0,
     };
   }
-
-  const order =
+const order =
     await prisma.order.findUnique({
       where: {
         id: normalizedOrderId,
@@ -493,6 +501,13 @@ export async function getOrderRewardSummary(
       points: 0,
     };
   }
+
+  const settings =
+    await rewardPointSettingsRepository.getOrCreate();
+
+  const pointsPerKg =
+    settings.pointsPerKg;
+
 
   let totalWeightGrams = 0;
   let totalPoints = 0;
@@ -532,11 +547,12 @@ export async function getOrderRewardSummary(
       grams *
       item.quantity;
 
-    totalPoints +=
-      calculateRewardPointsFromGrams(
-        grams
-      ) *
-      item.quantity;
+totalPoints +=
+  calculateRewardPointsFromGrams(
+    grams,
+    pointsPerKg,
+  ) *
+  item.quantity;
   }
 
   return {
@@ -590,7 +606,13 @@ export async function getOrderRewardPoints(
     return 0;
   }
 
-  let totalPoints = 0;
+  const settings =
+    await rewardPointSettingsRepository.getOrCreate();
+
+  const pointsPerKg =
+    settings.pointsPerKg;
+
+let totalPoints = 0;
 
   for (
     const item of order.items
@@ -624,10 +646,11 @@ export async function getOrderRewardPoints(
     }
 
     totalPoints +=
-      calculateRewardPointsFromGrams(
-        grams
-      ) *
-      item.quantity;
+  calculateRewardPointsFromGrams(
+    grams,
+    pointsPerKg,
+  ) *
+  item.quantity;
   }
 
   return totalPoints;
@@ -691,10 +714,81 @@ export async function awardOrderRewardPointsTx(
 
   /**
    * ==========================================================
-   * 2. CALCULATE POINT + TOTAL WEIGHT
+   * 2. IDEMPOTENCY CHECK
    * ==========================================================
    *
-   * PENTING:
+   * Idempotency diperiksa SEBELUM membaca settings dan
+   * SEBELUM menghitung reward.
+   *
+   * RewardPointTransaction adalah immutable ledger.
+   * Jika EARN sudah ada, points dan weightGrams yang tersimpan
+   * menjadi sumber kebenaran transaksi tersebut.
+   *
+   * Perubahan pointsPerKg di masa depan TIDAK BOLEH
+   * menghitung ulang reward yang sudah diberikan.
+   *
+   * Unique constraint [orderId, type] tetap menjadi
+   * protection terakhir terhadap concurrent request.
+   */
+
+  const existing =
+    await tx.rewardPointTransaction.findUnique({
+      where: {
+        orderId_type: {
+          orderId: order.id,
+          type: "EARN",
+        },
+      },
+    });
+
+  if (existing) {
+    return {
+      awarded: false,
+
+      alreadyAwarded: true,
+
+      points:
+        existing.points,
+
+      weightGrams:
+        existing.weightGrams ??
+        0,
+
+      orderId:
+        order.id,
+
+      orderNumber:
+        order.orderNumber,
+
+      transactionId:
+        existing.id,
+    };
+  }
+
+  /**
+   * ==========================================================
+   * 3. LOAD CURRENT REWARD POINT SETTINGS
+   * ==========================================================
+   *
+   * Settings dibaca menggunakan transaction client yang sama
+   * dengan pembuatan ledger dan update balance.
+   *
+   * Settings hanya digunakan untuk reward yang BELUM pernah
+   * diberikan.
+   */
+
+  const settings =
+    await rewardPointSettingsRepository.getOrCreateTx(
+      tx,
+    );
+
+  const pointsPerKg =
+    settings.pointsPerKg;
+
+  /**
+   * ==========================================================
+   * 4. CALCULATE POINT + TOTAL WEIGHT
+   * ==========================================================
    *
    * Reward menggunakan weightSku dari OrderItem.
    *
@@ -744,82 +838,15 @@ export async function awardOrderRewardPointsTx(
 
     totalPoints +=
       calculateRewardPointsFromGrams(
-        grams
+        grams,
+        pointsPerKg,
       ) *
       item.quantity;
   }
 
   /**
    * ==========================================================
-   * 3. IDEMPOTENCY CHECK
-   * ==========================================================
-   *
-   * PENTING:
-   *
-   * Idempotency harus diperiksa SEBELUM validasi NO REWARD.
-   *
-   * Alasannya:
-   *
-   * Order lama mungkin tidak memiliki weightSku snapshot,
-   * tetapi sudah pernah mendapatkan reward.
-   *
-   * Jika pengecekan NO REWARD dilakukan terlebih dahulu,
-   * order tersebut akan langsung return dengan:
-   *
-   *     awarded: false
-   *     alreadyAwarded: false
-   *     points: 0
-   *
-   * padahal sebenarnya reward sudah pernah diberikan.
-   *
-   * Dengan melakukan idempotency check terlebih dahulu,
-   * transaksi EARN yang sudah ada akan selalu dianggap
-   * sebagai sumber kebenaran untuk reward yang telah diberikan.
-   *
-   * Unique constraint:
-   *
-   *     [orderId, type]
-   *
-   * tetap menjadi protection terakhir terhadap concurrent request.
-   */
-
-  const existing =
-    await tx.rewardPointTransaction.findUnique({
-      where: {
-        orderId_type: {
-          orderId: order.id,
-          type: "EARN",
-        },
-      },
-    });
-
-  if (existing) {
-    return {
-      awarded: false,
-
-      alreadyAwarded: true,
-
-      points:
-        existing.points,
-
-      weightGrams:
-        existing.weightGrams ??
-        0,
-
-      orderId:
-        order.id,
-
-      orderNumber:
-        order.orderNumber,
-
-      transactionId:
-        existing.id,
-    };
-  }
-
-  /**
-   * ==========================================================
-   * 4. NO REWARD
+   * 5. NO REWARD
    * ==========================================================
    *
    * Sampai titik ini dipastikan bahwa order BELUM memiliki
@@ -852,7 +879,7 @@ export async function awardOrderRewardPointsTx(
 
   /**
    * ==========================================================
-   * 5. CREATE IMMUTABLE LEDGER
+   * 6. CREATE IMMUTABLE LEDGER
    * ==========================================================
    *
    * Membuat satu transaksi EARN untuk order.
@@ -885,7 +912,7 @@ export async function awardOrderRewardPointsTx(
 
   /**
    * ==========================================================
-   * 6. UPDATE CACHED BALANCE
+   * 7. UPDATE CACHED BALANCE
    * ==========================================================
    *
    * Balance customer diperbarui dalam transaction yang sama
@@ -910,7 +937,7 @@ export async function awardOrderRewardPointsTx(
 
   /**
    * ==========================================================
-   * 7. RESULT
+   * 8. RESULT
    * ==========================================================
    */
 

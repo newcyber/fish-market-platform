@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types/action-result";
 
 import CustomerService from "@/services/customer/customer.service";
+import { requireAdmin } from "@/lib/auth/admin";
 
 import {
   updateCustomerSchema,
@@ -16,6 +17,7 @@ export async function updateCustomerAction(
   _prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAdmin();
   const parsed =
     updateCustomerSchema.safeParse({
       name: formData.get("name"),

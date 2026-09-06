@@ -86,33 +86,33 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
    * ==========================================================
    */
   {
-  id: "transactions",
-  title: "Transactions",
-  href: "/admin/orders",
-  icon: "orders",
-  roles: ADMIN_ROLES,
-  order: 4,
+    id: "transactions",
+    title: "Transactions",
+    href: "/admin/orders",
+    icon: "orders",
+    roles: ADMIN_ROLES,
+    order: 4,
 
-  children: [
-    {
-      id: "orders",
-      title: "Orders",
-      href: "/admin/orders",
-      icon: "orders",
-      roles: ADMIN_ROLES,
-      order: 1,
-    },
+    children: [
+      {
+        id: "orders",
+        title: "Orders",
+        href: "/admin/orders",
+        icon: "orders",
+        roles: ADMIN_ROLES,
+        order: 1,
+      },
 
-    {
-      id: "payments",
-      title: "Payments",
-      href: "/admin/payments",
-      icon: "payments",
-      roles: SUPER_ADMIN_ONLY,
-      order: 2,
-    },
-  ],
-},
+      {
+        id: "payments",
+        title: "Payments",
+        href: "/admin/payments",
+        icon: "payments",
+        roles: SUPER_ADMIN_ONLY,
+        order: 2,
+      },
+    ],
+  },
 
   /**
    * ==========================================================
@@ -175,6 +175,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
    * ==========================================================
    * LOYALTY
    * ==========================================================
+   *
+   * Loyalty
+   * ├── Reward Point Calculator
+   * ├── Reward Voucher
+   * ├── Reward Catalog
+   * ├── Reward Category
+   * └── Reward Claims
+   *
+   * ==========================================================
    */
   {
     id: "loyalty",
@@ -186,12 +195,21 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
 
     children: [
       {
+        id: "reward-points",
+        title: "Reward Point Calculator",
+        href: "/admin/reward-points",
+        icon: "reward-points",
+        roles: SUPER_ADMIN_ONLY,
+        order: 1,
+      },
+
+      {
         id: "reward-vouchers",
         title: "Reward Voucher",
         href: "/admin/reward-vouchers",
         icon: "reward-voucher",
         roles: SUPER_ADMIN_ONLY,
-        order: 1,
+        order: 2,
       },
 
       {
@@ -200,7 +218,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/reward-catalog",
         icon: "reward-catalog",
         roles: SUPER_ADMIN_ONLY,
-        order: 2,
+        order: 3,
       },
 
       {
@@ -209,16 +227,16 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/reward-categories",
         icon: "reward-category",
         roles: SUPER_ADMIN_ONLY,
-        order: 3,
+        order: 4,
       },
 
       {
-      id: "reward-claims",
-      title: "Reward Claims",
-      href: "/admin/reward-claims",
-      icon: "reward-catalog",
-      roles: SUPER_ADMIN_ONLY,
-      order: 4,
+        id: "reward-claims",
+        title: "Reward Claims",
+        href: "/admin/reward-claims",
+        icon: "reward-catalog",
+        roles: SUPER_ADMIN_ONLY,
+        order: 5,
       },
     ],
   },
@@ -240,6 +258,12 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
   /**
    * ==========================================================
    * SETTINGS
+   * ==========================================================
+   *
+   * Settings
+   * ├── Pengaturan Toko
+   * └── Metode Pembayaran
+   *
    * ==========================================================
    */
   {

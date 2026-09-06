@@ -1,10 +1,13 @@
 import CustomerService from "@/services/customer/customer.service";
 
 import CustomerTrashTable from "@/components/admin/customers/CustomerTrashTable";
+import { requireAdmin } from "@/lib/auth/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerTrashPage() {
+  await requireAdmin();
+
   const customers =
     await CustomerService.getDeletedCustomers();
 

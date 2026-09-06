@@ -304,6 +304,33 @@ model RewardPointTransaction {
 }
 
 // ============================================================
+// REWARD POINT SETTINGS
+// ============================================================
+
+model RewardPointSettings {
+  id String @id @default(uuid())
+
+  /**
+   * Singleton key.
+   *
+   * Hanya boleh ada satu konfigurasi reward point aktif.
+   */
+  key String @unique @default("default")
+
+  /**
+   * Jumlah point untuk setiap 1 KG pembelian.
+   *
+   * Contoh:
+   * 10 = 1 KG -> 10 point
+   * 15 = 1 KG -> 15 point
+   */
+  pointsPerKg Int @default(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
 // PASSWORD RESET TOKEN
 // ============================================================
 
