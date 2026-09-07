@@ -52,6 +52,31 @@ export interface UpdateSettingsPayload {
 
   heroSlide3Image?: string | null;
 
+  flashSaleBannerImage?: string | null;
+
+    heroSlide1Eyebrow?: string | null;
+  heroSlide1Title?: string | null;
+  heroSlide1Highlight?: string | null;
+  heroSlide1Description?: string | null;
+  heroSlide1Button?: string | null;
+
+  heroSlide2Eyebrow?: string | null;
+  heroSlide2Title?: string | null;
+  heroSlide2Highlight?: string | null;
+  heroSlide2Description?: string | null;
+  heroSlide2Button?: string | null;
+
+  heroSlide3Eyebrow?: string | null;
+  heroSlide3Title?: string | null;
+  heroSlide3Highlight?: string | null;
+  heroSlide3Description?: string | null;
+  heroSlide3Button?: string | null;
+
+  flashSaleBannerLabel?: string | null;
+  flashSaleBannerTitle?: string | null;
+  flashSaleBannerHighlight?: string | null;
+  flashSaleBannerDescription?: string | null;
+
   email?: string | null;
 
   whatsapp?: string | null;
@@ -234,6 +259,31 @@ class SettingsRepository {
 
         heroSlide3Image: null,
 
+        flashSaleBannerImage: null,
+
+        heroSlide1Eyebrow: null,
+        heroSlide1Title: null,
+        heroSlide1Highlight: null,
+        heroSlide1Description: null,
+        heroSlide1Button: null,
+
+        heroSlide2Eyebrow: null,
+        heroSlide2Title: null,
+        heroSlide2Highlight: null,
+        heroSlide2Description: null,
+        heroSlide2Button: null,
+
+        heroSlide3Eyebrow: null,
+        heroSlide3Title: null,
+        heroSlide3Highlight: null,
+        heroSlide3Description: null,
+        heroSlide3Button: null,
+
+        flashSaleBannerLabel: null,
+        flashSaleBannerTitle: null,
+        flashSaleBannerHighlight: null,
+        flashSaleBannerDescription: null,
+
         email: null,
 
         whatsapp: null,
@@ -369,6 +419,66 @@ class SettingsRepository {
 
         heroSlide3Image:
           data.heroSlide3Image ?? null,
+
+        flashSaleBannerImage:
+          data.flashSaleBannerImage ?? null,
+
+        heroSlide1Eyebrow:
+          data.heroSlide1Eyebrow ?? null,
+
+        heroSlide1Title:
+          data.heroSlide1Title ?? null,
+
+        heroSlide1Highlight:
+          data.heroSlide1Highlight ?? null,
+
+        heroSlide1Description:
+          data.heroSlide1Description ?? null,
+
+        heroSlide1Button:
+          data.heroSlide1Button ?? null,
+
+        heroSlide2Eyebrow:
+          data.heroSlide2Eyebrow ?? null,
+
+        heroSlide2Title:
+          data.heroSlide2Title ?? null,
+
+        heroSlide2Highlight:
+          data.heroSlide2Highlight ?? null,
+
+        heroSlide2Description:
+          data.heroSlide2Description ?? null,
+
+        heroSlide2Button:
+          data.heroSlide2Button ?? null,
+
+        heroSlide3Eyebrow:
+          data.heroSlide3Eyebrow ?? null,
+
+        heroSlide3Title:
+          data.heroSlide3Title ?? null,
+
+        heroSlide3Highlight:
+          data.heroSlide3Highlight ?? null,
+
+        heroSlide3Description:
+          data.heroSlide3Description ?? null,
+
+        heroSlide3Button:
+          data.heroSlide3Button ?? null,
+
+        flashSaleBannerLabel:
+          data.flashSaleBannerLabel ?? null,
+
+        flashSaleBannerTitle:
+          data.flashSaleBannerTitle ?? null,
+
+        flashSaleBannerHighlight:
+          data.flashSaleBannerHighlight ?? null,
+
+        flashSaleBannerDescription:
+          data.flashSaleBannerDescription ?? null,
 
         email:
           data.email ?? null,

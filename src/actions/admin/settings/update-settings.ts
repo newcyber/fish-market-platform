@@ -63,6 +63,31 @@ export interface UpdateSettingsActionInput {
 
   heroSlide3Image?: string | null;
 
+  flashSaleBannerImage?: string | null;
+
+    heroSlide1Eyebrow?: string | null;
+  heroSlide1Title?: string | null;
+  heroSlide1Highlight?: string | null;
+  heroSlide1Description?: string | null;
+  heroSlide1Button?: string | null;
+
+  heroSlide2Eyebrow?: string | null;
+  heroSlide2Title?: string | null;
+  heroSlide2Highlight?: string | null;
+  heroSlide2Description?: string | null;
+  heroSlide2Button?: string | null;
+
+  heroSlide3Eyebrow?: string | null;
+  heroSlide3Title?: string | null;
+  heroSlide3Highlight?: string | null;
+  heroSlide3Description?: string | null;
+  heroSlide3Button?: string | null;
+
+  flashSaleBannerLabel?: string | null;
+  flashSaleBannerTitle?: string | null;
+  flashSaleBannerHighlight?: string | null;
+  flashSaleBannerDescription?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -214,6 +239,66 @@ export async function updateSettingsAction(
 
       heroSlide3Image:
         input.heroSlide3Image,
+
+      flashSaleBannerImage:
+        input.flashSaleBannerImage,
+
+      heroSlide1Eyebrow:
+        input.heroSlide1Eyebrow,
+
+      heroSlide1Title:
+        input.heroSlide1Title,
+
+      heroSlide1Highlight:
+        input.heroSlide1Highlight,
+
+      heroSlide1Description:
+        input.heroSlide1Description,
+
+      heroSlide1Button:
+        input.heroSlide1Button,
+
+      heroSlide2Eyebrow:
+        input.heroSlide2Eyebrow,
+
+      heroSlide2Title:
+        input.heroSlide2Title,
+
+      heroSlide2Highlight:
+        input.heroSlide2Highlight,
+
+      heroSlide2Description:
+        input.heroSlide2Description,
+
+      heroSlide2Button:
+        input.heroSlide2Button,
+
+      heroSlide3Eyebrow:
+        input.heroSlide3Eyebrow,
+
+      heroSlide3Title:
+        input.heroSlide3Title,
+
+      heroSlide3Highlight:
+        input.heroSlide3Highlight,
+
+      heroSlide3Description:
+        input.heroSlide3Description,
+
+      heroSlide3Button:
+        input.heroSlide3Button,
+
+      flashSaleBannerLabel:
+        input.flashSaleBannerLabel,
+
+      flashSaleBannerTitle:
+        input.flashSaleBannerTitle,
+
+      flashSaleBannerHighlight:
+        input.flashSaleBannerHighlight,
+
+      flashSaleBannerDescription:
+        input.flashSaleBannerDescription,
 
       email:
         input.email,

@@ -69,9 +69,32 @@ interface SettingsFormProps {
     * HERO SLIDER IMAGES
     */
 
-    heroSlide1Image: string | null;
-    heroSlide2Image: string | null;
-    heroSlide3Image: string | null;
+heroSlide1Image: string | null;
+heroSlide1Eyebrow: string | null;
+heroSlide1Title: string | null;
+heroSlide1Highlight: string | null;
+heroSlide1Description: string | null;
+heroSlide1Button: string | null;
+
+heroSlide2Image: string | null;
+heroSlide2Eyebrow: string | null;
+heroSlide2Title: string | null;
+heroSlide2Highlight: string | null;
+heroSlide2Description: string | null;
+heroSlide2Button: string | null;
+
+heroSlide3Image: string | null;
+heroSlide3Eyebrow: string | null;
+heroSlide3Title: string | null;
+heroSlide3Highlight: string | null;
+heroSlide3Description: string | null;
+heroSlide3Button: string | null;
+
+flashSaleBannerImage: string | null;
+flashSaleBannerLabel: string | null;
+flashSaleBannerTitle: string | null;
+flashSaleBannerHighlight: string | null;
+flashSaleBannerDescription: string | null;
 
     email: string | null;
     whatsapp: string | null;
@@ -142,7 +165,16 @@ const ALLOWED_LOGO_TYPES = [
 const MAX_HERO_IMAGE_SIZE =
   5 * 1024 * 1024;
 
+const MAX_FLASH_SALE_IMAGE_SIZE =
+  5 * 1024 * 1024;
+
 const ALLOWED_HERO_IMAGE_TYPES = [
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
+const ALLOWED_FLASH_SALE_IMAGE_TYPES = [
   "image/png",
   "image/webp",
   "image/gif",
@@ -220,6 +252,111 @@ const [
 );
 
 const [
+  heroSlide1Eyebrow,
+  setHeroSlide1Eyebrow,
+] = useState(
+  settings.heroSlide1Eyebrow ?? ""
+);
+
+const [
+  heroSlide1Title,
+  setHeroSlide1Title,
+] = useState(
+  settings.heroSlide1Title ?? ""
+);
+
+const [
+  heroSlide1Highlight,
+  setHeroSlide1Highlight,
+] = useState(
+  settings.heroSlide1Highlight ?? ""
+);
+
+const [
+  heroSlide1Description,
+  setHeroSlide1Description,
+] = useState(
+  settings.heroSlide1Description ?? ""
+);
+
+const [
+  heroSlide1Button,
+  setHeroSlide1Button,
+] = useState(
+  settings.heroSlide1Button ?? ""
+);
+
+const [
+  heroSlide2Eyebrow,
+  setHeroSlide2Eyebrow,
+] = useState(
+  settings.heroSlide2Eyebrow ?? ""
+);
+
+const [
+  heroSlide2Title,
+  setHeroSlide2Title,
+] = useState(
+  settings.heroSlide2Title ?? ""
+);
+
+const [
+  heroSlide2Highlight,
+  setHeroSlide2Highlight,
+] = useState(
+  settings.heroSlide2Highlight ?? ""
+);
+
+const [
+  heroSlide2Description,
+  setHeroSlide2Description,
+] = useState(
+  settings.heroSlide2Description ?? ""
+);
+
+const [
+  heroSlide2Button,
+  setHeroSlide2Button,
+] = useState(
+  settings.heroSlide2Button ?? ""
+);
+
+const [
+  heroSlide3Eyebrow,
+  setHeroSlide3Eyebrow,
+] = useState(
+  settings.heroSlide3Eyebrow ?? ""
+);
+
+const [
+  heroSlide3Title,
+  setHeroSlide3Title,
+] = useState(
+  settings.heroSlide3Title ?? ""
+);
+
+const [
+  heroSlide3Highlight,
+  setHeroSlide3Highlight,
+] = useState(
+  settings.heroSlide3Highlight ?? ""
+);
+
+const [
+  heroSlide3Description,
+  setHeroSlide3Description,
+] = useState(
+  settings.heroSlide3Description ?? ""
+);
+
+const [
+  heroSlide3Button,
+  setHeroSlide3Button,
+] = useState(
+  settings.heroSlide3Button ?? ""
+);
+
+const [
   uploadingHeroSlide,
   setUploadingHeroSlide,
 ] = useState<HeroSlideKey | null>(
@@ -237,6 +374,51 @@ const heroSlide2InputRef =
   );
 
 const heroSlide3InputRef =
+  useRef<HTMLInputElement | null>(
+    null
+  );
+
+const [
+  flashSaleBannerImage,
+  setFlashSaleBannerImage,
+] = useState<string | null>(
+  settings.flashSaleBannerImage
+);
+
+const [
+  flashSaleBannerLabel,
+  setFlashSaleBannerLabel,
+] = useState(
+  settings.flashSaleBannerLabel ?? ""
+);
+
+const [
+  flashSaleBannerTitle,
+  setFlashSaleBannerTitle,
+] = useState(
+  settings.flashSaleBannerTitle ?? ""
+);
+
+const [
+  flashSaleBannerHighlight,
+  setFlashSaleBannerHighlight,
+] = useState(
+  settings.flashSaleBannerHighlight ?? ""
+);
+
+const [
+  flashSaleBannerDescription,
+  setFlashSaleBannerDescription,
+] = useState(
+  settings.flashSaleBannerDescription ?? ""
+);
+
+const [
+  isUploadingFlashSaleBanner,
+  setIsUploadingFlashSaleBanner,
+] = useState(false);
+
+const flashSaleBannerInputRef =
   useRef<HTMLInputElement | null>(
     null
   );
@@ -819,6 +1001,123 @@ function handleRemoveHeroImage(
 
   /**
    * ==========================================================
+   * UPLOAD FLASH SALE BANNER IMAGE
+   * ==========================================================
+   */
+
+  async function handleFlashSaleBannerChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    setMessage(null);
+    setIsSuccess(null);
+
+    if (
+      !ALLOWED_FLASH_SALE_IMAGE_TYPES.includes(
+        file.type as
+          | "image/png"
+          | "image/webp"
+          | "image/gif"
+      )
+    ) {
+      setMessage(
+        "Format gambar Flash Sale harus PNG, WEBP, atau GIF."
+      );
+      setIsSuccess(false);
+      return;
+    }
+
+    if (
+      file.size <= 0 ||
+      file.size > MAX_FLASH_SALE_IMAGE_SIZE
+    ) {
+      setMessage(
+        "Ukuran gambar Flash Sale maksimal 5 MB."
+      );
+      setIsSuccess(false);
+      return;
+    }
+
+    try {
+      setIsUploadingFlashSaleBanner(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        "/api/settings/flash-sale-image",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const result = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          result?.message ||
+            "Gagal mengupload gambar Flash Sale."
+        );
+      }
+
+      const uploadedUrl =
+        result?.url ||
+        result?.data?.url ||
+        result?.imageUrl ||
+        result?.data?.imageUrl ||
+        result?.path ||
+        result?.data?.path ||
+        null;
+
+      if (
+        typeof uploadedUrl !== "string" ||
+        uploadedUrl.trim() === ""
+      ) {
+        throw new Error(
+          "Upload gambar berhasil, tetapi URL gambar tidak ditemukan pada response server."
+        );
+      }
+
+      setFlashSaleBannerImage(uploadedUrl);
+      setMessage(
+        "Gambar Flash Sale berhasil diupload. Jangan lupa klik Simpan Pengaturan."
+      );
+      setIsSuccess(true);
+    } catch (error) {
+      console.error(
+        "[FLASH_SALE_IMAGE_UPLOAD_ERROR]",
+        error
+      );
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat mengupload gambar Flash Sale."
+      );
+      setIsSuccess(false);
+    } finally {
+      setIsUploadingFlashSaleBanner(false);
+    }
+  }
+
+  function handleRemoveFlashSaleBanner() {
+    setFlashSaleBannerImage(null);
+
+    setMessage(
+      "Gambar Flash Sale akan dihapus setelah Anda menyimpan pengaturan."
+    );
+    setIsSuccess(true);
+  }
+
+  /**
+   * ==========================================================
    * GET CURRENT LOCATION
    * ==========================================================
    */
@@ -1013,6 +1312,16 @@ if (uploadingHeroSlide) {
   return;
 }
 
+if (isUploadingFlashSaleBanner) {
+  setMessage(
+    "Tunggu hingga proses upload gambar Flash Sale selesai."
+  );
+
+  setIsSuccess(false);
+
+  return;
+}
+
     const input = {
       /**
        * STORE INFORMATION
@@ -1045,6 +1354,31 @@ heroSlide1Image,
 heroSlide2Image,
 
 heroSlide3Image,
+
+      flashSaleBannerImage,
+
+            heroSlide1Eyebrow,
+      heroSlide1Title,
+      heroSlide1Highlight,
+      heroSlide1Description,
+      heroSlide1Button,
+
+      heroSlide2Eyebrow,
+      heroSlide2Title,
+      heroSlide2Highlight,
+      heroSlide2Description,
+      heroSlide2Button,
+
+      heroSlide3Eyebrow,
+      heroSlide3Title,
+      heroSlide3Highlight,
+      heroSlide3Description,
+      heroSlide3Button,
+
+      flashSaleBannerLabel,
+      flashSaleBannerTitle,
+      flashSaleBannerHighlight,
+      flashSaleBannerDescription,
 
       email: String(
         formData.get("email") ?? ""
@@ -1436,35 +1770,85 @@ heroSlide3Image,
     </div>
   </div>
 
-  <div className="grid gap-5 xl:grid-cols-3">
-    {(
-      [
-        {
-          key: "slide1" as const,
-          title: "Hero Slide 1",
-          description:
-            "Menggantikan icon ikan pada slide pertama.",
-          image: heroSlide1Image,
-          inputRef: heroSlide1InputRef,
-        },
-        {
-          key: "slide2" as const,
-          title: "Hero Slide 2",
-          description:
-            "Menggantikan icon promo pada slide kedua.",
-          image: heroSlide2Image,
-          inputRef: heroSlide2InputRef,
-        },
-        {
-          key: "slide3" as const,
-          title: "Hero Slide 3",
-          description:
-            "Menggantikan icon produk pada slide ketiga.",
-          image: heroSlide3Image,
-          inputRef: heroSlide3InputRef,
-        },
-      ] as const
-    ).map((slide) => {
+<div className="grid gap-5 xl:grid-cols-3">
+  {(
+    [
+      {
+        key: "slide1" as const,
+        title: "Hero Slide 1",
+        description:
+          "Konten dan gambar slide pertama homepage.",
+        image: heroSlide1Image,
+        inputRef: heroSlide1InputRef,
+
+        eyebrow: heroSlide1Eyebrow,
+        setEyebrow: setHeroSlide1Eyebrow,
+
+        headline: heroSlide1Title,
+        setHeadline: setHeroSlide1Title,
+
+        highlight: heroSlide1Highlight,
+        setHighlight: setHeroSlide1Highlight,
+
+        slideDescription: heroSlide1Description,
+        setSlideDescription:
+          setHeroSlide1Description,
+
+        button: heroSlide1Button,
+        setButton: setHeroSlide1Button,
+      },
+
+      {
+        key: "slide2" as const,
+        title: "Hero Slide 2",
+        description:
+          "Konten dan gambar slide kedua homepage.",
+        image: heroSlide2Image,
+        inputRef: heroSlide2InputRef,
+
+        eyebrow: heroSlide2Eyebrow,
+        setEyebrow: setHeroSlide2Eyebrow,
+
+        headline: heroSlide2Title,
+        setHeadline: setHeroSlide2Title,
+
+        highlight: heroSlide2Highlight,
+        setHighlight: setHeroSlide2Highlight,
+
+        slideDescription: heroSlide2Description,
+        setSlideDescription:
+          setHeroSlide2Description,
+
+        button: heroSlide2Button,
+        setButton: setHeroSlide2Button,
+      },
+
+      {
+        key: "slide3" as const,
+        title: "Hero Slide 3",
+        description:
+          "Konten dan gambar slide ketiga homepage.",
+        image: heroSlide3Image,
+        inputRef: heroSlide3InputRef,
+
+        eyebrow: heroSlide3Eyebrow,
+        setEyebrow: setHeroSlide3Eyebrow,
+
+        headline: heroSlide3Title,
+        setHeadline: setHeroSlide3Title,
+
+        highlight: heroSlide3Highlight,
+        setHighlight: setHeroSlide3Highlight,
+
+        slideDescription: heroSlide3Description,
+        setSlideDescription:
+          setHeroSlide3Description,
+
+        button: heroSlide3Button,
+        setButton: setHeroSlide3Button,
+      },
+    ] as const
+  ).map((slide) => {
       const isUploading =
         uploadingHeroSlide ===
         slide.key;
@@ -1507,7 +1891,98 @@ heroSlide3Image,
             )}
           </div>
 
-          {/* CONTENT */}
+          <div className="mt-5 space-y-4 border-t border-slate-200 pt-5">
+
+  <div>
+    <label className="mb-2 block text-xs font-semibold text-slate-700">
+      Eyebrow
+    </label>
+
+    <input
+      type="text"
+      value={slide.eyebrow}
+      onChange={(event) =>
+        slide.setEyebrow(event.target.value)
+      }
+      disabled={isPending}
+      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:bg-slate-50"
+      placeholder="PUSAT IKAN SEGAR"
+    />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-xs font-semibold text-slate-700">
+      Judul
+    </label>
+
+    <input
+      type="text"
+      value={slide.headline}
+      onChange={(event) =>
+        slide.setHeadline(event.target.value)
+      }
+      disabled={isPending}
+      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:bg-slate-50"
+      placeholder="Ikan Segar,"
+    />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-xs font-semibold text-slate-700">
+      Highlight
+    </label>
+
+    <input
+      type="text"
+      value={slide.highlight}
+      onChange={(event) =>
+        slide.setHighlight(event.target.value)
+      }
+      disabled={isPending}
+      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:bg-slate-50"
+      placeholder="Langsung untuk Keluarga."
+    />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-xs font-semibold text-slate-700">
+      Deskripsi
+    </label>
+
+    <textarea
+      value={slide.slideDescription}
+      onChange={(event) =>
+        slide.setSlideDescription(
+          event.target.value
+        )
+      }
+      disabled={isPending}
+      rows={3}
+      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:bg-slate-50"
+      placeholder="Belanja ikan dan seafood pilihan..."
+    />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-xs font-semibold text-slate-700">
+      Teks Tombol
+    </label>
+
+    <input
+      type="text"
+      value={slide.button}
+      onChange={(event) =>
+        slide.setButton(event.target.value)
+      }
+      disabled={isPending}
+      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:bg-slate-50"
+      placeholder="Belanja Sekarang"
+    />
+  </div>
+
+</div>
+
+      {/* CONTENT */}
 
           <div className="p-4">
             <h3 className="text-sm font-bold text-slate-900">
@@ -1595,6 +2070,192 @@ heroSlide3Image,
       Gambar hanya digunakan sebagai visual pada sisi kanan Hero Slider dan
       tidak menggantikan background atau isi slide.
     </p>
+  </div>
+</section>
+
+{/* ====================================================== */}
+{/* FLASH SALE BANNER */}
+{/* ====================================================== */}
+
+<section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  <div className="mb-6 flex items-start gap-3">
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+      <ImagePlus className="h-5 w-5" />
+    </div>
+
+    <div>
+      <h2 className="text-base font-bold text-slate-900">
+        Banner Flash Sale Homepage
+      </h2>
+
+      <p className="mt-1 text-sm text-slate-500">
+        Upload satu gambar seafood horizontal untuk banner Flash Sale di homepage.
+      </p>
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+    <div className="relative flex aspect-[16/7] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+      {flashSaleBannerImage ? (
+        <Image
+          src={flashSaleBannerImage}
+          alt="Banner Flash Sale"
+          fill
+          sizes="(max-width:768px) 100vw, 900px"
+          className="object-cover"
+          unoptimized
+        />
+      ) : (
+        <div className="flex flex-col items-center gap-2 text-slate-400">
+          <ImagePlus className="h-10 w-10" />
+          <span className="text-xs font-medium">
+            Belum ada banner Flash Sale
+          </span>
+        </div>
+      )}
+
+      {isUploadingFlashSaleBanner && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm">
+          <Loader2 className="h-7 w-7 animate-spin text-slate-900" />
+          <span className="text-xs font-semibold text-slate-700">
+            Mengupload gambar...
+          </span>
+        </div>
+      )}
+    </div>
+
+    <div className="mt-4 flex flex-wrap gap-2">
+      <input
+        ref={flashSaleBannerInputRef}
+        type="file"
+        accept=".png,.webp,.gif,image/png,image/webp,image/gif"
+        onChange={handleFlashSaleBannerChange}
+        className="hidden"
+      />
+
+      <button
+        type="button"
+        onClick={() => flashSaleBannerInputRef.current?.click()}
+        disabled={isPending || isUploadingFlashSaleBanner}
+        className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+      >
+        {isUploadingFlashSaleBanner ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Mengupload...
+          </>
+        ) : (
+          <>
+            <ImagePlus className="h-4 w-4" />
+            {flashSaleBannerImage ? "Ganti Banner" : "Upload Banner"}
+          </>
+        )}
+      </button>
+
+      {flashSaleBannerImage && (
+        <button
+          type="button"
+          onClick={handleRemoveFlashSaleBanner}
+          disabled={isPending || isUploadingFlashSaleBanner}
+          className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-3 text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+
+    <p className="mt-3 text-xs leading-5 text-slate-500">
+      Rekomendasi ukuran 1600×700 px. Format PNG, WEBP, atau GIF maksimal 5 MB.
+    </p>
+    <div className="mt-6 grid gap-5 border-t border-slate-200 pt-6">
+  <div>
+    <label
+      htmlFor="flashSaleBannerLabel"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Label
+    </label>
+
+    <input
+      id="flashSaleBannerLabel"
+      name="flashSaleBannerLabel"
+      type="text"
+      value={flashSaleBannerLabel}
+      onChange={(event) =>
+        setFlashSaleBannerLabel(event.target.value)
+      }
+      disabled={isPending}
+      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+      placeholder="FLASH SALE"
+    />
+  </div>
+
+  <div>
+    <label
+      htmlFor="flashSaleBannerTitle"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Judul
+    </label>
+
+    <input
+      id="flashSaleBannerTitle"
+      name="flashSaleBannerTitle"
+      type="text"
+      value={flashSaleBannerTitle}
+      onChange={(event) =>
+        setFlashSaleBannerTitle(event.target.value)
+      }
+      disabled={isPending}
+      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+      placeholder="Seafood Favorit,"
+    />
+  </div>
+
+  <div>
+    <label
+      htmlFor="flashSaleBannerHighlight"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Highlight
+    </label>
+
+    <input
+      id="flashSaleBannerHighlight"
+      name="flashSaleBannerHighlight"
+      type="text"
+      value={flashSaleBannerHighlight}
+      onChange={(event) =>
+        setFlashSaleBannerHighlight(event.target.value)
+      }
+      disabled={isPending}
+      className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+      placeholder="Harga Lebih Menarik."
+    />
+  </div>
+
+  <div>
+    <label
+      htmlFor="flashSaleBannerDescription"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Deskripsi
+    </label>
+
+    <textarea
+      id="flashSaleBannerDescription"
+      name="flashSaleBannerDescription"
+      value={flashSaleBannerDescription}
+      onChange={(event) =>
+        setFlashSaleBannerDescription(event.target.value)
+      }
+      disabled={isPending}
+      rows={3}
+      className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+      placeholder="Promo terbatas untuk produk pilihan. Dapatkan harga spesial sebelum waktunya berakhir."
+    />
+  </div>
+</div>
   </div>
 </section>
 
@@ -2389,7 +3050,8 @@ heroSlide3Image,
       isPending ||
       isLocating ||
       isUploadingLogo ||
-      uploadingHeroSlide !== null
+      uploadingHeroSlide !== null ||
+      isUploadingFlashSaleBanner
     }
     className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
   >

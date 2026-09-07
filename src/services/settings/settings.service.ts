@@ -55,6 +55,31 @@ export interface UpdateStoreSettingsPayload {
 
   heroSlide3Image?: string | null;
 
+  flashSaleBannerImage?: string | null;
+
+    heroSlide1Eyebrow?: string | null;
+  heroSlide1Title?: string | null;
+  heroSlide1Highlight?: string | null;
+  heroSlide1Description?: string | null;
+  heroSlide1Button?: string | null;
+
+  heroSlide2Eyebrow?: string | null;
+  heroSlide2Title?: string | null;
+  heroSlide2Highlight?: string | null;
+  heroSlide2Description?: string | null;
+  heroSlide2Button?: string | null;
+
+  heroSlide3Eyebrow?: string | null;
+  heroSlide3Title?: string | null;
+  heroSlide3Highlight?: string | null;
+  heroSlide3Description?: string | null;
+  heroSlide3Button?: string | null;
+
+  flashSaleBannerLabel?: string | null;
+  flashSaleBannerTitle?: string | null;
+  flashSaleBannerHighlight?: string | null;
+  flashSaleBannerDescription?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -249,6 +274,63 @@ class SettingsService {
       normalizeCoordinate(
         payload.longitude
       );
+
+          const heroSlide1Eyebrow =
+      normalize(payload.heroSlide1Eyebrow);
+
+    const heroSlide1Title =
+      normalize(payload.heroSlide1Title);
+
+    const heroSlide1Highlight =
+      normalize(payload.heroSlide1Highlight);
+
+    const heroSlide1Description =
+      normalize(payload.heroSlide1Description);
+
+    const heroSlide1Button =
+      normalize(payload.heroSlide1Button);
+
+    const heroSlide2Eyebrow =
+      normalize(payload.heroSlide2Eyebrow);
+
+    const heroSlide2Title =
+      normalize(payload.heroSlide2Title);
+
+    const heroSlide2Highlight =
+      normalize(payload.heroSlide2Highlight);
+
+    const heroSlide2Description =
+      normalize(payload.heroSlide2Description);
+
+    const heroSlide2Button =
+      normalize(payload.heroSlide2Button);
+
+    const heroSlide3Eyebrow =
+      normalize(payload.heroSlide3Eyebrow);
+
+    const heroSlide3Title =
+      normalize(payload.heroSlide3Title);
+
+    const heroSlide3Highlight =
+      normalize(payload.heroSlide3Highlight);
+
+    const heroSlide3Description =
+      normalize(payload.heroSlide3Description);
+
+    const heroSlide3Button =
+      normalize(payload.heroSlide3Button);
+
+    const flashSaleBannerLabel =
+      normalize(payload.flashSaleBannerLabel);
+
+    const flashSaleBannerTitle =
+      normalize(payload.flashSaleBannerTitle);
+
+    const flashSaleBannerHighlight =
+      normalize(payload.flashSaleBannerHighlight);
+
+    const flashSaleBannerDescription =
+      normalize(payload.flashSaleBannerDescription);
 
     /**
      * --------------------------------------------------------
@@ -531,10 +613,9 @@ class SettingsService {
         normalize(
           payload.siteLogo
         ),
-
-      /**
+              /**
        * ======================================================
-       * HERO SLIDER IMAGES
+       * HERO SLIDER
        * ======================================================
        */
 
@@ -552,6 +633,68 @@ class SettingsService {
         normalize(
           payload.heroSlide3Image
         ),
+
+      heroSlide1Eyebrow:
+        heroSlide1Eyebrow,
+
+      heroSlide1Title:
+        heroSlide1Title,
+
+      heroSlide1Highlight:
+        heroSlide1Highlight,
+
+      heroSlide1Description:
+        heroSlide1Description,
+
+      heroSlide1Button:
+        heroSlide1Button,
+
+      heroSlide2Eyebrow:
+        heroSlide2Eyebrow,
+
+      heroSlide2Title:
+        heroSlide2Title,
+
+      heroSlide2Highlight:
+        heroSlide2Highlight,
+
+      heroSlide2Description:
+        heroSlide2Description,
+
+      heroSlide2Button:
+        heroSlide2Button,
+
+      heroSlide3Eyebrow:
+        heroSlide3Eyebrow,
+
+      heroSlide3Title:
+        heroSlide3Title,
+
+      heroSlide3Highlight:
+        heroSlide3Highlight,
+
+      heroSlide3Description:
+        heroSlide3Description,
+
+      heroSlide3Button:
+        heroSlide3Button,
+
+      flashSaleBannerImage:
+        normalize(
+          payload.flashSaleBannerImage
+        ),
+
+      flashSaleBannerLabel:
+        flashSaleBannerLabel,
+
+      flashSaleBannerTitle:
+        flashSaleBannerTitle,
+
+      flashSaleBannerHighlight:
+        flashSaleBannerHighlight,
+
+      flashSaleBannerDescription:
+        flashSaleBannerDescription,
 
       email,
 

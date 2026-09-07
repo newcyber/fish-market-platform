@@ -1,3 +1,5 @@
+import { auth } from "@/auth";
+
 import HomeBestSellingProducts from
   "@/components/customer/home/HomeBestSellingProducts";
 
@@ -18,6 +20,18 @@ import HomeNewestProducts from
 
 import HomePromoBanner from
   "@/components/customer/home/HomePromoBanner";
+
+import HomeRepeatPurchaseProducts from
+  "@/components/customer/home/HomeRepeatPurchaseProducts";
+
+import CustomerHomeHeader from
+  "@/components/customer/home/CustomerHomeHeader";
+
+import { CustomerRepository } from
+  "@/repositories/CustomerRepository";
+
+import { OrderRepository } from
+  "@/repositories/OrderRepository";
 
 import { prisma } from
   "@/lib/prisma";
@@ -279,6 +293,24 @@ export default async function SharedHomePage({
 
   /**
    * ==========================================================
+   * CUSTOMER REPEAT PURCHASES
+   * ==========================================================
+   *
+   * Hanya customer yang membutuhkan histori pembelian.
+   *
+   * Guest tidak melakukan query ini.
+   */
+
+  const session =
+    mode === "customer"
+      ? await auth()
+      : null;
+
+  const customerUserId =
+    session?.user?.id ?? null;
+
+  /**
+   * ==========================================================
    * FETCH HOMEPAGE DATA
    * ==========================================================
    *
@@ -300,14 +332,16 @@ export default async function SharedHomePage({
    * ==========================================================
    */
 
-  const [
-    flashSale,
-    featuredProducts,
-    bestSellingGroups,
-    newestProducts,
-    categories,
-  ] =
-    await Promise.all([
+const [
+  flashSale,
+  featuredProducts,
+  bestSellingGroups,
+  newestProducts,
+  categories,
+  repeatPurchaseItems,
+  customerHomeSummary,
+  customerOrderSummary,
+] = await Promise.all([
 
       /**
        * ========================================================
@@ -562,7 +596,169 @@ export default async function SharedHomePage({
             true,
         },
       }),
+            /**
+       * ========================================================
+       * BELANJA LAGI
+       * ========================================================
+       *
+       * Hanya customer.
+       *
+       * Order valid:
+       * - userId sesuai session
+       * - COMPLETED
+       * - VERIFIED
+       * - belum soft delete
+       *
+       * Item dibatasi pada histori terbaru agar homepage
+       * tidak mengambil seluruh histori customer.
+       */
+
+      customerUserId
+        ? prisma.orderItem.findMany({
+            where: {
+              order: {
+                userId: customerUserId,
+
+                status: "COMPLETED",
+
+                paymentStatus: "VERIFIED",
+
+                deletedAt: null,
+              },
+
+              product: {
+                deletedAt: null,
+
+                isPublished: true,
+              },
+            },
+
+            orderBy: {
+              order: {
+                createdAt: "desc",
+              },
+            },
+
+            take: 50,
+
+            select: {
+              productId: true,
+
+              order: {
+                select: {
+                  createdAt: true,
+                },
+              },
+
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  price: true,
+                  stock: true,
+
+                  images: {
+                    orderBy: {
+                      sortOrder: "asc",
+                    },
+
+                    select: {
+                      id: true,
+                      image: true,
+                      sortOrder: true,
+                      isThumbnail: true,
+                    },
+                  },
+
+                  variantGroups: {
+                    where: {
+                      isActive: true,
+                    },
+
+                    select: {
+                      id: true,
+                    },
+
+                    take: 1,
+                  },
+
+                  skus: {
+                    where: {
+                      isActive: true,
+                    },
+
+                    orderBy: {
+                      price: "asc",
+                    },
+
+                    select: {
+                      price: true,
+                      stock: true,
+                    },
+
+                    take: 1,
+                  },
+                },
+              },
+            },
+          })
+        : [],
+
+      /**
+       * ========================================================
+       * CUSTOMER HOME SUMMARY
+       * ========================================================
+       *
+       * Hanya customer.
+       *
+       * Berisi:
+       * - nama
+       * - reward points
+       * - alamat aktif/default
+       *
+       * Guest tidak melakukan query customer.
+       */
+
+      customerUserId
+        ? CustomerRepository.findHomeSummary(
+            customerUserId
+          )
+        : null,
+
+      /**
+       * ========================================================
+       * CUSTOMER ORDER SUMMARY
+       * ========================================================
+       *
+       * Hanya customer.
+       *
+       * Digunakan untuk jumlah pesanan aktif
+       * pada Customer Home Header.
+       */
+
+      customerUserId
+        ? OrderRepository.getCustomerOrderSummary(
+            customerUserId
+          )
+        : null,
+
     ]);
+
+  /**
+   * ==========================================================
+   * CUSTOMER HOME HEADER DATA
+   * ==========================================================
+   */
+
+  const activeOrderCount =
+    customerOrderSummary
+      ? customerOrderSummary.pending +
+        customerOrderSummary.waitingPayment +
+        customerOrderSummary.waitingVerification +
+        customerOrderSummary.processing +
+        customerOrderSummary.shipping
+      : 0;
 
   /**
    * ==========================================================
@@ -744,6 +940,46 @@ export default async function SharedHomePage({
         )
     );
 
+      /**
+   * ==========================================================
+   * SERIALIZE BELANJA LAGI
+   * ==========================================================
+   *
+   * Produk diurutkan berdasarkan pembelian terakhir.
+   *
+   * Satu produk hanya muncul satu kali walaupun dibeli
+   * beberapa kali.
+   */
+
+  const repeatPurchaseProductMap =
+    new Map<
+      string,
+      (typeof repeatPurchaseItems)[number]["product"]
+    >();
+
+  for (const item of repeatPurchaseItems) {
+    if (!repeatPurchaseProductMap.has(item.productId)) {
+      repeatPurchaseProductMap.set(
+        item.productId,
+        item.product
+      );
+    }
+
+    if (
+      repeatPurchaseProductMap.size >= 6
+    ) {
+      break;
+    }
+  }
+
+  const serializedRepeatPurchaseProducts =
+    Array.from(
+      repeatPurchaseProductMap.values()
+    ).map(
+      (product) =>
+        serializeHomepageProduct(product)
+    );
+
   /**
    * ==========================================================
    * RENDER
@@ -760,28 +996,91 @@ export default async function SharedHomePage({
     >
 
       {/* ======================================================
+          CUSTOMER HOME HEADER
+      ====================================================== */}
+
+      {mode === "customer" && customerHomeSummary && (
+        <CustomerHomeHeader
+          customerName={
+            customerHomeSummary.name?.trim() ||
+            "Customer"
+          }
+          rewardPoints={
+            customerHomeSummary.rewardPointsBalance ?? 0
+          }
+          address={
+            customerHomeSummary.addresses[0] ?? null
+          }
+          activeOrderCount={
+            activeOrderCount
+          }
+        />
+      )}
+
+      {/* ======================================================
           HERO
       ====================================================== */}
 
-      <HomeHeroCarousel
-        productsHref={
-          productsHref
-        }
+<HomeHeroCarousel
+  productsHref={
+    productsHref
+  }
 
-        heroImages={{
-          slide1:
-            storeSettings?.heroSlide1Image ??
-            null,
+  heroImages={{
+    slide1:
+      storeSettings?.heroSlide1Image ??
+      null,
 
-          slide2:
-            storeSettings?.heroSlide2Image ??
-            null,
+    slide2:
+      storeSettings?.heroSlide2Image ??
+      null,
 
-          slide3:
-            storeSettings?.heroSlide3Image ??
-            null,
-        }}
-      />
+    slide3:
+      storeSettings?.heroSlide3Image ??
+      null,
+  }}
+
+  heroContent={{
+    slide1: {
+      eyebrow:
+        storeSettings?.heroSlide1Eyebrow ?? null,
+      title:
+        storeSettings?.heroSlide1Title ?? null,
+      highlight:
+        storeSettings?.heroSlide1Highlight ?? null,
+      description:
+        storeSettings?.heroSlide1Description ?? null,
+      button:
+        storeSettings?.heroSlide1Button ?? null,
+    },
+
+    slide2: {
+      eyebrow:
+        storeSettings?.heroSlide2Eyebrow ?? null,
+      title:
+        storeSettings?.heroSlide2Title ?? null,
+      highlight:
+        storeSettings?.heroSlide2Highlight ?? null,
+      description:
+        storeSettings?.heroSlide2Description ?? null,
+      button:
+        storeSettings?.heroSlide2Button ?? null,
+    },
+
+    slide3: {
+      eyebrow:
+        storeSettings?.heroSlide3Eyebrow ?? null,
+      title:
+        storeSettings?.heroSlide3Title ?? null,
+      highlight:
+        storeSettings?.heroSlide3Highlight ?? null,
+      description:
+        storeSettings?.heroSlide3Description ?? null,
+      button:
+        storeSettings?.heroSlide3Button ?? null,
+    },
+  }}
+/>
 
       {/* ======================================================
           CATEGORY
@@ -815,15 +1114,25 @@ export default async function SharedHomePage({
             z-10
           "
         >
-          <HomeFlashSaleSection
-            flashSale={
-              serializedFlashSale
-            }
-
-            productsHref={
-              productsHref
-            }
-          />
+{serializedFlashSale ? (
+  <HomeFlashSaleSection
+    flashSale={serializedFlashSale}
+    productsHref={productsHref}
+    bannerImage={
+      storeSettings?.flashSaleBannerImage ?? null
+    }
+    bannerContent={{
+      label:
+        storeSettings?.flashSaleBannerLabel ?? null,
+      title:
+        storeSettings?.flashSaleBannerTitle ?? null,
+      highlight:
+        storeSettings?.flashSaleBannerHighlight ?? null,
+      description:
+        storeSettings?.flashSaleBannerDescription ?? null,
+    }}
+  />
+) : null}
         </div>
       )}
 
@@ -857,6 +1166,21 @@ export default async function SharedHomePage({
           lg:pb-16
         "
       >
+
+        {/* ====================================================
+            BELANJA LAGI
+        ==================================================== */}
+
+        {mode === "customer" && (
+          <HomeRepeatPurchaseProducts
+            products={
+              serializedRepeatPurchaseProducts
+            }
+            productsHref={
+              productsHref
+            }
+          />
+        )}
 
         {/* ====================================================
             FEATURED PRODUCTS

@@ -2982,11 +2982,49 @@ model StoreSettings {
    * - GIF
    */
 
-  heroSlide1Image String?
+heroSlide1Image String?
+heroSlide2Image String?
+heroSlide3Image String?
 
-  heroSlide2Image String?
+// ==========================================================
+// FLASH SALE BANNER
+// ==========================================================
+//
+// Gambar seafood yang ditampilkan pada section Flash Sale
+// Customer Home.
+//
+flashSaleBannerImage String?
 
-  heroSlide3Image String?
+  // ============================================================
+  // HERO SLIDER CONTENT
+  // ============================================================
+
+  heroSlide1Eyebrow     String?
+  heroSlide1Title       String?
+  heroSlide1Highlight   String?
+  heroSlide1Description String?
+  heroSlide1Button      String?
+
+  heroSlide2Eyebrow     String?
+  heroSlide2Title       String?
+  heroSlide2Highlight   String?
+  heroSlide2Description String?
+  heroSlide2Button      String?
+
+  heroSlide3Eyebrow     String?
+  heroSlide3Title       String?
+  heroSlide3Highlight   String?
+  heroSlide3Description String?
+  heroSlide3Button      String?
+
+  // ============================================================
+  // FLASH SALE BANNER CONTENT
+  // ============================================================
+
+  flashSaleBannerLabel       String?
+  flashSaleBannerTitle       String?
+  flashSaleBannerHighlight   String?
+  flashSaleBannerDescription String?
 
   email    String?
   whatsapp String?

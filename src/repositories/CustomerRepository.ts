@@ -755,6 +755,63 @@ static async findById(id: string) {
   });
 }
 
+/**
+ * Ringkasan customer untuk Customer Home.
+ *
+ * Hanya mengambil data yang diperlukan oleh header Home:
+ * - nama customer
+ * - saldo reward point
+ * - alamat aktif/default
+ *
+ * Tidak mengambil orders, items, atau userVouchers.
+ */
+static async findHomeSummary(userId: string) {
+  return prisma.user.findFirst({
+    where: {
+      id: userId,
+      role: Role.CUSTOMER,
+      deletedAt: null,
+    },
+
+    select: {
+      id: true,
+      name: true,
+      rewardPointsBalance: true,
+
+      addresses: {
+        where: {
+          deletedAt: null,
+        },
+
+        orderBy: [
+          {
+            isDefault: "desc",
+          },
+          {
+            createdAt: "desc",
+          },
+        ],
+
+        take: 1,
+
+        select: {
+          id: true,
+          label: true,
+          receiverName: true,
+          receiverPhone: true,
+          province: true,
+          city: true,
+          district: true,
+          village: true,
+          postalCode: true,
+          fullAddress: true,
+          isDefault: true,
+        },
+      },
+    },
+  });
+}
+
   /**
    * Customer berdasarkan email.
    */

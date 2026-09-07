@@ -28,8 +28,14 @@ import {
  * - Guest homepage
  * - Customer homepage
  *
- * Visual:
- * Deep Ocean Navy + Ocean Blue + Fresh Green
+ * Fokus V4:
+ * - lebih compact di mobile
+ * - lebih compact di desktop
+ * - image tetap menjadi focal point
+ * - CTA, autoplay, arrow, dan indicator tetap dipertahankan
+ * - tidak mengubah sumber data hero
+ *
+ * ============================================================
  */
 
 /**
@@ -46,6 +52,30 @@ type HomeHeroCarouselProps = {
     slide2?: string | null;
     slide3?: string | null;
   };
+
+  heroContent?: {
+    slide1?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      highlight?: string | null;
+      description?: string | null;
+      button?: string | null;
+    };
+    slide2?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      highlight?: string | null;
+      description?: string | null;
+      button?: string | null;
+    };
+    slide3?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      highlight?: string | null;
+      description?: string | null;
+      button?: string | null;
+    };
+  };
 };
 
 type SlideTone =
@@ -55,19 +85,12 @@ type SlideTone =
 
 type HeroSlide = {
   eyebrow: string;
-
   title: string;
-
   highlight: string;
-
   description: string;
-
   button: string;
-
   icon: typeof Fish;
-
   image?: string | null;
-
   tone: SlideTone;
 };
 
@@ -80,9 +103,7 @@ type HeroSlide = {
 function getHeroTheme(
   tone: SlideTone
 ) {
-  switch (
-  tone
-  ) {
+  switch (tone) {
     case "promo":
       return {
         background:
@@ -149,87 +170,110 @@ function getHeroTheme(
 export default function HomeHeroCarousel({
   productsHref,
   heroImages,
+  heroContent,
 }: HomeHeroCarouselProps) {
   const slides: HeroSlide[] = [
-    {
-      eyebrow: "PUSAT IKAN SEGAR",
+{
+  eyebrow:
+    heroContent?.slide1?.eyebrow ||
+    "PUSAT IKAN SEGAR",
 
-      title: "Ikan Segar,",
+  title:
+    heroContent?.slide1?.title ||
+    "Ikan Segar,",
 
-      highlight:
-        "Langsung untuk Keluarga.",
+  highlight:
+    heroContent?.slide1?.highlight ||
+    "Langsung untuk Keluarga.",
 
-      description:
-        "Belanja ikan dan seafood pilihan dengan lebih mudah dari satu tempat.",
+  description:
+    heroContent?.slide1?.description ||
+    "Belanja ikan dan seafood pilihan dengan lebih mudah dari satu tempat.",
 
-      button:
-        "Belanja Sekarang",
+  button:
+    heroContent?.slide1?.button ||
+    "Belanja Sekarang",
 
-      icon: Fish,
+  icon:
+    Fish,
 
-      image:
-        heroImages?.slide1 ?? null,
+  image:
+    heroImages?.slide1 ?? null,
 
-      tone: "ocean",
-    },
+  tone:
+    "ocean",
+},
 
-    {
-      eyebrow:
-        "PROMO PILIHAN",
+{
+  eyebrow:
+    heroContent?.slide2?.eyebrow ||
+    "PROMO PILIHAN",
 
-      title:
-        "Seafood Favorit,",
+  title:
+    heroContent?.slide2?.title ||
+    "Seafood Favorit,",
 
-      highlight:
-        "Harga Lebih Menarik.",
+  highlight:
+    heroContent?.slide2?.highlight ||
+    "Harga Lebih Menarik.",
 
-      description:
-        "Temukan berbagai pilihan produk dan promo terbaik yang tersedia hari ini.",
+  description:
+    heroContent?.slide2?.description ||
+    "Temukan berbagai pilihan produk dan promo terbaik yang tersedia hari ini.",
 
-      button:
-        "Lihat Promo",
+  button:
+    heroContent?.slide2?.button ||
+    "Lihat Promo",
 
-      icon: Zap,
+  icon:
+    Zap,
 
-      image:
-        heroImages?.slide2 ?? null,
+  image:
+    heroImages?.slide2 ?? null,
 
-      tone: "promo",
-    },
+  tone:
+    "promo",
+},
 
-    {
-      eyebrow:
-        "BELANJA LEBIH MUDAH",
+{
+  eyebrow:
+    heroContent?.slide3?.eyebrow ||
+    "BELANJA LEBIH MUDAH",
 
-      title:
-        "Pilih Produk,",
+  title:
+    heroContent?.slide3?.title ||
+    "Pilih Produk,",
 
-      highlight:
-        "Kami Siapkan Pesanan Anda.",
+  highlight:
+    heroContent?.slide3?.highlight ||
+    "Kami Siapkan Pesanan Anda.",
 
-      description:
-        "Nikmati pengalaman belanja seafood yang praktis, segar, dan nyaman.",
+  description:
+    heroContent?.slide3?.description ||
+    "Nikmati pengalaman belanja seafood yang praktis, segar, dan nyaman.",
 
-      button:
-        "Lihat Produk",
+  button:
+    heroContent?.slide3?.button ||
+    "Lihat Produk",
 
-      icon: Package,
+  icon:
+    Package,
 
-      image:
-        heroImages?.slide3 ?? null,
+  image:
+    heroImages?.slide3 ?? null,
 
-      tone: "fresh",
-    },
+  tone:
+    "fresh",
+},
   ];
+
   const [
     activeIndex,
     setActiveIndex,
   ] = useState(0);
 
   const activeSlide =
-    slides[
-    activeIndex
-    ];
+    slides[activeIndex];
 
   const theme =
     getHeroTheme(
@@ -266,7 +310,7 @@ export default function HomeHeroCarousel({
 
   /**
    * ==========================================================
-   * PREVIOUS
+   * PREVIOUS / NEXT
    * ==========================================================
    */
 
@@ -278,12 +322,6 @@ export default function HomeHeroCarousel({
           : current - 1
     );
   }
-
-  /**
-   * ==========================================================
-   * NEXT
-   * ==========================================================
-   */
 
   function nextSlide() {
     setActiveIndex(
@@ -299,144 +337,165 @@ export default function HomeHeroCarousel({
     activeSlide.icon;
 
   return (
-    <section className="w-full bg-(--ice-100) px-3 pt-3 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6">
-      <div className="mx-auto max-w-7xl">
-
+    <section
+      className="
+        w-full
+        bg-(--ice-100)
+        px-3
+        py-3
+        sm:px-6
+        sm:py-4
+        lg:px-8
+        lg:py-5
+      "
+    >
+      <div
+        className="
+          mx-auto
+          max-w-7xl
+        "
+      >
         <div
           className={[
             "relative overflow-hidden rounded-2xl bg-linear-to-br text-white",
-            "shadow-[0_14px_45px_rgba(11,36,61,0.16)]",
+            "shadow-[0_10px_35px_rgba(11,36,61,0.14)]",
             "sm:rounded-3xl",
             theme.background,
-          ].join(
-            " "
-          )}
+          ].join(" ")}
         >
-
-          {/* ================================================= */}
-          {/* BACKGROUND DECORATION */}
-          {/* ================================================= */}
-
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
-
-            <div
-              className={[
-                "absolute -right-20 -top-20 h-64 w-64 rounded-full blur-3xl",
-                theme.glow,
-              ].join(
-                " "
-              )}
-            />
-
-            <div className="absolute -bottom-32 left-[20%] h-72 w-72 rounded-full bg-white/5 blur-3xl" />
-
-            <div className="absolute right-[16%] top-1/2 h-32 w-32 -translate-y-1/2 rounded-full border border-white/10" />
-
-            <div className="absolute right-[9%] top-1/2 h-56 w-56 -translate-y-1/2 rounded-full border border-white/[0.07]" />
-
-            <div className="absolute right-[4%] top-1/2 h-80 w-80 -translate-y-1/2 rounded-full border border-white/4" />
-
-          </div>
-
-          {/* ================================================= */}
-          {/* CONTENT */}
-          {/* ================================================= */}
+          {/* =================================================
+              BACKGROUND DECORATION
+          ================================================= */}
 
           <div
             className="
-    relative
-
-    grid
-    min-h-71.25
-
-    items-center
-    gap-6
-
-    overflow-hidden
-
-    px-5
-    py-7
-
-    sm:min-h-85
-    sm:px-10
-    sm:py-10
-
-    lg:min-h-100
-    lg:grid-cols-[1.15fr_0.85fr]
-    lg:px-14
-    lg:py-12
-  "
+              pointer-events-none
+              absolute
+              inset-0
+              overflow-hidden
+            "
+            aria-hidden="true"
           >
-            {/* ================================================= */}
-            {/* MOBILE HERO IMAGE BACKGROUND */}
-            {/* ================================================= */}
+            <div
+              className={[
+                "absolute -right-20 -top-24 h-56 w-56 rounded-full blur-3xl",
+                theme.glow,
+              ].join(" ")}
+            />
+
+            <div
+              className="
+                absolute
+                -bottom-32
+                left-[20%]
+                h-64
+                w-64
+                rounded-full
+                bg-white/5
+                blur-3xl
+              "
+            />
+
+            <div
+              className="
+                absolute
+                right-[10%]
+                top-1/2
+                h-48
+                w-48
+                -translate-y-1/2
+                rounded-full
+                border
+                border-white/10
+              "
+            />
+
+            <div
+              className="
+                absolute
+                right-[4%]
+                top-1/2
+                h-64
+                w-64
+                -translate-y-1/2
+                rounded-full
+                border
+                border-white/[0.06]
+              "
+            />
+          </div>
+
+          {/* =================================================
+              CONTENT
+          ================================================= */}
+
+          <div
+            className="
+              relative
+              grid
+              min-h-[205px]
+              items-center
+              overflow-hidden
+              px-5
+              py-5
+
+              sm:min-h-[245px]
+              sm:px-8
+              sm:py-7
+
+              lg:min-h-[320px]
+              lg:grid-cols-[1.12fr_0.88fr]
+              lg:px-10
+              lg:py-8
+
+              xl:min-h-[335px]
+              xl:px-12
+            "
+          >
+            {/* =================================================
+                MOBILE HERO IMAGE
+            ================================================= */}
 
             {activeSlide.image ? (
               <div
                 className="
-        pointer-events-none
-
-        absolute
-        inset-0
-
-        z-0
-
-        overflow-hidden
-
-        lg:hidden
-      "
+                  pointer-events-none
+                  absolute
+                  inset-0
+                  z-0
+                  overflow-hidden
+                  lg:hidden
+                "
                 aria-hidden="true"
               >
-                {/* Soft glow */}
-
                 <div
                   className="
-          absolute
-
-          -right-20
-          -bottom-20
-
-          h-64
-          w-64
-
-          rounded-full
-
-          bg-(--fresh-400)/10
-
-          blur-3xl
-        "
+                    absolute
+                    -bottom-16
+                    -right-12
+                    h-64
+                    w-64
+                    rounded-full
+                    bg-(--fresh-400)/10
+                    blur-3xl
+                  "
                 />
 
-                {/* Floating image */}
-
                 <div
                   className="
-    absolute
-
-    -right-10
-    -bottom-10
-
-    flex
-    h-77.5
-    w-77.5
-
-    items-center
-    justify-center
-
-    opacity-[0.38]
-
-    animate-[heroFloat_6s_ease-in-out_infinite]
-
-    will-change-transform
-
-    motion-reduce:animate-none
-
-    xs:h-[340px]
-    xs:w-[340px]
-
-    sm:h-97.5
-    sm:w-97.5
-  "
+                    absolute
+                    -bottom-10
+                    -right-8
+                    flex
+                    h-[285px]
+                    w-[285px]
+                    items-center
+                    justify-center
+                    opacity-[0.30]
+                    animate-[heroFloat_6s_ease-in-out_infinite]
+                    will-change-transform
+                    motion-reduce:animate-none
+                  "
                 >
                   <Image
                     key={`mobile-${activeSlide.image}`}
@@ -444,80 +503,73 @@ export default function HomeHeroCarousel({
                     alt=""
                     aria-hidden="true"
                     fill
-                    sizes="(max-width: 640px) 340px, 260px"
+                    sizes="285px"
                     unoptimized
                     className="
-      h-full
-      w-full
-
-      max-w-none
-
-      object-contain
-
-      drop-shadow-2xl
-
-      animate-in
-      fade-in
-      zoom-in-95
-      duration-700
-    "
+                      h-full
+                      w-full
+                      max-w-none
+                      object-contain
+                      drop-shadow-2xl
+                      animate-in
+                      fade-in
+                      zoom-in-95
+                      duration-700
+                    "
                   />
                 </div>
               </div>
             ) : null}
 
-            {/* ================================================= */}
-            {/* LEFT CONTENT */}
-            {/* ================================================= */}
+            {/* =================================================
+                LEFT CONTENT
+            ================================================= */}
 
             <div
               key={activeIndex}
               className="
-      relative
-      z-20
-
-      animate-in
-      fade-in
-      slide-in-from-left-2
-      duration-500
-    "
+                relative
+                z-20
+                max-w-2xl
+                animate-in
+                fade-in
+                slide-in-from-left-2
+                duration-500
+              "
             >
               {/* EYEBROW */}
 
               <div
                 className="
-        inline-flex
-        items-center
-        gap-2
-
-        rounded-full
-
-        border
-        border-white/15
-
-        bg-white/10
-
-        px-3
-        py-1.5
-
-        text-[10px]
-        font-black
-        tracking-[0.18em]
-
-        text-white/90
-
-        backdrop-blur
-
-        sm:text-xs
-      "
+                  inline-flex
+                  items-center
+                  gap-1.5
+                  rounded-full
+                  border
+                  border-white/15
+                  bg-white/10
+                  px-2.5
+                  py-1
+                  text-[9px]
+                  font-black
+                  tracking-[0.16em]
+                  text-white/90
+                  backdrop-blur
+                  sm:gap-2
+                  sm:px-3
+                  sm:py-1.5
+                  sm:text-[10px]
+                "
               >
                 <Sparkles
+                  aria-hidden="true"
                   className="
-          h-3.5
-          w-3.5
-
-          text-(--fresh-400)
-        "
+                    h-3
+                    w-3
+                    text-(--fresh-400)
+                    sm:h-3.5
+                    sm:w-3.5
+                  "
                 />
 
                 {activeSlide.eyebrow}
@@ -525,24 +577,21 @@ export default function HomeHeroCarousel({
 
               {/* TITLE */}
 
-              <h1
+              <h2
                 className="
-        mt-4
+                  mt-3
+                  max-w-xl
+                  text-[25px]
+                  font-black
+                  leading-[1.04]
+                  tracking-tight
 
-        max-w-xl
+                  sm:mt-4
+                  sm:text-4xl
 
-        text-[28px]
-        font-black
-
-        leading-[1.08]
-        tracking-tight
-
-        sm:text-4xl
-
-        lg:text-5xl
-
-        xl:text-[54px]
-      "
+                  lg:text-[42px]
+                  xl:text-[46px]
+                "
               >
                 {activeSlide.title}
 
@@ -550,262 +599,224 @@ export default function HomeHeroCarousel({
                   className={[
                     "mt-1 block",
                     theme.highlight,
-                  ].join(
-                    " "
-                  )}
+                  ].join(" ")}
                 >
                   {activeSlide.highlight}
                 </span>
-              </h1>
+              </h2>
 
               {/* DESCRIPTION */}
 
               <p
                 className="
-        mt-4
+                  mt-3
+                  max-w-lg
+                  text-xs
+                  leading-5
+                  text-white/80
 
-        max-w-lg
+                  sm:mt-4
+                  sm:text-sm
+                  sm:leading-6
 
-        text-sm
-        leading-6
-
-        text-white/80
-
-        sm:mt-5
-        sm:text-base
-        sm:leading-7
-      "
+                  lg:max-w-xl
+                  lg:text-[15px]
+                  lg:leading-6
+                "
               >
                 {activeSlide.description}
               </p>
 
-              {/* ================================================= */}
               {/* CTA */}
-              {/* ================================================= */}
 
               <Link
                 href={productsHref}
                 className={`
-    mt-5
-    inline-flex
-    h-11
-    items-center
-    gap-2
-    rounded-full
-    px-5
-    text-sm
-    font-bold
-    shadow-lg
-    transition
-    duration-200
-    active:scale-[0.98]
+                  mt-4
+                  inline-flex
+                  h-9
+                  items-center
+                  gap-1.5
+                  rounded-full
+                  px-4
+                  text-xs
+                  font-bold
+                  shadow-lg
+                  transition
+                  duration-200
+                  active:scale-[0.98]
 
-    sm:mt-7
-    sm:h-12
-    sm:px-6
-    sm:hover:scale-[1.02]
+                  sm:mt-5
+                  sm:h-10
+                  sm:px-5
+                  sm:text-sm
 
-    ${theme.button}
-  `}
+                  lg:mt-5
+
+                  ${theme.button}
+                `}
               >
                 {activeSlide.button}
 
                 <ArrowRight
+                  aria-hidden="true"
                   className="
-      h-4
-      w-4
-    "
+                    h-3.5
+                    w-3.5
+                    sm:h-4
+                    sm:w-4
+                  "
                 />
               </Link>
             </div>
 
-            {/* ================================================= */}
-            {/* DESKTOP RIGHT VISUAL */}
-            {/* ================================================= */}
+            {/* =================================================
+                DESKTOP RIGHT VISUAL
+            ================================================= */}
 
             <div
               className="
-      relative
-
-      hidden
-
-      min-h-70
-
-      items-center
-      justify-center
-
-      lg:flex
-    "
+                relative
+                hidden
+                min-h-[270px]
+                items-center
+                justify-center
+                lg:flex
+              "
             >
-              {/* Decorative circles */}
-
               <div
                 className="
-        absolute
-
-        h-72
-        w-72
-
-        rounded-full
-
-        bg-white/4
-      "
+                  absolute
+                  h-56
+                  w-56
+                  rounded-full
+                  bg-white/4
+                "
               />
 
               <div
                 className="
-        absolute
-
-        h-56
-        w-56
-
-        rounded-full
-
-        border
-        border-white/8
-      "
+                  absolute
+                  h-44
+                  w-44
+                  rounded-full
+                  border
+                  border-white/8
+                "
               />
 
               <div
                 className="
-        absolute
-
-        h-40
-        w-40
-
-        rounded-full
-
-        border
-        border-white/12
-      "
+                  absolute
+                  h-32
+                  w-32
+                  rounded-full
+                  border
+                  border-white/12
+                "
               />
-
-              {/* =============================================== */}
-              {/* HERO IMAGE */}
-              {/* =============================================== */}
 
               {activeSlide.image ? (
                 <div
                   key={`desktop-${activeSlide.image}`}
                   className="
-          relative
-          z-10
-
-          flex
-          items-center
-          justify-center
-
-          animate-[heroFloat_6s_ease-in-out_infinite]
-
-          will-change-transform
-
-          motion-reduce:animate-none
-        "
+                    relative
+                    z-10
+                    flex
+                    items-center
+                    justify-center
+                    animate-[heroFloat_6s_ease-in-out_infinite]
+                    will-change-transform
+                    motion-reduce:animate-none
+                  "
                 >
                   <Image
                     src={activeSlide.image}
                     alt={activeSlide.title}
-                    width={400}
-                    height={400}
+                    width={380}
+                    height={380}
                     unoptimized
                     className="
-            h-auto
+                      h-auto
+                      w-[78%]
+                      max-w-[340px]
+                      object-contain
+                      drop-shadow-2xl
+                      animate-in
+                      fade-in
+                      zoom-in-95
+                      duration-700
 
-            w-[88%]
-            max-w-100
-
-            object-contain
-
-            drop-shadow-2xl
-
-            animate-in
-            fade-in
-            zoom-in-95
-            duration-700
-
-            xl:max-w-120
-          "
+                      xl:max-w-[370px]
+                    "
                   />
                 </div>
               ) : (
                 <div
                   key={`icon-${activeIndex}`}
                   className="
-          relative
-          z-10
-
-          flex
-
-          h-44
-          w-44
-
-          items-center
-          justify-center
-
-          rounded-[2.75rem]
-
-          border
-          border-white/15
-
-          bg-white/8
-
-          shadow-2xl
-
-          backdrop-blur
-
-          animate-in
-          zoom-in-95
-          duration-500
-        "
+                    relative
+                    z-10
+                    flex
+                    h-36
+                    w-36
+                    items-center
+                    justify-center
+                    rounded-[2.25rem]
+                    border
+                    border-white/15
+                    bg-white/8
+                    shadow-2xl
+                    backdrop-blur
+                    animate-in
+                    zoom-in-95
+                    duration-500
+                  "
                 >
                   <Icon
+                    aria-hidden="true"
                     className={[
-                      "h-24 w-24",
+                      "h-20 w-20",
                       theme.icon,
-                    ].join(
-                      " "
-                    )}
+                    ].join(" ")}
                   />
                 </div>
               )}
 
-              {/* Floating info */}
+              {/* FLOATING INFO */}
 
               <div
                 className="
-        absolute
+                  absolute
+                  bottom-1
+                  right-2
+                  z-20
+                  rounded-xl
+                  border
+                  border-white/10
+                  bg-slate-950/20
+                  px-3
+                  py-2
+                  text-[10px]
+                  font-medium
+                  text-white/80
+                  backdrop-blur
 
-        bottom-3
-        right-5
-
-        z-20
-
-        rounded-2xl
-
-        border
-        border-white/10
-
-        bg-slate-950/20
-
-        px-4
-        py-3
-
-        text-xs
-        font-medium
-
-        text-white/80
-
-        backdrop-blur
-      "
+                  xl:bottom-2
+                  xl:right-4
+                  xl:px-4
+                  xl:py-2.5
+                  xl:text-xs
+                "
               >
                 Segar
 
                 <span
                   className="
-          mx-1.5
-
-          text-(--fresh-400)
-        "
+                    mx-1
+                    text-(--fresh-400)
+                    xl:mx-1.5
+                  "
                 >
                   •
                 </span>
@@ -814,10 +825,10 @@ export default function HomeHeroCarousel({
 
                 <span
                   className="
-          mx-1.5
-
-          text-(--fresh-400)
-        "
+                    mx-1
+                    text-(--fresh-400)
+                    xl:mx-1.5
+                  "
                 >
                   •
                 </span>
@@ -827,80 +838,119 @@ export default function HomeHeroCarousel({
             </div>
           </div>
 
-          {/* ================================================= */}
-          {/* PREVIOUS */}
-          {/* ================================================= */}
+          {/* =================================================
+              PREVIOUS
+          ================================================= */}
 
           <button
             type="button"
-            onClick={
-              previousSlide
-            }
+            onClick={previousSlide}
             aria-label="Banner sebelumnya"
-            className="absolute left-4 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-slate-950/20 text-white backdrop-blur transition hover:bg-white/15 lg:flex"
+            className="
+              absolute
+              left-3
+              top-1/2
+              hidden
+              h-9
+              w-9
+              -translate-y-1/2
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-white/15
+              bg-slate-950/20
+              text-white
+              backdrop-blur
+              transition
+              hover:bg-white/15
+              lg:flex
+            "
           >
-
-            <ChevronLeft className="h-5 w-5" />
-
+            <ChevronLeft
+              aria-hidden="true"
+              className="h-4.5 w-4.5"
+            />
           </button>
 
-          {/* ================================================= */}
-          {/* NEXT */}
-          {/* ================================================= */}
+          {/* =================================================
+              NEXT
+          ================================================= */}
 
           <button
             type="button"
-            onClick={
-              nextSlide
-            }
+            onClick={nextSlide}
             aria-label="Banner berikutnya"
-            className="absolute right-4 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-slate-950/20 text-white backdrop-blur transition hover:bg-white/15 lg:flex"
+            className="
+              absolute
+              right-3
+              top-1/2
+              hidden
+              h-9
+              w-9
+              -translate-y-1/2
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-white/15
+              bg-slate-950/20
+              text-white
+              backdrop-blur
+              transition
+              hover:bg-white/15
+              lg:flex
+            "
           >
-
-            <ChevronRight className="h-5 w-5" />
-
+            <ChevronRight
+              aria-hidden="true"
+              className="h-4.5 w-4.5"
+            />
           </button>
 
-          {/* ================================================= */}
-          {/* INDICATORS */}
-          {/* ================================================= */}
+          {/* =================================================
+              INDICATORS
+          ================================================= */}
 
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5 sm:bottom-5">
-
+          <div
+            className="
+              absolute
+              bottom-2.5
+              left-1/2
+              flex
+              -translate-x-1/2
+              gap-1.5
+              sm:bottom-3.5
+            "
+          >
             {slides.map(
               (
                 _,
                 index
               ) => (
                 <button
-                  key={
-                    index
-                  }
+                  key={index}
                   type="button"
                   onClick={() =>
-                    setActiveIndex(
-                      index
-                    )
+                    setActiveIndex(index)
                   }
-                  aria-label={`Tampilkan banner ${index + 1
-                    }`}
+                  aria-label={`Tampilkan banner ${index + 1}`}
+                  aria-current={
+                    activeIndex === index
+                      ? "true"
+                      : undefined
+                  }
                   className={[
                     "h-1.5 rounded-full transition-all duration-300",
-                    activeIndex ===
-                      index
-                      ? "w-7 bg-(--fresh-400)"
+                    activeIndex === index
+                      ? "w-6 bg-(--fresh-400)"
                       : "w-1.5 bg-white/35 hover:bg-white/70",
-                  ].join(
-                    " "
-                  )}
+                  ].join(" ")}
                 />
               )
             )}
-
           </div>
-
         </div>
-
       </div>
     </section>
   );

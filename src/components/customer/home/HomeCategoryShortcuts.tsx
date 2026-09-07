@@ -1,19 +1,19 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 /**
  * ============================================================
- * HOME CATEGORY
+ * HOME CATEGORY SHORTCUTS
  * ============================================================
  *
- * Data kategori berasal dari database Category.
+ * Kategori tetap berasal dari database.
  *
- * Image kategori dapat diatur melalui:
- *
- * Admin -> Categories
+ * UI:
+ * - Mobile: horizontal scroll, compact
+ * - Desktop: grid
+ * - Gambar menggunakan object-contain agar PNG transparan
+ *   dari Admin tidak terpotong.
  *
  * ============================================================
  */
@@ -27,42 +27,28 @@ export interface HomeCategory {
   sortOrder: number;
 }
 
-/**
- * ============================================================
- * PROPS
- * ============================================================
- */
-
 interface HomeCategoryShortcutsProps {
   productsHref: string;
   categories: HomeCategory[];
 }
 
-/**
- * ============================================================
- * COMPONENT
- * ============================================================
- */
-
 export default function HomeCategoryShortcuts({
   productsHref,
   categories,
 }: HomeCategoryShortcutsProps) {
-
-  /**
-   * ==========================================================
-   * EMPTY STATE
-   * ==========================================================
-   *
-   * Jika Admin belum memiliki kategori aktif,
-   * section tidak ditampilkan.
-   *
-   * ==========================================================
-   */
-
   if (categories.length === 0) {
     return null;
   }
+
+  /**
+   * Homepage hanya menampilkan shortcut kategori teratas.
+   * Semua kategori tetap dapat diakses melalui "Lihat semua".
+   *
+   * Urutan categories sudah ditentukan oleh SharedHomePage:
+   * sortOrder ASC, kemudian name ASC.
+   */
+  const visibleCategories =
+    categories.slice(0, 8);
 
   return (
     <section
@@ -70,8 +56,8 @@ export default function HomeCategoryShortcuts({
         w-full
         bg-white
         py-5
-        sm:py-7
-        lg:py-8
+        sm:py-6
+        lg:py-7
       "
     >
       <div
@@ -84,7 +70,6 @@ export default function HomeCategoryShortcuts({
           lg:px-8
         "
       >
-
         {/* ====================================================
             SECTION HEADER
         ==================================================== */}
@@ -93,20 +78,20 @@ export default function HomeCategoryShortcuts({
           className="
             mb-4
             flex
-            items-center
+            items-end
             justify-between
             gap-3
             sm:mb-5
           "
         >
-          <div>
+          <div className="min-w-0">
             <h2
               className="
-                text-lg
+                text-base
                 font-bold
                 tracking-tight
                 text-slate-900
-                sm:text-xl
+                sm:text-lg
               "
             >
               Belanja berdasarkan kategori
@@ -114,10 +99,11 @@ export default function HomeCategoryShortcuts({
 
             <p
               className="
-                mt-1
+                mt-0.5
+                hidden
                 text-xs
                 text-slate-500
-                sm:text-sm
+                sm:block
               "
             >
               Temukan produk sesuai kebutuhan Anda
@@ -130,22 +116,20 @@ export default function HomeCategoryShortcuts({
               flex
               shrink-0
               items-center
-              gap-1
+              gap-0.5
               text-xs
               font-semibold
-              text-slate-600
+              text-(--pisjo-primary)
               transition
-              hover:text-slate-900
+              hover:opacity-80
               sm:text-sm
             "
           >
             Lihat semua
 
             <ChevronRight
-              className="
-                h-4
-                w-4
-              "
+              aria-hidden="true"
+              className="h-4 w-4"
             />
           </Link>
         </div>
@@ -156,129 +140,165 @@ export default function HomeCategoryShortcuts({
 
         <div
           className="
-            flex
-            gap-3
+            -mx-4
             overflow-x-auto
-            pb-2
+            px-4
+            pb-1
             scrollbar-none
+
+            sm:mx-0
             sm:grid
             sm:grid-cols-4
             sm:gap-4
             sm:overflow-visible
+            sm:px-0
+
             lg:grid-cols-6
+            xl:grid-cols-8
+            lg:gap-5
           "
         >
-          {categories.map(
-            (category) => {
+          <div
+            className="
+              flex
+              w-max
+              gap-3
 
-              const categoryHref =
-                `${productsHref}?category=${encodeURIComponent(
-                  category.slug
-                )}`;
+              sm:contents
+            "
+          >
+            {visibleCategories.map(
+              (category) => {
+                const categoryHref =
+                  `${productsHref}?category=${encodeURIComponent(
+                    category.slug
+                  )}`;
 
-              return (
-                <Link
-                  key={category.id}
-                  href={categoryHref}
-                  className="
-                    group
-                    flex
-                    min-w-24
-                    shrink-0
-                    flex-col
-                    items-center
-                    text-center
-                    sm:min-w-0
-                  "
-                >
-
-                  {/* ==========================================
-                      CATEGORY IMAGE
-                  ========================================== */}
-
-                  <div
+                return (
+                  <Link
+                    key={category.id}
+                    href={categoryHref}
                     className="
-                      relative
-                      h-20
-                      w-20
-                      overflow-hidden
-                      rounded-full
-                      bg-slate-100
-                      ring-1
-                      ring-slate-200
-                      transition
-                      duration-200
-                      group-hover:scale-105
-                      group-hover:ring-slate-300
-                      sm:h-24
-                      sm:w-24
-                      lg:h-28
-                      lg:w-28
+                      group
+                      flex
+                      w-[76px]
+                      shrink-0
+                      flex-col
+                      items-center
+                      text-center
+
+                      sm:w-auto
                     "
                   >
-                    {category.image ? (
-                      <Image
-                        src={category.image}
-                        alt={category.name}
-                        fill
-                        sizes="
-                          (max-width: 639px) 80px,
-                          (max-width: 1023px) 96px,
-                          112px
-                        "
-                        className="
-                          object-cover
-                        "
-                      />
-                    ) : (
-                      <div
-                        className="
-                          flex
-                          h-full
-                          w-full
-                          items-center
-                          justify-center
-                          px-2
-                          text-[10px]
-                          font-medium
-                          text-slate-400
-                          sm:text-xs
-                        "
-                      >
-                        Tidak ada gambar
-                      </div>
-                    )}
-                  </div>
+                    {/* ========================================
+                        CATEGORY IMAGE
+                    ======================================== */}
 
-                  {/* ==========================================
-                      CATEGORY NAME
-                  ========================================== */}
+                    <div
+                      className="
+                        relative
+                        flex
+                        h-[68px]
+                        w-[68px]
+                        items-center
+                        justify-center
+                        overflow-hidden
+                        rounded-2xl
+                        bg-(--ice-50)
+                        ring-1
+                        ring-slate-100
+                        transition
+                        duration-200
+                        group-hover:-translate-y-0.5
+                        group-hover:ring-slate-200
 
-                  <span
-                    className="
-                      mt-2
-                      line-clamp-2
-                      max-w-24
-                      text-xs
-                      font-semibold
-                      leading-4
-                      text-slate-700
-                      transition
-                      group-hover:text-slate-900
-                      sm:max-w-28
-                      sm:text-sm
-                      sm:leading-5
-                    "
-                  >
-                    {category.name}
-                  </span>
+                        sm:h-20
+                        sm:w-20
 
-                </Link>
-              );
-            }
-          )}
+                        lg:h-24
+                        lg:w-24
+                      "
+                    >
+                      {category.image ? (
+                        <Image
+                          src={category.image}
+                          alt={category.name}
+                          fill
+                          sizes="
+                            (max-width: 639px) 68px,
+                            (max-width: 1023px) 80px,
+                            96px
+                          "
+                          className="
+                            object-contain
+                            p-1.5
+                            sm:p-2
+                          "
+                        />
+                      ) : (
+                        <span
+                          className="
+                            px-1
+                            text-[9px]
+                            font-medium
+                            leading-3
+                            text-slate-400
+                            sm:text-[10px]
+                          "
+                        >
+                          Tidak ada gambar
+                        </span>
+                      )}
+                    </div>
+
+                    {/* ========================================
+                        CATEGORY NAME
+                    ======================================== */}
+
+                    <span
+                      className="
+                        mt-2
+                        line-clamp-2
+                        w-full
+                        text-[11px]
+                        font-semibold
+                        leading-4
+                        text-slate-700
+                        transition
+                        group-hover:text-(--pisjo-primary)
+
+                        sm:text-xs
+                        sm:leading-4
+
+                        lg:text-sm
+                      "
+                    >
+                      {category.name}
+                    </span>
+                  </Link>
+                );
+              }
+            )}
+          </div>
         </div>
 
+        {/* ====================================================
+            MOBILE SCROLL HINT
+        ==================================================== */}
+
+        {categories.length > visibleCategories.length && (
+          <p
+            className="
+              mt-2
+              text-center
+              text-[10px]
+              text-slate-400
+              sm:hidden
+            "
+          >
+            Geser untuk melihat kategori lainnya
+          </p>
+        )}
       </div>
     </section>
   );

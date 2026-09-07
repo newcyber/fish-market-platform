@@ -8,6 +8,8 @@ import WishlistService from "@/services/wishlist/wishlist.service";
 import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import DynamicSiteFooter from "@/components/layout/DynamicSiteFooter";
 
+import CustomerBottomNavigation from "@/components/customer/CustomerBottomNavigation";
+
 interface CustomerLayoutProps {
   children: React.ReactNode;
 }
@@ -47,7 +49,6 @@ export default async function CustomerLayout({
 
   const [customer, wishlist] = await Promise.all([
     CustomerService.getCustomerById(session.user.id),
-
     WishlistService.getWishlist(session.user.id),
   ]);
 
@@ -63,8 +64,7 @@ export default async function CustomerLayout({
    * WISHLIST COUNT
    * ============================================================ */
 
-  const wishlistCount =
-    wishlist?.items.length ?? 0;
+  const wishlistCount = wishlist?.items.length ?? 0;
 
   /* ============================================================
    * CUSTOMER DISPLAY DATA
@@ -101,7 +101,7 @@ export default async function CustomerLayout({
       {/* MAIN CONTENT                                           */}
       {/* ====================================================== */}
 
-      <main className="flex-1">
+      <main className="flex-1 pb-16 md:pb-0">
         {children}
       </main>
 
@@ -110,6 +110,12 @@ export default async function CustomerLayout({
       {/* ====================================================== */}
 
       <DynamicSiteFooter />
+
+      {/* ====================================================== */}
+      {/* MOBILE BOTTOM NAVIGATION                               */}
+      {/* ====================================================== */}
+
+      <CustomerBottomNavigation />
 
     </div>
   );
