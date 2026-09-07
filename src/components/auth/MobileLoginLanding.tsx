@@ -17,27 +17,14 @@ interface MobileLoginLandingProps {
   storeDescription: string;
   siteLogo: string | null;
   storeInitial: string;
+
+  loginSlide1Image: string | null;
+  loginSlide2Image: string | null;
+  loginSlide3Image: string | null;
+  loginSlide4Image: string | null;
+
   onLogin: () => void;
 }
-
-const HERO_IMAGES = [
-  {
-    src: "/images/auth/slide1.webp",
-    alt: "Ikan segar Pisjo Market",
-  },
-  {
-    src: "/images/auth/slide2.webp",
-    alt: "Seafood segar Pisjo Market",
-  },
-  {
-    src: "/images/auth/slide3.webp",
-    alt: "Produk seafood Pisjo Market",
-  },
-  {
-    src: "/images/auth/slide4.webp",
-    alt: "Hasil laut segar Pisjo Market",
-  },
-];
 
 const MENU_ITEMS = [
   {
@@ -67,21 +54,69 @@ export default function MobileLoginLanding({
   storeDescription,
   siteLogo,
   storeInitial,
+  loginSlide1Image,
+  loginSlide2Image,
+  loginSlide3Image,
+  loginSlide4Image,
   onLogin,
 }: MobileLoginLandingProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  /**
+   * ==========================================================
+   * LOGIN SLIDER
+   * ==========================================================
+   *
+   * Jika Admin Settings memiliki gambar custom,
+   * gunakan gambar tersebut.
+   *
+   * Jika belum ada, gunakan gambar default bawaan
+   * dari public/images/auth.
+   */
+  const LOGIN_SLIDES = [
+    {
+      src:
+        loginSlide1Image ||
+        "/images/auth/slide1.webp",
+      alt: "Ikan segar Pisjo Market",
+    },
+    {
+      src:
+        loginSlide2Image ||
+        "/images/auth/slide2.webp",
+      alt: "Seafood segar Pisjo Market",
+    },
+    {
+      src:
+        loginSlide3Image ||
+        "/images/auth/slide3.webp",
+      alt: "Produk seafood Pisjo Market",
+    },
+    {
+      src:
+        loginSlide4Image ||
+        "/images/auth/slide4.webp",
+      alt: "Hasil laut segar Pisjo Market",
+    },
+  ];
 
+  const [activeIndex, setActiveIndex] =
+    useState(0);
+
+  /**
+   * ==========================================================
+   * AUTO SLIDER
+   * ==========================================================
+   */
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveIndex((current) => (
         current + 1
-      ) % HERO_IMAGES.length);
+      ) % LOGIN_SLIDES.length);
     }, 5500);
 
     return () => {
       window.clearInterval(timer);
     };
-  }, []);
+  }, [LOGIN_SLIDES.length]);
 
   return (
     <div
@@ -89,7 +124,7 @@ export default function MobileLoginLanding({
         flex
         min-h-svh
         flex-col
-        bg-white
+        bg-sky-800
         text-slate-900
       "
     >
@@ -100,17 +135,23 @@ export default function MobileLoginLanding({
       <section
         className="
           relative
+          mx-4
+          mt-20
           h-107.5
-          w-full
+          w-auto
           overflow-hidden
+          rounded-3xl
           bg-slate-900
+          shadow-xl
         "
       >
-        {/* IMAGES */}
+        {/* ==================================================
+            IMAGES
+        ================================================== */}
 
-        {HERO_IMAGES.map((image, index) => (
+        {LOGIN_SLIDES.map((image, index) => (
           <div
-            key={image.src}
+            key={`${image.src}-${index}`}
             className={`
               absolute
               inset-0
@@ -130,11 +171,14 @@ export default function MobileLoginLanding({
               sizes="100vw"
               priority={index === 0}
               className="object-cover"
+              unoptimized
             />
           </div>
         ))}
 
-        {/* DARK GRADIENT */}
+        {/* ==================================================
+            DARK GRADIENT
+        ================================================== */}
 
         <div
           className="
@@ -147,7 +191,9 @@ export default function MobileLoginLanding({
           "
         />
 
-        {/* CONTENT */}
+        {/* ==================================================
+            CONTENT
+        ================================================== */}
 
         <div
           className="
@@ -163,7 +209,9 @@ export default function MobileLoginLanding({
             text-center
           "
         >
-          {/* LOGO */}
+          {/* ==================================================
+              LOGO
+          ================================================== */}
 
           <div
             className="
@@ -189,6 +237,7 @@ export default function MobileLoginLanding({
                 fill
                 sizes="64px"
                 className="object-contain p-1.5"
+                unoptimized
               />
             ) : (
               <span
@@ -203,6 +252,10 @@ export default function MobileLoginLanding({
             )}
           </div>
 
+          {/* ==================================================
+              STORE NAME
+          ================================================== */}
+
           <h1
             className="
               text-3xl
@@ -214,6 +267,10 @@ export default function MobileLoginLanding({
           >
             {storeName}
           </h1>
+
+          {/* ==================================================
+              STORE DESCRIPTION
+          ================================================== */}
 
           <p
             className="
@@ -242,12 +299,14 @@ export default function MobileLoginLanding({
             terpercaya, mudah dan praktis.
           </p>
 
-          {/* INDICATORS */}
+          {/* ==================================================
+              INDICATORS
+          ================================================== */}
 
           <div className="mt-4 flex items-center gap-1.5">
-            {HERO_IMAGES.map((image, index) => (
+            {LOGIN_SLIDES.map((image, index) => (
               <span
-                key={image.src}
+                key={`${image.src}-indicator-${index}`}
                 className={`
                   h-1.5
                   rounded-full
@@ -265,134 +324,156 @@ export default function MobileLoginLanding({
         </div>
       </section>
 
-      {/* =====================================================
-          CTA
-      ====================================================== */}
+{/* =====================================================
+    CTA
+====================================================== */}
 
-      <section className="px-4 py-4">
-        <div className="mx-auto flex w-full max-w-md gap-3">
-          <Link
-            href="/register"
-            className="
-              flex
-              h-12
-              flex-1
-              items-center
-              justify-center
-              rounded-full
-              border
-              border-sky-700
-              bg-white
-              px-4
-              text-sm
-              font-bold
-              text-sky-700
-              shadow-sm
-              transition
-              active:scale-[0.98]
-            "
-          >
-            Daftar
-          </Link>
+<section
+  className="
+    px-4
+    py-4
+  "
+>
+  <div
+    className="
+      mx-auto
+      flex
+      w-full
+      max-w-md
+      gap-3
+    "
+  >
+    <Link
+      href="/register"
+      className="
+        flex
+        h-12
+        flex-1
+        items-center
+        justify-center
+        rounded-full
+        border-2
+        border-white
+        bg-white
+        px-4
+        text-sm
+        font-bold
+        text-sky-700
+        shadow-lg
+        ring-1
+        ring-sky-200/50
+        transition
+        hover:bg-slate-50
+        active:scale-[0.98]
+      "
+    >
+      Daftar
+    </Link>
 
-          <button
-            type="button"
-            onClick={onLogin}
-            className="
-              flex
-              h-12
-              flex-1
-              items-center
-              justify-center
-              rounded-full
-              bg-sky-700
-              px-4
-              text-sm
-              font-bold
-              text-white
-              shadow-md
-              transition
-              active:scale-[0.98]
-            "
-          >
-            Masuk
-          </button>
-        </div>
-      </section>
+    <button
+      type="button"
+      onClick={onLogin}
+      className="
+        flex
+        h-12
+        flex-1
+        items-center
+        justify-center
+        rounded-full
+        border-2
+        border-sky-400
+        bg-sky-600
+        px-4
+        text-sm
+        font-bold
+        text-white
+        shadow-lg
+        ring-1
+        ring-white/20
+        transition
+        hover:bg-sky-500
+        active:scale-[0.98]
+      "
+    >
+      Masuk
+    </button>
+  </div>
+</section>
 
-      {/* =====================================================
-          MENU
-      ====================================================== */}
+{/* =====================================================
+    MENU
+====================================================== */}
 
-      <section className="px-4">
-        <div
-          className="
-            mx-auto
-            w-full
-            max-w-md
-            overflow-hidden
-            rounded-2xl
-            border
-            border-slate-200
-            bg-white
-          "
+<section className="px-4">
+  <div
+    className="
+      mx-auto
+      w-full
+      max-w-md
+      overflow-hidden
+      rounded-3xl
+      border
+      border-slate-200
+      bg-white
+      shadow-sm
+    "
+  >
+    {MENU_ITEMS.map((item, index) => {
+      const Icon = item.icon;
+
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={`
+            flex
+            min-h-14
+            items-center
+            gap-3
+            px-4
+            transition
+            active:bg-slate-50
+            ${
+              index !== MENU_ITEMS.length - 1
+                ? "border-b border-slate-200"
+                : ""
+            }
+          `}
         >
-          {MENU_ITEMS.map((item, index) => {
-            const Icon = item.icon;
+          <Icon
+            className="
+              h-5
+              w-5
+              shrink-0
+              text-slate-500
+            "
+          />
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`
-                  flex
-                  min-h-14
-                  items-center
-                  gap-3
-                  px-4
-                  transition
-                  active:bg-slate-50
-                  ${
-                    index !== MENU_ITEMS.length - 1
-                      ? "border-b border-slate-200"
-                      : ""
-                  }
-                `}
-              >
-                <Icon
-                  className="
-                    h-5
-                    w-5
-                    shrink-0
-                    text-slate-500
-                  "
-                />
+          <span
+            className="
+              flex-1
+              text-left
+              text-sm
+              font-medium
+              text-slate-700
+            "
+          >
+            {item.label}
+          </span>
 
-                <span
-                  className="
-                    flex-1
-                    text-left
-                    text-sm
-                    font-medium
-                    text-slate-700
-                  "
-                >
-                  {item.label}
-                </span>
-
-                <ChevronRight
-                  className="
-                    h-5
-                    w-5
-                    shrink-0
-                    text-slate-400
-                  "
-                />
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+          <ChevronRight
+            className="
+              h-5
+              w-5
+              shrink-0
+              text-slate-400
+            "
+          />
+        </Link>
+      );
+    })}
+  </div>
+</section>
 
       {/* =====================================================
           FOOTER
@@ -420,7 +501,13 @@ export default function MobileLoginLanding({
         >
           <span>{storeName}</span>
 
-          <ArrowRight className="h-3 w-3 -rotate-45" />
+          <ArrowRight
+            className="
+              h-3
+              w-3
+              -rotate-45
+            "
+          />
 
           <span>Fresh Seafood Market</span>
         </div>

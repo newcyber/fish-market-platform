@@ -55,6 +55,21 @@ export interface UpdateStoreSettingsPayload {
 
   heroSlide3Image?: string | null;
 
+/**
+ * ==========================================================
+ * MOBILE LOGIN SLIDER IMAGES
+ * ==========================================================
+ *
+ * Gambar slider pada halaman login mobile.
+ */
+  loginSlide1Image?: string | null;
+
+  loginSlide2Image?: string | null;
+
+  loginSlide3Image?: string | null;
+
+  loginSlide4Image?: string | null;
+
   flashSaleBannerImage?: string | null;
 
     heroSlide1Eyebrow?: string | null;
@@ -319,6 +334,18 @@ class SettingsService {
 
     const heroSlide3Button =
       normalize(payload.heroSlide3Button);
+
+    const loginSlide1Image =
+      normalize(payload.loginSlide1Image);
+
+    const loginSlide2Image =
+      normalize(payload.loginSlide2Image);
+
+    const loginSlide3Image =
+      normalize(payload.loginSlide3Image);
+
+    const loginSlide4Image =
+      normalize(payload.loginSlide4Image);
 
     const flashSaleBannerLabel =
       normalize(payload.flashSaleBannerLabel);
@@ -678,6 +705,26 @@ class SettingsService {
 
       heroSlide3Button:
         heroSlide3Button,
+
+      loginSlide1Image:
+        normalize(
+          payload.loginSlide1Image
+        ),
+
+      loginSlide2Image:
+        normalize(
+          payload.loginSlide2Image
+        ),
+
+      loginSlide3Image:
+        normalize(
+          payload.loginSlide3Image
+        ),
+
+      loginSlide4Image:
+        normalize(
+          payload.loginSlide4Image
+        ),
 
       flashSaleBannerImage:
         normalize(

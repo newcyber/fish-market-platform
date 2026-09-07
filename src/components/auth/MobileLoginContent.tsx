@@ -13,6 +13,11 @@ interface MobileLoginContentProps {
   storeDescription: string;
   siteLogo: string | null;
   storeInitial: string;
+
+  loginSlide1Image: string | null;
+  loginSlide2Image: string | null;
+  loginSlide3Image: string | null;
+  loginSlide4Image: string | null;
 }
 
 export default function MobileLoginContent({
@@ -21,6 +26,10 @@ export default function MobileLoginContent({
   storeDescription,
   siteLogo,
   storeInitial,
+  loginSlide1Image,
+  loginSlide2Image,
+  loginSlide3Image,
+  loginSlide4Image,
 }: MobileLoginContentProps) {
   const pathname = usePathname();
 
@@ -49,15 +58,19 @@ export default function MobileLoginContent({
    */
   if (!showLogin) {
     return (
-      <MobileLoginLanding
-        storeName={storeName}
-        storeDescription={storeDescription}
-        siteLogo={siteLogo}
-        storeInitial={storeInitial}
-        onLogin={() => {
-          setShowLogin(true);
-        }}
-      />
+<MobileLoginLanding
+  storeName={storeName}
+  storeDescription={storeDescription}
+  siteLogo={siteLogo}
+  storeInitial={storeInitial}
+  loginSlide1Image={loginSlide1Image}
+  loginSlide2Image={loginSlide2Image}
+  loginSlide3Image={loginSlide3Image}
+  loginSlide4Image={loginSlide4Image}
+  onLogin={() => {
+    setShowLogin(true);
+  }}
+/>
     );
   }
 

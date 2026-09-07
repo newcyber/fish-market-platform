@@ -105,6 +105,15 @@ const SETTINGS_UPLOAD_DIRECTORY =
     "settings"
   );
 
+const LOGIN_UPLOAD_DIRECTORY =
+  path.join(
+    PROJECT_ROOT,
+    "public",
+    "uploads",
+    "settings",
+    "login"
+  );
+
 /**
  * ============================================================
  * ALLOWED IMAGE MIME TYPES
@@ -127,6 +136,7 @@ const MIME_TO_EXTENSION:
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
     "image/webp": ".webp",
+    "image/gif": ".gif",
   };
 
 /**
@@ -287,6 +297,32 @@ static async deleteCategoryImage(
       "/uploads/settings"
     );
   }
+
+  /**
+ * ==========================================================
+ * SAVE LOGIN SLIDER IMAGE
+ * ==========================================================
+ *
+ * Storage:
+ *
+ * public/uploads/settings/login
+ *
+ * Public URL:
+ *
+ * /uploads/settings/login/{filename}
+ *
+ * ==========================================================
+ */
+
+static async saveLoginImage(
+  file: File
+): Promise<string> {
+  return this.saveToDirectory(
+    file,
+    LOGIN_UPLOAD_DIRECTORY,
+    "/uploads/settings/login"
+  );
+}
 
   /**
    * ==========================================================

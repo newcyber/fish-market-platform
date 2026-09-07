@@ -63,9 +63,17 @@ export interface UpdateSettingsActionInput {
 
   heroSlide3Image?: string | null;
 
+  loginSlide1Image?: string | null;
+
+  loginSlide2Image?: string | null;
+
+  loginSlide3Image?: string | null;
+
+  loginSlide4Image?: string | null;
+
   flashSaleBannerImage?: string | null;
 
-    heroSlide1Eyebrow?: string | null;
+  heroSlide1Eyebrow?: string | null;
   heroSlide1Title?: string | null;
   heroSlide1Highlight?: string | null;
   heroSlide1Description?: string | null;
@@ -239,6 +247,18 @@ export async function updateSettingsAction(
 
       heroSlide3Image:
         input.heroSlide3Image,
+
+      loginSlide1Image:
+        input.loginSlide1Image,
+
+      loginSlide2Image:
+        input.loginSlide2Image,
+
+      loginSlide3Image:
+        input.loginSlide3Image,
+
+      loginSlide4Image:
+        input.loginSlide4Image,
 
       flashSaleBannerImage:
         input.flashSaleBannerImage,

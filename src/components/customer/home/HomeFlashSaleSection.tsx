@@ -426,29 +426,29 @@ function FlashSaleProductCard({
       className="
         group
         block
-        w-[158px]
+        w-[138px]
         shrink-0
         overflow-hidden
-        rounded-2xl
+        rounded-xl
         border
         border-slate-100
         bg-white
-        shadow-[0_5px_18px_rgba(18,58,99,0.08)]
+        shadow-[0_3px_12px_rgba(18,58,99,0.06)]
         transition
         duration-200
         active:scale-[0.99]
         sm:w-auto
         sm:min-w-0
-        sm:rounded-2xl
-        lg:hover:-translate-y-1
-        lg:hover:shadow-[0_12px_28px_rgba(18,58,99,0.12)]
+        sm:rounded-xl
+        lg:hover:-translate-y-0.5
+        lg:hover:shadow-[0_8px_20px_rgba(18,58,99,0.10)]
       "
     >
       {/* IMAGE */}
       <div
         className="
           relative
-          aspect-square
+          aspect-[1.05/1]
           overflow-hidden
           bg-(--ice-50)
         "
@@ -459,9 +459,9 @@ function FlashSaleProductCard({
             alt={item.product.name}
             fill
             sizes="
-              (max-width: 639px) 158px,
-              (max-width: 1023px) 180px,
-              210px
+              (max-width: 639px) 138px,
+              (max-width: 1023px) 170px,
+              190px
             "
             className="
               object-contain
@@ -482,7 +482,7 @@ function FlashSaleProductCard({
               text-slate-300
             "
           >
-            <Package className="h-8 w-8" />
+            <Package className="h-6 w-6" />
           </div>
         )}
 
@@ -490,13 +490,13 @@ function FlashSaleProductCard({
           <span
             className="
               absolute
-              left-2
-              top-2
+              left-1.5
+              top-1.5
               rounded-md
               bg-rose-500
               px-1.5
-              py-1
-              text-[9px]
+              py-0.5
+              text-[8px]
               font-black
               text-white
             "
@@ -507,16 +507,16 @@ function FlashSaleProductCard({
       </div>
 
       {/* CONTENT */}
-      <div className="p-3">
+      <div className="p-2.5">
         <h3
           className="
             line-clamp-2
             min-h-8
-            text-[11px]
+            text-[10px]
             font-bold
             leading-4
             text-slate-800
-            sm:text-xs
+            sm:text-[11px]
           "
         >
           {item.product.name}
@@ -524,12 +524,12 @@ function FlashSaleProductCard({
 
         <p
           className="
-            mt-2
-            text-sm
+            mt-1.5
+            text-[13px]
             font-black
             leading-5
             text-[var(--ocean-900)]
-            sm:text-base
+            sm:text-sm
           "
         >
           {formatRupiah(item.flashPrice)}
@@ -539,7 +539,8 @@ function FlashSaleProductCard({
           className="
             mt-0.5
             truncate
-            text-[10px]
+            text-[9px]
+            leading-4
             text-slate-400
             line-through
           "
@@ -548,10 +549,10 @@ function FlashSaleProductCard({
         </p>
 
         {/* STOCK */}
-        <div className="mt-2">
+        <div className="mt-1.5">
           <div
             className="
-              h-1.5
+              h-1
               overflow-hidden
               rounded-full
               bg-slate-100
@@ -572,15 +573,14 @@ function FlashSaleProductCard({
 
           <p
             className="
-              mt-1
-              text-[9px]
+              mt-0.5
+              text-[8px]
               font-medium
+              leading-3
               text-slate-400
             "
           >
-            {item.soldQuantity > 0
-              ? `${item.soldQuantity} terjual`
-              : "Stok terbatas"}
+            {soldPercent}% terjual
           </p>
         </div>
       </div>

@@ -90,6 +90,11 @@ heroSlide3Highlight: string | null;
 heroSlide3Description: string | null;
 heroSlide3Button: string | null;
 
+loginSlide1Image: string | null;
+loginSlide2Image: string | null;
+loginSlide3Image: string | null;
+loginSlide4Image: string | null;
+
 flashSaleBannerImage: string | null;
 flashSaleBannerLabel: string | null;
 flashSaleBannerTitle: string | null;
@@ -165,6 +170,15 @@ const ALLOWED_LOGO_TYPES = [
 const MAX_HERO_IMAGE_SIZE =
   5 * 1024 * 1024;
 
+const MAX_LOGIN_IMAGE_SIZE =
+  5 * 1024 * 1024;
+
+const ALLOWED_LOGIN_IMAGE_TYPES = [
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
 const MAX_FLASH_SALE_IMAGE_SIZE =
   5 * 1024 * 1024;
 
@@ -184,6 +198,12 @@ type HeroSlideKey =
   | "slide1"
   | "slide2"
   | "slide3";
+
+type LoginSlideKey =
+  | "slide1"
+  | "slide2"
+  | "slide3"
+  | "slide4";
 
 /**
  * ============================================================
@@ -377,6 +397,59 @@ const heroSlide3InputRef =
   useRef<HTMLInputElement | null>(
     null
   );
+
+/**
+ * ==========================================================
+ * MOBILE LOGIN SLIDER IMAGE STATE
+ * ==========================================================
+ */
+
+const [
+  loginSlide1Image,
+  setLoginSlide1Image,
+] = useState<string | null>(
+  settings.loginSlide1Image
+);
+
+const [
+  loginSlide2Image,
+  setLoginSlide2Image,
+] = useState<string | null>(
+  settings.loginSlide2Image
+);
+
+const [
+  loginSlide3Image,
+  setLoginSlide3Image,
+] = useState<string | null>(
+  settings.loginSlide3Image
+);
+
+const [
+  loginSlide4Image,
+  setLoginSlide4Image,
+] = useState<string | null>(
+  settings.loginSlide4Image
+);
+
+const [
+  uploadingLoginSlide,
+  setUploadingLoginSlide,
+] = useState<LoginSlideKey | null>(
+  null
+);
+
+const loginSlide1InputRef =
+  useRef<HTMLInputElement | null>(null);
+
+const loginSlide2InputRef =
+  useRef<HTMLInputElement | null>(null);
+
+const loginSlide3InputRef =
+  useRef<HTMLInputElement | null>(null);
+
+const loginSlide4InputRef =
+  useRef<HTMLInputElement | null>(null);
 
 const [
   flashSaleBannerImage,
@@ -681,6 +754,29 @@ function setHeroSlideImage(
   }
 }
 
+function setLoginSlideImage(
+  slide: LoginSlideKey,
+  value: string | null
+) {
+  switch (slide) {
+    case "slide1":
+      setLoginSlide1Image(value);
+      break;
+
+    case "slide2":
+      setLoginSlide2Image(value);
+      break;
+
+    case "slide3":
+      setLoginSlide3Image(value);
+      break;
+
+    case "slide4":
+      setLoginSlide4Image(value);
+      break;
+  }
+}
+
 /**
  * ==========================================================
  * UPLOAD HERO IMAGE
@@ -965,6 +1061,173 @@ async function handleHeroImageChange(
      */
 
     setUploadingHeroSlide(
+      null
+    );
+  }
+}
+
+/**
+ * ==========================================================
+ * UPLOAD MOBILE LOGIN SLIDER IMAGE
+ * ==========================================================
+ */
+async function handleLoginImageChange(
+  slide: LoginSlideKey,
+  event: React.ChangeEvent<HTMLInputElement>
+) {
+  const file =
+    event.target.files?.[0];
+
+  /**
+   * Reset input agar file yang sama
+   * tetap dapat dipilih kembali.
+   */
+  event.target.value = "";
+
+  if (!file) {
+    return;
+  }
+
+  setMessage(null);
+  setIsSuccess(null);
+
+  /**
+   * --------------------------------------------------------
+   * VALIDATE MIME TYPE
+   * --------------------------------------------------------
+   */
+  if (
+    !ALLOWED_LOGIN_IMAGE_TYPES.includes(
+      file.type as
+        | "image/png"
+        | "image/webp"
+        | "image/gif"
+    )
+  ) {
+    setMessage(
+      "Format gambar Login harus PNG, WEBP, atau GIF."
+    );
+
+    setIsSuccess(false);
+
+    return;
+  }
+
+  /**
+   * --------------------------------------------------------
+   * VALIDATE FILE SIZE
+   * --------------------------------------------------------
+   */
+  if (
+    file.size <= 0 ||
+    file.size > MAX_LOGIN_IMAGE_SIZE
+  ) {
+    setMessage(
+      "Ukuran gambar Login maksimal 5 MB."
+    );
+
+    setIsSuccess(false);
+
+    return;
+  }
+
+  try {
+    setUploadingLoginSlide(slide);
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "file",
+      file
+    );
+
+    formData.append(
+      "slide",
+      slide
+    );
+
+    /**
+     * ------------------------------------------------------
+     * UPLOAD LOGIN IMAGE
+     * ------------------------------------------------------
+     */
+    const response =
+      await fetch(
+        "/api/settings/login-image",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+    const result =
+      await response
+        .json()
+        .catch(() => null);
+
+    console.log(
+      "[LOGIN_IMAGE_UPLOAD_RESPONSE]",
+      {
+        status: response.status,
+        ok: response.ok,
+        result,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        result?.message ||
+          "Gagal mengupload gambar Login."
+      );
+    }
+
+    /**
+     * API kita mengembalikan:
+     *
+     * data: {
+     *   path,
+     *   slide
+     * }
+     */
+    const uploadedUrl =
+      result?.data?.path;
+
+    if (
+      typeof uploadedUrl !==
+        "string" ||
+      uploadedUrl.trim() === ""
+    ) {
+      throw new Error(
+        "Upload gambar berhasil, tetapi path gambar tidak ditemukan pada response server."
+      );
+    }
+
+    setLoginSlideImage(
+      slide,
+      uploadedUrl
+    );
+
+    setMessage(
+      "Gambar Login berhasil diupload. Jangan lupa klik Simpan Pengaturan."
+    );
+
+    setIsSuccess(true);
+  } catch (error) {
+    console.error(
+      "Failed to upload login image:",
+      error
+    );
+
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan saat mengupload gambar Login."
+    );
+
+    setIsSuccess(false);
+  } finally {
+    setUploadingLoginSlide(
       null
     );
   }
@@ -1312,6 +1575,16 @@ if (uploadingHeroSlide) {
   return;
 }
 
+if (uploadingLoginSlide) {
+  setMessage(
+    "Tunggu hingga proses upload gambar Login selesai."
+  );
+
+  setIsSuccess(false);
+
+  return;
+}
+
 if (isUploadingFlashSaleBanner) {
   setMessage(
     "Tunggu hingga proses upload gambar Flash Sale selesai."
@@ -1349,15 +1622,23 @@ if (isUploadingFlashSaleBanner) {
  * HERO SLIDER IMAGES
  */
 
-heroSlide1Image,
+      heroSlide1Image,
 
-heroSlide2Image,
+      heroSlide2Image,
 
-heroSlide3Image,
+      heroSlide3Image,
+
+/**
+ * MOBILE LOGIN SLIDER IMAGES
+ */
+      loginSlide1Image,
+      loginSlide2Image,
+      loginSlide3Image,
+      loginSlide4Image,
 
       flashSaleBannerImage,
 
-            heroSlide1Eyebrow,
+      heroSlide1Eyebrow,
       heroSlide1Title,
       heroSlide1Highlight,
       heroSlide1Description,
@@ -2069,6 +2350,189 @@ heroSlide3Image,
       Jika gambar tidak diatur, homepage akan tetap menggunakan icon default.
       Gambar hanya digunakan sebagai visual pada sisi kanan Hero Slider dan
       tidak menggantikan background atau isi slide.
+    </p>
+  </div>
+</section>
+
+{/* ====================================================== */}
+{/* MOBILE LOGIN SLIDER */}
+{/* ====================================================== */}
+
+<section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  <div className="mb-6 flex items-start gap-3">
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+      <ImagePlus className="h-5 w-5" />
+    </div>
+
+    <div>
+      <h2 className="text-base font-bold text-slate-900">
+        Mobile Login Slider
+      </h2>
+
+      <p className="mt-1 text-sm text-slate-500">
+        Atur gambar slider yang tampil pada halaman login versi mobile.
+      </p>
+    </div>
+  </div>
+
+  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+    {(
+      [
+        {
+          key: "slide1" as const,
+          title: "Login Slide 1",
+          description: "Gambar pertama pada slider login mobile.",
+          image: loginSlide1Image,
+          inputRef: loginSlide1InputRef,
+        },
+        {
+          key: "slide2" as const,
+          title: "Login Slide 2",
+          description: "Gambar kedua pada slider login mobile.",
+          image: loginSlide2Image,
+          inputRef: loginSlide2InputRef,
+        },
+        {
+          key: "slide3" as const,
+          title: "Login Slide 3",
+          description: "Gambar ketiga pada slider login mobile.",
+          image: loginSlide3Image,
+          inputRef: loginSlide3InputRef,
+        },
+        {
+          key: "slide4" as const,
+          title: "Login Slide 4",
+          description: "Gambar keempat pada slider login mobile.",
+          image: loginSlide4Image,
+          inputRef: loginSlide4InputRef,
+        },
+      ] as const
+    ).map((slide) => {
+      const isUploading =
+        uploadingLoginSlide === slide.key;
+
+      return (
+        <div
+          key={slide.key}
+          className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+        >
+          <div className="relative flex aspect-9/16 items-center justify-center overflow-hidden border-b border-slate-200 bg-white">
+            {slide.image ? (
+              <Image
+                src={slide.image}
+                alt={slide.title}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1280px) 25vw, 280px"
+                className="object-cover"
+                unoptimized
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 px-4 text-center text-slate-400">
+                <ImagePlus className="h-10 w-10" />
+
+                <span className="text-xs font-medium">
+                  Menggunakan gambar default
+                </span>
+              </div>
+            )}
+
+            {isUploading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm">
+                <Loader2 className="h-7 w-7 animate-spin text-slate-900" />
+
+                <span className="text-xs font-semibold text-slate-700">
+                  Mengupload gambar...
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4">
+            <h3 className="text-sm font-bold text-slate-900">
+              {slide.title}
+            </h3>
+
+            <p className="mt-1 min-h-10 text-xs leading-5 text-slate-500">
+              {slide.description}
+            </p>
+
+            <p className="mt-3 text-[11px] leading-5 text-slate-400">
+              PNG, WEBP, atau GIF. Maksimal 5 MB.
+            </p>
+
+            <input
+              ref={slide.inputRef}
+              type="file"
+              accept=".png,.webp,.gif,image/png,image/webp,image/gif"
+              onChange={(event) =>
+                handleLoginImageChange(
+                  slide.key,
+                  event
+                )
+              }
+              className="hidden"
+            />
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  slide.inputRef.current?.click()
+                }
+                disabled={
+                  isPending ||
+                  uploadingLoginSlide !== null
+                }
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <ImagePlus className="h-4 w-4" />
+                    {slide.image
+                      ? "Ganti"
+                      : "Upload"}
+                  </>
+                )}
+              </button>
+
+              {slide.image && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLoginSlideImage(
+                      slide.key,
+                      null
+                    )
+                  }
+                  disabled={
+                    isPending ||
+                    uploadingLoginSlide !== null
+                  }
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-3 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={`Hapus ${slide.title}`}
+                  title="Hapus gambar"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+    <p className="text-xs leading-5 text-blue-700">
+      Jika gambar Login tidak diatur, halaman login
+      mobile akan otomatis menggunakan gambar default
+      bawaan sistem. Perubahan baru aktif setelah
+      Anda menekan Simpan Pengaturan.
     </p>
   </div>
 </section>
@@ -3046,16 +3510,17 @@ heroSlide3Image,
 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
   <button
     type="submit"
-    disabled={
-      isPending ||
-      isLocating ||
-      isUploadingLogo ||
-      uploadingHeroSlide !== null ||
-      isUploadingFlashSaleBanner
-    }
+disabled={
+  isPending ||
+  isLocating ||
+  isUploadingLogo ||
+  uploadingHeroSlide !== null ||
+  uploadingLoginSlide !== null ||
+  isUploadingFlashSaleBanner
+}
     className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
   >
-          {isPending ? (
+{isPending ? (
   <>
     <Loader2 className="h-4 w-4 animate-spin" />
     Menyimpan...
@@ -3069,6 +3534,11 @@ heroSlide3Image,
   <>
     <Loader2 className="h-4 w-4 animate-spin" />
     Mengupload Gambar Hero...
+  </>
+) : uploadingLoginSlide ? (
+  <>
+    <Loader2 className="h-4 w-4 animate-spin" />
+    Mengupload Gambar Login...
   </>
 ) : (
   <>

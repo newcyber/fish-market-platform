@@ -52,6 +52,11 @@ export interface UpdateSettingsPayload {
 
   heroSlide3Image?: string | null;
 
+  loginSlide1Image?: string | null;
+  loginSlide2Image?: string | null;
+  loginSlide3Image?: string | null;
+  loginSlide4Image?: string | null;
+
   flashSaleBannerImage?: string | null;
 
     heroSlide1Eyebrow?: string | null;
@@ -467,6 +472,18 @@ class SettingsRepository {
 
         heroSlide3Button:
           data.heroSlide3Button ?? null,
+
+        loginSlide1Image:
+          data.loginSlide1Image ?? null,
+
+        loginSlide2Image:
+          data.loginSlide2Image ?? null,
+
+        loginSlide3Image:
+          data.loginSlide3Image ?? null,
+
+        loginSlide4Image:
+          data.loginSlide4Image ?? null,
 
         flashSaleBannerLabel:
           data.flashSaleBannerLabel ?? null,

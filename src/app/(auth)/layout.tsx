@@ -125,6 +125,22 @@ export default async function AuthLayout({
     settings.siteLogo?.trim() ||
     null;
 
+  const loginSlide1Image =
+  settings.loginSlide1Image?.trim() ||
+  null;
+
+const loginSlide2Image =
+  settings.loginSlide2Image?.trim() ||
+  null;
+
+const loginSlide3Image =
+  settings.loginSlide3Image?.trim() ||
+  null;
+
+const loginSlide4Image =
+  settings.loginSlide4Image?.trim() ||
+  null;
+
   /**
    * ==========================================================
    * STORE INITIAL
@@ -477,15 +493,18 @@ export default async function AuthLayout({
         ==================================================== */}
 
         <header
-          className="
-            relative
-            z-50
-            border-b
-            border-slate-200/80
-            bg-white
-            shadow-sm
-          "
-        >
+  className="
+    fixed
+    inset-x-0
+    top-0
+    z-50
+    border-b
+    border-slate-200/80
+    bg-white
+    shadow-sm
+    lg:relative
+  "
+>
           <div
             className="
               mx-auto
@@ -646,17 +665,17 @@ export default async function AuthLayout({
             AUTH HERO
         ====================================================== */}
 
-        <section
-          className="
-            relative
-            isolate
-            overflow-hidden
-            bg-linear-to-br
-            from-sky-950
-            via-sky-800
-            to-blue-950
-          "
-        >
+<section
+  className="
+    relative
+    isolate
+    overflow-hidden
+    bg-linear-to-br
+    from-sky-950
+    via-sky-800
+    to-blue-950
+  "
+>
 
           {/* ==================================================
               OCEAN LIGHT
@@ -1125,12 +1144,16 @@ export default async function AuthLayout({
                       lg:hidden
                     "
                   >
-                    <MobileLoginContent
-                      storeName={storeName}
-                      storeDescription={storeDescription}
-                      siteLogo={siteLogo}
-                      storeInitial={storeInitial}
-                    >
+<MobileLoginContent
+  storeName={storeName}
+  storeDescription={storeDescription}
+  siteLogo={siteLogo}
+  storeInitial={storeInitial}
+  loginSlide1Image={loginSlide1Image}
+  loginSlide2Image={loginSlide2Image}
+  loginSlide3Image={loginSlide3Image}
+  loginSlide4Image={loginSlide4Image}
+>
                       {children}
                     </MobileLoginContent>
                   </div>
