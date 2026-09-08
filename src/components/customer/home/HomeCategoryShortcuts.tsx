@@ -17,10 +17,11 @@ import { useState } from "react";
  * Kategori berasal dari database.
  *
  * UI:
- * - Mobile: grid compact seperti marketplace
- * - Mobile collapsed: 14 kategori
- * - Mobile expanded: seluruh kategori
- * - Desktop: grid
+ * - Mobile: 5 kategori pada kondisi collapsed
+ * - Mobile: seluruh kategori pada kondisi expanded
+ * - Desktop: 7 kategori pada kondisi collapsed
+ * - Desktop: seluruh kategori pada kondisi expanded
+ * - Semua kategori tetap berada di tengah
  * - Gambar menggunakan object-contain agar PNG transparan
  *   dari Admin tidak terpotong.
  *
@@ -46,23 +47,29 @@ interface HomeCategoryShortcutsProps {
  * DISPLAY LIMIT
  * ============================================================
  *
- * Pada kondisi collapsed, tampilkan 14 kategori.
+ * Kondisi collapsed:
+ * - Desktop menampilkan maksimal 7 kategori.
+ * - Mobile hanya menampilkan 5 kategori pertama.
  *
- * 7 kolom x 2 baris pada mobile.
+ * Pada mobile:
+ * 5 kategori = 1 baris.
  *
- * Jika kategori lebih dari 14, tombol expand akan muncul.
+ * Pada desktop:
+ * 7 kategori = 1 baris.
+ *
+ * Jika kategori lebih banyak, tombol expand akan muncul.
  *
  * ============================================================
  */
 
 const COLLAPSED_CATEGORY_LIMIT = 7;
+const MOBILE_CATEGORY_LIMIT = 5;
 
 export default function HomeCategoryShortcuts({
   productsHref,
   categories,
 }: HomeCategoryShortcutsProps) {
-  const [isExpanded, setIsExpanded] =
-    useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (categories.length === 0) {
     return null;
@@ -72,18 +79,24 @@ export default function HomeCategoryShortcuts({
    * ==========================================================
    * VISIBLE CATEGORIES
    * ==========================================================
+   *
+   * Desktop:
+   * - collapsed → maksimal 7
+   * - expanded  → seluruh kategori
+   *
+   * Mobile:
+   * - collapsed → hanya 5 kategori pertama
+   * - expanded  → seluruh kategori
+   *
+   * ==========================================================
    */
 
   const visibleCategories = isExpanded
     ? categories
-    : categories.slice(
-        0,
-        COLLAPSED_CATEGORY_LIMIT
-      );
+    : categories.slice(0, COLLAPSED_CATEGORY_LIMIT);
 
   const canExpand =
-    categories.length >
-    COLLAPSED_CATEGORY_LIMIT;
+    categories.length > COLLAPSED_CATEGORY_LIMIT;
 
   return (
     <section
@@ -120,17 +133,17 @@ export default function HomeCategoryShortcuts({
           "
         >
           <div className="min-w-0">
-<h2
-  className="
-    text-base
-    font-bold
-    tracking-tight
-    text-[var(--ocean-950)]
-    sm:text-lg
-  "
->
-  Belanja berdasarkan kategori
-</h2>
+            <h2
+              className="
+                text-base
+                font-bold
+                tracking-tight
+                text-[var(--ocean-950)]
+                sm:text-lg
+              "
+            >
+              Belanja berdasarkan kategori
+            </h2>
 
             <p
               className="
@@ -175,21 +188,24 @@ export default function HomeCategoryShortcuts({
 
         <div
           className="
+            mx-auto
             grid
-            grid-cols-7
-            gap-x-1
+            w-fit
+            max-w-full
+            grid-cols-5
+            justify-items-center
+            gap-x-3
             gap-y-4
 
             sm:grid-cols-4
             sm:gap-4
 
-            lg:grid-cols-6
-            xl:grid-cols-8
-            lg:gap-5
+            lg:grid-cols-7
+            lg:gap-6
           "
         >
           {visibleCategories.map(
-            (category) => {
+            (category, index) => {
               const categoryHref =
                 `${productsHref}?category=${encodeURIComponent(
                   category.slug
@@ -199,14 +215,20 @@ export default function HomeCategoryShortcuts({
                 <Link
                   key={category.id}
                   href={categoryHref}
-                  className="
+                  className={`
                     group
                     flex
                     min-w-0
                     flex-col
                     items-center
                     text-center
-                  "
+                    ${
+                      index >= MOBILE_CATEGORY_LIMIT &&
+                      !isExpanded
+                        ? "hidden sm:flex"
+                        : ""
+                    }
+                  `}
                 >
                   {/* ========================================
                       CATEGORY IMAGE
@@ -216,8 +238,8 @@ export default function HomeCategoryShortcuts({
                     className="
                       relative
                       flex
-                      h-[52px]
-                      w-[52px]
+                      h-[58px]
+                      w-[58px]
                       items-center
                       justify-center
                       overflow-hidden
@@ -234,8 +256,8 @@ export default function HomeCategoryShortcuts({
                       sm:w-20
                       sm:rounded-2xl
 
-                      lg:h-24
-                      lg:w-24
+                      lg:h-32
+                      lg:w-32
                     "
                   >
                     {category.image ? (
@@ -244,9 +266,9 @@ export default function HomeCategoryShortcuts({
                         alt={category.name}
                         fill
                         sizes="
-                          (max-width: 639px) 52px,
+                          (max-width: 639px) 58px,
                           (max-width: 1023px) 80px,
-                          96px
+                          128px
                         "
                         className="
                           object-contain
@@ -319,8 +341,7 @@ export default function HomeCategoryShortcuts({
               type="button"
               onClick={() =>
                 setIsExpanded(
-                  (previous) =>
-                    !previous
+                  (previous) => !previous
                 )
               }
               aria-expanded={isExpanded}
