@@ -261,6 +261,10 @@ try {
   const OrderStatusIcon =
     orderStatus.icon;
 
+  const canTrackOrder =
+    order.status === "SHIPPING" ||
+    order.status === "COMPLETED";
+
   /**
    * ==========================================================
    * PAYMENT CHANNEL
@@ -440,6 +444,51 @@ try {
             </div>
           </div>
         </div>
+
+        {/* ==================================================== */}
+        {/* TRACK ORDER CTA                                      */}
+        {/* ==================================================== */}
+
+        {canTrackOrder && (
+          <Link
+            href={`/customer/orders/${order.id}/tracking`}
+            className="
+              mb-6
+              flex
+              w-full
+              items-center
+              justify-center
+              gap-3
+              rounded-2xl
+              bg-cyan-600
+              px-5
+              py-4
+              text-sm
+              font-bold
+              text-white
+              shadow-[0_8px_24px_rgba(8,145,178,0.18)]
+              transition
+              hover:bg-cyan-700
+              hover:shadow-[0_10px_28px_rgba(8,145,178,0.24)]
+              sm:py-4.5
+            "
+          >
+            <MapPin className="h-5 w-5" />
+
+            <span>
+              {order.status === "COMPLETED"
+                ? "Lihat Perjalanan Pesanan"
+                : "Lacak Pesanan"}
+            </span>
+
+            <span
+              aria-hidden="true"
+              className="text-lg leading-none"
+            >
+              →
+            </span>
+          </Link>
+        )}
 
         {/* ==================================================== */}
         {/* CONTENT GRID */}
