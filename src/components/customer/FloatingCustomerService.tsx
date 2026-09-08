@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import {
+  usePathname,
+} from "next/navigation";
+
+import {
+  useState,
+} from "react";
 
 import {
   Headphones,
@@ -36,8 +42,36 @@ function normalizeWhatsAppNumber(
 export default function FloatingCustomerService({
   whatsapp,
 }: FloatingCustomerServiceProps) {
+  const pathname =
+    usePathname();
+
   const [isOpen, setIsOpen] =
     useState(false);
+
+  /**
+   * ==========================================================
+   * HIDE CUSTOMER SERVICE FLOATING BUTTON ON ADMIN
+   * ==========================================================
+   *
+   * Floating Customer Service digunakan untuk halaman
+   * customer/public dan tidak ditampilkan pada backend admin.
+   *
+   * Semua route:
+   *
+   * /admin
+   * /admin/*
+   *
+   * tidak akan merender floating WhatsApp button.
+   *
+   * ==========================================================
+   */
+
+  if (
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/")
+  ) {
+    return null;
+  }
 
   const phoneNumber =
     normalizeWhatsAppNumber(

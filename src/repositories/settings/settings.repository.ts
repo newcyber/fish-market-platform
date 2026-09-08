@@ -82,6 +82,31 @@ export interface UpdateSettingsPayload {
   flashSaleBannerHighlight?: string | null;
   flashSaleBannerDescription?: string | null;
 
+  /**
+   * ==========================================================
+   * PROMO PILIHAN
+   * ==========================================================
+   */
+
+  promoSectionLabel?: string | null;
+  promoSectionTitle?: string | null;
+  promoSectionLinkLabel?: string | null;
+  promoSectionLinkHref?: string | null;
+
+  promoCard1Image?: string | null;
+  promoCard1Eyebrow?: string | null;
+  promoCard1Title?: string | null;
+  promoCard1Description?: string | null;
+  promoCard1Button?: string | null;
+  promoCard1Href?: string | null;
+
+  promoCard2Image?: string | null;
+  promoCard2Eyebrow?: string | null;
+  promoCard2Title?: string | null;
+  promoCard2Description?: string | null;
+  promoCard2Button?: string | null;
+  promoCard2Href?: string | null;
+
   email?: string | null;
 
   whatsapp?: string | null;
@@ -496,6 +521,60 @@ class SettingsRepository {
 
         flashSaleBannerDescription:
           data.flashSaleBannerDescription ?? null,
+
+        /**
+         * ------------------------------------------------------
+         * PROMO PILIHAN
+         * ------------------------------------------------------
+         */
+
+        promoSectionLabel:
+          data.promoSectionLabel ?? null,
+
+        promoSectionTitle:
+          data.promoSectionTitle ?? null,
+
+        promoSectionLinkLabel:
+          data.promoSectionLinkLabel ?? null,
+
+        promoSectionLinkHref:
+          data.promoSectionLinkHref ?? null,
+
+        promoCard1Image:
+          data.promoCard1Image ?? null,
+
+        promoCard1Eyebrow:
+          data.promoCard1Eyebrow ?? null,
+
+        promoCard1Title:
+          data.promoCard1Title ?? null,
+
+        promoCard1Description:
+          data.promoCard1Description ?? null,
+
+        promoCard1Button:
+          data.promoCard1Button ?? null,
+
+        promoCard1Href:
+          data.promoCard1Href ?? null,
+
+        promoCard2Image:
+          data.promoCard2Image ?? null,
+
+        promoCard2Eyebrow:
+          data.promoCard2Eyebrow ?? null,
+
+        promoCard2Title:
+          data.promoCard2Title ?? null,
+
+        promoCard2Description:
+          data.promoCard2Description ?? null,
+
+        promoCard2Button:
+          data.promoCard2Button ?? null,
+
+        promoCard2Href:
+          data.promoCard2Href ?? null,
 
         email:
           data.email ?? null,

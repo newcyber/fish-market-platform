@@ -1,5 +1,6 @@
 import { ProductRepository } from "@/repositories/ProductRepository";
 import { Prisma, ProductDiscountType } from "@prisma/client";
+import type { NutritionInformationItem } from "@/components/admin/products/ProductForm";
 
 /**
  * ============================================================
@@ -73,6 +74,16 @@ export interface CreateProductInput {
   name: string;
   slug: string;
   description?: string | null;
+
+  ingredients?: string | null;
+  nutritionInformation?: Array<{
+    name: string;
+    value: string;
+    unit: string;
+  }> | null;
+  storageInstructions?: string | null;
+  usageInstructions?: string | null;
+
   sku?: string | null;
 
   /** Legacy fallback for products without variant groups. */
@@ -548,8 +559,27 @@ export class ProductService {
                   input.description?.trim() ||
                   null,
 
+                ingredients:
+                  input.ingredients?.trim() ||
+                  null,
+
+                nutritionInformation:
+                  input.nutritionInformation &&
+                  input.nutritionInformation.length > 0
+                    ? input.nutritionInformation
+                    : Prisma.JsonNull,
+
+                storageInstructions:
+                  input.storageInstructions?.trim() ||
+                  null,
+
+                usageInstructions:
+                  input.usageInstructions?.trim() ||
+                  null,
+
                 sku:
-                  parentSku,
+                  input.sku?.trim() ||
+                  null,
 
                 price:
                   input.price,
@@ -1194,10 +1224,13 @@ if (
                * --------------------------------------------------
                */
 
-              ...(input.categoryId !==
+            ...(input.categoryId !==
                 undefined && {
-                categoryId:
-                  input.categoryId,
+                category: {
+                  connect: {
+                  id: input.categoryId,
+                  },
+                },
               }),
 
               ...(input.name !==
@@ -1216,6 +1249,32 @@ if (
                 undefined && {
                 description:
                   input.description?.trim() ||
+                  null,
+              }),
+
+              ...(input.ingredients !== undefined && {
+                ingredients:
+                  input.ingredients?.trim() ||
+                  null,
+              }),
+
+              ...(input.nutritionInformation !== undefined && {
+                nutritionInformation:
+                  input.nutritionInformation &&
+                  input.nutritionInformation.length > 0
+                  ? input.nutritionInformation
+                  : Prisma.JsonNull,
+              }),
+
+              ...(input.storageInstructions !== undefined && {
+                storageInstructions:
+                  input.storageInstructions?.trim() ||
+                  null,
+              }),
+
+              ...(input.usageInstructions !== undefined && {
+                usageInstructions:
+                  input.usageInstructions?.trim() ||
                   null,
               }),
 

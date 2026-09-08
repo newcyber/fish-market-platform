@@ -164,11 +164,11 @@ export function SalesChart({ data }: SalesChartProps) {
         ) : null}
       </div>
 
-      <div className="mt-5 overflow-x-auto">
-        <div className="min-w-[560px]">
-          <svg
-            viewBox={`0 0 ${chart.width} ${chart.height}`}
-            className="h-auto w-full"
+<div className="mt-5 w-full min-w-0 overflow-hidden">
+  <div className="w-full min-w-0">
+    <svg
+      viewBox={`0 0 ${chart.width} ${chart.height}`}
+      className="block h-auto w-full"
             role="img"
             aria-label="Grafik penjualan tujuh hari terakhir"
           >

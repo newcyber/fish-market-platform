@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "StoreSettings" ADD COLUMN     "promoCard1Button" TEXT,
+ADD COLUMN     "promoCard1Description" TEXT,
+ADD COLUMN     "promoCard1Eyebrow" TEXT,
+ADD COLUMN     "promoCard1Href" TEXT,
+ADD COLUMN     "promoCard1Image" TEXT,
+ADD COLUMN     "promoCard1Title" TEXT,
+ADD COLUMN     "promoCard2Button" TEXT,
+ADD COLUMN     "promoCard2Description" TEXT,
+ADD COLUMN     "promoCard2Eyebrow" TEXT,
+ADD COLUMN     "promoCard2Href" TEXT,
+ADD COLUMN     "promoCard2Image" TEXT,
+ADD COLUMN     "promoCard2Title" TEXT,
+ADD COLUMN     "promoSectionLabel" TEXT,
+ADD COLUMN     "promoSectionLinkHref" TEXT,
+ADD COLUMN     "promoSectionLinkLabel" TEXT,
+ADD COLUMN     "promoSectionTitle" TEXT;

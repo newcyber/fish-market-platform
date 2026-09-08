@@ -114,6 +114,15 @@ const LOGIN_UPLOAD_DIRECTORY =
     "login"
   );
 
+const PROMO_UPLOAD_DIRECTORY =
+  path.join(
+    PROJECT_ROOT,
+    "public",
+    "uploads",
+    "settings",
+    "promo"
+  );
+
 /**
  * ============================================================
  * ALLOWED IMAGE MIME TYPES
@@ -321,6 +330,34 @@ static async saveLoginImage(
     file,
     LOGIN_UPLOAD_DIRECTORY,
     "/uploads/settings/login"
+  );
+}
+
+/**
+ * ==========================================================
+ * SAVE PROMO IMAGE
+ * ==========================================================
+ *
+ * Storage:
+ *
+ * public/uploads/settings/promo
+ *
+ * Public URL:
+ *
+ * /uploads/settings/promo/{filename}
+ *
+ * Digunakan untuk gambar Promo Pilihan pada homepage.
+ *
+ * ==========================================================
+ */
+
+static async savePromoImage(
+  file: File
+): Promise<string> {
+  return this.saveToDirectory(
+    file,
+    PROMO_UPLOAD_DIRECTORY,
+    "/uploads/settings/promo"
   );
 }
 

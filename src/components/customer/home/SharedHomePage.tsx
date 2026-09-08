@@ -1146,11 +1146,64 @@ const [
           z-10
         "
       >
-        <HomePromoBanner
-          productsHref={
-            productsHref
-          }
-        />
+<HomePromoBanner
+  productsHref={
+    productsHref
+  }
+  promoContent={{
+    sectionLabel:
+      storeSettings?.promoSectionLabel ?? null,
+
+    sectionTitle:
+      storeSettings?.promoSectionTitle ?? null,
+
+    sectionLinkLabel:
+      storeSettings?.promoSectionLinkLabel ?? null,
+
+    sectionLinkHref:
+      storeSettings?.promoSectionLinkHref ?? null,
+
+    card1: {
+      image:
+        storeSettings?.promoCard1Image ?? null,
+
+      eyebrow:
+        storeSettings?.promoCard1Eyebrow ?? null,
+
+      title:
+        storeSettings?.promoCard1Title ?? null,
+
+      description:
+        storeSettings?.promoCard1Description ?? null,
+
+      button:
+        storeSettings?.promoCard1Button ?? null,
+
+      href:
+        storeSettings?.promoCard1Href ?? null,
+    },
+
+    card2: {
+      image:
+        storeSettings?.promoCard2Image ?? null,
+
+      eyebrow:
+        storeSettings?.promoCard2Eyebrow ?? null,
+
+      title:
+        storeSettings?.promoCard2Title ?? null,
+
+      description:
+        storeSettings?.promoCard2Description ?? null,
+
+      button:
+        storeSettings?.promoCard2Button ?? null,
+
+      href:
+        storeSettings?.promoCard2Href ?? null,
+    },
+  }}
+/>
       </div>
 
       {/* ======================================================

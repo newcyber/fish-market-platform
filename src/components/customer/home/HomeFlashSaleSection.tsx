@@ -444,70 +444,116 @@ function FlashSaleProductCard({
         lg:hover:shadow-[0_8px_20px_rgba(18,58,99,0.10)]
       "
     >
-      {/* IMAGE */}
-      <div
-        className="
-          relative
-          aspect-[1.05/1]
-          overflow-hidden
-          bg-(--ice-50)
-        "
-      >
-        {image ? (
-          <Image
-            src={image}
-            alt={item.product.name}
-            fill
-            sizes="
-              (max-width: 639px) 138px,
-              (max-width: 1023px) 170px,
-              190px
-            "
-            className="
-              object-contain
-              p-2
-              transition
-              duration-300
-              group-hover:scale-105
-            "
-          />
-        ) : (
-          <div
-            className="
-              flex
-              h-full
-              w-full
-              items-center
-              justify-center
-              text-slate-300
-            "
-          >
-            <Package className="h-6 w-6" />
-          </div>
-        )}
+{/* IMAGE */}
+<div
+  className="
+    relative
+    aspect-square
+    overflow-hidden
+    bg-(--ice-50)
+    sm:aspect-[1.05/1]
+  "
+>
+  {image ? (
+    <Image
+      src={image}
+      alt={item.product.name}
+      fill
+      sizes="
+        (max-width: 639px) 138px,
+        (max-width: 1023px) 170px,
+        190px
+      "
+      className="
+        object-contain
+        p-1.5
+        transition
+        duration-300
+        group-hover:scale-105
+        sm:p-2
+      "
+    />
+  ) : (
+    <div
+      className="
+        flex
+        h-full
+        w-full
+        items-center
+        justify-center
+        text-slate-300
+      "
+    >
+      <Package className="h-6 w-6" />
+    </div>
+  )}
 
-        {discount > 0 && (
-          <span
-            className="
-              absolute
-              left-1.5
-              top-1.5
-              rounded-md
-              bg-rose-500
-              px-1.5
-              py-0.5
-              text-[8px]
-              font-black
-              text-white
-            "
-          >
-            -{discount}%
-          </span>
-        )}
-      </div>
+  {/* DISCOUNT BADGE */}
+  {discount > 0 && (
+    <span
+      className="
+        absolute
+        left-1.5
+        top-1.5
+        z-10
+        rounded-md
+        bg-rose-500
+        px-2
+        py-1
+        text-[9px]
+        font-black
+        leading-none
+        text-white
+        shadow-sm
+        sm:text-[10px]
+      "
+    >
+      -{discount}%
+    </span>
+  )}
+
+  {/* FLASH SALE BADGE */}
+  <span
+    className="
+      absolute
+      bottom-1.5
+      left-1.5
+      z-10
+      inline-flex
+      items-center
+      gap-1
+      rounded-md
+      bg-[var(--ocean-950)]/90
+      px-1.5
+      py-1
+      text-[7px]
+      font-black
+      uppercase
+      leading-none
+      tracking-wide
+      text-white
+      shadow-sm
+      backdrop-blur-sm
+      sm:text-[8px]
+    "
+  >
+    <Flame
+      aria-hidden="true"
+      className="
+        h-2.5
+        w-2.5
+        shrink-0
+        text-[var(--fresh-400)]
+        sm:h-3
+        sm:w-3
+      "
+    />
+    Flash Sale
+  </span>
+</div>
 
       {/* CONTENT */}
-      <div className="p-2.5">
+      <div className="p-2.5 sm:p-3">
         <h3
           className="
             line-clamp-2
@@ -522,67 +568,93 @@ function FlashSaleProductCard({
           {item.product.name}
         </h3>
 
-        <p
-          className="
-            mt-1.5
-            text-[13px]
-            font-black
-            leading-5
-            text-[var(--ocean-900)]
-            sm:text-sm
-          "
-        >
+<p
+  className="
+    mt-1.5
+    text-[14px]
+    font-black
+    leading-5
+    tracking-tight
+    text-[var(--ocean-900)]
+    sm:text-[15px]
+  "
+>
           {formatRupiah(item.flashPrice)}
         </p>
 
-        <p
-          className="
-            mt-0.5
-            truncate
-            text-[9px]
-            leading-4
-            text-slate-400
-            line-through
-          "
-        >
+<p
+  className="
+    mt-0.5
+    truncate
+    text-[10px]
+    leading-4
+    text-slate-400
+    line-through
+    sm:text-[11px]
+  "
+>
           {formatRupiah(item.originalPrice)}
         </p>
 
         {/* STOCK */}
-        <div className="mt-1.5">
-          <div
-            className="
-              h-1
-              overflow-hidden
-              rounded-full
-              bg-slate-100
-            "
-          >
-            <div
-              className="
-                h-full
-                rounded-full
-                bg-rose-500
-                transition-all
-              "
-              style={{
-                width: `${soldPercent}%`,
-              }}
-            />
-          </div>
+<div className="mt-2">
+  <div
+    className="
+      h-1.5
+      overflow-hidden
+      rounded-full
+      bg-slate-100
+    "
+  >
+    <div
+      className="
+        h-full
+        rounded-full
+        bg-rose-500
+        transition-all
+      "
+      style={{
+        width: `${soldPercent}%`,
+      }}
+    />
+  </div>
 
-          <p
-            className="
-              mt-0.5
-              text-[8px]
-              font-medium
-              leading-3
-              text-slate-400
-            "
-          >
-            {soldPercent}% terjual
-          </p>
-        </div>
+  <div
+    className="
+      mt-1
+      flex
+      items-center
+      justify-between
+      gap-2
+    "
+  >
+    <p
+      className="
+        text-[9px]
+        font-semibold
+        leading-3
+        text-slate-400
+        sm:text-[10px]
+      "
+    >
+      {soldPercent}% terjual
+    </p>
+
+    {soldPercent >= 50 && (
+      <span
+        className="
+          shrink-0
+          text-[8px]
+          font-bold
+          text-rose-500
+          sm:text-[9px]
+        "
+      >
+        Hampir habis
+      </span>
+    )}
+  </div>
+</div>
       </div>
     </Link>
   );
@@ -643,8 +715,7 @@ export default function HomeFlashSaleSection({
     return null;
   }
 
-  const flashSaleHref =
-    `${productsHref}?flashSale=${flashSale.id}`;
+const flashSaleHref = "/flash-sale";
 
   return (
     <section
@@ -656,8 +727,8 @@ export default function HomeFlashSaleSection({
         from-[var(--ice-100)]
         via-[var(--ice-50)]
         to-white
-        py-6
-        sm:py-8
+        py-4
+        sm:py-7
         lg:py-10
       "
     >
@@ -804,24 +875,25 @@ export default function HomeFlashSaleSection({
   />
 
   {/* CONTENT */}
-  <div
-    className="
-      relative
-      z-10
-      flex
-      min-h-[245px]
-      flex-col
-      justify-between
-      px-5
-      py-5
-      sm:min-h-[255px]
-      sm:px-8
-      sm:py-6
-      lg:min-h-[270px]
-      lg:px-10
-      lg:py-7
-    "
-  >
+{/* CONTENT */}
+<div
+  className="
+    relative
+    z-10
+    flex
+    min-h-[185px]
+    flex-col
+    justify-between
+    px-4
+    py-4
+    sm:min-h-[215px]
+    sm:px-7
+    sm:py-5
+    lg:min-h-[250px]
+    lg:px-10
+    lg:py-7
+  "
+>
     {/* TOP */}
     <div
       className="

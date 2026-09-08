@@ -96,6 +96,31 @@ export interface UpdateSettingsActionInput {
   flashSaleBannerHighlight?: string | null;
   flashSaleBannerDescription?: string | null;
 
+  /**
+   * ==========================================================
+   * PROMO PILIHAN
+   * ==========================================================
+   */
+
+  promoSectionLabel?: string | null;
+  promoSectionTitle?: string | null;
+  promoSectionLinkLabel?: string | null;
+  promoSectionLinkHref?: string | null;
+
+  promoCard1Image?: string | null;
+  promoCard1Eyebrow?: string | null;
+  promoCard1Title?: string | null;
+  promoCard1Description?: string | null;
+  promoCard1Button?: string | null;
+  promoCard1Href?: string | null;
+
+  promoCard2Image?: string | null;
+  promoCard2Eyebrow?: string | null;
+  promoCard2Title?: string | null;
+  promoCard2Description?: string | null;
+  promoCard2Button?: string | null;
+  promoCard2Href?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -319,6 +344,60 @@ export async function updateSettingsAction(
 
       flashSaleBannerDescription:
         input.flashSaleBannerDescription,
+
+      /**
+       * ======================================================
+       * PROMO PILIHAN
+       * ======================================================
+       */
+
+      promoSectionLabel:
+        input.promoSectionLabel,
+
+      promoSectionTitle:
+        input.promoSectionTitle,
+
+      promoSectionLinkLabel:
+        input.promoSectionLinkLabel,
+
+      promoSectionLinkHref:
+        input.promoSectionLinkHref,
+
+      promoCard1Image:
+        input.promoCard1Image,
+
+      promoCard1Eyebrow:
+        input.promoCard1Eyebrow,
+
+      promoCard1Title:
+        input.promoCard1Title,
+
+      promoCard1Description:
+        input.promoCard1Description,
+
+      promoCard1Button:
+        input.promoCard1Button,
+
+      promoCard1Href:
+        input.promoCard1Href,
+
+      promoCard2Image:
+        input.promoCard2Image,
+
+      promoCard2Eyebrow:
+        input.promoCard2Eyebrow,
+
+      promoCard2Title:
+        input.promoCard2Title,
+
+      promoCard2Description:
+        input.promoCard2Description,
+
+      promoCard2Button:
+        input.promoCard2Button,
+
+      promoCard2Href:
+        input.promoCard2Href,
 
       email:
         input.email,

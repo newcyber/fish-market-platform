@@ -110,11 +110,22 @@ export interface ProductSkuValue {
   isActive?: boolean;
 }
 
+export interface NutritionInformationItem {
+  name: string;
+  value: string;
+  unit: string;
+}
+
 export interface ProductFormValues {
   categoryId: string;
   name: string;
   slug: string;
   description: string;
+
+  ingredients: string;
+  nutritionInformation: NutritionInformationItem[];
+  storageInstructions: string;
+  usageInstructions: string;
   sku: string;
   price: number;
 
@@ -732,6 +743,18 @@ const slugManuallyEditedRef =
       description:
         defaultValues?.description ??
         "",
+
+      ingredients:
+        defaultValues?.ingredients ?? "",
+
+      nutritionInformation:
+        defaultValues?.nutritionInformation ?? [],
+
+      storageInstructions:
+        defaultValues?.storageInstructions ?? "",
+
+      usageInstructions:
+        defaultValues?.usageInstructions ?? "",
 
       sku:
         defaultValues?.sku ??
@@ -1732,6 +1755,358 @@ const totalSkuStock =
             rows={5}
           />
         </div>
+
+        {/* ================================================== */}
+        {/* INFORMASI TAMBAHAN PRODUK */}
+        {/* ================================================== */}
+
+        <div className="border-t pt-6">
+          <div className="mb-5">
+            <h3 className="text-base font-semibold">
+              Informasi Tambahan Produk
+            </h3>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Informasi ini membantu customer memahami
+              kandungan, nilai gizi, penyimpanan, dan
+              penggunaan produk.
+            </p>
+          </div>
+
+          {/* KANDUNGAN / INGREDIENTS */}
+
+          <div className="space-y-2">
+            <Label htmlFor="ingredients">
+              Kandungan / Ingredients
+            </Label>
+
+            <Textarea
+              id="ingredients"
+              value={
+                form.ingredients
+              }
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    ingredients:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+              placeholder="Contoh: Ikan tuna, garam, air, dan bahan lainnya."
+              rows={4}
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Masukkan bahan atau kandungan utama produk.
+            </p>
+          </div>
+
+          {/* INFORMASI GIZI */}
+
+          <div className="mt-6 space-y-3">
+            <div>
+              <Label>
+                Informasi Gizi
+              </Label>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tambahkan informasi nutrisi seperti energi,
+                protein, lemak, karbohidrat, dan lainnya.
+              </p>
+            </div>
+
+            {form.nutritionInformation.length >
+              0 && (
+              <div className="space-y-3">
+                {form.nutritionInformation.map(
+                  (
+                    item,
+                    index
+                  ) => (
+                    <div
+                      key={`nutrition-${index}`}
+                      className="rounded-lg border p-3"
+                    >
+                      <div className="grid gap-3 md:grid-cols-[1fr_1fr_120px_auto] md:items-end">
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor={`nutrition-name-${index}`}
+                          >
+                            Nama
+                          </Label>
+
+                          <Input
+                            id={`nutrition-name-${index}`}
+                            value={
+                              item.name
+                            }
+                            placeholder="Contoh: Protein"
+                            onChange={(
+                              event
+                            ) =>
+                              setForm(
+                                (
+                                  previous
+                                ) => ({
+                                  ...previous,
+
+                                  nutritionInformation:
+                                    previous.nutritionInformation.map(
+                                      (
+                                        nutrition,
+                                        nutritionIndex
+                                      ) =>
+                                        nutritionIndex ===
+                                        index
+                                          ? {
+                                              ...nutrition,
+                                              name:
+                                                event
+                                                  .target
+                                                  .value,
+                                            }
+                                          : nutrition
+                                    ),
+                                })
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor={`nutrition-value-${index}`}
+                          >
+                            Nilai
+                          </Label>
+
+                          <Input
+                            id={`nutrition-value-${index}`}
+                            value={
+                              item.value
+                            }
+                            placeholder="Contoh: 20"
+                            onChange={(
+                              event
+                            ) =>
+                              setForm(
+                                (
+                                  previous
+                                ) => ({
+                                  ...previous,
+
+                                  nutritionInformation:
+                                    previous.nutritionInformation.map(
+                                      (
+                                        nutrition,
+                                        nutritionIndex
+                                      ) =>
+                                        nutritionIndex ===
+                                        index
+                                          ? {
+                                              ...nutrition,
+                                              value:
+                                                event
+                                                  .target
+                                                  .value,
+                                            }
+                                          : nutrition
+                                    ),
+                                })
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor={`nutrition-unit-${index}`}
+                          >
+                            Satuan
+                          </Label>
+
+                          <Input
+                            id={`nutrition-unit-${index}`}
+                            value={
+                              item.unit
+                            }
+                            placeholder="g / mg / kcal"
+                            onChange={(
+                              event
+                            ) =>
+                              setForm(
+                                (
+                                  previous
+                                ) => ({
+                                  ...previous,
+
+                                  nutritionInformation:
+                                    previous.nutritionInformation.map(
+                                      (
+                                        nutrition,
+                                        nutritionIndex
+                                      ) =>
+                                        nutritionIndex ===
+                                        index
+                                          ? {
+                                              ...nutrition,
+                                              unit:
+                                                event
+                                                  .target
+                                                  .value,
+                                            }
+                                          : nutrition
+                                    ),
+                                })
+                              )
+                            }
+                          />
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() =>
+                            setForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                nutritionInformation:
+                                  previous.nutritionInformation.filter(
+                                    (
+                                      _nutrition,
+                                      nutritionIndex
+                                    ) =>
+                                      nutritionIndex !==
+                                      index
+                                  ),
+                              })
+                            )
+                          }
+                          aria-label={`Hapus informasi gizi ${
+                            index + 1
+                          }`}
+                          title="Hapus"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    nutritionInformation:
+                      [
+                        ...previous.nutritionInformation,
+                        {
+                          name: "",
+                          value: "",
+                          unit: "",
+                        },
+                      ],
+                  })
+                )
+              }
+            >
+              + Tambah Informasi Gizi
+            </Button>
+          </div>
+
+          {/* PETUNJUK PENYIMPANAN */}
+
+          <div className="mt-6 space-y-2">
+            <Label htmlFor="storageInstructions">
+              Petunjuk Penyimpanan
+            </Label>
+
+            <Textarea
+              id="storageInstructions"
+              value={
+                form.storageInstructions
+              }
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    storageInstructions:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+              placeholder="Contoh: Simpan dalam freezer pada suhu -18°C. Setelah dibuka, simpan dalam wadah tertutup."
+              rows={4}
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Jelaskan cara dan kondisi penyimpanan produk.
+            </p>
+          </div>
+
+          {/* PETUNJUK PENGGUNAAN */}
+
+          <div className="mt-6 space-y-2">
+            <Label htmlFor="usageInstructions">
+              Petunjuk Penggunaan
+            </Label>
+
+            <Textarea
+              id="usageInstructions"
+              value={
+                form.usageInstructions
+              }
+              onChange={(
+                event
+              ) =>
+                setForm(
+                  (
+                    previous
+                  ) => ({
+                    ...previous,
+
+                    usageInstructions:
+                      event.target
+                        .value,
+                  })
+                )
+              }
+              placeholder="Contoh: Cairkan terlebih dahulu, kemudian masak hingga matang sebelum dikonsumsi."
+              rows={4}
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Jelaskan cara penggunaan atau penyajian produk.
+            </p>
+          </div>
+        </div>
       </Card>
 
       {showImageUpload && (
@@ -2557,6 +2932,32 @@ const totalSkuStock =
             readOnly
           />
 
+<input
+  type="hidden"
+  name="ingredients"
+  value={form.ingredients}
+/>
+
+<input
+  type="hidden"
+  name="nutritionInformation"
+  value={JSON.stringify(
+    form.nutritionInformation
+  )}
+/>
+
+<input
+  type="hidden"
+  name="storageInstructions"
+  value={form.storageInstructions}
+/>
+
+<input
+  type="hidden"
+  name="usageInstructions"
+  value={form.usageInstructions}
+/>
+
           <input
             type="hidden"
             name="skus"
@@ -2689,6 +3090,7 @@ const totalSkuStock =
           }
         />
       </div>
+
     </form>
   );
 }

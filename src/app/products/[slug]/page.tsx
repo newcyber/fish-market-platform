@@ -25,17 +25,13 @@ import {
 
 import ProductService from "@/services/product/product.service";
 
-import {
-  prisma,
-} from "@/lib/prisma";
-
 import AddToCartButton from "@/components/customer/products/AddToCartButton";
 
 import ProductDetailGallery from "@/components/customer/products/ProductDetailGallery";
-
-import {
-  FlashSaleCountdown,
-} from "@/components/customer/flash-sale/FlashSaleCountdown";
+import ProductDescription from "@/components/customer/products/ProductDescription";
+import StickyMobileCartBar from "@/components/customer/cart/StickyMobileCartBar";
+import ProductRecommendationSection from "@/components/customer/products/ProductRecommendationSection";
+import ProductRecommendationService from "@/services/product/product-recommendation.service";
 
 import ToggleWishlistButton from "@/components/customer/wishlist/ToggleWishlistButton";
 
@@ -108,6 +104,69 @@ if (!product) {
 if (!product.isPublished && !isAdminPreview) {
   notFound();
 }
+
+  /**
+   * ==========================================================
+   * PRODUCT ADDITIONAL INFORMATION
+   * ==========================================================
+   */
+
+  const ingredients =
+    typeof product.ingredients === "string"
+      ? product.ingredients.trim()
+      : "";
+
+  const storageInstructions =
+    typeof product.storageInstructions === "string"
+      ? product.storageInstructions.trim()
+      : "";
+
+  const usageInstructions =
+    typeof product.usageInstructions === "string"
+      ? product.usageInstructions.trim()
+      : "";
+
+  const nutritionInformation =
+    Array.isArray(product.nutritionInformation)
+      ? product.nutritionInformation
+          .filter(
+            (item): item is {
+              name: string;
+              value: string;
+              unit: string;
+            } =>
+              typeof item === "object" &&
+              item !== null &&
+              !Array.isArray(item) &&
+              "name" in item &&
+              "value" in item &&
+              "unit" in item &&
+              typeof item.name === "string" &&
+              typeof item.value === "string" &&
+              typeof item.unit === "string"
+          )
+          .filter(
+            (item) =>
+              item.name.trim().length > 0 ||
+              item.value.trim().length > 0 ||
+              item.unit.trim().length > 0
+          )
+      : [];
+
+  const hasAdditionalInformation =
+    ingredients.length > 0 ||
+    nutritionInformation.length > 0 ||
+    storageInstructions.length > 0 ||
+    usageInstructions.length > 0;
+
+const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
+  ProductRecommendationService.getFrequentlyBoughtTogether(product.id, 8),
+  ProductRecommendationService.getRelatedProducts(
+    product.id,
+    product.category.id,
+    8,
+  ),
+]);
 
   /**
    * ==========================================================
@@ -860,22 +919,6 @@ const normalizedFlashSaleItems =
 
                   )}
 
-                  <span
-                    className="
-                      inline-flex
-                      items-center
-                      rounded-full
-                      bg-slate-100
-                      px-3
-                      py-1.5
-                      text-xs
-                      font-medium
-                      text-slate-600
-                    "
-                  >
-                    Kategori: {product.category.name}
-                  </span>
-
                 </div>
 
                 {/* ==================================================== */}
@@ -1573,6 +1616,10 @@ const normalizedFlashSaleItems =
 
             <div className="max-w-4xl">
 
+              {/* ================================================== */}
+              {/* DESKRIPSI PRODUK */}
+              {/* ================================================== */}
+
               <h2
                 className="
                   border-b
@@ -1599,42 +1646,415 @@ const normalizedFlashSaleItems =
                   sm:py-5
                 "
               >
-
-                {product.description ? (
-
-                  <div
-                    className="
-                      whitespace-pre-line
-                      text-sm
-                      leading-7
-                      text-slate-700
-                    "
-                  >
-                    {product.description}
-                  </div>
-
-                ) : (
-
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-center
-                      py-4
-                      text-sm
-                      text-slate-400
-                    "
-                  >
-                    Belum ada deskripsi produk.
-                  </div>
-
-                )}
-
+                <ProductDescription
+                  description={
+                    product.description ?? ""
+                  }
+                />
               </div>
+
+              {/* ================================================== */}
+              {/* INFORMASI TAMBAHAN PRODUK */}
+              {/* ================================================== */}
+
+              {hasAdditionalInformation && (
+                <section
+                  className="
+                    mt-6
+                    overflow-hidden
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-white
+                  "
+                >
+
+                  <div
+                    className="
+                      border-b
+                      border-slate-100
+                      px-4
+                      py-4
+                      sm:px-5
+                    "
+                  >
+                    <h2
+                      className="
+                        text-lg
+                        font-semibold
+                        text-slate-900
+                      "
+                    >
+                      Informasi Produk
+                    </h2>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm
+                        text-slate-500
+                      "
+                    >
+                      Informasi tambahan mengenai kandungan,
+                      nilai gizi, penyimpanan, dan penggunaan produk.
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      divide-y
+                      divide-slate-100
+                    "
+                  >
+
+                    {/* ================================================== */}
+                    {/* KANDUNGAN / INGREDIENTS */}
+                    {/* ================================================== */}
+
+                    {ingredients.length > 0 && (
+                      <details
+                        className="group"
+                      >
+                        <summary
+                          className="
+                            flex
+                            cursor-pointer
+                            list-none
+                            items-center
+                            justify-between
+                            gap-4
+                            px-4
+                            py-4
+                            text-sm
+                            font-semibold
+                            text-slate-900
+                            [&::-webkit-details-marker]:hidden
+                            sm:px-5
+                          "
+                        >
+                          <span>
+                            Kandungan / Ingredients
+                          </span>
+
+                          <ChevronRight
+                            className="
+                              h-4
+                              w-4
+                              shrink-0
+                              text-slate-400
+                              transition-transform
+                              group-open:rotate-90
+                            "
+                          />
+                        </summary>
+
+                        <div
+                          className="
+                            px-4
+                            pb-5
+                            text-sm
+                            leading-7
+                            text-slate-600
+                            sm:px-5
+                          "
+                        >
+                          <div className="whitespace-pre-line">
+                            {ingredients}
+                          </div>
+                        </div>
+                      </details>
+                    )}
+
+                    {/* ================================================== */}
+                    {/* INFORMASI GIZI */}
+                    {/* ================================================== */}
+
+                    {nutritionInformation.length > 0 && (
+                      <details
+                        className="group"
+                      >
+                        <summary
+                          className="
+                            flex
+                            cursor-pointer
+                            list-none
+                            items-center
+                            justify-between
+                            gap-4
+                            px-4
+                            py-4
+                            text-sm
+                            font-semibold
+                            text-slate-900
+                            [&::-webkit-details-marker]:hidden
+                            sm:px-5
+                          "
+                        >
+                          <span>
+                            Informasi Gizi
+                          </span>
+
+                          <ChevronRight
+                            className="
+                              h-4
+                              w-4
+                              shrink-0
+                              text-slate-400
+                              transition-transform
+                              group-open:rotate-90
+                            "
+                          />
+                        </summary>
+
+                        <div
+                          className="
+                            px-4
+                            pb-5
+                            sm:px-5
+                          "
+                        >
+                          <div
+                            className="
+                              overflow-hidden
+                              rounded-lg
+                              border
+                              border-slate-200
+                            "
+                          >
+
+                            <div
+                              className="
+                                grid
+                                grid-cols-[minmax(0,1fr)_auto_auto]
+                                gap-3
+                                border-b
+                                bg-slate-50
+                                px-3
+                                py-2.5
+                                text-xs
+                                font-semibold
+                                text-slate-500
+                                sm:px-4
+                              "
+                            >
+                              <div>
+                                Nutrisi
+                              </div>
+
+                              <div className="text-right">
+                                Nilai
+                              </div>
+
+                              <div
+                                className="
+                                  min-w-12
+                                  text-right
+                                "
+                              >
+                                Satuan
+                              </div>
+                            </div>
+
+                            {nutritionInformation.map(
+                              (
+                                item,
+                                index
+                              ) => (
+                                <div
+                                  key={`nutrition-${index}`}
+                                  className="
+                                    grid
+                                    grid-cols-[minmax(0,1fr)_auto_auto]
+                                    gap-3
+                                    border-b
+                                    border-slate-100
+                                    px-3
+                                    py-3
+                                    text-sm
+                                    last:border-b-0
+                                    sm:px-4
+                                  "
+                                >
+                                  <div
+                                    className="
+                                      font-medium
+                                      text-slate-700
+                                    "
+                                  >
+                                    {item.name}
+                                  </div>
+
+                                  <div
+                                    className="
+                                      text-right
+                                      text-slate-700
+                                    "
+                                  >
+                                    {item.value}
+                                  </div>
+
+                                  <div
+                                    className="
+                                      min-w-12
+                                      text-right
+                                      text-slate-500
+                                    "
+                                  >
+                                    {item.unit || "-"}
+                                  </div>
+                                </div>
+                              )
+                            )}
+
+                          </div>
+                        </div>
+                      </details>
+                    )}
+
+                    {/* ================================================== */}
+                    {/* PETUNJUK PENYIMPANAN */}
+                    {/* ================================================== */}
+
+                    {storageInstructions.length > 0 && (
+                      <details
+                        className="group"
+                      >
+                        <summary
+                          className="
+                            flex
+                            cursor-pointer
+                            list-none
+                            items-center
+                            justify-between
+                            gap-4
+                            px-4
+                            py-4
+                            text-sm
+                            font-semibold
+                            text-slate-900
+                            [&::-webkit-details-marker]:hidden
+                            sm:px-5
+                          "
+                        >
+                          <span>
+                            Petunjuk Penyimpanan
+                          </span>
+
+                          <ChevronRight
+                            className="
+                              h-4
+                              w-4
+                              shrink-0
+                              text-slate-400
+                              transition-transform
+                              group-open:rotate-90
+                            "
+                          />
+                        </summary>
+
+                        <div
+                          className="
+                            whitespace-pre-line
+                            px-4
+                            pb-5
+                            text-sm
+                            leading-7
+                            text-slate-600
+                            sm:px-5
+                          "
+                        >
+                          {storageInstructions}
+                        </div>
+                      </details>
+                    )}
+
+                    {/* ================================================== */}
+                    {/* PETUNJUK PENGGUNAAN */}
+                    {/* ================================================== */}
+
+                    {usageInstructions.length > 0 && (
+                      <details
+                        className="group"
+                      >
+                        <summary
+                          className="
+                            flex
+                            cursor-pointer
+                            list-none
+                            items-center
+                            justify-between
+                            gap-4
+                            px-4
+                            py-4
+                            text-sm
+                            font-semibold
+                            text-slate-900
+                            [&::-webkit-details-marker]:hidden
+                            sm:px-5
+                          "
+                        >
+                          <span>
+                            Petunjuk Penggunaan
+                          </span>
+
+                          <ChevronRight
+                            className="
+                              h-4
+                              w-4
+                              shrink-0
+                              text-slate-400
+                              transition-transform
+                              group-open:rotate-90
+                            "
+                          />
+                        </summary>
+
+                        <div
+                          className="
+                            whitespace-pre-line
+                            px-4
+                            pb-5
+                            text-sm
+                            leading-7
+                            text-slate-600
+                            sm:px-5
+                          "
+                        >
+                          {usageInstructions}
+                        </div>
+                      </details>
+                    )}
+
+                  </div>
+
+                </section>
+              )}
 
             </div>
 
           </section>
+
+          {/* ==================================================== */}
+          {/* RECOMMENDATIONS */}
+          {/* ==================================================== */}
+
+          <ProductRecommendationSection
+            title="Yang lain beli ini juga"
+            products={
+              frequentlyBoughtProducts
+            }
+          />
+
+          <ProductRecommendationSection
+            title="Produk terkait"
+            products={
+              relatedProducts
+            }
+            href={`/products?category=${encodeURIComponent(
+              product.category.slug
+            )}#categories`}
+            showViewAll
+          />
 
           {/* ==================================================== */}
           {/* TRUST SECTION */}
@@ -1686,46 +2106,48 @@ const normalizedFlashSaleItems =
 
             <div className="grid sm:grid-cols-3">
 
-              <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
-
+              <div
+                className="
+                  border-b
+                  border-slate-100
+                  sm:border-b-0
+                  sm:border-r
+                "
+              >
                 <TrustItem
                   icon={
                     <Fish className="h-6 w-6" />
                   }
-
                   title="Produk Segar"
-
                   description="Pilihan seafood untuk kebutuhan Anda."
                 />
-
               </div>
 
-              <div className="border-b border-slate-100 sm:border-b-0 sm:border-r">
-
+              <div
+                className="
+                  border-b
+                  border-slate-100
+                  sm:border-b-0
+                  sm:border-r
+                "
+              >
                 <TrustItem
                   icon={
                     <ShieldCheck className="h-6 w-6" />
                   }
-
                   title="Kualitas Terjaga"
-
                   description="Informasi produk dan stok ditampilkan secara transparan."
                 />
-
               </div>
 
               <div>
-
                 <TrustItem
                   icon={
                     <Package className="h-6 w-6" />
                   }
-
                   title="Checkout Mudah"
-
                   description="Proses pembelian dirancang cepat dan praktis."
                 />
-
               </div>
 
             </div>
@@ -1735,7 +2157,9 @@ const normalizedFlashSaleItems =
         </div>
       </section>
 
-       </main>
+      </main>
+
+        <StickyMobileCartBar />
 
     <MobileBottomNavigation />
   </>

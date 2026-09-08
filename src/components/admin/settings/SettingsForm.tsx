@@ -24,6 +24,7 @@ import {
   Truck,
   ImagePlus,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -100,6 +101,31 @@ flashSaleBannerLabel: string | null;
 flashSaleBannerTitle: string | null;
 flashSaleBannerHighlight: string | null;
 flashSaleBannerDescription: string | null;
+
+    /**
+     * ==========================================================
+     * PROMO PILIHAN
+     * ==========================================================
+     */
+
+    promoSectionLabel: string | null;
+    promoSectionTitle: string | null;
+    promoSectionLinkLabel: string | null;
+    promoSectionLinkHref: string | null;
+
+    promoCard1Image: string | null;
+    promoCard1Eyebrow: string | null;
+    promoCard1Title: string | null;
+    promoCard1Description: string | null;
+    promoCard1Button: string | null;
+    promoCard1Href: string | null;
+
+    promoCard2Image: string | null;
+    promoCard2Eyebrow: string | null;
+    promoCard2Title: string | null;
+    promoCard2Description: string | null;
+    promoCard2Button: string | null;
+    promoCard2Href: string | null;
 
     email: string | null;
     whatsapp: string | null;
@@ -495,6 +521,137 @@ const flashSaleBannerInputRef =
   useRef<HTMLInputElement | null>(
     null
   );
+
+  /**
+   * ==========================================================
+   * PROMO PILIHAN STATE
+   * ==========================================================
+   */
+
+  const [
+    promoSectionLabel,
+    setPromoSectionLabel,
+  ] = useState(
+    settings.promoSectionLabel ?? ""
+  );
+
+  const [
+    promoSectionTitle,
+    setPromoSectionTitle,
+  ] = useState(
+    settings.promoSectionTitle ?? ""
+  );
+
+  const [
+    promoSectionLinkLabel,
+    setPromoSectionLinkLabel,
+  ] = useState(
+    settings.promoSectionLinkLabel ?? ""
+  );
+
+  const [
+    promoSectionLinkHref,
+    setPromoSectionLinkHref,
+  ] = useState(
+    settings.promoSectionLinkHref ?? ""
+  );
+
+  const [
+    promoCard1Image,
+    setPromoCard1Image,
+  ] = useState<string | null>(
+    settings.promoCard1Image
+  );
+
+  const [
+    promoCard1Eyebrow,
+    setPromoCard1Eyebrow,
+  ] = useState(
+    settings.promoCard1Eyebrow ?? ""
+  );
+
+  const [
+    promoCard1Title,
+    setPromoCard1Title,
+  ] = useState(
+    settings.promoCard1Title ?? ""
+  );
+
+  const [
+    promoCard1Description,
+    setPromoCard1Description,
+  ] = useState(
+    settings.promoCard1Description ?? ""
+  );
+
+  const [
+    promoCard1Button,
+    setPromoCard1Button,
+  ] = useState(
+    settings.promoCard1Button ?? ""
+  );
+
+  const [
+    promoCard1Href,
+    setPromoCard1Href,
+  ] = useState(
+    settings.promoCard1Href ?? ""
+  );
+
+  const [
+    promoCard2Image,
+    setPromoCard2Image,
+  ] = useState<string | null>(
+    settings.promoCard2Image
+  );
+
+  const [
+    promoCard2Eyebrow,
+    setPromoCard2Eyebrow,
+  ] = useState(
+    settings.promoCard2Eyebrow ?? ""
+  );
+
+  const [
+    promoCard2Title,
+    setPromoCard2Title,
+  ] = useState(
+    settings.promoCard2Title ?? ""
+  );
+
+  const [
+    promoCard2Description,
+    setPromoCard2Description,
+  ] = useState(
+    settings.promoCard2Description ?? ""
+  );
+
+  const [
+    promoCard2Button,
+    setPromoCard2Button,
+  ] = useState(
+    settings.promoCard2Button ?? ""
+  );
+
+  const [
+    promoCard2Href,
+    setPromoCard2Href,
+  ] = useState(
+    settings.promoCard2Href ?? ""
+  );
+
+  const [
+    uploadingPromoCard,
+    setUploadingPromoCard,
+  ] = useState<"card1" | "card2" | null>(
+    null
+  );
+
+  const promoCard1InputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  const promoCard2InputRef =
+    useRef<HTMLInputElement | null>(null);
 
   /**
    * ==========================================================
@@ -1379,6 +1536,153 @@ function handleRemoveHeroImage(
     setIsSuccess(true);
   }
 
+    /**
+   * ==========================================================
+   * UPLOAD PROMO IMAGE
+   * ==========================================================
+   */
+
+  async function handlePromoImageChange(
+    card: "card1" | "card2",
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    setMessage(null);
+    setIsSuccess(null);
+
+    if (
+      !ALLOWED_FLASH_SALE_IMAGE_TYPES.includes(
+        file.type as
+          | "image/png"
+          | "image/webp"
+          | "image/gif"
+      )
+    ) {
+      setMessage(
+        "Format gambar Promo harus PNG, WEBP, atau GIF."
+      );
+      setIsSuccess(false);
+      return;
+    }
+
+    if (
+      file.size <= 0 ||
+      file.size > MAX_FLASH_SALE_IMAGE_SIZE
+    ) {
+      setMessage(
+        "Ukuran gambar Promo maksimal 5 MB."
+      );
+      setIsSuccess(false);
+      return;
+    }
+
+    try {
+      setUploadingPromoCard(card);
+
+      const formData = new FormData();
+
+      formData.append(
+        "file",
+        file
+      );
+
+      formData.append(
+        "card",
+        card
+      );
+
+      const response = await fetch(
+        "/api/settings/promo-image",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const result = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          result?.message ||
+            "Gagal mengupload gambar Promo."
+        );
+      }
+
+      const uploadedUrl =
+        result?.url ||
+        result?.data?.url ||
+        result?.imageUrl ||
+        result?.data?.imageUrl ||
+        result?.path ||
+        result?.data?.path ||
+        null;
+
+      if (
+        typeof uploadedUrl !== "string" ||
+        uploadedUrl.trim() === ""
+      ) {
+        throw new Error(
+          "Upload gambar berhasil, tetapi URL gambar tidak ditemukan pada response server."
+        );
+      }
+
+      if (card === "card1") {
+        setPromoCard1Image(
+          uploadedUrl
+        );
+      } else {
+        setPromoCard2Image(
+          uploadedUrl
+        );
+      }
+
+      setMessage(
+        `Gambar Promo ${card === "card1" ? "1" : "2"} berhasil diupload. Jangan lupa klik Simpan Pengaturan.`
+      );
+
+      setIsSuccess(true);
+    } catch (error) {
+      console.error(
+        "[PROMO_IMAGE_UPLOAD_ERROR]",
+        error
+      );
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat mengupload gambar Promo."
+      );
+
+      setIsSuccess(false);
+    } finally {
+      setUploadingPromoCard(
+        null
+      );
+    }
+  }
+
+  function handleRemovePromoImage(
+    card: "card1" | "card2"
+  ) {
+    if (card === "card1") {
+      setPromoCard1Image(null);
+    } else {
+      setPromoCard2Image(null);
+    }
+
+    setMessage(
+      `Gambar Promo ${card === "card1" ? "1" : "2"} akan dihapus setelah Anda menyimpan pengaturan.`
+    );
+
+    setIsSuccess(true);
+  }
+
   /**
    * ==========================================================
    * GET CURRENT LOCATION
@@ -1595,6 +1899,16 @@ if (isUploadingFlashSaleBanner) {
   return;
 }
 
+if (uploadingPromoCard) {
+  setMessage(
+    "Tunggu hingga proses upload gambar Promo Pilihan selesai."
+  );
+
+  setIsSuccess(false);
+
+  return;
+}
+
     const input = {
       /**
        * STORE INFORMATION
@@ -1660,6 +1974,31 @@ if (isUploadingFlashSaleBanner) {
       flashSaleBannerTitle,
       flashSaleBannerHighlight,
       flashSaleBannerDescription,
+
+      /**
+       * ==========================================================
+       * PROMO PILIHAN
+       * ==========================================================
+       */
+
+      promoSectionLabel,
+      promoSectionTitle,
+      promoSectionLinkLabel,
+      promoSectionLinkHref,
+
+      promoCard1Image,
+      promoCard1Eyebrow,
+      promoCard1Title,
+      promoCard1Description,
+      promoCard1Button,
+      promoCard1Href,
+
+      promoCard2Image,
+      promoCard2Eyebrow,
+      promoCard2Title,
+      promoCard2Description,
+      promoCard2Button,
+      promoCard2Href,
 
       email: String(
         formData.get("email") ?? ""
@@ -2720,6 +3059,401 @@ if (isUploadingFlashSaleBanner) {
     />
   </div>
 </div>
+  </div>
+</section>
+
+{/* ====================================================== */}
+{/* PROMO PILIHAN */}
+{/* ====================================================== */}
+
+<section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  <div className="mb-6 flex items-start gap-3">
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+      <Sparkles className="h-5 w-5" />
+    </div>
+
+    <div>
+      <h2 className="text-base font-bold text-slate-900">
+        Promo Pilihan
+      </h2>
+
+      <p className="mt-1 text-sm text-slate-500">
+        Atur judul section dan dua kartu promo yang tampil pada homepage.
+      </p>
+    </div>
+  </div>
+
+  {/* SECTION SETTINGS */}
+
+  <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+    <div className="mb-5">
+      <h3 className="text-sm font-bold text-slate-900">
+        Pengaturan Section
+      </h3>
+
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        Tentukan label, judul, dan tombol pada bagian Promo Pilihan.
+      </p>
+    </div>
+
+    <div className="grid gap-5 md:grid-cols-2">
+      <div>
+        <label
+          htmlFor="promoSectionLabel"
+          className="mb-2 block text-sm font-semibold text-slate-700"
+        >
+          Label Section
+        </label>
+
+        <input
+          id="promoSectionLabel"
+          name="promoSectionLabel"
+          type="text"
+          value={promoSectionLabel}
+          onChange={(event) =>
+            setPromoSectionLabel(event.target.value)
+          }
+          disabled={isPending}
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+          placeholder="PROMO PILIHAN"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="promoSectionTitle"
+          className="mb-2 block text-sm font-semibold text-slate-700"
+        >
+          Judul Section
+        </label>
+
+        <input
+          id="promoSectionTitle"
+          name="promoSectionTitle"
+          type="text"
+          value={promoSectionTitle}
+          onChange={(event) =>
+            setPromoSectionTitle(event.target.value)
+          }
+          disabled={isPending}
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+          placeholder="Belanja Lebih Hemat"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="promoSectionLinkLabel"
+          className="mb-2 block text-sm font-semibold text-slate-700"
+        >
+          Teks Link Section
+        </label>
+
+        <input
+          id="promoSectionLinkLabel"
+          name="promoSectionLinkLabel"
+          type="text"
+          value={promoSectionLinkLabel}
+          onChange={(event) =>
+            setPromoSectionLinkLabel(event.target.value)
+          }
+          disabled={isPending}
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+          placeholder="Lihat Produk"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="promoSectionLinkHref"
+          className="mb-2 block text-sm font-semibold text-slate-700"
+        >
+          URL Link Section
+        </label>
+
+        <input
+          id="promoSectionLinkHref"
+          name="promoSectionLinkHref"
+          type="text"
+          value={promoSectionLinkHref}
+          onChange={(event) =>
+            setPromoSectionLinkHref(event.target.value)
+          }
+          disabled={isPending}
+          className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+          placeholder="/products"
+        />
+      </div>
+    </div>
+  </div>
+
+  {/* PROMO CARDS */}
+
+  <div className="grid gap-5 xl:grid-cols-2">
+    {(
+      [
+        {
+          key: "card1" as const,
+          title: "Promo Card 1",
+          image: promoCard1Image,
+          inputRef: promoCard1InputRef,
+          uploading: uploadingPromoCard === "card1",
+          setEyebrow: setPromoCard1Eyebrow,
+          eyebrow: promoCard1Eyebrow,
+          setTitle: setPromoCard1Title,
+          cardTitle: promoCard1Title,
+          setDescription: setPromoCard1Description,
+          description: promoCard1Description,
+          setButton: setPromoCard1Button,
+          button: promoCard1Button,
+          setHref: setPromoCard1Href,
+          href: promoCard1Href,
+        },
+        {
+          key: "card2" as const,
+          title: "Promo Card 2",
+          image: promoCard2Image,
+          inputRef: promoCard2InputRef,
+          uploading: uploadingPromoCard === "card2",
+          setEyebrow: setPromoCard2Eyebrow,
+          eyebrow: promoCard2Eyebrow,
+          setTitle: setPromoCard2Title,
+          cardTitle: promoCard2Title,
+          setDescription: setPromoCard2Description,
+          description: promoCard2Description,
+          setButton: setPromoCard2Button,
+          button: promoCard2Button,
+          setHref: setPromoCard2Href,
+          href: promoCard2Href,
+        },
+      ] as const
+    ).map((card) => (
+      <div
+        key={card.key}
+        className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+      >
+        <div className="border-b border-slate-200 bg-white px-4 py-4 sm:px-5">
+          <h3 className="text-sm font-bold text-slate-900">
+            {card.title}
+          </h3>
+
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Atur visual dan konten kartu promo.
+          </p>
+        </div>
+
+        {/* IMAGE */}
+
+        <div className="p-4 sm:p-5">
+          <div className="relative flex aspect-[16/8] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {card.image ? (
+              <Image
+                src={card.image}
+                alt={card.title}
+                fill
+                sizes="(max-width: 1280px) 100vw, 50vw"
+                className="object-cover"
+                unoptimized
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 px-4 text-center text-slate-400">
+                <ImagePlus className="h-10 w-10" />
+
+                <span className="text-xs font-medium">
+                  Belum ada gambar promo
+                </span>
+              </div>
+            )}
+
+            {card.uploading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm">
+                <Loader2 className="h-7 w-7 animate-spin text-slate-900" />
+
+                <span className="text-xs font-semibold text-slate-700">
+                  Mengupload gambar...
+                </span>
+              </div>
+            )}
+          </div>
+
+          <input
+            ref={card.inputRef}
+            type="file"
+            accept=".png,.webp,.gif,image/png,image/webp,image/gif"
+            onChange={(event) =>
+              handlePromoImageChange(card.key, event)
+            }
+            className="hidden"
+          />
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => card.inputRef.current?.click()}
+              disabled={
+                isPending ||
+                uploadingPromoCard !== null
+              }
+              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {card.uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Mengupload...
+                </>
+              ) : (
+                <>
+                  <ImagePlus className="h-4 w-4" />
+                  {card.image
+                    ? "Ganti Gambar"
+                    : "Upload Gambar"}
+                </>
+              )}
+            </button>
+
+            {card.image && (
+              <button
+                type="button"
+                onClick={() =>
+                  handleRemovePromoImage(card.key)
+                }
+                disabled={
+                  isPending ||
+                  uploadingPromoCard !== null
+                }
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-3 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={`Hapus ${card.title}`}
+                title="Hapus gambar"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            PNG, WEBP, atau GIF maksimal 5 MB. Gambar digunakan
+            sebagai visual pada kartu promo.
+          </p>
+
+          {/* TEXT SETTINGS */}
+
+          <div className="mt-6 grid gap-5 border-t border-slate-200 pt-6">
+            <div>
+              <label
+                htmlFor={`${card.key}-eyebrow`}
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Eyebrow
+              </label>
+
+              <input
+                id={`${card.key}-eyebrow`}
+                type="text"
+                value={card.eyebrow}
+                onChange={(event) =>
+                  card.setEyebrow(event.target.value)
+                }
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="PROMO PILIHAN"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`${card.key}-title`}
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Judul
+              </label>
+
+              <input
+                id={`${card.key}-title`}
+                type="text"
+                value={card.cardTitle}
+                onChange={(event) =>
+                  card.setTitle(event.target.value)
+                }
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="Seafood Segar untuk Kebutuhan Anda"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`${card.key}-description`}
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Deskripsi
+              </label>
+
+              <textarea
+                id={`${card.key}-description`}
+                value={card.description}
+                onChange={(event) =>
+                  card.setDescription(event.target.value)
+                }
+                disabled={isPending}
+                rows={3}
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="Temukan berbagai pilihan ikan dan seafood segar untuk kebutuhan keluarga Anda."
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`${card.key}-button`}
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Teks Tombol
+              </label>
+
+              <input
+                id={`${card.key}-button`}
+                type="text"
+                value={card.button}
+                onChange={(event) =>
+                  card.setButton(event.target.value)
+                }
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="Lihat Produk"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`${card.key}-href`}
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                URL Tombol
+              </label>
+
+              <input
+                id={`${card.key}-href`}
+                type="text"
+                value={card.href}
+                onChange={(event) =>
+                  card.setHref(event.target.value)
+                }
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="/products"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+    <p className="text-xs leading-5 text-blue-700">
+      Jika gambar atau teks tidak diatur, homepage akan menggunakan
+      konten default Promo Pilihan. Perubahan baru aktif setelah
+      Anda menekan Simpan Pengaturan.
+    </p>
   </div>
 </section>
 

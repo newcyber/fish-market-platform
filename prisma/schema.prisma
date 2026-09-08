@@ -744,16 +744,28 @@ model Product {
   category Category @relation(fields: [categoryId], references: [id])
 
   /**
-   * ============================================================
-   * PRODUCT INFORMATION
-   * ============================================================
-   */
+  * ============================================================
+  * PRODUCT INFORMATION
+  * ============================================================
+  */
 
   name String
 
   slug String @unique
 
   description String?
+
+  /// Bahan/kandungan produk.
+  ingredients String?
+
+  /// Informasi nutrisi terstruktur.
+  nutritionInformation Json?
+
+  /// Cara menyimpan produk.
+  storageInstructions String?
+
+  /// Cara menggunakan/mengolah produk.
+  usageInstructions String?
 
   sku String? @unique
 
@@ -3031,6 +3043,29 @@ flashSaleBannerImage String?
   flashSaleBannerTitle       String?
   flashSaleBannerHighlight   String?
   flashSaleBannerDescription String?
+
+  // ============================================================
+  // PROMO PILIHAN
+  // ============================================================
+
+  promoSectionLabel     String?
+  promoSectionTitle     String?
+  promoSectionLinkLabel String?
+  promoSectionLinkHref  String?
+
+  promoCard1Image       String?
+  promoCard1Eyebrow     String?
+  promoCard1Title       String?
+  promoCard1Description String?
+  promoCard1Button      String?
+  promoCard1Href        String?
+
+  promoCard2Image       String?
+  promoCard2Eyebrow     String?
+  promoCard2Title       String?
+  promoCard2Description String?
+  promoCard2Button      String?
+  promoCard2Href        String?
 
   email    String?
   whatsapp String?

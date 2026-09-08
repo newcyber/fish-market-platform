@@ -316,37 +316,37 @@ export async function createProductAction(
      * ========================================================
      */
 
-    const parsed =
-      ProductSchema.safeParse({
-        categoryId:
-          formData.get(
-            "categoryId"
-          ),
+const parsed =
+  ProductSchema.safeParse({
+    categoryId:
+      formData.get("categoryId"),
 
-        name:
-          formData.get(
-            "name"
-          ),
+    name:
+      formData.get("name"),
 
-        slug:
-          formData.get(
-            "slug"
-          ),
+    slug:
+      formData.get("slug"),
 
-        description:
-          formData.get(
-            "description"
-          ),
+    description:
+      formData.get("description"),
 
-        sku:
-          formData.get(
-            "sku"
-          ),
+    ingredients:
+      formData.get("ingredients"),
 
-        price:
-          formData.get(
-            "price"
-          ),
+    nutritionInformation:
+      formData.get("nutritionInformation"),
+
+    storageInstructions:
+      formData.get("storageInstructions"),
+
+    usageInstructions:
+      formData.get("usageInstructions"),
+
+    sku:
+      formData.get("sku"),
+
+    price:
+      formData.get("price"),
 
         isDiscountActive:
           normalizeBoolean(

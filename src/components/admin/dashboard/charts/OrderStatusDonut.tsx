@@ -136,8 +136,8 @@ export function OrderStatusDonut({
         </p>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
-        <div className="relative mx-auto h-[200px] w-[200px]">
+      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
+        <div className="relative mx-auto aspect-square w-full max-w-[200px]">
           <svg
             viewBox="0 0 200 200"
             className="h-full w-full -rotate-90"

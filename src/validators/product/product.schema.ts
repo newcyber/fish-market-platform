@@ -161,6 +161,56 @@ const ProductBaseFields = {
       value && value.length > 0 ? value : null
     ),
 
+  ingredients: z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((value) =>
+    value && value.length > 0 ? value : null
+  ),
+
+nutritionInformation: z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((value) => {
+    if (!value || value.length === 0) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(value);
+
+      if (!Array.isArray(parsed)) {
+        return null;
+      }
+
+      return parsed;
+    } catch {
+      return null;
+    }
+  }),
+
+storageInstructions: z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((value) =>
+    value && value.length > 0 ? value : null
+  ),
+
+usageInstructions: z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((value) =>
+    value && value.length > 0 ? value : null
+  ),
+
   /**
    * Parent/product code.
    * Inventory/transaction SKU canonical berada di ProductSku.sku.

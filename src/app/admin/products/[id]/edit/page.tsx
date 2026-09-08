@@ -198,6 +198,28 @@ export default async function EditProductPage({
     description:
       product.description ?? "",
 
+    ingredients:
+      product.ingredients ?? "",
+
+    nutritionInformation:
+      Array.isArray(product.nutritionInformation) ?
+      product.nutritionInformation.map((item) =>
+        { if ( typeof item === "object" && item !== null && !Array.isArray(item)
+        ) { return { name: "name" in item && typeof item.name === "string" ?
+          item.name : "", value: "value" in item && typeof
+          item.value === "string" ?
+          item.value : "",
+          unit: "unit" in item && typeof
+          item.unit === "string" ?
+          item.unit : "", };
+        } return { name: "", value: "", unit: "", }; }) : [],
+
+    storageInstructions:
+      product.storageInstructions ?? "",
+
+    usageInstructions:
+      product.usageInstructions ?? "",
+
     sku:
       product.sku ?? "",
 

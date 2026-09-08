@@ -95,6 +95,31 @@ export interface UpdateStoreSettingsPayload {
   flashSaleBannerHighlight?: string | null;
   flashSaleBannerDescription?: string | null;
 
+  /**
+   * ==========================================================
+   * PROMO PILIHAN
+   * ==========================================================
+   */
+
+  promoSectionLabel?: string | null;
+  promoSectionTitle?: string | null;
+  promoSectionLinkLabel?: string | null;
+  promoSectionLinkHref?: string | null;
+
+  promoCard1Image?: string | null;
+  promoCard1Eyebrow?: string | null;
+  promoCard1Title?: string | null;
+  promoCard1Description?: string | null;
+  promoCard1Button?: string | null;
+  promoCard1Href?: string | null;
+
+  promoCard2Image?: string | null;
+  promoCard2Eyebrow?: string | null;
+  promoCard2Title?: string | null;
+  promoCard2Description?: string | null;
+  promoCard2Button?: string | null;
+  promoCard2Href?: string | null;
+
   email?: string;
 
   whatsapp?: string;
@@ -358,6 +383,54 @@ class SettingsService {
 
     const flashSaleBannerDescription =
       normalize(payload.flashSaleBannerDescription);
+
+    const promoSectionLabel =
+      normalize(payload.promoSectionLabel);
+
+    const promoSectionTitle =
+      normalize(payload.promoSectionTitle);
+
+    const promoSectionLinkLabel =
+      normalize(payload.promoSectionLinkLabel);
+
+    const promoSectionLinkHref =
+      normalize(payload.promoSectionLinkHref);
+
+    const promoCard1Image =
+      normalize(payload.promoCard1Image);
+
+    const promoCard1Eyebrow =
+      normalize(payload.promoCard1Eyebrow);
+
+    const promoCard1Title =
+      normalize(payload.promoCard1Title);
+
+    const promoCard1Description =
+      normalize(payload.promoCard1Description);
+
+    const promoCard1Button =
+      normalize(payload.promoCard1Button);
+
+    const promoCard1Href =
+      normalize(payload.promoCard1Href);
+
+    const promoCard2Image =
+      normalize(payload.promoCard2Image);
+
+    const promoCard2Eyebrow =
+      normalize(payload.promoCard2Eyebrow);
+
+    const promoCard2Title =
+      normalize(payload.promoCard2Title);
+
+    const promoCard2Description =
+      normalize(payload.promoCard2Description);
+
+    const promoCard2Button =
+      normalize(payload.promoCard2Button);
+
+    const promoCard2Href =
+      normalize(payload.promoCard2Href);
 
     /**
      * --------------------------------------------------------
@@ -742,6 +815,60 @@ class SettingsService {
 
       flashSaleBannerDescription:
         flashSaleBannerDescription,
+
+      /**
+       * ======================================================
+       * PROMO PILIHAN
+       * ======================================================
+       */
+
+      promoSectionLabel:
+        promoSectionLabel,
+
+      promoSectionTitle:
+        promoSectionTitle,
+
+      promoSectionLinkLabel:
+        promoSectionLinkLabel,
+
+      promoSectionLinkHref:
+        promoSectionLinkHref,
+
+      promoCard1Image:
+        promoCard1Image,
+
+      promoCard1Eyebrow:
+        promoCard1Eyebrow,
+
+      promoCard1Title:
+        promoCard1Title,
+
+      promoCard1Description:
+        promoCard1Description,
+
+      promoCard1Button:
+        promoCard1Button,
+
+      promoCard1Href:
+        promoCard1Href,
+
+      promoCard2Image:
+        promoCard2Image,
+
+      promoCard2Eyebrow:
+        promoCard2Eyebrow,
+
+      promoCard2Title:
+        promoCard2Title,
+
+      promoCard2Description:
+        promoCard2Description,
+
+      promoCard2Button:
+        promoCard2Button,
+
+      promoCard2Href:
+        promoCard2Href,
 
       email,
 
