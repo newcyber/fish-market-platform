@@ -261,6 +261,9 @@ export default async function CustomerOrderTrackingPage({
   const isPaymentVerified =
     order.paymentStatus === "VERIFIED";
 
+  const isWaitingVerification =
+    order.status === "WAITING_VERIFICATION";
+
   /**
    * ==========================================================
    * SHIPPING PROVIDER
@@ -496,228 +499,309 @@ export default async function CustomerOrderTrackingPage({
 
         <section
           className="
-            grid
-            gap-3
-            sm:grid-cols-3
-            sm:gap-4
+            overflow-hidden
+            rounded-2xl
+            border
+            border-sky-100
+            bg-white
+            shadow-[0_4px_18px_rgba(23,50,77,0.06)]
           "
         >
-          {/* PAYMENT */}
-
           <div
-            className="
-              flex
-              items-center
-              gap-3
-              rounded-2xl
-              border
-              border-emerald-100
-              bg-white
-              p-4
-              shadow-[0_4px_18px_rgba(23,50,77,0.06)]
-            "
+            className={`
+              relative
+              overflow-hidden
+              px-4
+              py-5
+              sm:px-6
+              sm:py-6
+              ${
+                isCancelled
+                  ? "bg-gradient-to-br from-red-50 via-white to-white"
+                  : isCompleted
+                    ? "bg-gradient-to-br from-emerald-50 via-white to-white"
+                    : isShipping
+                      ? "bg-gradient-to-br from-cyan-50 via-white to-white"
+                      : "bg-gradient-to-br from-sky-50 via-white to-white"
+              }
+            `}
           >
+            {/* Decorative background */}
             <div
-              className={`
-                flex
-                h-11
-                w-11
-                shrink-0
-                items-center
-                justify-center
+              className="
+                pointer-events-none
+                absolute
+                -right-16
+                -top-16
+                h-40
+                w-40
                 rounded-full
-                ${
-                  isPaymentVerified
-                    ? "bg-emerald-100 text-emerald-600"
-                    : "bg-amber-100 text-amber-600"
-                }
-              `}
+                bg-sky-100/40
+                blur-2xl
+              "
+            />
+
+            <div
+              className="
+                relative
+                flex
+                items-start
+                gap-4
+              "
             >
-              {isPaymentVerified ? (
-                <CheckCircle2 className="h-6 w-6" />
-              ) : (
-                <Clock3 className="h-6 w-6" />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <p
-                className="
-                  text-xs
-                  font-medium
-                  text-slate-500
-                "
-              >
-                Pembayaran
-              </p>
-
-              <p
+              <div
                 className={`
-                  mt-0.5
-                  truncate
-                  text-sm
-                  font-bold
+                  flex
+                  h-12
+                  w-12
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-2xl
                   ${
-                    isPaymentVerified
-                      ? "text-emerald-700"
-                      : "text-amber-700"
+                    isCancelled
+                      ? "bg-red-100 text-red-600"
+                      : isCompleted
+                        ? "bg-emerald-100 text-emerald-600"
+                        : isShipping
+                          ? "bg-cyan-100 text-cyan-600"
+                          : "bg-sky-100 text-sky-600"
                   }
                 `}
               >
-                {isPaymentVerified
-                  ? "Lunas"
-                  : "Belum Lunas"}
-              </p>
-
-              <p
-                className="
-                  truncate
-                  text-[11px]
-                  text-slate-400
-                "
-              >
-                {paymentName}
-              </p>
-            </div>
-          </div>
-
-          {/* SHIPPING */}
-
-          <div
-            className="
-              flex
-              items-center
-              gap-3
-              rounded-2xl
-              border
-              border-sky-100
-              bg-white
-              p-4
-              shadow-[0_4px_18px_rgba(23,50,77,0.06)]
-            "
-          >
-            <div
-              className="
-                flex
-                h-11
-                w-11
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                bg-sky-100
-                text-cyan-600
-              "
-            >
-              <Truck className="h-6 w-6" />
-            </div>
-
-            <div className="min-w-0">
-              <p
-                className="
-                  text-xs
-                  font-medium
-                  text-slate-500
-                "
-              >
-                Pengiriman
-              </p>
-
-              <p
-                className="
-                  mt-0.5
-                  truncate
-                  text-sm
-                  font-bold
-                  text-[var(--ocean-950)]
-                "
-              >
-                {shippingProvider}
-              </p>
-
-              <p
-                className="
-                  truncate
-                  text-[11px]
-                  text-slate-400
-                "
-              >
-                {shippingService}
-              </p>
-            </div>
-          </div>
-
-          {/* CURRENT STATUS */}
-
-          <div
-            className="
-              flex
-              items-center
-              gap-3
-              rounded-2xl
-              border
-              border-blue-100
-              bg-white
-              p-4
-              shadow-[0_4px_18px_rgba(23,50,77,0.06)]
-            "
-          >
-            <div
-              className="
-                flex
-                h-11
-                w-11
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                bg-blue-100
-                text-blue-600
-              "
-            >
-              {isCompleted ? (
-                <CheckCircle2 className="h-6 w-6" />
-              ) : isCancelled ? (
-                <XCircle className="h-6 w-6" />
-              ) : (
-                <Package className="h-6 w-6" />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <p
-                className="
-                  text-xs
-                  font-medium
-                  text-slate-500
-                "
-              >
-                Status
-              </p>
-
-              <p
-                className="
-                  mt-0.5
-                  truncate
-                  text-sm
-                  font-bold
-                  text-[var(--ocean-950)]
-                "
-              >
-                {orderStatusLabel}
-              </p>
-
-              <p
-                className="
-                  truncate
-                  text-[11px]
-                  text-slate-400
-                "
-              >
-                {formatShortDate(
-                  order.createdAt
+                {isCancelled ? (
+                  <XCircle className="h-6 w-6" />
+                ) : isCompleted ? (
+                  <CheckCircle2 className="h-6 w-6" />
+                ) : isShipping ? (
+                  <Truck className="h-6 w-6" />
+                ) : (
+                  <Package className="h-6 w-6" />
                 )}
-              </p>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`
+                    text-[11px]
+                    font-bold
+                    uppercase
+                    tracking-[0.14em]
+                    ${
+                      isCancelled
+                        ? "text-red-600"
+                        : isCompleted
+                          ? "text-emerald-600"
+                          : "text-cyan-600"
+                    }
+                  `}
+                >
+                  Status Pesanan
+                </p>
+
+                <h2
+                  className="
+                    mt-1
+                    text-lg
+                    font-bold
+                    tracking-tight
+                    text-slate-950
+                    sm:text-xl
+                  "
+                >
+                  {orderStatusLabel}
+                </h2>
+
+                <p
+                  className="
+                    mt-1.5
+                    max-w-2xl
+                    text-xs
+                    leading-5
+                    text-slate-600
+                    sm:text-sm
+                  "
+                >
+                  {isCancelled
+                    ? "Pesanan ini telah dibatalkan."
+                    : isCompleted
+                      ? "Pesanan telah selesai diproses."
+                      : isShipping
+                        ? "Pesanan sedang dalam perjalanan menuju alamat tujuan Anda."
+                        : order.status === "PROCESSING"
+                          ? "Pesanan Anda sedang dipersiapkan oleh Pisjo Market."
+                          : order.status === "WAITING_VERIFICATION"
+                            ? "Pembayaran sedang diperiksa oleh admin."
+                            : order.status === "WAITING_PAYMENT"
+                              ? "Silakan selesaikan pembayaran untuk melanjutkan pesanan."
+                              : "Pesanan Anda telah diterima dan menunggu diproses oleh Pisjo Market."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Compact order information */}
+          <div
+            className="
+              grid
+              border-t
+              border-slate-100
+              sm:grid-cols-3
+            "
+          >
+            {/* PAYMENT */}
+            <div
+              className="
+                flex
+                items-center
+                gap-3
+                border-b
+                border-slate-100
+                px-4
+                py-3.5
+                sm:border-b-0
+                sm:border-r
+                sm:px-5
+              "
+            >
+              <div
+                className={`
+                  flex
+                  h-9
+                  w-9
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  ${
+                    isPaymentVerified
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "bg-amber-50 text-amber-600"
+                  }
+                `}
+              >
+                {isPaymentVerified ? (
+                  <CheckCircle2 className="h-5 w-5" />
+                ) : (
+                  <Clock3 className="h-5 w-5" />
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500">
+                  Pembayaran
+                </p>
+
+                <p
+                  className={`
+                    mt-0.5
+                    truncate
+                    text-sm
+                    font-bold
+                    ${
+                      isPaymentVerified
+                        ? "text-emerald-700"
+                        : "text-amber-700"
+                    }
+                  `}
+                >
+                  {isPaymentVerified
+                    ? "Lunas"
+                    : "Belum Lunas"}
+                </p>
+
+                <p className="truncate text-[10px] text-slate-400">
+                  {paymentName}
+                </p>
+              </div>
+            </div>
+
+            {/* SHIPPING */}
+            <div
+              className="
+                flex
+                items-center
+                gap-3
+                border-b
+                border-slate-100
+                px-4
+                py-3.5
+                sm:border-b-0
+                sm:border-r
+                sm:px-5
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-9
+                  w-9
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-sky-50
+                  text-cyan-600
+                "
+              >
+                <Truck className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500">
+                  Pengiriman
+                </p>
+
+                <p className="mt-0.5 truncate text-sm font-bold text-[var(--ocean-950)]">
+                  {shippingProvider}
+                </p>
+
+                <p className="truncate text-[10px] text-slate-400">
+                  {shippingService}
+                </p>
+              </div>
+            </div>
+
+            {/* ORDER DATE */}
+            <div
+              className="
+                flex
+                items-center
+                gap-3
+                px-4
+                py-3.5
+                sm:px-5
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-9
+                  w-9
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-slate-100
+                  text-slate-600
+                "
+              >
+                <ReceiptText className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500">
+                  Pesanan
+                </p>
+
+                <p className="mt-0.5 truncate text-sm font-bold text-[var(--ocean-950)]">
+                  {formatShortDate(order.createdAt)}
+                </p>
+
+                <p className="truncate text-[10px] text-slate-400">
+                  {order.items.length} produk
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -1036,29 +1120,33 @@ export default async function CustomerOrderTrackingPage({
                     "
                   />
 
-                  <div
-                    className="
-                      absolute
-                      left-[12.5%]
-                      top-5
-                      h-1
-                      rounded-full
-                      bg-cyan-600
-                      transition-all
-                      duration-500
-                    "
-                    style={{
-                      width:
-                        completedStepIndex <= 0
-                          ? "0%"
-                          : `${Math.min(
-                              completedStepIndex /
-                                (trackingSteps.length -
-                                  1),
-                              1
-                            ) * 75}%`,
-                    }}
-                  />
+<div
+  className="
+    absolute
+    left-[12.5%]
+    top-5
+    h-1
+    rounded-full
+    bg-cyan-600
+    transition-all
+    duration-500
+  "
+  style={{
+    width:
+      completedStepIndex <= 0
+        ? "0%"
+        : `calc(${Math.min(
+            completedStepIndex /
+              (trackingSteps.length - 1),
+            1
+          ) * 100}% - ${
+            completedStepIndex ===
+            trackingSteps.length - 1
+              ? "0%"
+              : "0%"
+          })`,
+  }}
+/>
 
                   {trackingSteps.map(
                     (step, index) => {
@@ -1276,798 +1364,942 @@ export default async function CustomerOrderTrackingPage({
           )}
         </section>
 
-        {/* ==================================================== */}
-        {/* TRACKING NUMBER                                      */}
-        {/* ==================================================== */}
+{/* ==================================================== */}
+{/* SHIPPING INFORMATION                                 */}
+{/* ==================================================== */}
 
-        <section
+<section
+  className="
+    mt-4
+    overflow-hidden
+    rounded-2xl
+    border
+    border-sky-100
+    bg-white
+    shadow-[0_4px_18px_rgba(23,50,77,0.06)]
+    sm:mt-6
+  "
+>
+  <div
+    className="
+      flex
+      items-center
+      gap-3
+      border-b
+      border-slate-100
+      px-4
+      py-4
+      sm:px-6
+      sm:py-5
+    "
+  >
+    <div
+      className="
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        bg-sky-50
+        text-cyan-600
+      "
+    >
+      <ReceiptText className="h-5 w-5" />
+    </div>
+
+    <div className="min-w-0">
+      <h2
+        className="
+          text-base
+          font-bold
+          text-[var(--ocean-950)]
+          sm:text-lg
+        "
+      >
+        Informasi Pengiriman
+      </h2>
+
+      <p
+        className="
+          mt-0.5
+          text-xs
+          text-slate-500
+        "
+      >
+        Detail layanan dan status pengiriman pesanan
+      </p>
+    </div>
+  </div>
+
+  <div
+    className="
+      grid
+      gap-3
+      p-4
+      sm:grid-cols-2
+      sm:p-6
+    "
+  >
+    {/* KURIR */}
+    <div
+      className="
+        rounded-xl
+        border
+        border-slate-100
+        bg-slate-50
+        p-4
+      "
+    >
+      <p
+        className="
+          text-[10px]
+          font-bold
+          uppercase
+          tracking-wide
+          text-slate-400
+        "
+      >
+        Kurir
+      </p>
+
+      <p
+        className="
+          mt-1
+          text-sm
+          font-bold
+          text-slate-900
+        "
+      >
+        {shippingProvider}
+      </p>
+
+      <p
+        className="
+          mt-0.5
+          text-xs
+          leading-5
+          text-slate-500
+        "
+      >
+        {shippingService}
+      </p>
+    </div>
+
+    {/* NOMOR RESI */}
+    <div
+      className={`
+        rounded-xl
+        border
+        p-4
+        ${
+          order.trackingNumber
+            ? "border-cyan-100 bg-cyan-50/60"
+            : "border-slate-100 bg-slate-50"
+        }
+      `}
+    >
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+          gap-3
+        "
+      >
+        <p
           className="
-            mt-4
-            rounded-2xl
-            border
-            border-sky-100
-            bg-white
-            p-4
-            shadow-[0_4px_18px_rgba(23,50,77,0.06)]
-            sm:mt-6
-            sm:p-6
+            text-[10px]
+            font-bold
+            uppercase
+            tracking-wide
+            text-slate-400
           "
         >
-          <div
+          Nomor Resi
+        </p>
+
+        {order.trackingNumber && (
+          <span
             className="
-              flex
-              items-center
-              gap-3
+              shrink-0
+              rounded-full
+              bg-cyan-100
+              px-2
+              py-0.5
+              text-[9px]
+              font-bold
+              uppercase
+              tracking-wide
+              text-cyan-700
             "
           >
-            <div
-              className="
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                bg-sky-50
-                text-cyan-600
-              "
-            >
-              <ReceiptText className="h-5 w-5" />
-            </div>
+            Tersedia
+          </span>
+        )}
+      </div>
 
-            <div className="min-w-0">
-              <h2
-                className="
-                  text-base
-                  font-bold
-                  text-[var(--ocean-950)]
-                "
-              >
-                Informasi Pengiriman
-              </h2>
-
-              <p
-                className="
-                  mt-0.5
-                  text-xs
-                  text-slate-500
-                "
-              >
-                Nomor resi dan layanan pengiriman
-              </p>
-            </div>
-          </div>
-
-          <div
-            className="
-              mt-4
-              grid
-              gap-3
-              sm:grid-cols-2
-            "
-          >
-            <div
-              className="
-                rounded-xl
-                bg-slate-50
-                p-4
-              "
-            >
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-wide
-                  text-slate-400
-                "
-              >
-                Kurir
-              </p>
-
-              <p
-                className="
-                  mt-1
-                  text-sm
-                  font-bold
-                  text-slate-900
-                "
-              >
-                {shippingProvider}
-              </p>
-
-              <p
-                className="
-                  mt-0.5
-                  text-xs
-                  text-slate-500
-                "
-              >
-                {shippingService}
-              </p>
-            </div>
-
-            <div
-              className="
-                rounded-xl
-                bg-slate-50
-                p-4
-              "
-            >
-              <p
-                className="
-                  text-[10px]
-                  font-bold
-                  uppercase
-                  tracking-wide
-                  text-slate-400
-                "
-              >
-                Nomor Resi
-              </p>
-
-              {order.trackingNumber ? (
-                <p
-                  className="
-                    mt-1
-                    break-all
-                    font-mono
-                    text-sm
-                    font-bold
-                    tracking-wide
-                    text-slate-900
-                  "
-                >
-                  {order.trackingNumber}
-                </p>
-              ) : (
-                <p
-                  className="
-                    mt-1
-                    text-sm
-                    font-medium
-                    text-slate-400
-                  "
-                >
-                  Resi belum tersedia
-                </p>
-              )}
-
-              {order.shippedAt && (
-                <p
-                  className="
-                    mt-1
-                    text-xs
-                    text-slate-500
-                  "
-                >
-                  Dikirim{" "}
-                  {formatShortDate(
-                    new Date(
-                      order.shippedAt
-                    )
-                  )}
-                </p>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* ==================================================== */}
-        {/* ORDER ITEMS                                          */}
-        {/* ==================================================== */}
-
-        <section
+      {order.trackingNumber ? (
+        <p
           className="
-            mt-4
-            overflow-hidden
-            rounded-2xl
-            border
-            border-sky-100
-            bg-white
-            shadow-[0_4px_18px_rgba(23,50,77,0.06)]
-            sm:mt-6
+            mt-2
+            break-all
+            font-mono
+            text-sm
+            font-bold
+            leading-6
+            tracking-wide
+            text-[var(--ocean-950)]
           "
         >
-          <div
-            className="
-              flex
-              items-center
-              justify-between
-              gap-3
-              border-b
-              border-slate-100
-              px-4
-              py-4
-              sm:px-6
-              sm:py-5
-            "
-          >
-            <div>
-              <h2
-                className="
-                  text-base
-                  font-bold
-                  text-[var(--ocean-950)]
-                  sm:text-lg
-                "
-              >
-                Daftar Produk
-              </h2>
+          {order.trackingNumber}
+        </p>
+      ) : (
+        <p
+          className="
+            mt-1
+            text-sm
+            font-medium
+            text-slate-400
+          "
+        >
+          Resi belum tersedia
+        </p>
+      )}
 
-              <p
-                className="
-                  mt-0.5
-                  text-xs
-                  text-slate-500
-                "
-              >
-                {order.items.length} produk dalam
-                pesanan
-              </p>
-            </div>
+      {order.shippedAt && (
+        <div
+          className="
+            mt-2
+            flex
+            items-center
+            gap-1.5
+            text-xs
+            text-slate-500
+          "
+        >
+          <Clock3 className="h-3.5 w-3.5 shrink-0" />
 
-            <ShoppingBag
-              className="
-                h-5
-                w-5
-                shrink-0
-                text-cyan-600
-              "
-            />
-          </div>
-
-          <div
-            className="
-              divide-y
-              divide-slate-100
-            "
-          >
-            {order.items.map(
-              (item) => (
-                <div
-                  key={item.id}
-                  className="
-                    flex
-                    gap-3
-                    px-4
-                    py-4
-                    sm:gap-4
-                    sm:px-6
-                  "
-                >
-                  <div
-                    className="
-                      flex
-                      h-16
-                      w-16
-                      shrink-0
-                      items-center
-                      justify-center
-                      overflow-hidden
-                      rounded-xl
-                      bg-slate-100
-                      sm:h-20
-                      sm:w-20
-                    "
-                  >
-                    <Package
-                      className="
-                        h-7
-                        w-7
-                        text-slate-400
-                        sm:h-8
-                        sm:w-8
-                      "
-                    />
-                  </div>
-
-                  <div
-                    className="
-                      min-w-0
-                      flex-1
-                    "
-                  >
-                    <h3
-                      className="
-                        line-clamp-2
-                        text-sm
-                        font-bold
-                        text-slate-900
-                        sm:text-base
-                      "
-                    >
-                      {item.productName}
-                    </h3>
-
-                    <p
-                      className="
-                        mt-1
-                        text-xs
-                        text-slate-500
-                        sm:text-sm
-                      "
-                    >
-                      {formatCurrency(
-                        Number(item.price)
-                      )}{" "}
-                      × {item.quantity}
-                    </p>
-                  </div>
-
-                  <div
-                    className="
-                      shrink-0
-                      text-right
-                    "
-                  >
-                    <p
-                      className="
-                        text-sm
-                        font-bold
-                        text-[var(--ocean-950)]
-                        sm:text-base
-                      "
-                    >
-                      {formatCurrency(
-                        Number(item.subtotal)
-                      )}
-                    </p>
-                  </div>
-                </div>
-              )
+          <span>
+            Dikirim{" "}
+            {formatShortDate(
+              new Date(order.shippedAt)
             )}
-          </div>
-        </section>
+          </span>
+        </div>
+      )}
+    </div>
+  </div>
+</section>
 
-        {/* ==================================================== */}
-        {/* PAYMENT SUMMARY                                      */}
-        {/* ==================================================== */}
+{/* ==================================================== */}
+{/* ORDER ITEMS                                          */}
+{/* ==================================================== */}
 
-        <section
+<section
+  className="
+    mt-4
+    overflow-hidden
+    rounded-2xl
+    border
+    border-sky-100
+    bg-white
+    shadow-[0_4px_18px_rgba(23,50,77,0.06)]
+    sm:mt-6
+  "
+>
+  <div
+    className="
+      flex
+      items-center
+      justify-between
+      gap-3
+      border-b
+      border-slate-100
+      px-4
+      py-4
+      sm:px-6
+      sm:py-5
+    "
+  >
+    <div className="min-w-0">
+      <h2
+        className="
+          text-base
+          font-bold
+          text-[var(--ocean-950)]
+          sm:text-lg
+        "
+      >
+        Daftar Produk
+      </h2>
+
+      <p
+        className="
+          mt-0.5
+          text-xs
+          text-slate-500
+        "
+      >
+        {order.items.length} produk dalam pesanan
+      </p>
+    </div>
+
+    <ShoppingBag
+      className="
+        h-5
+        w-5
+        shrink-0
+        text-cyan-600
+      "
+    />
+  </div>
+
+  <div className="divide-y divide-slate-100">
+    {order.items.map((item) => (
+      <div
+        key={item.id}
+        className="
+          flex
+          gap-3
+          px-4
+          py-4
+          sm:gap-4
+          sm:px-6
+          sm:py-5
+        "
+      >
+        {/* PRODUCT IMAGE PLACEHOLDER */}
+        <div
           className="
-            mt-4
-            rounded-2xl
-            border
-            border-sky-100
-            bg-white
-            p-4
-            shadow-[0_4px_18px_rgba(23,50,77,0.06)]
-            sm:mt-6
-            sm:p-6
+            flex
+            h-16
+            w-16
+            shrink-0
+            items-center
+            justify-center
+            overflow-hidden
+            rounded-xl
+            bg-slate-100
+            sm:h-20
+            sm:w-20
           "
         >
-          <div
+          <Package
             className="
-              flex
-              items-center
-              gap-3
+              h-7
+              w-7
+              text-slate-400
+              sm:h-8
+              sm:w-8
             "
-          >
-            <div
-              className="
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-xl
-                bg-sky-50
-                text-cyan-600
-              "
-            >
-              <CreditCard className="h-5 w-5" />
-            </div>
+          />
+        </div>
 
-            <div>
-              <h2
-                className="
-                  text-base
-                  font-bold
-                  text-[var(--ocean-950)]
-                  sm:text-lg
-                "
-              >
-                Rincian Pembayaran
-              </h2>
-
-              <p
-                className="
-                  mt-0.5
-                  text-xs
-                  text-slate-500
-                "
-              >
-                Ringkasan biaya pesanan
-              </p>
-            </div>
-          </div>
-
-          <div
-            className="
-              mt-5
-              space-y-3
-            "
-          >
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                gap-4
-                text-sm
-              "
-            >
-              <span className="text-slate-500">
-                Subtotal Produk
-              </span>
-
-              <span
-                className="
-                  font-semibold
-                  text-slate-900
-                "
-              >
-                {formatCurrency(
-                  Number(order.subtotal)
-                )}
-              </span>
-            </div>
-
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                gap-4
-                text-sm
-              "
-            >
-              <span className="text-slate-500">
-                Ongkos Kirim
-              </span>
-
-              <span
-                className="
-                  font-semibold
-                  text-slate-900
-                "
-              >
-                {formatCurrency(
-                  Number(order.shippingCost)
-                )}
-              </span>
-            </div>
-
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                gap-4
-                border-t
-                border-slate-100
-                pt-4
-              "
-            >
-              <span
-                className="
-                  text-base
-                  font-bold
-                  text-[var(--ocean-950)]
-                "
-              >
-                Total Pembayaran
-              </span>
-
-              <span
-                className="
-                  text-xl
-                  font-extrabold
-                  text-cyan-700
-                "
-              >
-                {formatCurrency(
-                  Number(order.total)
-                )}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================================================== */}
-        {/* SHIPPING ADDRESS                                     */}
-        {/* ==================================================== */}
-
-        <section
+        {/* PRODUCT INFORMATION */}
+        <div
           className="
-            mt-4
-            rounded-2xl
-            border
-            border-sky-100
-            bg-white
-            p-4
-            shadow-[0_4px_18px_rgba(23,50,77,0.06)]
-            sm:mt-6
-            sm:p-6
+            min-w-0
+            flex-1
           "
         >
+          <h3
+            className="
+              line-clamp-2
+              text-sm
+              font-bold
+              leading-5
+              text-slate-900
+              sm:text-base
+              sm:leading-6
+            "
+          >
+            {item.productName}
+          </h3>
+
           <div
             className="
+              mt-1.5
               flex
+              flex-wrap
               items-center
-              gap-3
+              gap-x-2
+              gap-y-1
             "
           >
-            <div
+            <span
               className="
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                bg-sky-50
-                text-cyan-600
+                text-xs
+                font-medium
+                text-slate-500
+                sm:text-sm
               "
             >
-              <MapPin className="h-5 w-5" />
-            </div>
+              {formatCurrency(Number(item.price))}
+            </span>
 
-            <div>
-              <h2
-                className="
-                  text-base
-                  font-bold
-                  text-[var(--ocean-950)]
-                  sm:text-lg
-                "
-              >
-                Alamat Pengiriman
-              </h2>
-
-              <p
-                className="
-                  mt-0.5
-                  text-xs
-                  text-slate-500
-                "
-              >
-                Tujuan pesanan Anda
-              </p>
-            </div>
-          </div>
-
-          <div
-            className="
-              mt-5
-              flex
-              items-start
-              gap-3
-            "
-          >
-            <User
+            <span
               className="
-                mt-0.5
-                h-4
-                w-4
-                shrink-0
-                text-slate-400
+                text-xs
+                text-slate-300
               "
-            />
-
-            <div className="min-w-0">
-              <p
-                className="
-                  text-sm
-                  font-bold
-                  text-slate-900
-                "
-              >
-                {order.address.receiverName}
-              </p>
-
-              {order.address.label && (
-                <p
-                  className="
-                    mt-0.5
-                    text-xs
-                    text-slate-500
-                  "
-                >
-                  {order.address.label}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div
-            className="
-              mt-4
-              flex
-              items-start
-              gap-3
-            "
-          >
-            <Phone
-              className="
-                mt-0.5
-                h-4
-                w-4
-                shrink-0
-                text-slate-400
-              "
-            />
-
-            <p
-              className="
-                text-sm
-                text-slate-600
-              "
+              aria-hidden="true"
             >
-              {order.address.receiverPhone}
-            </p>
-          </div>
+              ×
+            </span>
 
-          <div
-            className="
-              mt-4
-              flex
-              items-start
-              gap-3
-            "
-          >
-            <MapPin
+            <span
               className="
-                mt-0.5
-                h-4
-                w-4
-                shrink-0
-                text-slate-400
-              "
-            />
-
-            <div
-              className="
-                text-sm
-                leading-6
-                text-slate-600
-              "
-            >
-              <p>
-                {order.address.fullAddress}
-              </p>
-
-              <p>
-                {order.address.village},{" "}
-                {order.address.district}
-              </p>
-
-              <p>
-                {order.address.city},{" "}
-                {order.address.province}
-              </p>
-
-              <p>
-                {order.address.postalCode}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================================================== */}
-        {/* PAYMENT STATUS                                       */}
-        {/* ==================================================== */}
-
-        <section
-          className={`
-            mt-4
-            rounded-2xl
-            border
-            p-4
-            shadow-[0_4px_18px_rgba(23,50,77,0.05)]
-            sm:mt-6
-            sm:p-5
-            ${
-              isPaymentVerified
-                ? "border-emerald-100 bg-emerald-50"
-                : "border-amber-100 bg-amber-50"
-            }
-          `}
-        >
-          <div
-            className="
-              flex
-              items-start
-              gap-3
-            "
-          >
-            <div
-              className={`
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                ${
-                  isPaymentVerified
-                    ? "bg-white text-emerald-600"
-                    : "bg-white text-amber-600"
-                }
-              `}
-            >
-              {isPaymentVerified ? (
-                <CheckCircle2 className="h-5 w-5" />
-              ) : (
-                <Clock3 className="h-5 w-5" />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <h2
-                className={`
-                  text-sm
-                  font-bold
-                  ${
-                    isPaymentVerified
-                      ? "text-emerald-900"
-                      : "text-amber-900"
-                  }
-                `}
-              >
-                {isPaymentVerified
-                  ? "Pembayaran berhasil"
-                  : "Pembayaran belum terverifikasi"}
-              </h2>
-
-              <p
-                className={`
-                  mt-1
-                  text-xs
-                  leading-5
-                  ${
-                    isPaymentVerified
-                      ? "text-emerald-700"
-                      : "text-amber-700"
-                  }
-                `}
-              >
-                {isPaymentVerified
-                  ? "Pembayaran pesanan Anda telah diterima dan statusnya sudah terverifikasi."
-                  : "Silakan selesaikan pembayaran melalui halaman pembayaran pesanan."}
-              </p>
-            </div>
-          </div>
-
-          {!isPaymentVerified && (
-            <Link
-              href={`/customer/orders/${order.id}/payment`}
-              className="
-                mt-4
-                inline-flex
-                w-full
-                items-center
-                justify-center
-                gap-2
-                rounded-xl
-                bg-cyan-600
-                px-4
-                py-3
-                text-sm
+                rounded-full
+                bg-slate-100
+                px-2
+                py-0.5
+                text-[10px]
                 font-bold
-                text-white
-                transition
-                hover:bg-cyan-700
+                text-slate-600
+                sm:text-xs
               "
             >
-              Lihat Pembayaran
-            </Link>
-          )}
-        </section>
+              {item.quantity} pcs
+            </span>
+          </div>
+        </div>
+
+        {/* SUBTOTAL */}
+        <div
+          className="
+            w-[92px]
+            shrink-0
+            text-right
+            sm:w-[120px]
+          "
+        >
+          <p
+            className="
+              text-[10px]
+              font-bold
+              uppercase
+              tracking-wide
+              text-slate-400
+            "
+          >
+            Subtotal
+          </p>
+
+          <p
+            className="
+              mt-1
+              break-words
+              text-sm
+              font-bold
+              leading-5
+              text-[var(--ocean-950)]
+              sm:text-base
+              sm:leading-6
+            "
+          >
+            {formatCurrency(Number(item.subtotal))}
+          </p>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+
+{/* ==================================================== */}
+{/* PAYMENT SUMMARY                                      */}
+{/* ==================================================== */}
+
+<section
+  className="
+    mt-4
+    rounded-2xl
+    border
+    border-sky-100
+    bg-white
+    p-4
+    shadow-[0_4px_18px_rgba(23,50,77,0.06)]
+    sm:mt-6
+    sm:p-6
+  "
+>
+  <div
+    className="
+      flex
+      items-center
+      gap-3
+    "
+  >
+    <div
+      className="
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        bg-sky-50
+        text-cyan-600
+      "
+    >
+      <CreditCard className="h-5 w-5" />
+    </div>
+
+    <div className="min-w-0">
+      <h2
+        className="
+          text-base
+          font-bold
+          text-[var(--ocean-950)]
+          sm:text-lg
+        "
+      >
+        Rincian Pembayaran
+      </h2>
+
+      <p
+        className="
+          mt-0.5
+          text-xs
+          text-slate-500
+        "
+      >
+        Ringkasan biaya pesanan
+      </p>
+    </div>
+  </div>
+
+  <div
+    className="
+      mt-5
+      space-y-3
+    "
+  >
+    {/* SUBTOTAL */}
+    <div
+      className="
+        flex
+        items-start
+        justify-between
+        gap-4
+        text-sm
+      "
+    >
+      <span className="text-slate-500">
+        Subtotal Produk
+      </span>
+
+      <span
+        className="
+          shrink-0
+          text-right
+          font-semibold
+          text-slate-900
+        "
+      >
+        {formatCurrency(Number(order.subtotal))}
+      </span>
+    </div>
+
+    {/* SHIPPING COST */}
+    <div
+      className="
+        flex
+        items-start
+        justify-between
+        gap-4
+        text-sm
+      "
+    >
+      <span className="text-slate-500">
+        Ongkos Kirim
+      </span>
+
+      <span
+        className="
+          shrink-0
+          text-right
+          font-semibold
+          text-slate-900
+        "
+      >
+        {formatCurrency(Number(order.shippingCost))}
+      </span>
+    </div>
+
+    {/* TOTAL */}
+    <div
+      className="
+        mt-4
+        flex
+        items-center
+        justify-between
+        gap-4
+        border-t
+        border-slate-100
+        pt-4
+      "
+    >
+      <div className="min-w-0">
+        <p
+          className="
+            text-base
+            font-bold
+            text-[var(--ocean-950)]
+          "
+        >
+          Total Pembayaran
+        </p>
+
+        <p
+          className="
+            mt-0.5
+            text-[10px]
+            text-slate-400
+            sm:text-xs
+          "
+        >
+          Total yang tercatat pada pesanan
+        </p>
+      </div>
+
+      <span
+        className="
+          shrink-0
+          text-right
+          text-lg
+          font-extrabold
+          text-cyan-700
+          sm:text-xl
+        "
+      >
+        {formatCurrency(Number(order.total))}
+      </span>
+    </div>
+  </div>
+</section>
+
+{/* ==================================================== */}
+{/* SHIPPING ADDRESS                                     */}
+{/* ==================================================== */}
+
+<section
+  className="
+    mt-4
+    rounded-2xl
+    border
+    border-sky-100
+    bg-white
+    p-4
+    shadow-[0_4px_18px_rgba(23,50,77,0.06)]
+    sm:mt-6
+    sm:p-6
+  "
+>
+  <div
+    className="
+      flex
+      items-center
+      gap-3
+    "
+  >
+    <div
+      className="
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        bg-sky-50
+        text-cyan-600
+      "
+    >
+      <MapPin className="h-5 w-5" />
+    </div>
+
+    <div className="min-w-0">
+      <h2
+        className="
+          text-base
+          font-bold
+          text-[var(--ocean-950)]
+          sm:text-lg
+        "
+      >
+        Alamat Pengiriman
+      </h2>
+
+      <p
+        className="
+          mt-0.5
+          text-xs
+          text-slate-500
+        "
+      >
+        Tujuan pesanan Anda
+      </p>
+    </div>
+  </div>
+
+  <div
+    className="
+      mt-5
+      space-y-4
+    "
+  >
+    {/* RECEIVER */}
+    <div
+      className="
+        flex
+        items-start
+        gap-3
+      "
+    >
+      <User
+        className="
+          mt-0.5
+          h-4
+          w-4
+          shrink-0
+          text-slate-400
+        "
+      />
+
+      <div className="min-w-0 flex-1">
+        <p
+          className="
+            break-words
+            text-sm
+            font-bold
+            text-slate-900
+          "
+        >
+          {order.address.receiverName}
+        </p>
+
+        {order.address.label && (
+          <p
+            className="
+              mt-0.5
+              break-words
+              text-xs
+              text-slate-500
+            "
+          >
+            {order.address.label}
+          </p>
+        )}
+      </div>
+    </div>
+
+    {/* PHONE */}
+    <div
+      className="
+        flex
+        items-start
+        gap-3
+      "
+    >
+      <Phone
+        className="
+          mt-0.5
+          h-4
+          w-4
+          shrink-0
+          text-slate-400
+        "
+      />
+
+      <p
+        className="
+          min-w-0
+          break-words
+          text-sm
+          text-slate-600
+        "
+      >
+        {order.address.receiverPhone}
+      </p>
+    </div>
+
+    {/* ADDRESS */}
+    <div
+      className="
+        flex
+        items-start
+        gap-3
+      "
+    >
+      <MapPin
+        className="
+          mt-0.5
+          h-4
+          w-4
+          shrink-0
+          text-slate-400
+        "
+      />
+
+      <div
+        className="
+          min-w-0
+          flex-1
+          break-words
+          text-sm
+          leading-6
+          text-slate-600
+        "
+      >
+        <p className="break-words">
+          {order.address.fullAddress}
+        </p>
+
+        <p className="break-words">
+          {order.address.village},{" "}
+          {order.address.district}
+        </p>
+
+        <p className="break-words">
+          {order.address.city},{" "}
+          {order.address.province}
+        </p>
+
+        <p className="break-words">
+          {order.address.postalCode}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{/* ==================================================== */}
+{/* PAYMENT STATUS                                       */}
+{/* ==================================================== */}
+
+<section
+  className={`
+    mt-4
+    rounded-2xl
+    border
+    p-4
+    shadow-[0_4px_18px_rgba(23,50,77,0.05)]
+    sm:mt-6
+    sm:p-5
+    ${
+      isPaymentVerified
+        ? "border-emerald-100 bg-emerald-50"
+        : isWaitingVerification
+          ? "border-sky-100 bg-sky-50"
+          : "border-amber-100 bg-amber-50"
+    }
+  `}
+>
+  <div
+    className="
+      flex
+      items-start
+      gap-3
+    "
+  >
+    <div
+      className={`
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        bg-white
+        ${
+          isPaymentVerified
+            ? "text-emerald-600"
+            : isWaitingVerification
+              ? "text-cyan-600"
+              : "text-amber-600"
+        }
+      `}
+    >
+      {isPaymentVerified ? (
+        <CheckCircle2 className="h-5 w-5" />
+      ) : (
+        <Clock3 className="h-5 w-5" />
+      )}
+    </div>
+
+    <div className="min-w-0 flex-1">
+      <h2
+        className={`
+          text-sm
+          font-bold
+          ${
+            isPaymentVerified
+              ? "text-emerald-900"
+              : isWaitingVerification
+                ? "text-sky-900"
+                : "text-amber-900"
+          }
+        `}
+      >
+        {isPaymentVerified
+          ? "Pembayaran berhasil"
+          : isWaitingVerification
+            ? "Pembayaran sedang diverifikasi"
+            : "Pembayaran belum selesai"}
+      </h2>
+
+      <p
+        className={`
+          mt-1
+          text-xs
+          leading-5
+          ${
+            isPaymentVerified
+              ? "text-emerald-700"
+              : isWaitingVerification
+                ? "text-sky-700"
+                : "text-amber-700"
+          }
+        `}
+      >
+        {isPaymentVerified
+          ? "Pembayaran pesanan Anda telah diterima dan statusnya sudah terverifikasi."
+          : isWaitingVerification
+            ? "Konfirmasi pembayaran Anda sedang diperiksa oleh admin."
+            : "Silakan selesaikan pembayaran melalui halaman pembayaran pesanan."}
+      </p>
+    </div>
+  </div>
+
+  {!isPaymentVerified && !isWaitingVerification && (
+    <Link
+      href={`/customer/orders/${order.id}/payment`}
+      className="
+        mt-4
+        flex
+        w-full
+        items-center
+        justify-center
+        gap-2
+        rounded-xl
+        bg-cyan-600
+        px-4
+        py-3
+        text-sm
+        font-bold
+        text-white
+        transition
+        hover:bg-cyan-700
+      "
+    >
+      Lihat Pembayaran
+    </Link>
+  )}
+</section>
 
         {/* ==================================================== */}
         {/* HELP                                                   */}

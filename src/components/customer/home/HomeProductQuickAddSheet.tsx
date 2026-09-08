@@ -7,6 +7,8 @@ import {
   useTransition,
 } from "react";
 
+import { createPortal } from "react-dom";
+
 import {
   Check,
   Loader2,
@@ -125,70 +127,70 @@ export default function HomeProductQuickAddSheet({
    * Variant hanya diambil ketika sheet dibuka.
    * Homepage tidak membawa seluruh SKU sejak awal.
    */
-useEffect(() => {
-  if (!open || !productId) {
-    return;
-  }
+  useEffect(() => {
+    if (!open || !productId) {
+      return;
+    }
 
-  let cancelled = false;
+    let cancelled = false;
 
-  getProductVariants({
-    productId,
-  })
-    .then((result) => {
-      if (cancelled) {
-        return;
-      }
-
-      if (!result.success || !result.data) {
-        setMessage(
-          result.message ??
-            "Unable to load product options."
-        );
-
-        return;
-      }
-
-      setData(result.data);
+    getProductVariants({
+      productId,
     })
-    .catch((error) => {
-      console.error(
-        "[HOME_PRODUCT_QUICK_ADD]",
-        error
-      );
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
 
-      if (!cancelled) {
-        setMessage(
-          "Unable to load product options."
+        if (!result.success || !result.data) {
+          setMessage(
+            result.message ??
+              "Unable to load product options."
+          );
+
+          return;
+        }
+
+        setData(result.data);
+      })
+      .catch((error) => {
+        console.error(
+          "[HOME_PRODUCT_QUICK_ADD]",
+          error
         );
-      }
-    });
 
-  return () => {
-    cancelled = true;
+        if (!cancelled) {
+          setMessage(
+            "Unable to load product options."
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    productId,
+  ]);
+
+  const loading =
+    open &&
+    (!data ||
+      data.productId !== productId);
+
+  const handleClose = () => {
+    if (isPending) {
+      return;
+    }
+
+    setSelectedOptions({});
+    setQuantity(1);
+    setMessage(null);
+    setSuccess(false);
+
+    onClose();
   };
-}, [
-  open,
-  productId,
-]);
-
-const loading =
-  open &&
-  (!data ||
-    data.productId !== productId);
-
-    const handleClose = () => {
-  if (isPending) {
-    return;
-  }
-
-  setSelectedOptions({});
-  setQuantity(1);
-  setMessage(null);
-  setSuccess(false);
-
-  onClose();
-};
 
   /**
    * ==========================================================
@@ -500,13 +502,13 @@ const loading =
          * Beri sedikit waktu agar customer melihat
          * feedback berhasil sebelum sheet ditutup.
          */
-window.setTimeout(() => {
-  setSelectedOptions({});
-  setQuantity(1);
-  setMessage(null);
-  setSuccess(false);
-  onClose();
-}, 500);
+        window.setTimeout(() => {
+          setSelectedOptions({});
+          setQuantity(1);
+          setMessage(null);
+          setSuccess(false);
+          onClose();
+        }, 500);
       } catch (error) {
         console.error(
           "[HOME_PRODUCT_QUICK_ADD_SUBMIT]",
@@ -524,9 +526,9 @@ window.setTimeout(() => {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
-    className="fixed inset-0 z-100 flex items-end justify-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center"
       role="dialog"
       aria-modal="true"
       aria-label={
@@ -536,12 +538,12 @@ window.setTimeout(() => {
       }
     >
       {/* Overlay */}
-<button
-  type="button"
-  aria-label="Tutup"
-  onClick={handleClose}
-  className="absolute inset-0 bg-black/45"
-/>
+      <button
+        type="button"
+        aria-label="Tutup"
+        onClick={handleClose}
+        className="absolute inset-0 bg-black/45"
+      />
 
       {/* Sheet */}
       <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl bg-white shadow-2xl">
@@ -554,11 +556,11 @@ window.setTimeout(() => {
                 "Pilih produk"}
             </h2>
 
-<p className="mt-0.5 text-xs text-slate-500">
-  {activeVariantGroups.length > 0
-    ? "Pilih varian sebelum masuk keranjang"
-    : "Produk siap ditambahkan ke keranjang"}
-</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {activeVariantGroups.length > 0
+                ? "Pilih varian sebelum masuk keranjang"
+                : "Produk siap ditambahkan ke keranjang"}
+            </p>
           </div>
 
           <button
@@ -793,39 +795,57 @@ window.setTimeout(() => {
         {/* Footer */}
         {!loading && data ? (
           <div className="border-t border-slate-100 bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
-            <button
-              type="button"
-              onClick={
-                handleAddToCart
-              }
-              disabled={
-                !selectedSku ||
-                selectedStock <= 0 ||
-                isPending ||
-                success
-              }
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Menambahkan...
-                </>
-              ) : success ? (
-                <>
-                  <Check className="h-5 w-5" />
-                  Berhasil Ditambahkan
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="h-5 w-5" />
-                  Tambah ke Keranjang
-                </>
-              )}
-            </button>
+<button
+  type="button"
+  onClick={handleAddToCart}
+  disabled={
+    !selectedSku ||
+    selectedStock <= 0 ||
+    isPending ||
+    success
+  }
+  className="
+    flex
+    w-full
+    items-center
+    justify-center
+    gap-2
+    rounded-2xl
+    bg-(--ocean-700)
+    px-5
+    py-3.5
+    text-sm
+    font-bold
+    text-white
+    shadow-sm
+    transition
+    hover:bg-(--ocean-800)
+    active:scale-[0.99]
+    disabled:cursor-not-allowed
+    disabled:bg-slate-300
+  "
+>
+  {isPending ? (
+    <>
+      <Loader2 className="h-5 w-5 animate-spin" />
+      Menambahkan...
+    </>
+  ) : success ? (
+    <>
+      <Check className="h-5 w-5" />
+      Berhasil Ditambahkan
+    </>
+  ) : (
+    <>
+      <ShoppingCart className="h-5 w-5" />
+      Tambah ke Keranjang
+    </>
+  )}
+</button>
           </div>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

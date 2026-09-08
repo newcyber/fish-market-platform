@@ -7,7 +7,6 @@ import {
   Flame,
   Package,
   Search,
-  ShoppingCart,
   SlidersHorizontal,
   Sparkles,
   Zap,
@@ -15,6 +14,7 @@ import {
 
 import ProductService from "@/services/product/product.service";
 import CategoryService from "@/services/category/category.service";
+import CustomerProductQuickAdd from "@/components/customer/products/CustomerProductQuickAdd";
 
 import {
   prisma,
@@ -2048,106 +2048,36 @@ const categoryIds =
                         {/* FOOTER */}
                         {/* ==================================== */}
 
-                        <div
-                          className="
-                            mt-auto
+<div
+  className="
+    mt-auto
+    flex
+    items-center
+    justify-between
+    gap-1
+    pt-2
+  "
+>
+  <span
+    className="
+      truncate
+      text-[7px]
+      font-medium
+      text-(--ink-400)
+      sm:text-xs
+    "
+  >
+    {outOfStock
+      ? "Tidak tersedia"
+      : `Stok ${stock}`}
+  </span>
 
-                            flex
-                            items-center
-                            justify-between
-                            gap-1
-
-                            pt-2
-                          "
-                        >
-
-                          <span
-                            className="
-                              truncate
-
-                              text-[7px]
-                              font-medium
-
-                              text-(--ink-400)
-
-                              sm:text-xs
-                            "
-                          >
-
-                            {outOfStock
-                              ? "Tidak tersedia"
-                              : `Stok ${stock}`}
-
-                          </span>
-
-                          <Link
-                            href={
-                              `/products/${product.slug}`
-                            }
-                            className={[
-                              `
-                                flex
-                                h-6
-
-                                shrink-0
-                                items-center
-                                justify-center
-
-                                rounded-lg
-
-                                px-1.5
-
-                                text-[7px]
-                                font-bold
-
-                                transition
-
-                                sm:h-8
-                                sm:px-3
-                                sm:text-xs
-                              `,
-                              outOfStock
-                                ? `
-                                  pointer-events-none
-
-                                  bg-slate-100
-                                  text-slate-400
-                                `
-                                : `
-                                  bg-(--ocean-900)
-                                  text-white
-
-                                  hover:bg-(--fresh-600)
-                                `,
-                            ].join(" ")}
-                          >
-
-                            <ShoppingCart
-                              className="
-                                h-2.5
-                                w-2.5
-
-                                sm:mr-1
-                                sm:h-3.5
-                                sm:w-3.5
-                              "
-                            />
-
-                            <span
-                              className="
-                                hidden
-
-                                sm:inline
-                              "
-                            >
-
-                              Lihat
-
-                            </span>
-
-                          </Link>
-
-                        </div>
+  <CustomerProductQuickAdd
+    productId={product.id}
+    productName={product.name}
+    disabled={outOfStock}
+  />
+</div>
 
                       </div>
 
