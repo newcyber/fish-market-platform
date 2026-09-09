@@ -355,7 +355,7 @@ class SettingsService {
       data,
     );
   }
-  
+
   /**
    * ==========================================================
    * UPDATE SETTINGS
