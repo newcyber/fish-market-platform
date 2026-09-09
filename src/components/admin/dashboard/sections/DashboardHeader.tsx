@@ -117,6 +117,7 @@ export async function DashboardHeader({
                 alt={`${storeName} logo`}
                 width={80}
                 height={80}
+                unoptimized
                 className="h-full w-full object-contain"
               />
             ) : (
