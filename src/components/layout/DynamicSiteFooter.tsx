@@ -189,6 +189,7 @@ export default async function DynamicSiteFooter() {
                     fill
                     sizes="44px"
                     className="object-contain p-1"
+                    unoptimized
                   />
                 ) : (
                   <span>

@@ -252,6 +252,7 @@ export default async function DynamicSiteHeader({
                 sizes="44px"
                 className="object-contain p-1"
                 priority
+                unoptimized
               />
             ) : storeInitial ? (
               <span className="text-sm font-bold">

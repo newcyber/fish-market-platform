@@ -581,6 +581,7 @@ const loginSlide4Image =
                       p-1
                     "
                     priority
+                    unoptimized
                   />
                 ) : (
                   <span
@@ -926,12 +927,14 @@ const loginSlide4Image =
                           src={siteLogo}
                           alt={`${storeName} Logo`}
                           fill
-                          sizes="136px"
+                          sizes="44px"
                           className="
+                            bg-white
                             object-contain
-                            p-2
+                            p-1
                           "
                           priority
+                          unoptimized
                         />
                       ) : (
                         <div

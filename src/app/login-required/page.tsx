@@ -408,6 +408,7 @@ const storeDescription =
             className="
               object-contain
             "
+            unoptimized
           />
         </div>
       ) : (
