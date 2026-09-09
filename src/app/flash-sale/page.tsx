@@ -24,6 +24,11 @@ import FlashSaleRepository from
 
 import settingsService from "@/services/settings/settings.service";
 
+import {
+  buildSeoMetadata,
+  type SeoSettings,
+} from "@/lib/seo/seo-metadata";
+
 /**
  * ============================================================
  * CUSTOMER FLASH SALE PAGE
@@ -104,25 +109,29 @@ export async function generateMetadata(): Promise<Metadata> {
       FlashSaleRepository.findActiveForCustomer(),
     ]);
 
-  const storeName =
-    settings.storeName?.trim() ||
-    "Pisjo Market Platform";
-
-  const globalDescription =
-    settings.seoDescription?.trim() ||
-    settings.storeDescription?.trim() ||
-    "Modern Pisjo Marketplace";
-
-  const canonicalBase =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const baseUrl =
-    canonicalBase.replace(/\/+$/, "");
+  const seoSettings: SeoSettings = {
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification: settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+    storeName: settings.storeName,
+    storeDescription: settings.storeDescription,
+  };
 
   const primaryCampaign =
     flashSales[0];
+
+  const storeName =
+    settings.storeName?.trim() ||
+    "Pisjo Market Platform";
 
   const title =
     primaryCampaign?.name?.trim() ||
@@ -132,72 +141,11 @@ export async function generateMetadata(): Promise<Metadata> {
     primaryCampaign?.description?.trim() ||
     `Dapatkan harga promo terbaik melalui Flash Sale di ${storeName}.`;
 
-  const ogTitle =
-    settings.seoOgTitle?.trim() ||
-    title;
-
-  const ogDescription =
-    settings.seoOgDescription?.trim() ||
-    description;
-
-  const ogImage =
-    settings.seoOgImage?.trim() ||
-    undefined;
-
-  const twitterCard =
-    settings.seoTwitterCard === "summary"
-      ? "summary"
-      : "summary_large_image";
-
-  return {
-    title: {
-      absolute: title,
-    },
+  return buildSeoMetadata(seoSettings, {
+    pathname: "/flash-sale",
+    title,
     description,
-    alternates: {
-      canonical: `${baseUrl}/flash-sale`,
-    },
-    openGraph: {
-      type: "website",
-      siteName: storeName,
-      title: ogTitle,
-      description: ogDescription,
-      url: `${baseUrl}/flash-sale`,
-      locale: "id_ID",
-      ...(ogImage
-        ? {
-            images: [
-              {
-                url: ogImage,
-                alt: ogTitle,
-              },
-            ],
-          }
-        : {}),
-    },
-    twitter: {
-      card: twitterCard,
-      title: ogTitle,
-      description: ogDescription,
-      ...(ogImage
-        ? {
-            images: [ogImage],
-          }
-        : {}),
-    },
-    robots: {
-      index: settings.seoRobotsIndex,
-      follow: settings.seoRobotsFollow,
-    },
-    ...(settings.seoGoogleVerification?.trim()
-      ? {
-          verification: {
-            google:
-              settings.seoGoogleVerification.trim(),
-          },
-        }
-      : {}),
-  };
+  });
 }
 
 /**

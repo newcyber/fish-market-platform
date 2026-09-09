@@ -16,6 +16,11 @@ import FloatingCustomerService from "@/components/customer/FloatingCustomerServi
 
 import settingsService from "@/services/settings/settings.service";
 
+import {
+  buildSeoMetadata,
+  type SeoSettings,
+} from "@/lib/seo/seo-metadata";
+
 /**
  * ==========================================================
  * FONT
@@ -36,115 +41,26 @@ const geist = Geist({
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await settingsService.getSettings();
 
-  const storeName =
-    settings.storeName?.trim() ||
-    "Pisjo Market Platform";
-
-  const title =
-    settings.seoTitle?.trim() ||
-    storeName;
-
-  const description =
-    settings.seoDescription?.trim() ||
-    settings.storeDescription?.trim() ||
-    "Modern Pisjo Marketplace";
-
-  const canonicalUrl =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const ogTitle =
-    settings.seoOgTitle?.trim() ||
-    title;
-
-  const ogDescription =
-    settings.seoOgDescription?.trim() ||
-    description;
-
-  const ogImage =
-    settings.seoOgImage?.trim() ||
-    undefined;
-
-  const twitterCard =
-    settings.seoTwitterCard === "summary"
-      ? "summary"
-      : "summary_large_image";
-
-  const robotsIndex =
-    settings.seoRobotsIndex;
-
-  const robotsFollow =
-    settings.seoRobotsFollow;
-
-  const metadata: Metadata = {
-    metadataBase: new URL(canonicalUrl),
-
-    title: {
-      default: title,
-      template: `%s | ${storeName}`,
-    },
-
-    description,
-
-    ...(settings.seoKeywords?.trim()
-      ? {
-          keywords: settings.seoKeywords
-            .split(",")
-            .map((keyword) => keyword.trim())
-            .filter(Boolean),
-        }
-      : {}),
-
-    alternates: {
-      canonical: canonicalUrl,
-    },
-
-    openGraph: {
-      type: "website",
-      siteName: storeName,
-      title: ogTitle,
-      description: ogDescription,
-      url: canonicalUrl,
-      locale: "id_ID",
-      ...(ogImage
-        ? {
-            images: [
-              {
-                url: ogImage,
-              },
-            ],
-          }
-        : {}),
-    },
-
-    twitter: {
-      card: twitterCard,
-      title: ogTitle,
-      description: ogDescription,
-      ...(ogImage
-        ? {
-            images: [ogImage],
-          }
-        : {}),
-    },
-
-    robots: {
-      index: robotsIndex,
-      follow: robotsFollow,
-    },
-
-    ...(settings.seoGoogleVerification?.trim()
-      ? {
-          verification: {
-            google:
-              settings.seoGoogleVerification.trim(),
-          },
-        }
-      : {}),
+  const seoSettings: SeoSettings = {
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification: settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+    storeName: settings.storeName,
+    storeDescription: settings.storeDescription,
   };
 
-  return metadata;
+  return buildSeoMetadata(seoSettings, {
+    pathname: "/",
+  });
 }
 
 /**

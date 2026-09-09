@@ -34,6 +34,11 @@ import ProductCategoryNavigation from
 
 import settingsService from "@/services/settings/settings.service";
 
+import {
+  buildSeoMetadata,
+  type SeoSettings,
+} from "@/lib/seo/seo-metadata";
+
 /**
  * ============================================================
  * PUBLIC PRODUCTS PAGE
@@ -93,22 +98,22 @@ export async function generateMetadata({
     }),
   ]);
 
-  const storeName =
-    settings.storeName?.trim() ||
-    "Pisjo Market Platform";
-
-  const globalDescription =
-    settings.seoDescription?.trim() ||
-    settings.storeDescription?.trim() ||
-    "Modern Pisjo Marketplace";
-
-  const canonicalBase =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const baseUrl =
-    canonicalBase.replace(/\/+$/, "");
+  const seoSettings: SeoSettings = {
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification: settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+    storeName: settings.storeName,
+    storeDescription: settings.storeDescription,
+  };
 
   const selectedCategory =
     categorySlug
@@ -125,105 +130,38 @@ export async function generateMetadata({
    */
 
   if (categorySlug && !selectedCategory) {
-    return {
+    return buildSeoMetadata(seoSettings, {
+      pathname: "/products",
       title: "Kategori Tidak Ditemukan",
-      description: globalDescription,
-      robots: {
-        index: false,
-        follow: false,
-      },
-    };
+      noIndex: true,
+      noFollow: true,
+    });
   }
 
-const title = selectedCategory
-  ? `${selectedCategory.name} | ${storeName}`
-  : settings.seoTitle?.trim() ||
-    `Produk | ${storeName}`;
+  const title = selectedCategory
+    ? `${selectedCategory.name} | ${settings.storeName?.trim() || "Pisjo Market Platform"}`
+    : settings.seoTitle?.trim() ||
+      `Produk | ${settings.storeName?.trim() || "Pisjo Market Platform"}`;
 
-const description = selectedCategory
-  ? `Temukan berbagai produk ${selectedCategory.name} berkualitas di ${storeName}.`
-  : globalDescription;
+  const description = selectedCategory
+    ? `Temukan berbagai produk ${selectedCategory.name} berkualitas di ${
+        settings.storeName?.trim() || "Pisjo Market Platform"
+      }.`
+    : settings.seoDescription?.trim() ||
+      settings.storeDescription?.trim() ||
+      "Modern Pisjo Marketplace";
 
-const canonicalUrl = selectedCategory
-  ? `${baseUrl}/products?category=${encodeURIComponent(
-      selectedCategory.slug,
-    )}`
-  : `${baseUrl}/products`;
+  const pathname = selectedCategory
+    ? `/products?category=${encodeURIComponent(
+        selectedCategory.slug,
+      )}`
+    : "/products";
 
-  const ogTitle =
-    settings.seoOgTitle?.trim() ||
-    title;
-
-  const ogDescription =
-    settings.seoOgDescription?.trim() ||
-    description;
-
-  const ogImage =
-    settings.seoOgImage?.trim() ||
-    undefined;
-
-  const twitterCard =
-    settings.seoTwitterCard === "summary"
-      ? "summary"
-      : "summary_large_image";
-
-  return {
-    title: {
-      absolute: title,
-    },
-
+  return buildSeoMetadata(seoSettings, {
+    pathname,
+    title,
     description,
-
-    alternates: {
-      canonical: canonicalUrl,
-    },
-
-    openGraph: {
-      type: "website",
-      siteName: storeName,
-      title: ogTitle,
-      description: ogDescription,
-      url: canonicalUrl,
-      locale: "id_ID",
-
-      ...(ogImage
-        ? {
-            images: [
-              {
-                url: ogImage,
-                alt: ogTitle,
-              },
-            ],
-          }
-        : {}),
-    },
-
-    twitter: {
-      card: twitterCard,
-      title: ogTitle,
-      description: ogDescription,
-
-      ...(ogImage
-        ? {
-            images: [ogImage],
-          }
-        : {}),
-    },
-
-    robots: {
-      index: settings.seoRobotsIndex,
-      follow: settings.seoRobotsFollow,
-    },
-
-    ...(settings.seoGoogleVerification?.trim()
-      ? {
-          verification: {
-            google:
-              settings.seoGoogleVerification.trim(),
-          },
-        }
-      : {}),
-  };
+  });
 }
 
 export default async function ProductsPage({

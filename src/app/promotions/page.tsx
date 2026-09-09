@@ -19,6 +19,11 @@ import PromotionService from "@/services/promotion/promotion.service";
 
 import settingsService from "@/services/settings/settings.service";
 
+import {
+  buildSeoMetadata,
+  type SeoSettings,
+} from "@/lib/seo/seo-metadata";
+
 /**
  * ============================================================
  * HELPERS
@@ -132,6 +137,24 @@ export async function generateMetadata(): Promise<Metadata> {
   const settings =
     await settingsService.getSettings();
 
+  const seoSettings: SeoSettings = {
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification:
+      settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+    storeName: settings.storeName,
+    storeDescription: settings.storeDescription,
+  };
+
   const storeName =
     settings.storeName?.trim() ||
     "Pisjo Market Platform";
@@ -145,83 +168,11 @@ export async function generateMetadata(): Promise<Metadata> {
     settings.storeDescription?.trim() ||
     `Temukan berbagai promo dan penawaran menarik di ${storeName}.`;
 
-  const canonicalBase =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const baseUrl =
-    canonicalBase.replace(/\/+$/, "");
-
-  const canonicalUrl =
-    `${baseUrl}/promotions`;
-
-  const ogTitle =
-    settings.seoOgTitle?.trim() ||
-    title;
-
-  const ogDescription =
-    settings.seoOgDescription?.trim() ||
-    description;
-
-  const ogImage =
-    settings.seoOgImage?.trim() ||
-    undefined;
-
-  const twitterCard =
-    settings.seoTwitterCard === "summary"
-      ? "summary"
-      : "summary_large_image";
-
-  return {
-    title: {
-      absolute: title,
-    },
+  return buildSeoMetadata(seoSettings, {
+    pathname: "/promotions",
+    title,
     description,
-    alternates: {
-      canonical: canonicalUrl,
-    },
-    openGraph: {
-      type: "website",
-      siteName: storeName,
-      title: ogTitle,
-      description: ogDescription,
-      url: canonicalUrl,
-      locale: "id_ID",
-      ...(ogImage
-        ? {
-            images: [
-              {
-                url: ogImage,
-                alt: ogTitle,
-              },
-            ],
-          }
-        : {}),
-    },
-    twitter: {
-      card: twitterCard,
-      title: ogTitle,
-      description: ogDescription,
-      ...(ogImage
-        ? {
-            images: [ogImage],
-          }
-        : {}),
-    },
-    robots: {
-      index: settings.seoRobotsIndex,
-      follow: settings.seoRobotsFollow,
-    },
-    ...(settings.seoGoogleVerification?.trim()
-      ? {
-          verification: {
-            google:
-              settings.seoGoogleVerification.trim(),
-          },
-        }
-      : {}),
-  };
+  });
 }
 
 /**

@@ -4,6 +4,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import {
+  buildSeoMetadata,
+  type SeoSettings,
+} from "@/lib/seo/seo-metadata";
+
+import {
   notFound,
 } from "next/navigation";
 
@@ -77,39 +82,44 @@ export async function generateMetadata({
     settingsService.getSettings(),
   ]);
 
+  const seoSettings: SeoSettings = {
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification: settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+    storeName: settings.storeName,
+    storeDescription: settings.storeDescription,
+  };
+
   if (!product) {
-    return {
+    return buildSeoMetadata(seoSettings, {
+      pathname: `/products/${encodeURIComponent(slug)}`,
       title: "Produk Tidak Ditemukan",
-      robots: {
-        index: false,
-        follow: false,
-      },
-    };
+      noIndex: true,
+      noFollow: true,
+    });
   }
 
   const storeName =
     settings.storeName?.trim() ||
     "Pisjo Market Platform";
 
-  const globalDescription =
-    settings.seoDescription?.trim() ||
-    settings.storeDescription?.trim() ||
-    "Modern Pisjo Marketplace";
-
   const productName =
     product.name.trim();
 
   const productDescription =
     product.description?.trim() ||
-    globalDescription;
-
-  const canonicalBase =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const canonicalUrl =
-    `${canonicalBase.replace(/\/+$/, "")}/products/${product.slug}`;
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    "Modern Pisjo Marketplace";
 
   const productImage =
     product.images
@@ -121,11 +131,6 @@ export async function generateMetadata({
           a.sortOrder - b.sortOrder,
       )[0]?.image;
 
-  const ogImage =
-    productImage ||
-    settings.seoOgImage?.trim() ||
-    undefined;
-
   const ogTitle =
     settings.seoOgTitle?.trim()
       ? `${productName} | ${settings.seoOgTitle.trim()}`
@@ -135,68 +140,14 @@ export async function generateMetadata({
     settings.seoOgDescription?.trim() ||
     productDescription;
 
-  const twitterCard =
-    settings.seoTwitterCard === "summary"
-      ? "summary"
-      : "summary_large_image";
-
-  return {
-    title: {
-      absolute: `${productName} | ${storeName}`,
-    },
-
+  return buildSeoMetadata(seoSettings, {
+    pathname: `/products/${product.slug}`,
+    title: `${productName} | ${storeName}`,
     description: productDescription,
-
-    alternates: {
-      canonical: canonicalUrl,
-    },
-
-    openGraph: {
-      type: "website",
-      siteName: storeName,
-      title: ogTitle,
-      description: ogDescription,
-      url: canonicalUrl,
-      locale: "id_ID",
-
-      ...(ogImage
-        ? {
-            images: [
-              {
-                url: ogImage,
-                alt: productName,
-              },
-            ],
-          }
-        : {}),
-    },
-
-    twitter: {
-      card: twitterCard,
-      title: ogTitle,
-      description: ogDescription,
-
-      ...(ogImage
-        ? {
-            images: [ogImage],
-          }
-        : {}),
-    },
-
-    robots: {
-      index: settings.seoRobotsIndex,
-      follow: settings.seoRobotsFollow,
-    },
-
-    ...(settings.seoGoogleVerification?.trim()
-      ? {
-          verification: {
-            google:
-              settings.seoGoogleVerification.trim(),
-          },
-        }
-      : {}),
-  };
+    ogTitle,
+    ogDescription,
+    image: productImage,
+  });
 }
 
 /**

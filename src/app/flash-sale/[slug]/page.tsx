@@ -26,6 +26,11 @@ import FlashSaleRepository from
 import settingsService from
   "@/services/settings/settings.service";
 
+import {
+  buildSeoMetadata,
+  type SeoSettings,
+} from "@/lib/seo/seo-metadata";
+
 /**
  * ============================================================
  * FLASH SALE DETAIL PAGE
@@ -65,33 +70,35 @@ export async function generateMetadata({
       ),
     ]);
 
+  const seoSettings: SeoSettings = {
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification: settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+    storeName: settings.storeName,
+    storeDescription: settings.storeDescription,
+  };
+
+  if (!flashSale) {
+    return buildSeoMetadata(seoSettings, {
+      pathname: `/flash-sale/${encodeURIComponent(slug)}`,
+      title: "Flash Sale Tidak Ditemukan",
+      noIndex: true,
+      noFollow: true,
+    });
+  }
+
   const storeName =
     settings.storeName?.trim() ||
     "Pisjo Market Platform";
-
-  const globalDescription =
-    settings.seoDescription?.trim() ||
-    settings.storeDescription?.trim() ||
-    "Modern Pisjo Marketplace";
-
-  const canonicalBase =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const baseUrl =
-    canonicalBase.replace(/\/+$/, "");
-
-  if (!flashSale) {
-    return {
-      title: "Flash Sale Tidak Ditemukan",
-      description: globalDescription,
-      robots: {
-        index: false,
-        follow: false,
-      },
-    };
-  }
 
   const title =
     flashSale.name?.trim() ||
@@ -101,76 +108,17 @@ export async function generateMetadata({
     flashSale.description?.trim() ||
     `Dapatkan harga promo khusus melalui Flash Sale di ${storeName}.`;
 
-  const canonicalUrl =
-    `${baseUrl}/flash-sale/${flashSale.slug}`;
-
-  const ogTitle =
-    settings.seoOgTitle?.trim() ||
-    title;
-
-  const ogDescription =
-    settings.seoOgDescription?.trim() ||
-    description;
-
   const ogImage =
     flashSale.banner?.trim() ||
     settings.seoOgImage?.trim() ||
     undefined;
 
-  const twitterCard =
-    settings.seoTwitterCard === "summary"
-      ? "summary"
-      : "summary_large_image";
-
-  return {
-    title: {
-      absolute: title,
-    },
+  return buildSeoMetadata(seoSettings, {
+    pathname: `/flash-sale/${flashSale.slug}`,
+    title,
     description,
-    alternates: {
-      canonical: canonicalUrl,
-    },
-    openGraph: {
-      type: "website",
-      siteName: storeName,
-      title: ogTitle,
-      description: ogDescription,
-      url: canonicalUrl,
-      locale: "id_ID",
-      ...(ogImage
-        ? {
-            images: [
-              {
-                url: ogImage,
-                alt: title,
-              },
-            ],
-          }
-        : {}),
-    },
-    twitter: {
-      card: twitterCard,
-      title: ogTitle,
-      description: ogDescription,
-      ...(ogImage
-        ? {
-            images: [ogImage],
-          }
-        : {}),
-    },
-    robots: {
-      index: settings.seoRobotsIndex,
-      follow: settings.seoRobotsFollow,
-    },
-    ...(settings.seoGoogleVerification?.trim()
-      ? {
-          verification: {
-            google:
-              settings.seoGoogleVerification.trim(),
-          },
-        }
-      : {}),
-  };
+    image: ogImage,
+  });
 }
 
 function formatRupiah(
