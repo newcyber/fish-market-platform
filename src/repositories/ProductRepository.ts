@@ -575,17 +575,32 @@ static async findMany(
         prisma.product.findMany({
           where,
 
-          include: {
-            category: true,
+include: {
+  category: true,
 
-            images: {
-              orderBy: {
-                sortOrder: "asc",
-              },
+  images: {
+    orderBy: {
+      sortOrder: "asc",
+    },
 
-              take: 1,
-            },
-          },
+    take: 1,
+  },
+
+  skus: {
+    where: {
+      isActive: true,
+    },
+
+    select: {
+      price: true,
+      stock: true,
+    },
+
+    orderBy: {
+      price: "asc",
+    },
+  },
+},
 
           orderBy: {
             createdAt: "desc",
@@ -717,6 +732,41 @@ static async findMany(
 
       include:
         this.productInclude,
+    });
+  }
+
+    /**
+   * ============================================================
+   * FIND PUBLISHED PRODUCTS FOR SITEMAP
+   * ============================================================
+   *
+   * Digunakan khusus oleh sitemap publik.
+   *
+   * Hanya mengambil field yang dibutuhkan sitemap:
+   * - slug
+   * - updatedAt
+   *
+   * Tidak menggunakan productInclude agar query tetap ringan.
+   *
+   * Hanya product yang:
+   * - belum dihapus
+   * - sudah dipublish
+   *
+   * ============================================================
+   */
+  static async findPublishedForSitemap() {
+    return prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        isPublished: true,
+      },
+      select: {
+        slug: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
   }
 

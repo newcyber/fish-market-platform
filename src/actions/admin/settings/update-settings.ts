@@ -53,6 +53,25 @@ export interface UpdateSettingsActionInput {
   footerDescription?: string;
 
   /**
+   * ==========================================================
+   * GLOBAL SEO
+   * ==========================================================
+   */
+
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  seoKeywords?: string | null;
+  seoCanonicalUrl?: string | null;
+  seoOgTitle?: string | null;
+  seoOgDescription?: string | null;
+  seoOgImage?: string | null;
+  seoTwitterCard?: string;
+  seoRobotsIndex?: boolean;
+  seoRobotsFollow?: boolean;
+  seoGoogleVerification?: string | null;
+  seoAiEnabled?: boolean;
+
+  /**
    * URL atau path logo situs.
    */
   siteLogo?: string | null;
@@ -246,17 +265,59 @@ export async function updateSettingsAction(
        * ------------------------------------------------------
        */
 
-      storeName:
-        input.storeName,
+storeName:
+  input.storeName,
 
-      storeDescription:
-        input.storeDescription,
+storeDescription:
+  input.storeDescription,
 
-      footerDescription:
-        input.footerDescription,
+footerDescription:
+  input.footerDescription,
 
-      siteLogo:
-        input.siteLogo,
+/**
+ * ------------------------------------------------------
+ * GLOBAL SEO
+ * ------------------------------------------------------
+ */
+
+seoTitle:
+  input.seoTitle,
+
+seoDescription:
+  input.seoDescription,
+
+seoKeywords:
+  input.seoKeywords,
+
+seoCanonicalUrl:
+  input.seoCanonicalUrl,
+
+seoOgTitle:
+  input.seoOgTitle,
+
+seoOgDescription:
+  input.seoOgDescription,
+
+seoOgImage:
+  input.seoOgImage,
+
+seoTwitterCard:
+  input.seoTwitterCard,
+
+seoRobotsIndex:
+  input.seoRobotsIndex,
+
+seoRobotsFollow:
+  input.seoRobotsFollow,
+
+seoGoogleVerification:
+  input.seoGoogleVerification,
+
+seoAiEnabled:
+  input.seoAiEnabled,
+
+siteLogo:
+  input.siteLogo,
 
       /**
        * ======================================================

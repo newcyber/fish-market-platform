@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -17,6 +19,8 @@ import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 
 import PromotionService from "@/services/promotion/promotion.service";
 
+import settingsService from "@/services/settings/settings.service";
+
 /**
  * ============================================================
  * TYPES
@@ -28,6 +32,127 @@ type PromotionDetailPageProps = {
     slug: string;
   }>;
 };
+
+export async function generateMetadata({
+  params,
+}: PromotionDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  const [settings, promotion] =
+    await Promise.all([
+      settingsService.getSettings(),
+      PromotionService.getActiveBySlugForCustomer(
+        slug,
+      ),
+    ]);
+
+  const storeName =
+    settings.storeName?.trim() ||
+    "Pisjo Market Platform";
+
+  const globalDescription =
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    "Modern Pisjo Marketplace";
+
+  const canonicalBase =
+    settings.seoCanonicalUrl?.trim() ||
+    process.env.APP_URL?.trim() ||
+    "http://localhost:3000";
+
+  const baseUrl =
+    canonicalBase.replace(/\/+$/, "");
+
+  if (!promotion) {
+    return {
+      title: "Promo Tidak Ditemukan",
+      description: globalDescription,
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const title =
+    promotion.name?.trim() ||
+    `Promo | ${storeName}`;
+
+  const description =
+    promotion.description?.trim() ||
+    `Nikmati promo dan penawaran menarik di ${storeName}.`;
+
+  const canonicalUrl =
+    `${baseUrl}/promotions/${promotion.slug}`;
+
+  const ogTitle =
+    settings.seoOgTitle?.trim() ||
+    title;
+
+  const ogDescription =
+    settings.seoOgDescription?.trim() ||
+    description;
+
+  const ogImage =
+    promotion.banner?.trim() ||
+    settings.seoOgImage?.trim() ||
+    undefined;
+
+  const twitterCard =
+    settings.seoTwitterCard === "summary"
+      ? "summary"
+      : "summary_large_image";
+
+  return {
+    title: {
+      absolute: title,
+    },
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      type: "website",
+      siteName: storeName,
+      title: ogTitle,
+      description: ogDescription,
+      url: canonicalUrl,
+      locale: "id_ID",
+      ...(ogImage
+        ? {
+            images: [
+              {
+                url: ogImage,
+                alt: title,
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: twitterCard,
+      title: ogTitle,
+      description: ogDescription,
+      ...(ogImage
+        ? {
+            images: [ogImage],
+          }
+        : {}),
+    },
+    robots: {
+      index: settings.seoRobotsIndex,
+      follow: settings.seoRobotsFollow,
+    },
+    ...(settings.seoGoogleVerification?.trim()
+      ? {
+          verification: {
+            google:
+              settings.seoGoogleVerification.trim(),
+          },
+        }
+      : {}),
+  };
+}
 
 /**
  * ============================================================

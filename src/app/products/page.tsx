@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -29,6 +31,8 @@ import CategoryService from
 
 import ProductCategoryNavigation from
   "@/components/customer/products/ProductCategoryNavigation";
+
+import settingsService from "@/services/settings/settings.service";
 
 /**
  * ============================================================
@@ -63,6 +67,163 @@ interface ProductsPageProps {
   searchParams?: Promise<{
     category?: string;
   }>;
+}
+
+/**
+ * ============================================================
+ * PRODUCTS PAGE SEO METADATA
+ * ============================================================
+ */
+
+export async function generateMetadata({
+  searchParams,
+}: ProductsPageProps): Promise<Metadata> {
+  const params = (await searchParams) ?? {};
+
+  const categorySlug =
+    params.category &&
+    params.category !== "all"
+      ? params.category.trim().toLowerCase()
+      : undefined;
+
+  const [settings, categories] = await Promise.all([
+    settingsService.getSettings(),
+    CategoryService.getCategories({
+      active: true,
+    }),
+  ]);
+
+  const storeName =
+    settings.storeName?.trim() ||
+    "Pisjo Market Platform";
+
+  const globalDescription =
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    "Modern Pisjo Marketplace";
+
+  const canonicalBase =
+    settings.seoCanonicalUrl?.trim() ||
+    process.env.APP_URL?.trim() ||
+    "http://localhost:3000";
+
+  const baseUrl =
+    canonicalBase.replace(/\/+$/, "");
+
+  const selectedCategory =
+    categorySlug
+      ? categories.find(
+          (category) =>
+            category.slug === categorySlug,
+        )
+      : undefined;
+
+  /**
+   * ----------------------------------------------------------
+   * INVALID CATEGORY
+   * ----------------------------------------------------------
+   */
+
+  if (categorySlug && !selectedCategory) {
+    return {
+      title: "Kategori Tidak Ditemukan",
+      description: globalDescription,
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+const title = selectedCategory
+  ? `${selectedCategory.name} | ${storeName}`
+  : settings.seoTitle?.trim() ||
+    `Produk | ${storeName}`;
+
+const description = selectedCategory
+  ? `Temukan berbagai produk ${selectedCategory.name} berkualitas di ${storeName}.`
+  : globalDescription;
+
+const canonicalUrl = selectedCategory
+  ? `${baseUrl}/products?category=${encodeURIComponent(
+      selectedCategory.slug,
+    )}`
+  : `${baseUrl}/products`;
+
+  const ogTitle =
+    settings.seoOgTitle?.trim() ||
+    title;
+
+  const ogDescription =
+    settings.seoOgDescription?.trim() ||
+    description;
+
+  const ogImage =
+    settings.seoOgImage?.trim() ||
+    undefined;
+
+  const twitterCard =
+    settings.seoTwitterCard === "summary"
+      ? "summary"
+      : "summary_large_image";
+
+  return {
+    title: {
+      absolute: title,
+    },
+
+    description,
+
+    alternates: {
+      canonical: canonicalUrl,
+    },
+
+    openGraph: {
+      type: "website",
+      siteName: storeName,
+      title: ogTitle,
+      description: ogDescription,
+      url: canonicalUrl,
+      locale: "id_ID",
+
+      ...(ogImage
+        ? {
+            images: [
+              {
+                url: ogImage,
+                alt: ogTitle,
+              },
+            ],
+          }
+        : {}),
+    },
+
+    twitter: {
+      card: twitterCard,
+      title: ogTitle,
+      description: ogDescription,
+
+      ...(ogImage
+        ? {
+            images: [ogImage],
+          }
+        : {}),
+    },
+
+    robots: {
+      index: settings.seoRobotsIndex,
+      follow: settings.seoRobotsFollow,
+    },
+
+    ...(settings.seoGoogleVerification?.trim()
+      ? {
+          verification: {
+            google:
+              settings.seoGoogleVerification.trim(),
+          },
+        }
+      : {}),
+  };
 }
 
 export default async function ProductsPage({

@@ -1,4 +1,9 @@
-import { NextResponse } from "next/server";
+import {
+  mobileError,
+  mobileSuccess,
+  mobileValidationError,
+} from "@/lib/api/mobile-response";
+
 
 import { requireMobileAuth } from "@/lib/auth/mobile-auth";
 import AddressService from "@/services/address/address.service";
@@ -60,17 +65,10 @@ export async function GET(
       );
 
     if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            result.message ??
-            "Gagal mengambil data alamat.",
-        },
-        {
-          status: 500,
-        }
+      return mobileError(
+        "ADDRESS_LIST_ERROR",
+        result.message ?? "Gagal mengambil data alamat.",
+        500
       );
     }
 
@@ -145,13 +143,9 @@ export async function GET(
      * --------------------------------------------------------
      */
 
-    return NextResponse.json({
-      success: true,
-
-      data: {
+      return mobileSuccess({
         addresses,
-      },
-    });
+      });
   } catch (error) {
     return handleMobileAddressError(
       error,
@@ -201,19 +195,10 @@ export async function POST(
       body =
         await request.json();
     } catch {
-      return NextResponse.json(
-        {
-          success: false,
-
-          code:
-            "INVALID_JSON",
-
-          message:
-            "Format request tidak valid.",
-        },
-        {
-          status: 400,
-        }
+      return mobileError(
+        "INVALID_JSON",
+        "Format request tidak valid.",
+        400
       );
     }
 
@@ -232,23 +217,9 @@ export async function POST(
       );
 
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          code:
-            "VALIDATION_ERROR",
-
-          message:
-            "Data alamat tidak valid.",
-
-          errors:
-            validation.error.flatten()
-              .fieldErrors,
-        },
-        {
-          status: 400,
-        }
+      return mobileValidationError(
+        "Data alamat tidak valid.",
+        validation.error.flatten().fieldErrors
       );
     }
 
@@ -273,17 +244,10 @@ export async function POST(
      */
 
     if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            result.message ??
-            "Gagal menambahkan alamat.",
-        },
-        {
-          status: 400,
-        }
+      return mobileError(
+        "ADDRESS_CREATE_ERROR",
+        result.message ?? "Gagal menambahkan alamat.",
+        400
       );
     }
 
@@ -302,16 +266,10 @@ export async function POST(
         "AddressService berhasil tetapi tidak mengembalikan data."
       );
 
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            "Alamat berhasil diproses tetapi data tidak dapat dikembalikan.",
-        },
-        {
-          status: 500,
-        }
+      return mobileError(
+        "ADDRESS_CREATE_ERROR",
+        "Alamat berhasil diproses tetapi data tidak dapat dikembalikan.",
+        500
       );
     }
 
@@ -321,15 +279,9 @@ export async function POST(
      * --------------------------------------------------------
      */
 
-    return NextResponse.json(
+    return mobileSuccess(
       {
-        success: true,
 
-        message:
-          result.message ??
-          "Alamat berhasil ditambahkan.",
-
-        data: {
           address: {
             id: address.id,
 
@@ -383,10 +335,7 @@ export async function POST(
               address.updatedAt,
           },
         },
-      },
-      {
-        status: 201,
-      }
+        201
     );
   } catch (error) {
     return handleMobileAddressError(
@@ -427,99 +376,45 @@ function handleMobileAddressError(
       authError.code
     ) {
       case "MISSING_AUTHORIZATION":
-        return NextResponse.json(
-          {
-            success: false,
-
-            code:
-              "MISSING_AUTHORIZATION",
-
-            message:
-              "Authorization header diperlukan.",
-          },
-          {
-            status: 401,
-          }
+        return mobileError(
+          "MISSING_AUTHORIZATION",
+          "Authorization header diperlukan.",
+          401
         );
 
       case "INVALID_AUTHORIZATION":
-        return NextResponse.json(
-          {
-            success: false,
-
-            code:
-              "INVALID_AUTHORIZATION",
-
-            message:
-              "Authorization header tidak valid.",
-          },
-          {
-            status: 401,
-          }
+        return mobileError(
+          "INVALID_AUTHORIZATION",
+          "Authorization header tidak valid.",
+          401
         );
 
       case "INVALID_ACCESS_TOKEN":
-        return NextResponse.json(
-          {
-            success: false,
-
-            code:
-              "INVALID_ACCESS_TOKEN",
-
-            message:
-              "Access token tidak valid atau sudah kedaluwarsa.",
-          },
-          {
-            status: 401,
-          }
+        return mobileError(
+          "INVALID_ACCESS_TOKEN",
+          "Access token tidak valid atau sudah kedaluwarsa.",
+          401
         );
 
       case "ACCOUNT_INACTIVE":
-        return NextResponse.json(
-          {
-            success: false,
-
-            code:
-              "ACCOUNT_INACTIVE",
-
-            message:
-              "Akun Anda tidak dapat digunakan.",
-          },
-          {
-            status: 403,
-          }
+        return mobileError(
+          "ACCOUNT_INACTIVE",
+          "Akun Anda tidak dapat digunakan.",
+          403
         );
 
       case "EMAIL_NOT_VERIFIED":
-        return NextResponse.json(
-          {
-            success: false,
-
-            code:
-              "EMAIL_NOT_VERIFIED",
-
-            message:
-              "Email Anda belum diverifikasi.",
-          },
-          {
-            status: 403,
-          }
+        return mobileError(
+          "EMAIL_NOT_VERIFIED",
+          "Email Anda belum diverifikasi.",
+          403
         );
 
       case "SESSION_INVALIDATED":
-        return NextResponse.json(
-          {
-            success: false,
-
-            code:
-              "SESSION_INVALIDATED",
-
-            message:
-              "Sesi aplikasi tidak berlaku karena password telah diubah. Silakan login kembali.",
-          },
-          {
-            status: 401,
-          }
+        return mobileError(
+          "SESSION_INVALIDATED",
+          "Sesi aplikasi tidak berlaku karena password telah diubah. Silakan login kembali.",
+          401
         );
     }
   }
@@ -535,15 +430,9 @@ function handleMobileAddressError(
     error
   );
 
-  return NextResponse.json(
-    {
-      success: false,
-
-      message:
-        "Terjadi kesalahan pada server.",
-    },
-    {
-      status: 500,
-    }
+  return mobileError(
+    "INTERNAL_ERROR",
+    "Terjadi kesalahan pada server.",
+    500
   );
 }

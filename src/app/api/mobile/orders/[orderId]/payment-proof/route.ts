@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import {
   MobileAuthError,
@@ -129,13 +132,10 @@ export async function POST(
       typeof orderId !== "string" ||
       !orderId.trim()
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_ORDER_ID",
-          message: "ID pesanan tidak valid.",
-        },
-        { status: 400 }
+      return mobileError(
+        "INVALID_ORDER_ID",
+        "ID pesanan tidak valid.",
+        400
       );
     }
 
@@ -144,26 +144,20 @@ export async function POST(
     try {
       formData = await request.formData();
     } catch {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_FORM_DATA",
-          message: "Format multipart/form-data tidak valid.",
-        },
-        { status: 400 }
+      return mobileError(
+        "INVALID_FORM_DATA",
+        "Format multipart/form-data tidak valid.",
+        400
       );
     }
 
     const file = formData.get("file");
 
     if (!(file instanceof File)) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "PAYMENT_PROOF_REQUIRED",
-          message: "Bukti pembayaran wajib dipilih.",
-        },
-        { status: 400 }
+      return mobileError(
+        "PAYMENT_PROOF_REQUIRED",
+        "Bukti pembayaran wajib dipilih.",
+        400
       );
     }
 
@@ -175,13 +169,10 @@ export async function POST(
       bankNameValue !== null &&
       typeof bankNameValue !== "string"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_PAYMENT_PROOF_DATA",
-          message: "Nama bank tidak valid.",
-        },
-        { status: 400 }
+      return mobileError(
+        "INVALID_PAYMENT_PROOF_DATA",
+        "Nama bank tidak valid.",
+        400
       );
     }
 
@@ -189,13 +180,10 @@ export async function POST(
       accountNameValue !== null &&
       typeof accountNameValue !== "string"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_PAYMENT_PROOF_DATA",
-          message: "Nama rekening tidak valid.",
-        },
-        { status: 400 }
+      return mobileError(
+        "INVALID_PAYMENT_PROOF_DATA",
+        "Nama rekening tidak valid.",
+        400
       );
     }
 
@@ -203,13 +191,10 @@ export async function POST(
       accountNumberValue !== null &&
       typeof accountNumberValue !== "string"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_PAYMENT_PROOF_DATA",
-          message: "Nomor rekening tidak valid.",
-        },
-        { status: 400 }
+      return mobileError(
+        "INVALID_PAYMENT_PROOF_DATA",
+        "Nomor rekening tidak valid.",
+        400
       );
     }
 
@@ -240,13 +225,10 @@ export async function POST(
           result.message
         );
 
-      return NextResponse.json(
-        {
-          success: false,
-          code: error.code,
-          message: result.message,
-        },
-        { status: error.status }
+      return mobileError(
+        error.code,
+        result.message,
+        error.status
       );
     }
 
@@ -263,15 +245,11 @@ export async function POST(
         user.id
       );
 
-    return NextResponse.json(
+    return mobileSuccess(
       {
-        success: true,
-        message: result.message,
-        data: {
-          order: serializeOrder(order),
-        },
+        order: serializeOrder(order),
       },
-      { status: 200 }
+      200
     );
   } catch (error) {
     const code =
@@ -294,28 +272,20 @@ export async function POST(
     ]);
 
     if (authCodes.has(code)) {
-      return NextResponse.json(
-        {
-          success: false,
-          code,
-          message:
-            getMobilePaymentProofAuthMessage(code),
-        },
-        { status: 401 }
+      return mobileError(
+        code,
+        getMobilePaymentProofAuthMessage(code),
+        401
       );
     }
 
     if (forbiddenCodes.has(code)) {
-      return NextResponse.json(
-        {
-          success: false,
-          code,
-          message:
-            code === "ACCOUNT_INACTIVE"
-              ? "Akun tidak aktif."
-              : "Email belum diverifikasi.",
-        },
-        { status: 403 }
+      return mobileError(
+        code,
+        code === "ACCOUNT_INACTIVE"
+          ? "Akun tidak aktif."
+          : "Email belum diverifikasi.",
+        403
       );
     }
 
@@ -324,13 +294,10 @@ export async function POST(
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Terjadi kesalahan pada server.",
-      },
-      { status: 500 }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }

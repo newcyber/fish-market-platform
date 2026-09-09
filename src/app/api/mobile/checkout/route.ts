@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import {
   MobileAuthError,
@@ -6,6 +9,7 @@ import {
 } from "@/lib/auth/mobile-auth";
 
 import OrderService from "@/services/order/order.service";
+
 import {
   serializeOrder,
 } from "@/services/order/order.serializer";
@@ -334,6 +338,7 @@ function getCheckoutBusinessError(
  * Harga, subtotal, discount, shipping,
  * total, dan items TIDAK berasal dari client.
  */
+
 export async function POST(
   request: Request
 ) {
@@ -343,6 +348,7 @@ export async function POST(
      * AUTHENTICATION
      * ==========================================================
      */
+
     const user =
       await requireMobileAuth(
         request
@@ -353,22 +359,17 @@ export async function POST(
      * PARSE BODY
      * ==========================================================
      */
+
     let body: unknown;
 
     try {
       body =
         await request.json();
     } catch {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_REQUEST_BODY",
-          message:
-            "Format request tidak valid.",
-        },
-        {
-          status: 400,
-        }
+      return mobileError(
+        "INVALID_REQUEST_BODY",
+        "Format request tidak valid.",
+        400
       );
     }
 
@@ -376,16 +377,10 @@ export async function POST(
       parseBody(body);
 
     if (!input) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_REQUEST_BODY",
-          message:
-            "Data request tidak valid.",
-        },
-        {
-          status: 400,
-        }
+      return mobileError(
+        "INVALID_REQUEST_BODY",
+        "Data request tidak valid.",
+        400
       );
     }
 
@@ -394,31 +389,20 @@ export async function POST(
      * BASIC VALIDATION
      * ==========================================================
      */
+
     if (!input.addressId) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_ADDRESS",
-          message:
-            "Alamat pengiriman tidak valid.",
-        },
-        {
-          status: 400,
-        }
+      return mobileError(
+        "INVALID_ADDRESS",
+        "Alamat pengiriman tidak valid.",
+        400
       );
     }
 
     if (!input.paymentChannelId) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_PAYMENT_CHANNEL",
-          message:
-            "Metode pembayaran tidak valid.",
-        },
-        {
-          status: 400,
-        }
+      return mobileError(
+        "INVALID_PAYMENT_CHANNEL",
+        "Metode pembayaran tidak valid.",
+        400
       );
     }
 
@@ -427,6 +411,7 @@ export async function POST(
      * CREATE CHECKOUT ORDER
      * ==========================================================
      */
+
     const result =
       await OrderService.createCheckoutOrder(
         user.id,
@@ -437,73 +422,57 @@ export async function POST(
         input.voucherCode
       );
 
-if (!result.success) {
-  const message =
-    result.message ||
-    "Checkout gagal.";
+    if (!result.success) {
+      const message =
+        result.message ||
+        "Checkout gagal.";
 
-  const businessError =
-    getCheckoutBusinessError(
-      message
-    );
+      const businessError =
+        getCheckoutBusinessError(
+          message
+        );
 
-  return NextResponse.json(
-    {
-      success: false,
-      code: businessError.code,
-      message,
-    },
-    {
-      status:
-        businessError.status,
+      return mobileError(
+        businessError.code,
+        message,
+        businessError.status
+      );
     }
-  );
-}
 
-if (!result.data) {
-  console.error(
-    "[MOBILE_CHECKOUT_ERROR] Checkout berhasil tetapi order tidak tersedia."
-  );
+    if (!result.data) {
+      console.error(
+        "[MOBILE_CHECKOUT_ERROR] Checkout berhasil tetapi order tidak tersedia."
+      );
 
-  return NextResponse.json(
-    {
-      success: false,
-      code: "CHECKOUT_FAILED",
-      message:
+      return mobileError(
+        "CHECKOUT_FAILED",
         "Pesanan berhasil diproses tetapi data pesanan tidak tersedia.",
-    },
-    {
-      status: 500,
+        500
+      );
     }
-  );
-}
 
-/**
- * ==========================================================
- * SUCCESS RESPONSE
- * ==========================================================
- */
-return NextResponse.json(
-  {
-    success: true,
-    data: {
-      order:
-        serializeOrder(
-          result.data
-        ),
-    },
-  },
-  {
-    status: 201,
-  }
-);
+    /**
+     * ==========================================================
+     * SUCCESS RESPONSE
+     * ==========================================================
+     */
 
+    return mobileSuccess(
+      {
+        order:
+          serializeOrder(
+            result.data
+          ),
+      },
+      201
+    );
   } catch (error) {
     /**
      * ==========================================================
      * MOBILE AUTH ERROR
      * ==========================================================
      */
+
     if (
       error instanceof MobileAuthError
     ) {
@@ -512,63 +481,45 @@ return NextResponse.json(
         case "INVALID_AUTHORIZATION":
         case "INVALID_ACCESS_TOKEN":
         case "SESSION_INVALIDATED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                getMobileCheckoutAuthMessage(
-                  error.code
-                ),
-            },
-            {
-              status: 401,
-            }
+          return mobileError(
+            error.code,
+            getMobileCheckoutAuthMessage(
+              error.code
+            ),
+            401
           );
 
         case "ACCOUNT_INACTIVE":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                "Akun tidak aktif.",
-            },
-            {
-              status: 403,
-            }
+          return mobileError(
+            error.code,
+            "Akun tidak aktif.",
+            403
           );
 
         case "EMAIL_NOT_VERIFIED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                "Email belum diverifikasi.",
-            },
-            {
-              status: 403,
-            }
+          return mobileError(
+            error.code,
+            "Email belum diverifikasi.",
+            403
           );
       }
     }
+
+    /**
+     * ==========================================================
+     * UNEXPECTED ERROR
+     * ==========================================================
+     */
 
     console.error(
       "[MOBILE_CHECKOUT_ERROR]",
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          "Terjadi kesalahan pada server.",
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }

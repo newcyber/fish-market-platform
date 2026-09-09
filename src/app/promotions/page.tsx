@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -14,6 +16,8 @@ import DynamicSiteFooter from "@/components/layout/DynamicSiteFooter";
 import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 
 import PromotionService from "@/services/promotion/promotion.service";
+
+import settingsService from "@/services/settings/settings.service";
 
 /**
  * ============================================================
@@ -122,6 +126,102 @@ function getDiscountLabel(
   }
 
   return "Promo harga";
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings =
+    await settingsService.getSettings();
+
+  const storeName =
+    settings.storeName?.trim() ||
+    "Pisjo Market Platform";
+
+  const title =
+    settings.seoTitle?.trim() ||
+    `Promo | ${storeName}`;
+
+  const description =
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    `Temukan berbagai promo dan penawaran menarik di ${storeName}.`;
+
+  const canonicalBase =
+    settings.seoCanonicalUrl?.trim() ||
+    process.env.APP_URL?.trim() ||
+    "http://localhost:3000";
+
+  const baseUrl =
+    canonicalBase.replace(/\/+$/, "");
+
+  const canonicalUrl =
+    `${baseUrl}/promotions`;
+
+  const ogTitle =
+    settings.seoOgTitle?.trim() ||
+    title;
+
+  const ogDescription =
+    settings.seoOgDescription?.trim() ||
+    description;
+
+  const ogImage =
+    settings.seoOgImage?.trim() ||
+    undefined;
+
+  const twitterCard =
+    settings.seoTwitterCard === "summary"
+      ? "summary"
+      : "summary_large_image";
+
+  return {
+    title: {
+      absolute: title,
+    },
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      type: "website",
+      siteName: storeName,
+      title: ogTitle,
+      description: ogDescription,
+      url: canonicalUrl,
+      locale: "id_ID",
+      ...(ogImage
+        ? {
+            images: [
+              {
+                url: ogImage,
+                alt: ogTitle,
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: twitterCard,
+      title: ogTitle,
+      description: ogDescription,
+      ...(ogImage
+        ? {
+            images: [ogImage],
+          }
+        : {}),
+    },
+    robots: {
+      index: settings.seoRobotsIndex,
+      follow: settings.seoRobotsFollow,
+    },
+    ...(settings.seoGoogleVerification?.trim()
+      ? {
+          verification: {
+            google:
+              settings.seoGoogleVerification.trim(),
+          },
+        }
+      : {}),
+  };
 }
 
 /**

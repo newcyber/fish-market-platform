@@ -61,6 +61,25 @@ interface SettingsFormProps {
     storeDescription: string | null;
     footerDescription: string | null;
 
+        /**
+     * ==========================================================
+     * GLOBAL SEO
+     * ==========================================================
+     */
+
+    seoTitle: string | null;
+    seoDescription: string | null;
+    seoKeywords: string | null;
+    seoCanonicalUrl: string | null;
+    seoOgTitle: string | null;
+    seoOgDescription: string | null;
+    seoOgImage: string | null;
+    seoTwitterCard: string;
+    seoRobotsIndex: boolean;
+    seoRobotsFollow: boolean;
+    seoGoogleVerification: string | null;
+    seoAiEnabled: boolean;
+
     /**
      * URL/path logo situs.
      */
@@ -1926,6 +1945,23 @@ if (uploadingPromoCard) {
         formData.get("footerDescription") ?? ""
       ),
 
+      seoTitle: String(formData.get("seoTitle") ?? ""),
+      seoDescription: String(formData.get("seoDescription") ?? ""),
+      seoKeywords: String(formData.get("seoKeywords") ?? ""),
+      seoCanonicalUrl: String(formData.get("seoCanonicalUrl") ?? ""),
+      seoOgTitle: String(formData.get("seoOgTitle") ?? ""),
+      seoOgDescription: String(formData.get("seoOgDescription") ?? ""),
+      seoOgImage: String(formData.get("seoOgImage") ?? ""),
+      seoTwitterCard: String(
+        formData.get("seoTwitterCard") ?? "summary_large_image",
+      ),
+      seoRobotsIndex: formData.get("seoRobotsIndex") === "on",
+      seoRobotsFollow: formData.get("seoRobotsFollow") === "on",
+      seoGoogleVerification: String(
+      formData.get("seoGoogleVerification") ?? "",
+      ),
+      seoAiEnabled: formData.get("seoAiEnabled") === "on",
+
       /**
        * SITE LOGO
        */
@@ -1933,8 +1969,8 @@ if (uploadingPromoCard) {
       siteLogo,
 
       /**
- * HERO SLIDER IMAGES
- */
+      * HERO SLIDER IMAGES
+      */
 
       heroSlide1Image,
 
@@ -1942,9 +1978,9 @@ if (uploadingPromoCard) {
 
       heroSlide3Image,
 
-/**
- * MOBILE LOGIN SLIDER IMAGES
- */
+      /**
+      * MOBILE LOGIN SLIDER IMAGES
+      */
       loginSlide1Image,
       loginSlide2Image,
       loginSlide3Image,

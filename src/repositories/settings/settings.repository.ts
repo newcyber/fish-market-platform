@@ -34,6 +34,36 @@ export interface UpdateSettingsPayload {
 
   /**
    * ==========================================================
+   * GLOBAL SEO
+   * ==========================================================
+   */
+
+  seoTitle?: string | null;
+
+  seoDescription?: string | null;
+
+  seoKeywords?: string | null;
+
+  seoCanonicalUrl?: string | null;
+
+  seoOgTitle?: string | null;
+
+  seoOgDescription?: string | null;
+
+  seoOgImage?: string | null;
+
+  seoTwitterCard?: string;
+
+  seoRobotsIndex?: boolean;
+
+  seoRobotsFollow?: boolean;
+
+  seoGoogleVerification?: string | null;
+
+  seoAiEnabled?: boolean;
+
+  /**
+   * ==========================================================
    * BRANDING
    * ==========================================================
    */
@@ -269,6 +299,36 @@ class SettingsRepository {
 
         footerDescription: null,
 
+                /**
+         * ------------------------------------------------------
+         * GLOBAL SEO
+         * ------------------------------------------------------
+         */
+
+        seoTitle: null,
+
+        seoDescription: null,
+
+        seoKeywords: null,
+
+        seoCanonicalUrl: null,
+
+        seoOgTitle: null,
+
+        seoOgDescription: null,
+
+        seoOgImage: null,
+
+        seoTwitterCard: "summary_large_image",
+
+        seoRobotsIndex: true,
+
+        seoRobotsFollow: true,
+
+        seoGoogleVerification: null,
+
+        seoAiEnabled: true,
+
         /**
          * ------------------------------------------------------
          * BRANDING
@@ -425,6 +485,48 @@ class SettingsRepository {
 
         footerDescription:
           data.footerDescription ?? null,
+
+        /**
+         * ------------------------------------------------------
+         * GLOBAL SEO
+         * ------------------------------------------------------
+         */
+
+        seoTitle:
+          data.seoTitle ?? null,
+
+        seoDescription:
+          data.seoDescription ?? null,
+
+        seoKeywords:
+          data.seoKeywords ?? null,
+
+        seoCanonicalUrl:
+          data.seoCanonicalUrl ?? null,
+
+        seoOgTitle:
+          data.seoOgTitle ?? null,
+
+        seoOgDescription:
+          data.seoOgDescription ?? null,
+
+        seoOgImage:
+          data.seoOgImage ?? null,
+
+        seoTwitterCard:
+          data.seoTwitterCard ?? "summary_large_image",
+
+        seoRobotsIndex:
+          data.seoRobotsIndex ?? true,
+
+        seoRobotsFollow:
+          data.seoRobotsFollow ?? true,
+
+        seoGoogleVerification:
+          data.seoGoogleVerification ?? null,
+
+        seoAiEnabled:
+          data.seoAiEnabled ?? true,
 
         /**
          * ------------------------------------------------------

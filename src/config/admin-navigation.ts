@@ -294,6 +294,27 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       },
     ],
   },
+
+  /**
+   * ==========================================================
+   * SMART SEO
+   * ==========================================================
+   *
+   * Pusat pengelolaan SEO global dan AI SEO.
+   *
+   * Hanya SUPER_ADMIN yang dapat mengakses.
+   *
+   * ==========================================================
+   */
+  {
+    id: "smart-seo",
+    title: "Smart SEO Setting",
+    href: "/admin/smart-seo",
+    icon: "smart-seo",
+    roles: SUPER_ADMIN_ONLY,
+    order: 10,
+  },
+
 ];
 
 export default ADMIN_NAVIGATION;

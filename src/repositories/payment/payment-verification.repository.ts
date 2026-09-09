@@ -855,9 +855,9 @@ static async reject(
             rejectionReason:
               rejectionReason.trim(),
 
-            verifiedAt: now,
-
+            verifiedAt: null,
             verifiedById,
+
           },
         });
 

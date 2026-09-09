@@ -1,7 +1,9 @@
+import { NextRequest } from "next/server";
+
 import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import ProductService from "@/services/product/product.service";
 
@@ -40,21 +42,10 @@ export async function GET(
       slug.trim();
 
     if (!normalizedSlug) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error: {
-            code:
-              "INVALID_PRODUCT_SLUG",
-
-            message:
-              "Slug produk tidak valid.",
-          },
-        },
-        {
-          status: 400,
-        }
+      return mobileError(
+        "INVALID_PRODUCT_SLUG",
+        "Slug produk tidak valid.",
+        400
       );
     }
 
@@ -64,21 +55,10 @@ export async function GET(
       );
 
     if (!product) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error: {
-            code:
-              "PRODUCT_NOT_FOUND",
-
-            message:
-              "Produk tidak ditemukan.",
-          },
-        },
-        {
-          status: 404,
-        }
+      return mobileError(
+        "PRODUCT_NOT_FOUND",
+        "Produk tidak ditemukan.",
+        404
       );
     }
 
@@ -166,73 +146,67 @@ export async function GET(
         })
       ) ?? [];
 
-    return NextResponse.json(
+    return mobileSuccess(
       {
-        success: true,
+        product: {
+          id: product.id,
 
-        data: {
-          product: {
-            id: product.id,
+          name: product.name,
 
-            name: product.name,
+          slug: product.slug,
 
-            slug: product.slug,
+          description:
+            product.description,
 
-            description:
-              product.description,
+          category:
+            product.category
+              ? {
+                  id:
+                    product.category.id,
 
-            category:
-              product.category
-                ? {
-                    id:
-                      product.category.id,
+                  name:
+                    product.category.name,
 
-                    name:
-                      product.category.name,
+                  slug:
+                    product.category.slug,
+                }
+              : null,
 
-                    slug:
-                      product.category.slug,
-                  }
+          featured:
+            product.featured,
+
+          image:
+            images.find(
+              (image) =>
+                image.isThumbnail
+            )?.image ??
+            images[0]?.image ??
+            null,
+
+          images,
+
+          variantGroups,
+
+          skus,
+
+          /**
+           * Legacy fallback.
+           *
+           * Hanya relevan untuk product yang belum
+           * menggunakan kombinasi SKU.
+           */
+          legacy: {
+            price:
+              product.price !== null
+                ? Number(product.price)
                 : null,
 
-            featured:
-              product.featured,
-
-            image:
-              images.find(
-                (image) =>
-                  image.isThumbnail
-              )?.image ??
-              images[0]?.image ??
-              null,
-
-            images,
-
-            variantGroups,
-
-            skus,
-
-            /**
-             * Legacy fallback.
-             *
-             * Hanya relevan untuk product yang belum
-             * menggunakan kombinasi SKU.
-             */
-            legacy: {
-              price:
-                product.price !== null
-                  ? Number(product.price)
-                  : null,
-
-              stock:
-                product.stock ?? 0,
-            },
+            stock:
+              product.stock ?? 0,
           },
         },
       },
-      {
-        status: 200,
-      }
+      200
     );
   } catch (error) {
     console.error(
@@ -240,21 +214,10 @@ export async function GET(
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-
-        error: {
-          code:
-            "INTERNAL_SERVER_ERROR",
-
-          message:
-            "Gagal mengambil detail produk.",
-        },
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Gagal mengambil detail produk.",
+      500
     );
   }
 }

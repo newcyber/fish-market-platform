@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import CategoryService from "@/services/category/category.service";
 
@@ -44,17 +47,11 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json(
+    return mobileSuccess(
       {
-        success: true,
-
-        data: {
-          items,
-        },
+        items,
       },
-      {
-        status: 200,
-      }
+      200
     );
   } catch (error) {
     console.error(
@@ -62,20 +59,10 @@ export async function GET() {
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-
-        error: {
-          code: "INTERNAL_SERVER_ERROR",
-
-          message:
-            "Gagal mengambil kategori produk.",
-        },
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Gagal mengambil kategori produk.",
+      500
     );
   }
 }

@@ -1,5 +1,9 @@
-import { NextResponse } from "next/server";
 import { OrderStatus } from "@prisma/client";
+
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import {
   MobileAuthError,
@@ -7,41 +11,58 @@ import {
 } from "@/lib/auth/mobile-auth";
 
 import OrderService from "@/services/order/order.service";
-import { serializeOrderListItem } from "@/services/order/order.serializer";
 
-export async function GET(request: Request) {
+import {
+  serializeOrderListItem,
+} from "@/services/order/order.serializer";
+
+export async function GET(
+  request: Request
+) {
   try {
-    const user = await requireMobileAuth(request);
+    const user =
+      await requireMobileAuth(
+        request
+      );
 
-    const { searchParams } = new URL(request.url);
+    const { searchParams } =
+      new URL(request.url);
 
-    const rawLimit = searchParams.get("limit");
-    const cursor = searchParams.get("cursor");
-    const rawStatus = searchParams.get("status");
+    const rawLimit =
+      searchParams.get("limit");
 
-    const limit = rawLimit === null
-      ? 20
-      : Number(rawLimit);
+    const cursor =
+      searchParams.get("cursor");
 
-    let status: OrderStatus | undefined;
+    const rawStatus =
+      searchParams.get("status");
+
+    const limit =
+      rawLimit === null
+        ? 20
+        : Number(rawLimit);
+
+    let status:
+      | OrderStatus
+      | undefined;
 
     if (rawStatus !== null) {
       if (
-        !Object.values(OrderStatus).includes(
+        !Object.values(
+          OrderStatus
+        ).includes(
           rawStatus as OrderStatus
         )
       ) {
-        return NextResponse.json(
-          {
-            success: false,
-            code: "INVALID_ORDER_STATUS",
-            message: "Status order tidak valid.",
-          },
-          { status: 400 }
+        return mobileError(
+          "INVALID_ORDER_STATUS",
+          "Status order tidak valid.",
+          400
         );
       }
 
-      status = rawStatus as OrderStatus;
+      status =
+        rawStatus as OrderStatus;
     }
 
     const result =
@@ -54,14 +75,14 @@ export async function GET(request: Request) {
         }
       );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        orders: result.orders.map(
+    return mobileSuccess({
+      orders:
+        result.orders.map(
           serializeOrderListItem
         ),
-        pagination: result.pagination,
-      },
+
+      pagination:
+        result.pagination,
     });
   } catch (error) {
     const code =
@@ -84,44 +105,41 @@ export async function GET(request: Request) {
     ]);
 
     if (authCodes.has(code)) {
-      return NextResponse.json(
-        {
-          success: false,
-          code,
-          message: getMobileOrderAuthMessage(code),
-        },
-        { status: 401 }
-      );
-    }
-
-    if (forbiddenCodes.has(code)) {
-      return NextResponse.json(
-        {
-          success: false,
-          code,
-          message:
-            code === "ACCOUNT_INACTIVE"
-              ? "Akun tidak aktif."
-              : "Email belum diverifikasi.",
-        },
-        { status: 403 }
+      return mobileError(
+        code,
+        getMobileOrderAuthMessage(
+          code
+        ),
+        401
       );
     }
 
     if (
-      code === "INVALID_ORDER_LIMIT" ||
-      code === "INVALID_ORDER_CURSOR"
+      forbiddenCodes.has(code)
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code,
-          message:
-            code === "INVALID_ORDER_LIMIT"
-              ? "Limit order tidak valid. Gunakan angka 1 sampai 50."
-              : "Cursor order tidak valid.",
-        },
-        { status: 400 }
+      return mobileError(
+        code,
+        code ===
+          "ACCOUNT_INACTIVE"
+          ? "Akun tidak aktif."
+          : "Email belum diverifikasi.",
+        403
+      );
+    }
+
+    if (
+      code ===
+        "INVALID_ORDER_LIMIT" ||
+      code ===
+        "INVALID_ORDER_CURSOR"
+    ) {
+      return mobileError(
+        code,
+        code ===
+          "INVALID_ORDER_LIMIT"
+          ? "Limit order tidak valid. Gunakan angka 1 sampai 50."
+          : "Cursor order tidak valid.",
+        400
       );
     }
 
@@ -130,19 +148,17 @@ export async function GET(request: Request) {
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          "Terjadi kesalahan pada server.",
-      },
-      { status: 500 }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }
 
-function getMobileOrderAuthMessage(code: string) {
+function getMobileOrderAuthMessage(
+  code: string
+) {
   switch (code) {
     case "MISSING_AUTHORIZATION":
       return "Authorization header wajib diisi.";

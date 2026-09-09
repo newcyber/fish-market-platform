@@ -472,6 +472,10 @@ export class ProductService {
     );
   }
 
+  static async getPublishedProductsForSitemap() {
+    return ProductRepository.findPublishedForSitemap();
+  }
+
     static async createProduct(input: CreateProductInput) {
     const slug = input.slug.trim();
 

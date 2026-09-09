@@ -1,4 +1,5 @@
 import type React from "react";
+import type { Metadata } from "next";
 
 import Link from "next/link";
 
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 
 import ProductService from "@/services/product/product.service";
+import settingsService from "@/services/settings/settings.service";
 
 import AddToCartButton from "@/components/customer/products/AddToCartButton";
 
@@ -57,6 +59,144 @@ interface ProductDetailPageProps {
   searchParams: Promise<{
     preview?: string;
   }>;
+}
+
+/**
+ * ============================================================
+ * PRODUCT SEO METADATA
+ * ============================================================
+ */
+
+export async function generateMetadata({
+  params,
+}: ProductDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  const [product, settings] = await Promise.all([
+    ProductService.getPublishedProductBySlug(slug),
+    settingsService.getSettings(),
+  ]);
+
+  if (!product) {
+    return {
+      title: "Produk Tidak Ditemukan",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const storeName =
+    settings.storeName?.trim() ||
+    "Pisjo Market Platform";
+
+  const globalDescription =
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    "Modern Pisjo Marketplace";
+
+  const productName =
+    product.name.trim();
+
+  const productDescription =
+    product.description?.trim() ||
+    globalDescription;
+
+  const canonicalBase =
+    settings.seoCanonicalUrl?.trim() ||
+    process.env.APP_URL?.trim() ||
+    "http://localhost:3000";
+
+  const canonicalUrl =
+    `${canonicalBase.replace(/\/+$/, "")}/products/${product.slug}`;
+
+  const productImage =
+    product.images
+      .slice()
+      .sort(
+        (a, b) =>
+          Number(b.isThumbnail) -
+            Number(a.isThumbnail) ||
+          a.sortOrder - b.sortOrder,
+      )[0]?.image;
+
+  const ogImage =
+    productImage ||
+    settings.seoOgImage?.trim() ||
+    undefined;
+
+  const ogTitle =
+    settings.seoOgTitle?.trim()
+      ? `${productName} | ${settings.seoOgTitle.trim()}`
+      : productName;
+
+  const ogDescription =
+    settings.seoOgDescription?.trim() ||
+    productDescription;
+
+  const twitterCard =
+    settings.seoTwitterCard === "summary"
+      ? "summary"
+      : "summary_large_image";
+
+  return {
+    title: {
+      absolute: `${productName} | ${storeName}`,
+    },
+
+    description: productDescription,
+
+    alternates: {
+      canonical: canonicalUrl,
+    },
+
+    openGraph: {
+      type: "website",
+      siteName: storeName,
+      title: ogTitle,
+      description: ogDescription,
+      url: canonicalUrl,
+      locale: "id_ID",
+
+      ...(ogImage
+        ? {
+            images: [
+              {
+                url: ogImage,
+                alt: productName,
+              },
+            ],
+          }
+        : {}),
+    },
+
+    twitter: {
+      card: twitterCard,
+      title: ogTitle,
+      description: ogDescription,
+
+      ...(ogImage
+        ? {
+            images: [ogImage],
+          }
+        : {}),
+    },
+
+    robots: {
+      index: settings.seoRobotsIndex,
+      follow: settings.seoRobotsFollow,
+    },
+
+    ...(settings.seoGoogleVerification?.trim()
+      ? {
+          verification: {
+            google:
+              settings.seoGoogleVerification.trim(),
+          },
+        }
+      : {}),
+  };
 }
 
 /**

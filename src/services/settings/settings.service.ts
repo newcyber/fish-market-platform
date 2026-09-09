@@ -35,6 +35,36 @@ export interface UpdateStoreSettingsPayload {
 
   footerDescription?: string;
 
+    /**
+   * ==========================================================
+   * GLOBAL SEO
+   * ==========================================================
+   */
+
+  seoTitle?: string | null;
+
+  seoDescription?: string | null;
+
+  seoKeywords?: string | null;
+
+  seoCanonicalUrl?: string | null;
+
+  seoOgTitle?: string | null;
+
+  seoOgDescription?: string | null;
+
+  seoOgImage?: string | null;
+
+  seoTwitterCard?: string;
+
+  seoRobotsIndex?: boolean;
+
+  seoRobotsFollow?: boolean;
+
+  seoGoogleVerification?: string | null;
+
+  seoAiEnabled?: boolean;
+
   /**
    * URL atau path logo situs.
    */
@@ -704,15 +734,77 @@ class SettingsService {
           payload.storeDescription
         ),
 
-      footerDescription:
-        normalize(
-          payload.footerDescription
-        ),
+footerDescription:
+  normalize(
+    payload.footerDescription
+  ),
 
-      siteLogo:
-        normalize(
-          payload.siteLogo
-        ),
+/**
+ * ------------------------------------------------------
+ * GLOBAL SEO
+ * ------------------------------------------------------
+ */
+
+seoTitle:
+  normalize(
+    payload.seoTitle
+  ),
+
+seoDescription:
+  normalize(
+    payload.seoDescription
+  ),
+
+seoKeywords:
+  normalize(
+    payload.seoKeywords
+  ),
+
+seoCanonicalUrl:
+  normalize(
+    payload.seoCanonicalUrl
+  ),
+
+seoOgTitle:
+  normalize(
+    payload.seoOgTitle
+  ),
+
+seoOgDescription:
+  normalize(
+    payload.seoOgDescription
+  ),
+
+seoOgImage:
+  normalize(
+    payload.seoOgImage
+  ),
+
+seoTwitterCard:
+  payload.seoTwitterCard?.trim()
+    || "summary_large_image",
+
+seoRobotsIndex:
+  payload.seoRobotsIndex
+    ?? true,
+
+seoRobotsFollow:
+  payload.seoRobotsFollow
+    ?? true,
+
+seoGoogleVerification:
+  normalize(
+    payload.seoGoogleVerification
+  ),
+
+seoAiEnabled:
+  payload.seoAiEnabled
+    ?? true,
+
+siteLogo:
+  normalize(
+    payload.siteLogo
+  ),
               /**
        * ======================================================
        * HERO SLIDER

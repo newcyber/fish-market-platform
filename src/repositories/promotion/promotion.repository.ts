@@ -350,6 +350,7 @@ private static readonly customerPromotionSelect =
   slug: true,
   description: true,
   banner: true,
+  updatedAt: true,
 
   status: true,
 

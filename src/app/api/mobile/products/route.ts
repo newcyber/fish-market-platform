@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import ProductService from "@/services/product/product.service";
 
@@ -127,6 +132,31 @@ export async function GET(
             product.images?.[0] ??
             null;
 
+          const activeSkus =
+            product.skus ?? [];
+
+          const hasActiveSku =
+            activeSkus.length > 0;
+
+          const minSkuPrice =
+            hasActiveSku
+              ? Number(activeSkus[0].price)
+              : Number(product.price);
+
+          const maxSkuPrice =
+            hasActiveSku
+              ? Number(
+                  activeSkus[
+                    activeSkus.length - 1
+                  ].price
+                )
+              : Number(product.price);
+
+          const hasAvailableSkuStock =
+            activeSkus.some(
+              (sku) => sku.stock > 0
+            );
+
           return {
             id: product.id,
 
@@ -158,48 +188,41 @@ export async function GET(
             featured:
               product.featured,
 
-            /**
-             * Legacy fallback price.
-             *
-             * Product Detail akan menangani
-             * SKU pricing secara lengkap.
-             */
-            price:
-              product.price !== null
-                ? Number(product.price)
-                : null,
+            pricing: {
+              minPrice: minSkuPrice,
+              maxPrice: maxSkuPrice,
+              isRange:
+                minSkuPrice !== maxSkuPrice,
+            },
 
-            stock:
-              product.stock ?? 0,
+            stock: {
+              available: hasActiveSku
+                ? hasAvailableSkuStock
+                : (product.stock ?? 0) > 0,
+            },
           };
         }
       );
 
-    return NextResponse.json(
+    return mobileSuccess(
       {
-        success: true,
+        items,
 
-        data: {
-          items,
+        pagination: {
+          page:
+            result.page,
 
-          pagination: {
-            page:
-              result.page,
+          limit:
+            result.limit,
 
-            limit:
-              result.limit,
+          total:
+            result.total,
 
-            total:
-              result.total,
-
-            totalPages:
-              result.totalPages,
-          },
+          totalPages:
+            result.totalPages,
         },
       },
-      {
-        status: 200,
-      }
+      200
     );
   } catch (error) {
     console.error(
@@ -207,21 +230,10 @@ export async function GET(
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-
-        error: {
-          code:
-            "INTERNAL_SERVER_ERROR",
-
-          message:
-            "Gagal mengambil produk.",
-        },
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Gagal mengambil produk.",
+      500
     );
   }
 }

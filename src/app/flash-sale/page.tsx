@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
 import Image from "next/image";
 
@@ -19,6 +21,8 @@ import DynamicSiteFooter from
 
 import FlashSaleRepository from
   "@/repositories/flash-sale/flash-sale.repository";
+
+import settingsService from "@/services/settings/settings.service";
 
 /**
  * ============================================================
@@ -91,6 +95,109 @@ function formatDate(
         "2-digit",
     }
   ).format(value);
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const [settings, flashSales] =
+    await Promise.all([
+      settingsService.getSettings(),
+      FlashSaleRepository.findActiveForCustomer(),
+    ]);
+
+  const storeName =
+    settings.storeName?.trim() ||
+    "Pisjo Market Platform";
+
+  const globalDescription =
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    "Modern Pisjo Marketplace";
+
+  const canonicalBase =
+    settings.seoCanonicalUrl?.trim() ||
+    process.env.APP_URL?.trim() ||
+    "http://localhost:3000";
+
+  const baseUrl =
+    canonicalBase.replace(/\/+$/, "");
+
+  const primaryCampaign =
+    flashSales[0];
+
+  const title =
+    primaryCampaign?.name?.trim() ||
+    `Flash Sale | ${storeName}`;
+
+  const description =
+    primaryCampaign?.description?.trim() ||
+    `Dapatkan harga promo terbaik melalui Flash Sale di ${storeName}.`;
+
+  const ogTitle =
+    settings.seoOgTitle?.trim() ||
+    title;
+
+  const ogDescription =
+    settings.seoOgDescription?.trim() ||
+    description;
+
+  const ogImage =
+    settings.seoOgImage?.trim() ||
+    undefined;
+
+  const twitterCard =
+    settings.seoTwitterCard === "summary"
+      ? "summary"
+      : "summary_large_image";
+
+  return {
+    title: {
+      absolute: title,
+    },
+    description,
+    alternates: {
+      canonical: `${baseUrl}/flash-sale`,
+    },
+    openGraph: {
+      type: "website",
+      siteName: storeName,
+      title: ogTitle,
+      description: ogDescription,
+      url: `${baseUrl}/flash-sale`,
+      locale: "id_ID",
+      ...(ogImage
+        ? {
+            images: [
+              {
+                url: ogImage,
+                alt: ogTitle,
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: twitterCard,
+      title: ogTitle,
+      description: ogDescription,
+      ...(ogImage
+        ? {
+            images: [ogImage],
+          }
+        : {}),
+    },
+    robots: {
+      index: settings.seoRobotsIndex,
+      follow: settings.seoRobotsFollow,
+    },
+    ...(settings.seoGoogleVerification?.trim()
+      ? {
+          verification: {
+            google:
+              settings.seoGoogleVerification.trim(),
+          },
+        }
+      : {}),
+  };
 }
 
 /**

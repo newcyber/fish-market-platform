@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-
 import {
   MobileAuthError,
   requireMobileAuth,
@@ -8,6 +6,11 @@ import {
 import CartService from "@/services/cart/cart.service";
 
 import { CartError } from "@/services/cart/cart.error";
+
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import {
   serializeCart,
@@ -49,12 +52,8 @@ const cart =
      * SUCCESS RESPONSE
      * ==========================================================
      */
-    return NextResponse.json({
-      success: true,
-      data: {
-        cart:
-          serializeCart(cart),
-      },
+    return mobileSuccess({
+      cart: serializeCart(cart),
     });
   } catch (error) {
     /**
@@ -70,31 +69,19 @@ const cart =
         case "INVALID_AUTHORIZATION":
         case "INVALID_ACCESS_TOKEN":
         case "SESSION_INVALIDATED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                error.message,
-            },
-            {
-              status: 401,
-            }
-          );
+          return mobileError(
+      error.code,
+      error.message,
+      401
+    );
 
         case "ACCOUNT_INACTIVE":
         case "EMAIL_NOT_VERIFIED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                error.message,
-            },
-            {
-              status: 403,
-            }
-          );
+          return mobileError(
+      error.code,
+      error.message,
+      403
+    );
       }
     }
 
@@ -112,16 +99,11 @@ const cart =
     if (
       error instanceof CartError
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: error.code,
-          message: error.message,
-        },
-        {
-          status: 400,
-        }
-      );
+      return mobileError(
+      error.code,
+      error.message,
+      400
+    );
     }
 
     /**
@@ -134,17 +116,10 @@ const cart =
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        code:
-          "INTERNAL_SERVER_ERROR",
-        message:
-          "Terjadi kesalahan pada server.",
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }

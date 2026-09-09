@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Image from "next/image";
 import Link from "next/link";
 
@@ -20,6 +22,9 @@ import DynamicSiteFooter from
 
 import FlashSaleRepository from
   "@/repositories/flash-sale/flash-sale.repository";
+
+import settingsService from
+  "@/services/settings/settings.service";
 
 /**
  * ============================================================
@@ -45,6 +50,127 @@ interface FlashSaleDetailPageProps {
   params: Promise<{
     slug: string;
   }>;
+}
+
+export async function generateMetadata({
+  params,
+}: FlashSaleDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  const [settings, flashSale] =
+    await Promise.all([
+      settingsService.getSettings(),
+      FlashSaleRepository.findActiveBySlugForCustomer(
+        slug,
+      ),
+    ]);
+
+  const storeName =
+    settings.storeName?.trim() ||
+    "Pisjo Market Platform";
+
+  const globalDescription =
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    "Modern Pisjo Marketplace";
+
+  const canonicalBase =
+    settings.seoCanonicalUrl?.trim() ||
+    process.env.APP_URL?.trim() ||
+    "http://localhost:3000";
+
+  const baseUrl =
+    canonicalBase.replace(/\/+$/, "");
+
+  if (!flashSale) {
+    return {
+      title: "Flash Sale Tidak Ditemukan",
+      description: globalDescription,
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const title =
+    flashSale.name?.trim() ||
+    `Flash Sale | ${storeName}`;
+
+  const description =
+    flashSale.description?.trim() ||
+    `Dapatkan harga promo khusus melalui Flash Sale di ${storeName}.`;
+
+  const canonicalUrl =
+    `${baseUrl}/flash-sale/${flashSale.slug}`;
+
+  const ogTitle =
+    settings.seoOgTitle?.trim() ||
+    title;
+
+  const ogDescription =
+    settings.seoOgDescription?.trim() ||
+    description;
+
+  const ogImage =
+    flashSale.banner?.trim() ||
+    settings.seoOgImage?.trim() ||
+    undefined;
+
+  const twitterCard =
+    settings.seoTwitterCard === "summary"
+      ? "summary"
+      : "summary_large_image";
+
+  return {
+    title: {
+      absolute: title,
+    },
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      type: "website",
+      siteName: storeName,
+      title: ogTitle,
+      description: ogDescription,
+      url: canonicalUrl,
+      locale: "id_ID",
+      ...(ogImage
+        ? {
+            images: [
+              {
+                url: ogImage,
+                alt: title,
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: twitterCard,
+      title: ogTitle,
+      description: ogDescription,
+      ...(ogImage
+        ? {
+            images: [ogImage],
+          }
+        : {}),
+    },
+    robots: {
+      index: settings.seoRobotsIndex,
+      follow: settings.seoRobotsFollow,
+    },
+    ...(settings.seoGoogleVerification?.trim()
+      ? {
+          verification: {
+            google:
+              settings.seoGoogleVerification.trim(),
+          },
+        }
+      : {}),
+  };
 }
 
 function formatRupiah(

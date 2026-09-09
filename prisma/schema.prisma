@@ -312,14 +312,12 @@ model RewardPointSettings {
 
   /**
    * Singleton key.
-   *
    * Hanya boleh ada satu konfigurasi reward point aktif.
    */
   key String @unique @default("default")
 
   /**
    * Jumlah point untuk setiap 1 KG pembelian.
-   *
    * Contoh:
    * 10 = 1 KG -> 10 point
    * 15 = 1 KG -> 15 point
@@ -744,10 +742,10 @@ model Product {
   category Category @relation(fields: [categoryId], references: [id])
 
   /**
-  * ============================================================
-  * PRODUCT INFORMATION
-  * ============================================================
-  */
+   * ============================================================
+   * PRODUCT INFORMATION
+   * ============================================================
+   */
 
   name String
 
@@ -2423,11 +2421,10 @@ model RewardClaim {
 
   rewardCatalogId String
 
-    /**
+  /**
    * ============================================================
    * SHIPPING ADDRESS SNAPSHOT
    * ============================================================
-   *
    * Alamat dibekukan pada saat customer melakukan claim.
    * Perubahan alamat customer setelah claim tidak mengubah
    * tujuan pengiriman reward yang sudah dibuat.
@@ -2994,24 +2991,24 @@ model StoreSettings {
    * - GIF
    */
 
-heroSlide1Image String?
-heroSlide2Image String?
-heroSlide3Image String?
+  heroSlide1Image String?
+  heroSlide2Image String?
+  heroSlide3Image String?
 
-// MOBILE LOGIN SLIDER
-loginSlide1Image String?
-loginSlide2Image String?
-loginSlide3Image String?
-loginSlide4Image String?
+  // MOBILE LOGIN SLIDER
+  loginSlide1Image String?
+  loginSlide2Image String?
+  loginSlide3Image String?
+  loginSlide4Image String?
 
-// ==========================================================
-// FLASH SALE BANNER
-// ==========================================================
-//
-// Gambar seafood yang ditampilkan pada section Flash Sale
-// Customer Home.
-//
-flashSaleBannerImage String?
+  // ==========================================================
+  // FLASH SALE BANNER
+  // ==========================================================
+  //
+  // Gambar seafood yang ditampilkan pada section Flash Sale
+  // Customer Home.
+  //
+  flashSaleBannerImage String?
 
   // ============================================================
   // HERO SLIDER CONTENT
@@ -3118,6 +3115,83 @@ flashSaleBannerImage String?
   // ----------------------------------------------------------
 
   paymentTimeoutHours Int @default(24)
+
+  // ============================================================
+  // SEO GLOBAL
+  // ============================================================
+
+  /**
+   * SEO title default situs.
+   * Digunakan sebagai fallback metadata halaman
+   * ketika halaman tidak memiliki SEO khusus.
+   */
+  seoTitle String?
+
+  /**
+   * Meta description default situs.
+   */
+  seoDescription String?
+
+  /**
+   * Keywords global situs.
+   * Contoh:
+   * ikan segar, seafood, ikan frozen, udang, cumi
+   */
+  seoKeywords String?
+
+  /**
+   * Canonical URL utama situs.
+   * Contoh:
+   * https://app.pusatikansegar.com
+   */
+  seoCanonicalUrl String?
+
+  /**
+   * Default Open Graph title.
+   */
+  seoOgTitle String?
+
+  /**
+   * Default Open Graph description.
+   */
+  seoOgDescription String?
+
+  /**
+   * URL/path gambar Open Graph default.
+   */
+  seoOgImage String?
+
+  /**
+   * Twitter/X card type.
+   * Default:
+   * summary_large_image
+   */
+  seoTwitterCard String @default("summary_large_image")
+
+  /**
+   * Mengizinkan halaman publik di-index
+   * oleh mesin pencari.
+   */
+  seoRobotsIndex Boolean @default(true)
+
+  /**
+   * Mengizinkan crawler mengikuti link
+   * pada halaman publik.
+   */
+  seoRobotsFollow Boolean @default(true)
+
+  /**
+   * Google Search Console verification token.
+   */
+  seoGoogleVerification String?
+
+  /**
+   * Feature flag untuk Smart SEO AI.
+   * true = fitur Smart SEO tersedia.
+   * Flag ini TIDAK berarti AI boleh mengubah
+   * metadata secara otomatis.
+   */
+  seoAiEnabled Boolean @default(true)
 
   // ----------------------------------------------------------
   // TIMESTAMP

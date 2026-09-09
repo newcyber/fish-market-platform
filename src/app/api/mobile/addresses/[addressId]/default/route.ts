@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import {
   MobileAuthError,
@@ -75,19 +78,10 @@ export async function PATCH(
       !addressId ||
       typeof addressId !== "string"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          code:
-            "ADDRESS_NOT_FOUND",
-
-          message:
-            "Alamat tidak ditemukan.",
-        },
-        {
-          status: 404,
-        }
+      return mobileError(
+        "ADDRESS_NOT_FOUND",
+        "Alamat tidak ditemukan.",
+        404
       );
     }
 
@@ -118,19 +112,10 @@ export async function PATCH(
      */
 
     if (!address) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          code:
-            "ADDRESS_NOT_FOUND",
-
-          message:
-            "Alamat tidak ditemukan.",
-        },
-        {
-          status: 404,
-        }
+      return mobileError(
+        "ADDRESS_NOT_FOUND",
+        "Alamat tidak ditemukan.",
+        404
       );
     }
 
@@ -140,76 +125,64 @@ export async function PATCH(
      * --------------------------------------------------------
      */
 
-    return NextResponse.json(
-      {
-        success: true,
+    return mobileSuccess({
+      address: {
+        id: address.id,
 
-        message:
-          "Alamat utama berhasil diperbarui.",
+        receiverName:
+          address.receiverName,
 
-        data: {
-          address: {
-            id: address.id,
+        receiverPhone:
+          address.receiverPhone,
 
-            receiverName:
-              address.receiverName,
+        province:
+          address.province,
 
-            receiverPhone:
-              address.receiverPhone,
+        city:
+          address.city,
 
-            province:
-              address.province,
+        district:
+          address.district,
 
-            city:
-              address.city,
+        village:
+          address.village,
 
-            district:
-              address.district,
+        postalCode:
+          address.postalCode,
 
-            village:
-              address.village,
+        fullAddress:
+          address.fullAddress,
 
-            postalCode:
-              address.postalCode,
+        latitude:
+          address.latitude !== null
+            ? Number(
+                address.latitude.toString()
+              )
+            : null,
 
-            fullAddress:
-              address.fullAddress,
+        longitude:
+          address.longitude !== null
+            ? Number(
+                address.longitude.toString()
+              )
+            : null,
 
-            latitude:
-              address.latitude !== null
-                ? Number(
-                    address.latitude.toString()
-                  )
-                : null,
+        label:
+          address.label,
 
-            longitude:
-              address.longitude !== null
-                ? Number(
-                    address.longitude.toString()
-                  )
-                : null,
+        notes:
+          address.notes,
 
-            label:
-              address.label,
+        isDefault:
+          address.isDefault,
 
-            notes:
-              address.notes,
+        createdAt:
+          address.createdAt,
 
-            isDefault:
-              address.isDefault,
-
-            createdAt:
-              address.createdAt,
-
-            updatedAt:
-              address.updatedAt,
-          },
-        },
+        updatedAt:
+          address.updatedAt,
       },
-      {
-        status: 200,
-      }
-    );
+    });
   } catch (error) {
     /**
      * ========================================================
@@ -225,51 +198,18 @@ export async function PATCH(
         case "INVALID_AUTHORIZATION":
         case "INVALID_ACCESS_TOKEN":
         case "SESSION_INVALIDATED":
-          return NextResponse.json(
-            {
-              success: false,
-
-              code:
-                error.code,
-
-              message:
-                error.message,
-            },
-            {
-              status: 401,
-            }
+          return mobileError(
+            error.code,
+            error.message,
+            401
           );
 
         case "ACCOUNT_INACTIVE":
-          return NextResponse.json(
-            {
-              success: false,
-
-              code:
-                error.code,
-
-              message:
-                error.message,
-            },
-            {
-              status: 403,
-            }
-          );
-
         case "EMAIL_NOT_VERIFIED":
-          return NextResponse.json(
-            {
-              success: false,
-
-              code:
-                error.code,
-
-              message:
-                error.message,
-            },
-            {
-              status: 403,
-            }
+          return mobileError(
+            error.code,
+            error.message,
+            403
           );
       }
     }
@@ -293,19 +233,10 @@ export async function PATCH(
       error.message ===
         "ADDRESS_NOT_FOUND"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          code:
-            "ADDRESS_NOT_FOUND",
-
-          message:
-            "Alamat tidak ditemukan.",
-        },
-        {
-          status: 404,
-        }
+      return mobileError(
+        "ADDRESS_NOT_FOUND",
+        "Alamat tidak ditemukan.",
+        404
       );
     }
 
@@ -320,16 +251,10 @@ export async function PATCH(
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-
-        message:
-          "Terjadi kesalahan pada server.",
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }

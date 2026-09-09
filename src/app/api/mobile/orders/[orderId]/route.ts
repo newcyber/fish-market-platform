@@ -1,11 +1,18 @@
-import { NextResponse } from "next/server";
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import {
   MobileAuthError,
   requireMobileAuth,
 } from "@/lib/auth/mobile-auth";
+
 import OrderService from "@/services/order/order.service";
-import { serializeOrder } from "@/services/order/order.serializer";
+
+import {
+  serializeOrder,
+} from "@/services/order/order.serializer";
 
 interface MobileOrderDetailRouteContext {
   params: Promise<{
@@ -18,7 +25,10 @@ export async function GET(
   context: MobileOrderDetailRouteContext
 ) {
   try {
-    const user = await requireMobileAuth(request);
+    const user =
+      await requireMobileAuth(
+        request
+      );
 
     const { orderId } =
       await context.params;
@@ -27,13 +37,10 @@ export async function GET(
       !orderId ||
       typeof orderId !== "string"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_ORDER_ID",
-          message: "ID order tidak valid.",
-        },
-        { status: 400 }
+      return mobileError(
+        "INVALID_ORDER_ID",
+        "ID order tidak valid.",
+        400
       );
     }
 
@@ -43,22 +50,20 @@ export async function GET(
         user.id
       );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        order: serializeOrder(order),
-      },
+    return mobileSuccess({
+      order:
+        serializeOrder(order),
     });
   } catch (error) {
-const authCode =
-  error instanceof MobileAuthError
-    ? error.code
-    : null;
+    const authCode =
+      error instanceof MobileAuthError
+        ? error.code
+        : null;
 
-const message =
-  error instanceof Error
-    ? error.message
-    : "";
+    const message =
+      error instanceof Error
+        ? error.message
+        : "";
 
     const authCodes = new Set([
       "MISSING_AUTHORIZATION",
@@ -72,43 +77,42 @@ const message =
       "EMAIL_NOT_VERIFIED",
     ]);
 
-    if (authCode && authCodes.has(authCode)) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: authCode,
-          message:
-            getMobileOrderAuthMessage(authCode),
-        },
-        { status: 401 }
-      );
-    }
-
-    if (forbiddenCodes.has(message)) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: message,
-          message:
-            message === "ACCOUNT_INACTIVE"
-              ? "Akun tidak aktif."
-              : "Email belum diverifikasi.",
-        },
-        { status: 403 }
+    if (
+      authCode &&
+      authCodes.has(authCode)
+    ) {
+      return mobileError(
+        authCode,
+        getMobileOrderAuthMessage(
+          authCode
+        ),
+        401
       );
     }
 
     if (
-      message === "Order tidak ditemukan." ||
-      message === "Order ID wajib diisi."
+      forbiddenCodes.has(message)
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "ORDER_NOT_FOUND",
-          message: "Order tidak ditemukan.",
-        },
-        { status: 404 }
+      return mobileError(
+        message,
+        message ===
+          "ACCOUNT_INACTIVE"
+          ? "Akun tidak aktif."
+          : "Email belum diverifikasi.",
+        403
+      );
+    }
+
+    if (
+      message ===
+        "Order tidak ditemukan." ||
+      message ===
+        "Order ID wajib diisi."
+    ) {
+      return mobileError(
+        "ORDER_NOT_FOUND",
+        "Order tidak ditemukan.",
+        404
       );
     }
 
@@ -117,19 +121,17 @@ const message =
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          "Terjadi kesalahan pada server.",
-      },
-      { status: 500 }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }
 
-function getMobileOrderAuthMessage(code: string) {
+function getMobileOrderAuthMessage(
+  code: string
+) {
   switch (code) {
     case "MISSING_AUTHORIZATION":
       return "Authorization header wajib diisi.";

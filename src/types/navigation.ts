@@ -7,6 +7,7 @@ export type NavigationIcon =
   | "payments"
   | "reports"
   | "settings"
+  | "smart-seo"
   | "promotions"
   | "flash-sale"
   | "voucher"

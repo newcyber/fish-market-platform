@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-
 import {
   MobileAuthError,
   requireMobileAuth,
@@ -8,6 +6,11 @@ import {
 import CartService from "@/services/cart/cart.service";
 
 import { CartError } from "@/services/cart/cart.error";
+
+import {
+  mobileError,
+  mobileSuccess,
+} from "@/lib/api/mobile-response";
 
 import {
   serializeCart,
@@ -71,17 +74,11 @@ export async function PATCH(
       await context.params;
 
     if (!cartItemId?.trim()) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_CART_ITEM",
-          message:
-            "Item keranjang tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
+      return mobileError(
+      "INVALID_CART_ITEM",
+      "Item keranjang tidak valid.",
+      400
+    );
     }
 
     let body: unknown;
@@ -90,34 +87,22 @@ export async function PATCH(
       body =
         await request.json();
     } catch {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_REQUEST_BODY",
-          message:
-            "Format request tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
+      return mobileError(
+      "INVALID_REQUEST_BODY",
+      "Format request tidak valid.",
+      400
+    );
     }
 
     const quantity =
       parseQuantity(body);
 
     if (quantity === null) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_QUANTITY",
-          message:
-            "Jumlah produk tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
+      return mobileError(
+      "INVALID_QUANTITY",
+      "Jumlah produk tidak valid.",
+      400
+    );
     }
 
 const cart =
@@ -130,13 +115,9 @@ const cart =
     quantity,
   });
 
-return NextResponse.json({
-  success: true,
-  data: {
-    cart:
-      serializeCart(cart),
-  },
-});
+return mobileSuccess({
+      cart: serializeCart(cart),
+    });
   } catch (error) {
     if (
       error instanceof MobileAuthError
@@ -146,47 +127,30 @@ return NextResponse.json({
         case "INVALID_AUTHORIZATION":
         case "INVALID_ACCESS_TOKEN":
         case "SESSION_INVALIDATED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                error.message,
-            },
-            {
-              status: 401,
-            }
-          );
+          return mobileError(
+      error.code,
+      error.message,
+      401
+    );
 
         case "ACCOUNT_INACTIVE":
         case "EMAIL_NOT_VERIFIED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                error.message,
-            },
-            {
-              status: 403,
-            }
-          );
+          return mobileError(
+      error.code,
+      error.message,
+      403
+    );
       }
     }
 
     if (
       error instanceof CartError
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: error.code,
-          message: error.message,
-        },
-        {
-          status: 400,
-        }
-      );
+      return mobileError(
+      error.code,
+      error.message,
+      400
+    );
     }
 
     console.error(
@@ -194,16 +158,10 @@ return NextResponse.json({
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          "Terjadi kesalahan pada server.",
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }
@@ -227,17 +185,11 @@ export async function DELETE(
       await context.params;
 
     if (!cartItemId?.trim()) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "INVALID_CART_ITEM",
-          message:
-            "Item keranjang tidak valid.",
-        },
-        {
-          status: 400,
-        }
-      );
+      return mobileError(
+      "INVALID_CART_ITEM",
+      "Item keranjang tidak valid.",
+      400
+    );
     }
 
 const cart =
@@ -249,13 +201,9 @@ const cart =
     cartItemId,
   });
 
-return NextResponse.json({
-  success: true,
-  data: {
-    cart:
-      serializeCart(cart),
-  },
-});
+return mobileSuccess({
+      cart: serializeCart(cart),
+    });
   } catch (error) {
     if (
       error instanceof MobileAuthError
@@ -265,47 +213,30 @@ return NextResponse.json({
         case "INVALID_AUTHORIZATION":
         case "INVALID_ACCESS_TOKEN":
         case "SESSION_INVALIDATED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                error.message,
-            },
-            {
-              status: 401,
-            }
-          );
+          return mobileError(
+      error.code,
+      error.message,
+      401
+    );
 
         case "ACCOUNT_INACTIVE":
         case "EMAIL_NOT_VERIFIED":
-          return NextResponse.json(
-            {
-              success: false,
-              code: error.code,
-              message:
-                error.message,
-            },
-            {
-              status: 403,
-            }
-          );
+          return mobileError(
+      error.code,
+      error.message,
+      403
+    );
       }
     }
 
     if (
       error instanceof CartError
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: error.code,
-          message: error.message,
-        },
-        {
-          status: 400,
-        }
-      );
+      return mobileError(
+      error.code,
+      error.message,
+      400
+    );
     }
 
     console.error(
@@ -313,16 +244,10 @@ return NextResponse.json({
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          "Terjadi kesalahan pada server.",
-      },
-      {
-        status: 500,
-      }
+    return mobileError(
+      "INTERNAL_SERVER_ERROR",
+      "Terjadi kesalahan pada server.",
+      500
     );
   }
 }

@@ -2516,11 +2516,15 @@ static async mergeGuestCartIntoCustomerCart({
        * Customer item diprioritaskan jika sudah memiliki
        * Flash Sale candidate.
        */
-const pricing = await ProductPricingService.resolve(tx, {
-  productId: product.id,
-  skuId: guestItem.skuId,
-  fallbackPrice: product.price,
-});
+      const pricing = await ProductPricingService.resolve(tx, {
+        productId: product.id,
+        skuId: guestItem.skuId,
+        preferredFlashSaleItemId:
+          existingCustomerItem?.flashSaleItemId ??
+          guestItem.flashSaleItemId ??
+          null,
+        fallbackPrice: product.price,
+      });
 
       /**
        * ------------------------------------------------------
