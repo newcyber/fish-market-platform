@@ -52,12 +52,14 @@ interface HomeCategoryShortcutsProps {
  * - Mobile hanya menampilkan 5 kategori pertama.
  *
  * Pada mobile:
- * 5 kategori = 1 baris.
+ * - 5 kategori = 1 baris.
  *
  * Pada desktop:
- * 7 kategori = 1 baris.
+ * - 7 kategori = 1 baris.
  *
- * Jika kategori lebih banyak, tombol expand akan muncul.
+ * Tombol expand:
+ * - Mobile muncul jika kategori > 5.
+ * - Desktop muncul jika kategori > 7.
  *
  * ============================================================
  */
@@ -95,7 +97,32 @@ export default function HomeCategoryShortcuts({
     ? categories
     : categories.slice(0, COLLAPSED_CATEGORY_LIMIT);
 
-  const canExpand =
+  /**
+   * ==========================================================
+   * EXPAND BUTTON LOGIC
+   * ==========================================================
+   *
+   * Mobile:
+   * - <= 5 kategori → tidak perlu tombol
+   * - > 5 kategori  → tampilkan tombol
+   *
+   * Desktop:
+   * - <= 7 kategori → tidak perlu tombol
+   * - > 7 kategori  → tampilkan tombol
+   *
+   * Contoh:
+   * - 5 kategori  → tidak ada tombol
+   * - 6 kategori  → tombol hanya mobile
+   * - 7 kategori  → tombol hanya mobile
+   * - 8+ kategori → tombol mobile + desktop
+   *
+   * ==========================================================
+   */
+
+  const canExpandMobile =
+    categories.length > MOBILE_CATEGORY_LIMIT;
+
+  const canExpandDesktop =
     categories.length > COLLAPSED_CATEGORY_LIMIT;
 
   return (
@@ -330,13 +357,14 @@ export default function HomeCategoryShortcuts({
             EXPAND / COLLAPSE
         ==================================================== */}
 
-        {canExpand && (
+        {canExpandMobile && (
           <div
-            className="
+            className={`
               mt-5
               flex
               justify-center
-            "
+              ${canExpandDesktop ? "" : "sm:hidden"}
+            `}
           >
             <button
               type="button"
