@@ -380,7 +380,8 @@ export default function HomeProductCard({
 
               sm:group-hover:scale-105
             "
-              />
+              unoptimized
+            />
             ) : (
               <div
                 className="

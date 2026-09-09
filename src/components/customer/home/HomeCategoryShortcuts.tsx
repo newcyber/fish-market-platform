@@ -275,6 +275,7 @@ export default function HomeCategoryShortcuts({
                           p-1
                           sm:p-2
                         "
+                        unoptimized
                       />
                     ) : (
                       <span

@@ -213,6 +213,7 @@ const addresses =
                   priority
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-contain p-8 sm:p-12"
+                  unoptimized
                 />
               ) : (
                 <div className="flex h-full min-h-80 items-center justify-center sm:min-h-105 lg:min-h-140">

@@ -472,6 +472,7 @@ function FlashSaleProductCard({
         group-hover:scale-105
         sm:p-2
       "
+      unoptimized
     />
   ) : (
     <div
