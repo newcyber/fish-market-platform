@@ -1002,6 +1002,7 @@ const categoryUrl = (
                     width={500}
                     height={390}
                     priority
+                    unoptimized
                     className="
               h-auto
 
