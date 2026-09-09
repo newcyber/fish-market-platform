@@ -39,16 +39,12 @@ await settingsService.updateSeoSettings({
   seoOgTitle: input.seoOgTitle,
   seoOgDescription: input.seoOgDescription,
   seoOgImage: input.seoOgImage,
-  seoTwitterCard:
-    input.seoTwitterCard ?? "summary_large_image",
-  seoRobotsIndex:
-    input.seoRobotsIndex ?? true,
-  seoRobotsFollow:
-    input.seoRobotsFollow ?? true,
+  seoTwitterCard: input.seoTwitterCard,
+  seoRobotsIndex: input.seoRobotsIndex,
+  seoRobotsFollow: input.seoRobotsFollow,
   seoGoogleVerification:
     input.seoGoogleVerification,
-  seoAiEnabled:
-    input.seoAiEnabled ?? true,
+  seoAiEnabled: input.seoAiEnabled,
 });
 
     revalidatePath("/admin/smart-seo");

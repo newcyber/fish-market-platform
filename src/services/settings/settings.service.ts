@@ -280,67 +280,58 @@ class SettingsService {
   async updateSeoSettings(
     payload: UpdateSeoSettingsPayload,
   ) {
-    const settings =
-      await this.getSettings();
-
     const normalize = (
       value?: string | null,
-    ): string | null => {
-      const trimmed =
-        value?.trim();
+    ): string | null | undefined => {
+      if (value === undefined) {
+        return undefined;
+      }
 
-      return trimmed
-        ? trimmed
-        : null;
+      if (value === null) {
+        return null;
+      }
+
+      return value.trim() || null;
     };
 
-    const data: UpdateSettingsPayload = {
-      storeName: settings.storeName,
+    return settingsRepository.updateSeo({
+      seoTitle: normalize(
+        payload.seoTitle,
+      ),
 
-      seoTitle:
-        normalize(
-          payload.seoTitle,
-        ),
+      seoDescription: normalize(
+        payload.seoDescription,
+      ),
 
-      seoDescription:
-        normalize(
-          payload.seoDescription,
-        ),
+      seoKeywords: normalize(
+        payload.seoKeywords,
+      ),
 
-      seoKeywords:
-        normalize(
-          payload.seoKeywords,
-        ),
+      seoCanonicalUrl: normalize(
+        payload.seoCanonicalUrl,
+      ),
 
-      seoCanonicalUrl:
-        normalize(
-          payload.seoCanonicalUrl,
-        ),
+      seoOgTitle: normalize(
+        payload.seoOgTitle,
+      ),
 
-      seoOgTitle:
-        normalize(
-          payload.seoOgTitle,
-        ),
+      seoOgDescription: normalize(
+        payload.seoOgDescription,
+      ),
 
-      seoOgDescription:
-        normalize(
-          payload.seoOgDescription,
-        ),
-
-      seoOgImage:
-        normalize(
-          payload.seoOgImage,
-        ),
+      seoOgImage: normalize(
+        payload.seoOgImage,
+      ),
 
       seoTwitterCard:
         payload.seoTwitterCard?.trim() ||
-        "summary_large_image",
+        undefined,
 
       seoRobotsIndex:
-        payload.seoRobotsIndex ?? true,
+        payload.seoRobotsIndex,
 
       seoRobotsFollow:
-        payload.seoRobotsFollow ?? true,
+        payload.seoRobotsFollow,
 
       seoGoogleVerification:
         normalize(
@@ -348,12 +339,8 @@ class SettingsService {
         ),
 
       seoAiEnabled:
-        payload.seoAiEnabled ?? true,
-    };
-
-    return settingsRepository.update(
-      data,
-    );
+        payload.seoAiEnabled,
+    });
   }
 
   /**
@@ -386,8 +373,9 @@ class SettingsService {
      * --------------------------------------------------------
      */
 
-    const paymentTimeoutHours =
-      payload.paymentTimeoutHours;
+const {
+  paymentTimeoutHours,
+} = payload;
 
     if (
       paymentTimeoutHours !== undefined &&
@@ -409,16 +397,21 @@ class SettingsService {
      * --------------------------------------------------------
      */
 
-    const normalize = (
-      value?: string | null
-    ): string | null => {
-      const trimmed =
-        value?.trim();
+const normalize = (
+  value?: string | null,
+): string | null | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
 
-      return trimmed
-        ? trimmed
-        : null;
-    };
+  if (value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed || null;
+};
 
     /**
      * --------------------------------------------------------
@@ -494,18 +487,6 @@ class SettingsService {
 
     const heroSlide3Button =
       normalize(payload.heroSlide3Button);
-
-    const loginSlide1Image =
-      normalize(payload.loginSlide1Image);
-
-    const loginSlide2Image =
-      normalize(payload.loginSlide2Image);
-
-    const loginSlide3Image =
-      normalize(payload.loginSlide3Image);
-
-    const loginSlide4Image =
-      normalize(payload.loginSlide4Image);
 
     const flashSaleBannerLabel =
       normalize(payload.flashSaleBannerLabel);

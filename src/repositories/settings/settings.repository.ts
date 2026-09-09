@@ -254,6 +254,21 @@ export interface UpdateSettingsPayload {
   paymentTimeoutHours?: number;
 }
 
+export interface UpdateSeoSettingsPayload {
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  seoKeywords?: string | null;
+  seoCanonicalUrl?: string | null;
+  seoOgTitle?: string | null;
+  seoOgDescription?: string | null;
+  seoOgImage?: string | null;
+  seoTwitterCard?: string;
+  seoRobotsIndex?: boolean;
+  seoRobotsFollow?: boolean;
+  seoGoogleVerification?: string | null;
+  seoAiEnabled?: boolean;
+}
+
 /**
  * ============================================================
  * SETTINGS REPOSITORY
@@ -452,6 +467,69 @@ class SettingsRepository {
       },
     });
   }
+
+  async updateSeo(
+  data: UpdateSeoSettingsPayload,
+) {
+  const settings = await this.getOrCreate();
+
+  const updateData = {
+    ...(data.seoTitle !== undefined && {
+      seoTitle: data.seoTitle,
+    }),
+
+    ...(data.seoDescription !== undefined && {
+      seoDescription: data.seoDescription,
+    }),
+
+    ...(data.seoKeywords !== undefined && {
+      seoKeywords: data.seoKeywords,
+    }),
+
+    ...(data.seoCanonicalUrl !== undefined && {
+      seoCanonicalUrl: data.seoCanonicalUrl,
+    }),
+
+    ...(data.seoOgTitle !== undefined && {
+      seoOgTitle: data.seoOgTitle,
+    }),
+
+    ...(data.seoOgDescription !== undefined && {
+      seoOgDescription: data.seoOgDescription,
+    }),
+
+    ...(data.seoOgImage !== undefined && {
+      seoOgImage: data.seoOgImage,
+    }),
+
+    ...(data.seoTwitterCard !== undefined && {
+      seoTwitterCard: data.seoTwitterCard,
+    }),
+
+    ...(data.seoRobotsIndex !== undefined && {
+      seoRobotsIndex: data.seoRobotsIndex,
+    }),
+
+    ...(data.seoRobotsFollow !== undefined && {
+      seoRobotsFollow: data.seoRobotsFollow,
+    }),
+
+    ...(data.seoGoogleVerification !== undefined && {
+      seoGoogleVerification: data.seoGoogleVerification,
+    }),
+
+    ...(data.seoAiEnabled !== undefined && {
+      seoAiEnabled: data.seoAiEnabled,
+    }),
+  };
+
+  return prisma.storeSettings.update({
+    where: {
+      id: settings.id,
+    },
+    data: updateData,
+  });
+}
 
   /**
    * ==========================================================
