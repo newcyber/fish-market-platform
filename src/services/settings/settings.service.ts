@@ -234,6 +234,21 @@ export interface UpdateStoreSettingsPayload {
   paymentTimeoutHours?: number;
 }
 
+export interface UpdateSeoSettingsPayload {
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  seoKeywords?: string | null;
+  seoCanonicalUrl?: string | null;
+  seoOgTitle?: string | null;
+  seoOgDescription?: string | null;
+  seoOgImage?: string | null;
+  seoTwitterCard?: string;
+  seoRobotsIndex?: boolean;
+  seoRobotsFollow?: boolean;
+  seoGoogleVerification?: string | null;
+  seoAiEnabled?: boolean;
+}
+
 /**
  * ============================================================
  * SETTINGS SERVICE
@@ -251,6 +266,96 @@ class SettingsService {
     return settingsRepository.getOrCreate();
   }
 
+    /**
+   * ==========================================================
+   * UPDATE SEO SETTINGS
+   * ==========================================================
+   *
+   * Update khusus metadata SEO.
+   *
+   * Sengaja dipisahkan dari updateSettings() agar perubahan
+   * SEO tidak menjalankan validasi konfigurasi shipping,
+   * operational, payment, dan settings global lainnya.
+   */
+  async updateSeoSettings(
+    payload: UpdateSeoSettingsPayload,
+  ) {
+    const settings =
+      await this.getSettings();
+
+    const normalize = (
+      value?: string | null,
+    ): string | null => {
+      const trimmed =
+        value?.trim();
+
+      return trimmed
+        ? trimmed
+        : null;
+    };
+
+    const data: UpdateSettingsPayload = {
+      storeName: settings.storeName,
+
+      seoTitle:
+        normalize(
+          payload.seoTitle,
+        ),
+
+      seoDescription:
+        normalize(
+          payload.seoDescription,
+        ),
+
+      seoKeywords:
+        normalize(
+          payload.seoKeywords,
+        ),
+
+      seoCanonicalUrl:
+        normalize(
+          payload.seoCanonicalUrl,
+        ),
+
+      seoOgTitle:
+        normalize(
+          payload.seoOgTitle,
+        ),
+
+      seoOgDescription:
+        normalize(
+          payload.seoOgDescription,
+        ),
+
+      seoOgImage:
+        normalize(
+          payload.seoOgImage,
+        ),
+
+      seoTwitterCard:
+        payload.seoTwitterCard?.trim() ||
+        "summary_large_image",
+
+      seoRobotsIndex:
+        payload.seoRobotsIndex ?? true,
+
+      seoRobotsFollow:
+        payload.seoRobotsFollow ?? true,
+
+      seoGoogleVerification:
+        normalize(
+          payload.seoGoogleVerification,
+        ),
+
+      seoAiEnabled:
+        payload.seoAiEnabled ?? true,
+    };
+
+    return settingsRepository.update(
+      data,
+    );
+  }
+  
   /**
    * ==========================================================
    * UPDATE SETTINGS

@@ -31,28 +31,25 @@ export async function updateSeoSettingsAction(
   try {
     await requireSuperAdmin();
 
-    const settings = await settingsService.getSettings();
-
-    await settingsService.updateSettings({
-      storeName: settings.storeName,
-      seoTitle: input.seoTitle,
-      seoDescription: input.seoDescription,
-      seoKeywords: input.seoKeywords,
-      seoCanonicalUrl: input.seoCanonicalUrl,
-      seoOgTitle: input.seoOgTitle,
-      seoOgDescription: input.seoOgDescription,
-      seoOgImage: input.seoOgImage,
-      seoTwitterCard:
-        input.seoTwitterCard ?? "summary_large_image",
-      seoRobotsIndex:
-        input.seoRobotsIndex ?? true,
-      seoRobotsFollow:
-        input.seoRobotsFollow ?? true,
-      seoGoogleVerification:
-        input.seoGoogleVerification,
-      seoAiEnabled:
-        input.seoAiEnabled ?? true,
-    });
+await settingsService.updateSeoSettings({
+  seoTitle: input.seoTitle,
+  seoDescription: input.seoDescription,
+  seoKeywords: input.seoKeywords,
+  seoCanonicalUrl: input.seoCanonicalUrl,
+  seoOgTitle: input.seoOgTitle,
+  seoOgDescription: input.seoOgDescription,
+  seoOgImage: input.seoOgImage,
+  seoTwitterCard:
+    input.seoTwitterCard ?? "summary_large_image",
+  seoRobotsIndex:
+    input.seoRobotsIndex ?? true,
+  seoRobotsFollow:
+    input.seoRobotsFollow ?? true,
+  seoGoogleVerification:
+    input.seoGoogleVerification,
+  seoAiEnabled:
+    input.seoAiEnabled ?? true,
+});
 
     revalidatePath("/admin/smart-seo");
     revalidatePath("/");
