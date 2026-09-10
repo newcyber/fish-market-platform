@@ -1,6 +1,8 @@
 import { requireSuperAdmin } from "@/lib/auth/admin";
 
+import ChangelogSettings from "@/components/admin/settings/ChangelogSettings";
 import SettingsForm from "@/components/admin/settings/SettingsForm";
+import changelogService from "@/services/changelog/changelog.service";
 import settingsService from "@/services/settings/settings.service";
 
 /**
@@ -52,8 +54,11 @@ export default async function AdminSettingsPage() {
    * dikonversi menjadi number.
    */
 
-  const settings =
-    await settingsService.getSettings();
+  const [settings, changelogReleases] =
+    await Promise.all([
+      settingsService.getSettings(),
+      changelogService.getAllReleases(),
+    ]);
 
   /**
    * ==========================================================
@@ -118,6 +123,34 @@ export default async function AdminSettingsPage() {
 
   /**
    * ==========================================================
+   * SERIALIZE CHANGELOG FOR CLIENT COMPONENT
+   * ==========================================================
+   *
+   * Date dari Prisma harus dikonversi menjadi string
+   * sebelum dikirim ke Client Component.
+   */
+
+  const serializedChangelogReleases =
+    changelogReleases.map((release) => ({
+      ...release,
+      date: release.date.toISOString(),
+      createdAt:
+        release.createdAt.toISOString(),
+      updatedAt:
+        release.updatedAt.toISOString(),
+      entries: release.entries.map(
+        (entry) => ({
+          ...entry,
+          createdAt:
+            entry.createdAt.toISOString(),
+          updatedAt:
+            entry.updatedAt.toISOString(),
+        }),
+      ),
+    }));
+
+  /**
+   * ==========================================================
    * PAGE
    * ==========================================================
    */
@@ -145,6 +178,14 @@ export default async function AdminSettingsPage() {
 
       <SettingsForm
         settings={serializedSettings}
+      />
+
+      {/* ==================================================== */}
+      {/* CHANGELOG */}
+      {/* ==================================================== */}
+
+      <ChangelogSettings
+        releases={serializedChangelogReleases}
       />
     </div>
   );

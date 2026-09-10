@@ -3201,6 +3201,56 @@ model StoreSettings {
   updatedAt DateTime @updatedAt
 }
 
+// ============================================================
+// CHANGELOG
+// ============================================================
+
+model ChangelogRelease {
+  id String @id @default(cuid())
+
+  version     String
+  date        DateTime
+  title       String
+  description String?
+
+  isPublished Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  entries ChangelogEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isPublished, date])
+  @@index([sortOrder])
+}
+
+model ChangelogEntry {
+  id String @id @default(cuid())
+
+  releaseId String
+  release   ChangelogRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  type        ChangelogType
+  title       String
+  description String
+  highlights  Json?
+
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([releaseId, sortOrder])
+}
+
+enum ChangelogType {
+  FEATURE
+  IMPROVEMENT
+  FIX
+  PERFORMANCE
+}
+
 model Notification {
   id String @id @default(cuid())
 
