@@ -168,6 +168,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         roles: SUPER_ADMIN_ONLY,
         order: 3,
       },
+
+      {
+        id: "image-banners",
+        title: "Image Banner",
+        href: "/admin/promotions/image-banners",
+        icon: "image-banner",
+        order: 4,
+        roles: SUPER_ADMIN_ONLY,
+      },
     ],
   },
 

@@ -11,6 +11,7 @@ export type NavigationIcon =
   | "promotions"
   | "flash-sale"
   | "voucher"
+  | "image-banner"
   | "loyalty"
   | "reward-voucher"
   | "reward-catalog"

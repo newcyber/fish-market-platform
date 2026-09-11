@@ -23,6 +23,7 @@ import {
   Award,
   Tags,
   Calculator,
+  Image,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ const ICON_MAP: Record<
   promotions: Megaphone,
   "flash-sale": Zap,
   voucher: TicketPercent,
+  "image-banner": Image,
   loyalty: HeartHandshake,
   "reward-voucher": Gift,
   "reward-catalog": Award,

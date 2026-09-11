@@ -1,4 +1,5 @@
 import settingsRepository, {
+  type UpdateImageBannerSettingsPayload,
   type UpdateSettingsPayload,
 } from "@/repositories/settings/settings.repository";
 
@@ -341,6 +342,22 @@ class SettingsService {
       seoAiEnabled:
         payload.seoAiEnabled,
     });
+  }
+
+  /**
+   * ==========================================================
+   * UPDATE IMAGE BANNER SETTINGS
+   * ==========================================================
+   *
+   * Update khusus konfigurasi Image Banner.
+   *
+   * Hanya field Image Banner yang diteruskan ke repository.
+   * Field Store Settings lainnya tidak disentuh.
+   */
+  async updateImageBannerSettings(
+    payload: UpdateImageBannerSettingsPayload
+  ) {
+    return settingsRepository.updateImageBanner(payload);
   }
 
   /**

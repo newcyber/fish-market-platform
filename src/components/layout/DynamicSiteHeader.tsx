@@ -228,32 +228,28 @@ export default async function DynamicSiteHeader({
           "
         >
           <div
-            className="
-              relative
-              flex
-              h-11
-              w-11
-              shrink-0
-              items-center
-              justify-center
-              overflow-hidden
-              rounded-2xl
-              bg-slate-950
-              text-white
-              shadow-lg
-              shadow-slate-900/10
-            "
-          >
+  className="
+    relative
+    flex
+    h-11
+    w-11
+    shrink-0
+    items-center
+    justify-center
+    overflow-hidden
+    rounded-2xl
+  "
+>
             {siteLogo ? (
               <Image
-                src={siteLogo}
-                alt={`${storeName} Logo`}
-                fill
-                sizes="44px"
-                className="object-contain p-1"
-                priority
-                unoptimized
-              />
+  src={siteLogo}
+  alt={`${storeName} Logo`}
+  fill
+  sizes="44px"
+  className="object-contain"
+  priority
+  unoptimized
+/>
             ) : storeInitial ? (
               <span className="text-sm font-bold">
                 {storeInitial}

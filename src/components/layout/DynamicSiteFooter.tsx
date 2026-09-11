@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ShoppingCart,
   User,
+  Sparkles,
 } from "lucide-react";
 
 import settingsService from "@/services/settings/settings.service";
@@ -490,6 +491,17 @@ export default async function DynamicSiteFooter() {
                   <span>Bantuan</span>
                 </Link>
               </li>
+
+<li>
+  <Link
+    href="/changelog"
+    className="group flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+  >
+    <Sparkles className="h-4 w-4 shrink-0" />
+
+    <span>Changelog</span>
+  </Link>
+</li>
 
             </ul>
 
