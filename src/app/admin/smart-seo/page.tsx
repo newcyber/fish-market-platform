@@ -3,11 +3,16 @@ import { Sparkles } from "lucide-react";
 import SmartSeoForm from "@/components/admin/smart-seo/SmartSeoForm";
 import { requireSuperAdmin } from "@/lib/auth/admin";
 import settingsService from "@/services/settings/settings.service";
+import ProductService from "@/services/product/product.service";
 
 export default async function SmartSeoPage() {
   await requireSuperAdmin();
 
   const settings = await settingsService.getSettings();
+
+  const products = await ProductService.getProducts({
+  published: true,
+});
 
   const seoTitle =
     settings.seoTitle?.trim() ||
@@ -104,23 +109,28 @@ export default async function SmartSeoPage() {
         </div>
       </section>
 
-      <SmartSeoForm
-        settings={{
-          seoTitle: settings.seoTitle,
-          seoDescription: settings.seoDescription,
-          seoKeywords: settings.seoKeywords,
-          seoCanonicalUrl: settings.seoCanonicalUrl,
-          seoOgTitle: settings.seoOgTitle,
-          seoOgDescription: settings.seoOgDescription,
-          seoOgImage: settings.seoOgImage,
-          seoTwitterCard: settings.seoTwitterCard,
-          seoRobotsIndex: settings.seoRobotsIndex,
-          seoRobotsFollow: settings.seoRobotsFollow,
-          seoGoogleVerification:
-            settings.seoGoogleVerification,
-          seoAiEnabled: settings.seoAiEnabled,
-        }}
-      />
+<SmartSeoForm
+  settings={{
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification:
+      settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+  }}
+  products={products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+  }))}
+/>
     </div>
   );
 }
