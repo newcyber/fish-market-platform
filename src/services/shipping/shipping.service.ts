@@ -3,6 +3,9 @@ import shippingProviderRegistry from "./shipping-provider.registry";
 import {
   InternalShippingProvider,
 } from "./providers/internal.provider";
+import {
+  PickupShippingProvider,
+} from "./providers/pickup.provider";
 
 import type {
   AvailableShippingProvider,
@@ -66,6 +69,7 @@ export interface InternalShippingConfig {
    * Biaya tambahan per kilometer.
    */
   perKmFee: number;
+  minFee: number;
 
   /**
    * Jarak maksimal pengiriman.
@@ -78,6 +82,8 @@ export interface InternalShippingConfig {
   freeShippingThreshold:
     | number
     | null;
+
+  freeMaxDiscount: number;
 }
 
 /**
@@ -87,6 +93,12 @@ export interface InternalShippingConfig {
  */
 
 class ShippingService {
+  constructor() {
+    shippingProviderRegistry.register(
+      new PickupShippingProvider()
+    );
+  }
+
   /**
    * ==========================================================
    * REGISTER INTERNAL PROVIDER
@@ -135,8 +147,13 @@ class ShippingService {
    */
 
   getAvailableProviders(): AvailableShippingProvider[] {
-    const providers: AvailableShippingProvider[] =
-      [];
+    const providers: AvailableShippingProvider[] = [
+      {
+        code: "PICKUP",
+        name: "Ambil di Tempat",
+        enabled: true,
+      },
+    ];
 
     /**
      * ========================================================

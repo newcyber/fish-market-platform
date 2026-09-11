@@ -25,6 +25,7 @@
  */
 
 export type ShippingProviderCode =
+  | "PICKUP"
   | "INTERNAL"
   | "JNE"
   | "JNT"

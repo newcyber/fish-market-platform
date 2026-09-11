@@ -4402,11 +4402,13 @@ if (
                         "Kurir Internal",
                     baseFee: Number(settings.internalShippingBaseFee),
                     perKmFee: Number(settings.internalShippingPerKmFee),
+                    minFee: Number(settings.internalShippingMinFee),
                     maxDistanceKm: Number(settings.internalShippingMaxDistance),
                     freeShippingThreshold: settings.internalShippingFreeThreshold !==
                         null
                         ? Number(settings.internalShippingFreeThreshold)
                         : null,
+                    freeMaxDiscount: Number(settings.internalShippingFreeMaxDiscount),
                 });
             }
             /**
@@ -5357,11 +5359,13 @@ await tx.cartItem.deleteMany({
                 name: settings.internalShippingName,
                 baseFee: Number(settings.internalShippingBaseFee),
                 perKmFee: Number(settings.internalShippingPerKmFee),
+                minFee: Number(settings.internalShippingMinFee),
                 maxDistanceKm: Number(settings.internalShippingMaxDistance),
                 freeShippingThreshold: settings.internalShippingFreeThreshold ===
                     null
                     ? null
                     : Number(settings.internalShippingFreeThreshold),
+                freeMaxDiscount: Number(settings.internalShippingFreeMaxDiscount),
             });
             /**
               * ========================================================

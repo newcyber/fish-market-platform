@@ -55,11 +55,15 @@ export class InternalShippingProvider
 
     perKmFee: number;
 
+    minFee: number;
+
     maxDistanceKm: number;
 
     freeShippingThreshold:
       | number
       | null;
+
+    freeMaxDiscount: number;
   };
 
   constructor(config: {
@@ -71,11 +75,15 @@ export class InternalShippingProvider
 
     perKmFee: number;
 
+    minFee: number;
+
     maxDistanceKm: number;
 
     freeShippingThreshold:
       | number
       | null;
+
+    freeMaxDiscount: number;
   }) {
     this.config = config;
   }

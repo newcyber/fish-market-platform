@@ -95,6 +95,7 @@ interface CreateCheckoutOrderResult {
  */
 
 const VALID_SHIPPING_PROVIDERS: ShippingProviderCode[] = [
+  "PICKUP",
   "INTERNAL",
   "JNE",
   "JNT",

@@ -35,6 +35,7 @@ type CheckoutInput = {
 };
 
 const VALID_SHIPPING_PROVIDERS = [
+  "PICKUP",
   "INTERNAL",
   "JNE",
   "JNT",

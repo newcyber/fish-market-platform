@@ -48,9 +48,13 @@ export interface InternalShippingConfig {
 
   perKmFee: number;
 
+  minFee: number;
+
   maxDistanceKm: number;
 
   freeShippingThreshold: number | null;
+
+  freeMaxDiscount: number;
 }
 
 export interface InternalShippingCalculationInput {
@@ -389,6 +393,28 @@ export function calculateInternalShipping(
 
   if (
     !Number.isFinite(
+      config.minFee
+    ) ||
+    config.minFee < 0
+  ) {
+    return unavailable(
+      "Konfigurasi minimum ongkir tidak valid."
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      config.freeMaxDiscount
+    ) ||
+    config.freeMaxDiscount < 0
+  ) {
+    return unavailable(
+      "Konfigurasi maksimum subsidi ongkir tidak valid."
+    );
+  }
+
+  if (
+    !Number.isFinite(
       config.maxDistanceKm
     ) ||
     config.maxDistanceKm <= 0
@@ -440,11 +466,37 @@ export function calculateInternalShipping(
 
   /**
    * ----------------------------------------------------------
-   * FREE SHIPPING
+   * SHIPPING COST
    * ----------------------------------------------------------
+   *
+   * Formula:
+   *
+   * baseFee +
+   * (distanceKm * perKmFee)
+   *
+   * kemudian:
+   *
+   * minimum ongkir = max(rawShippingCost, minFee)
+   *
+   * Jika subtotal memenuhi freeShippingThreshold,
+   * berikan subsidi maksimal freeMaxDiscount.
    */
 
-  if (
+  const distanceFee =
+    distanceKm *
+    config.perKmFee;
+
+  const rawShippingCost =
+    config.baseFee +
+    distanceFee;
+
+  const normalShippingCost =
+    Math.max(
+      rawShippingCost,
+      config.minFee
+    );
+
+  const isEligibleForShippingSubsidy =
     config.freeShippingThreshold !==
       null &&
     Number.isFinite(
@@ -453,55 +505,32 @@ export function calculateInternalShipping(
     config.freeShippingThreshold >
       0 &&
     normalizedSubtotal >=
-      config.freeShippingThreshold
-  ) {
-    return {
-      available: true,
+      config.freeShippingThreshold;
 
-      serviceName:
-        config.name ||
-        "Kurir Internal",
+  const shippingDiscount =
+    isEligibleForShippingSubsidy
+      ? Math.min(
+          normalShippingCost,
+          config.freeMaxDiscount
+        )
+      : 0;
 
-      distanceKm,
-
-      shippingCost: 0,
-
-      isFreeShipping: true,
-
-      baseFee:
-        config.baseFee,
-
-      distanceFee: 0,
-
-      reason: null,
-    };
-  }
+  const finalShippingCost =
+    Math.max(
+      0,
+      normalShippingCost -
+        shippingDiscount
+    );
 
   /**
    * ----------------------------------------------------------
-   * SHIPPING COST
-   * ----------------------------------------------------------
-   *
-   * Formula:
-   *
-   * baseFee +
-   * (distanceKm × perKmFee)
-   */
-
-  const distanceFee =
-    distanceKm *
-    config.perKmFee;
-
-  const shippingCost =
-    config.baseFee +
-    distanceFee;
-
-  /**
    * Ongkir dibulatkan ke Rupiah penuh.
+   * ----------------------------------------------------------
    */
+
   const roundedShippingCost =
     Math.round(
-      shippingCost
+      finalShippingCost
     );
 
   return {
@@ -516,7 +545,8 @@ export function calculateInternalShipping(
     shippingCost:
       roundedShippingCost,
 
-    isFreeShipping: false,
+    isFreeShipping:
+      roundedShippingCost === 0,
 
     baseFee:
       config.baseFee,

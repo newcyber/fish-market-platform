@@ -468,6 +468,9 @@ function getProviderDescription(
   providerCode: ShippingProviderCode
 ): string {
   switch (providerCode) {
+    case "PICKUP":
+      return "Ambil pesanan langsung di lokasi toko tanpa biaya pengiriman.";
+
     case "INTERNAL":
       return "Pesanan akan dikirim menggunakan kurir internal toko.";
 

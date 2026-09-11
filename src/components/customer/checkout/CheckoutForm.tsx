@@ -132,9 +132,13 @@ interface CheckoutInternalShipping {
 
   perKmFee: number;
 
+  minFee: number;
+
   maxDistanceKm: number;
 
   freeShippingThreshold: number | null;
+
+  freeMaxDiscount: number;
 }
 
 interface CheckoutFormProps {
@@ -262,6 +266,11 @@ export default function CheckoutForm({
     internalShipping.enabled
       ? [
         {
+          code: "PICKUP",
+          name: "Ambil di Tempat",
+          enabled: true,
+        },
+        {
           code: "INTERNAL",
 
           name:
@@ -271,7 +280,13 @@ export default function CheckoutForm({
           enabled: true,
         },
       ]
-      : [];
+      : [
+        {
+          code: "PICKUP",
+          name: "Ambil di Tempat",
+          enabled: true,
+        },
+      ];
 
   /**
    * ==========================================================
@@ -334,11 +349,17 @@ export default function CheckoutForm({
         perKmFee:
           internalShipping.perKmFee,
 
+        minFee:
+          internalShipping.minFee,
+
         maxDistanceKm:
           internalShipping.maxDistanceKm,
 
         freeShippingThreshold:
           internalShipping.freeShippingThreshold,
+
+        freeMaxDiscount:
+          internalShipping.freeMaxDiscount,
       },
 
       subtotal,
@@ -871,7 +892,7 @@ selectedItemIds:
                   providers={availableShippingProviders}
                   selectedProvider={selectedShippingProvider}
                   onChange={handleShippingProviderChange}
-                  disabled={!selectedAddress || isSubmitting}
+                  disabled={isSubmitting}
                 />
 
                 {selectedShippingProvider === "INTERNAL" &&

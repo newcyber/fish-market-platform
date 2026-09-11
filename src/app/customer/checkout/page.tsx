@@ -455,6 +455,11 @@ const serializedItems =
         settings.internalShippingPerKmFee
       ),
 
+    minFee:
+      Number(
+        settings.internalShippingMinFee
+      ),
+
     maxDistanceKm:
       Number(
         settings.internalShippingMaxDistance
@@ -467,6 +472,11 @@ const serializedItems =
           settings.internalShippingFreeThreshold
         )
         : null,
+
+    freeMaxDiscount:
+      Number(
+        settings.internalShippingFreeMaxDiscount
+      ),
   };
 
   /**
