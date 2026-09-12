@@ -315,25 +315,55 @@ export default async function DynamicSiteHeader({
 
           {/* PRODUK */}
 
-          <Link
-            href={
-              mode === "customer"
-                ? "/customer/products"
-                : "/products"
-            }
-            className={[
-              "text-sm font-medium transition",
-              activePage === "products"
-                ? "text-slate-950"
-                : "text-slate-600 hover:text-[var(--pisjo-primary)]",
-            ].join(" ")}
-          >
-            Produk
-          </Link>
+        <Link
+          href={
+            mode === "customer"
+              ? "/customer/products"
+              : "/products"
+          }
+          className={[
+            "text-sm font-medium transition",
+            activePage === "products"
+              ? "text-slate-950"
+              : "text-slate-600 hover:text-[var(--pisjo-primary)]",
+          ].join(" ")}
+        >
+          Produk
+        </Link>
 
-          {/* CUSTOMER NAVIGATION */}
+        {/* PROMO */}
 
-          {mode === "customer" ? (
+        <Link
+          href="/promotions"
+          className="
+            text-sm
+            font-medium
+            text-slate-600
+            transition
+            hover:text-[var(--pisjo-primary)]
+          "
+        >
+          Promo
+        </Link>
+
+        {/* FLASH SALE */}
+
+        <Link
+          href="/flash-sale"
+          className="
+            text-sm
+            font-semibold
+            text-[var(--pisjo-primary)]
+            transition
+            hover:opacity-80
+          "
+        >
+          Flash Sale
+        </Link>
+
+        {/* CUSTOMER NAVIGATION */}
+
+        {mode === "customer" ? (
             <>
               <Link
                 href="/customer/rewards"

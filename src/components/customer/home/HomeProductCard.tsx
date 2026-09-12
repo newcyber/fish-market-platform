@@ -580,72 +580,71 @@ export default function HomeProductCard({
   </p>
 </div>
 
-              {/* ============================================ */}
-              {/* META */}
-              {/* ============================================ */}
+{/* ============================================ */}
+{/* META */}
+{/* ============================================ */}
 
-              <div
-                className="
-              mt-1
-              flex
-              min-h-3
-              items-center
-              justify-between
-              gap-1
-            "
-              >
+<div
+  className="
+    mt-1
+    flex
+    min-h-3
+    items-center
+    justify-start
+    gap-2
+    pr-10
+    sm:pr-12
+  "
+>
+  {/* SOLD */}
 
-                {/* STOCK */}
-
-{hasStock ? (
-  <p
-    className="
-      truncate
-      text-[8px]
-      text-(--ink-400)
-
-      sm:text-[11px]
-    "
-  >
-    <span className="hidden sm:inline">
-      Stok{" "}
-    </span>
-
-    <span
+  {hasSoldQuantity && (
+    <p
       className="
+        shrink-0
+        text-[8px]
         font-bold
-        text-(--ink-600)
+        text-(--ocean-700)
+
+        sm:text-[11px]
       "
     >
-      {product.stock}
-    </span>
-  </p>
-) : (
-  <span />
-)}
+      {product.soldQuantity}
+      <span className="hidden sm:inline">
+        {" "}
+        terjual
+      </span>
+    </p>
+  )}
 
-                {/* SOLD */}
+  {/* STOCK */}
 
-                {hasSoldQuantity && (
-                  <p
-                    className="
-                  shrink-0
-                  text-[8px]
-                  font-bold
-                  text-(--ocean-700)
+  {hasStock ? (
+    <p
+      className="
+        shrink-0
+        truncate
+        text-[8px]
+        text-(--ink-400)
 
-                  sm:text-[11px]
-                "
-                  >
-                    {product.soldQuantity}
-                    <span className="hidden sm:inline">
-                      {" "}
-                      terjual
-                    </span>
-                  </p>
-                )}
+        sm:text-[11px]
+      "
+    >
+      <span className="hidden sm:inline">
+        Stok{" "}
+      </span>
 
-              </div>
+      <span
+        className="
+          font-bold
+          text-(--ink-600)
+        "
+      >
+        {product.stock}
+      </span>
+    </p>
+  ) : null}
+</div>
 
             </div>
 

@@ -12,6 +12,8 @@ import MobileBottomNavigation from "@/components/layout/MobileBottomNavigation";
 
 import SessionProvider from "@/components/providers/SessionProvider";
 
+import OneSignalProvider from "@/components/providers/OneSignalProvider";
+
 import FloatingCustomerService from "@/components/customer/FloatingCustomerService";
 
 import settingsService from "@/services/settings/settings.service";
@@ -87,19 +89,21 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        <SessionProvider>
-          {children}
+      <SessionProvider>
+        <OneSignalProvider />
 
-          <FloatingCustomerService
-            whatsapp={settings.whatsapp}
-          />
+        {children}
 
-          <MobileBottomNavigation />
+        <FloatingCustomerService
+          whatsapp={settings.whatsapp}
+        />
 
-          <Toaster
-            position="top-right"
-            richColors
-            expand
+        <MobileBottomNavigation />
+
+        <Toaster
+          position="top-right"
+          richColors
+          expand
             closeButton
             duration={3000}
             visibleToasts={5}

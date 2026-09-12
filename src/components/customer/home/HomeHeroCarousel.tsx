@@ -429,29 +429,29 @@ export default function HomeHeroCarousel({
               CONTENT
           ================================================= */}
 
-          <div
-            className="
-              relative
-              grid
-              min-h-[205px]
-              items-center
-              overflow-hidden
-              px-5
-              py-5
+<div
+  className="
+    relative
+    grid
+    min-h-[205px]
+    items-center
+    overflow-hidden
+    px-5
+    py-5
 
-              sm:min-h-[245px]
-              sm:px-8
-              sm:py-7
+    sm:min-h-[245px]
+    sm:px-8
+    sm:py-7
 
-              lg:min-h-[320px]
-              lg:grid-cols-[1.12fr_0.88fr]
-              lg:px-10
-              lg:py-8
+    lg:min-h-[350px]
+    lg:grid-cols-[1.08fr_0.92fr]
+    lg:px-10
+    lg:py-8
 
-              xl:min-h-[335px]
-              xl:px-12
-            "
-          >
+    xl:min-h-[370px]
+    xl:px-12
+  "
+>
             {/* =================================================
                 MOBILE HERO IMAGE
             ================================================= */}
@@ -730,26 +730,27 @@ export default function HomeHeroCarousel({
                     motion-reduce:animate-none
                   "
                 >
-                  <Image
-                    src={activeSlide.image}
-                    alt={activeSlide.title}
-                    width={380}
-                    height={380}
-                    unoptimized
-                    className="
-                      h-auto
-                      w-[78%]
-                      max-w-[340px]
-                      object-contain
-                      drop-shadow-2xl
-                      animate-in
-                      fade-in
-                      zoom-in-95
-                      duration-700
+<Image
+  src={activeSlide.image}
+  alt={activeSlide.title}
+  width={480}
+  height={480}
+  unoptimized
+  className="
+    h-auto
+    w-[92%]
+    max-w-[420px]
+    object-contain
+    drop-shadow-2xl
+    animate-in
+    fade-in
+    zoom-in-95
+    duration-700
 
-                      xl:max-w-[370px]
-                    "
-                  />
+    xl:w-[96%]
+    xl:max-w-[470px]
+  "
+/>
                 </div>
               ) : (
                 <div
