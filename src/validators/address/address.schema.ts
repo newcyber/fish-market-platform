@@ -6,6 +6,16 @@ const coordinateSchema = z
   .nullable()
   .optional();
 
+const regionCodeSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^\d+(?:\.\d+){0,3}$/,
+    "Kode wilayah tidak valid."
+  )
+  .nullable()
+  .optional();
+
 export const addressSchema = z.object({
   receiverName: z
     .string()
@@ -40,6 +50,8 @@ export const addressSchema = z.object({
     )
     .max(100),
 
+  provinceCode: regionCodeSchema,
+
   city: z
     .string()
     .trim()
@@ -48,6 +60,8 @@ export const addressSchema = z.object({
       "Kota wajib dipilih."
     )
     .max(100),
+
+  cityCode: regionCodeSchema,
 
   district: z
     .string()
@@ -58,6 +72,8 @@ export const addressSchema = z.object({
     )
     .max(100),
 
+  districtCode: regionCodeSchema,
+
   village: z
     .string()
     .trim()
@@ -66,6 +82,8 @@ export const addressSchema = z.object({
       "Kelurahan wajib dipilih."
     )
     .max(100),
+
+  villageCode: regionCodeSchema,
 
   postalCode: z
     .string()
@@ -139,6 +157,4 @@ export const addressSchema = z.object({
 });
 
 export type AddressSchemaInput =
-  z.infer<
-    typeof addressSchema
-  >;
+  z.infer<typeof addressSchema>;

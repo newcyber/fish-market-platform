@@ -138,6 +138,11 @@ export class AddressService {
       receiverName: string;
       receiverPhone: string;
 
+      provinceCode?: string | null;
+      cityCode?: string | null;
+      districtCode?: string | null;
+      villageCode?: string | null;
+
       province: string;
       city: string;
       district: string;
@@ -175,6 +180,63 @@ export class AddressService {
           success: false,
           message:
             "Mohon lengkapi semua data alamat.",
+        };
+      }
+
+      /**
+       * ==========================================================
+       * NORMALISASI REGION CODES
+       * ==========================================================
+       */
+      const provinceCode =
+        data.provinceCode?.trim() || null;
+
+      const cityCode =
+        data.cityCode?.trim() || null;
+
+      const districtCode =
+        data.districtCode?.trim() || null;
+
+      const villageCode =
+        data.villageCode?.trim() || null;
+
+      /**
+       * ==========================================================
+       * VALIDASI HIERARCHY CODE
+       * ==========================================================
+       *
+       * Jika child code dikirim, parent code harus tersedia.
+       */
+      if (
+        cityCode &&
+        !provinceCode
+      ) {
+        return {
+          success: false,
+          message:
+            "Kode provinsi diperlukan untuk kode kota/kabupaten.",
+        };
+      }
+
+      if (
+        districtCode &&
+        !cityCode
+      ) {
+        return {
+          success: false,
+          message:
+            "Kode kota/kabupaten diperlukan untuk kode kecamatan.",
+        };
+      }
+
+      if (
+        villageCode &&
+        !districtCode
+      ) {
+        return {
+          success: false,
+          message:
+            "Kode kecamatan diperlukan untuk kode kelurahan/desa.",
         };
       }
 
@@ -262,6 +324,14 @@ export class AddressService {
             receiverPhone:
               data.receiverPhone.trim(),
 
+            provinceCode,
+
+            cityCode,
+
+            districtCode,
+
+            villageCode,
+
             province:
               data.province.trim(),
 
@@ -328,6 +398,11 @@ export class AddressService {
     data: {
       receiverName: string;
       receiverPhone: string;
+
+      provinceCode?: string | null;
+      cityCode?: string | null;
+      districtCode?: string | null;
+      villageCode?: string | null;
 
       province: string;
       city: string;
@@ -397,6 +472,61 @@ export class AddressService {
           success: false,
           message:
             "Mohon lengkapi semua data alamat.",
+        };
+      }
+
+      /**
+       * ==========================================================
+       * NORMALISASI REGION CODES
+       * ==========================================================
+       */
+      const provinceCode =
+        data.provinceCode?.trim() || null;
+
+      const cityCode =
+        data.cityCode?.trim() || null;
+
+      const districtCode =
+        data.districtCode?.trim() || null;
+
+      const villageCode =
+        data.villageCode?.trim() || null;
+
+      /**
+       * ==========================================================
+       * VALIDASI HIERARCHY CODE
+       * ==========================================================
+       */
+      if (
+        cityCode &&
+        !provinceCode
+      ) {
+        return {
+          success: false,
+          message:
+            "Kode provinsi diperlukan untuk kode kota/kabupaten.",
+        };
+      }
+
+      if (
+        districtCode &&
+        !cityCode
+      ) {
+        return {
+          success: false,
+          message:
+            "Kode kota/kabupaten diperlukan untuk kode kecamatan.",
+        };
+      }
+
+      if (
+        villageCode &&
+        !districtCode
+      ) {
+        return {
+          success: false,
+          message:
+            "Kode kecamatan diperlukan untuk kode kelurahan/desa.",
         };
       }
 
@@ -480,6 +610,14 @@ export class AddressService {
 
             receiverPhone:
               data.receiverPhone.trim(),
+
+            provinceCode,
+
+            cityCode,
+
+            districtCode,
+
+            villageCode,
 
             province:
               data.province.trim(),

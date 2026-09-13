@@ -1,56 +1,14 @@
 import { prisma } from "@/lib/prisma";
 
-export interface CreateAddressRepositoryInput {
-  userId: string;
-
-  receiverName: string;
-  receiverPhone: string;
-
-  province: string;
-  city: string;
-  district: string;
-  village: string;
-
-  postalCode: string;
-  fullAddress: string;
-
-  latitude?: number | null;
-  longitude?: number | null;
-
-  label?: string | null;
-  notes?: string | null;
-
-  isDefault?: boolean;
-}
-
-export interface UpdateAddressRepositoryInput {
-  receiverName?: string;
-  receiverPhone?: string;
-
-  province?: string;
-  city?: string;
-  district?: string;
-  village?: string;
-
-  postalCode?: string;
-  fullAddress?: string;
-
-  latitude?: number | null;
-  longitude?: number | null;
-
-  label?: string | null;
-  notes?: string | null;
-
-  isDefault?: boolean;
-}
-
 export class AddressRepository {
   /**
    * ============================================================
-   * FIND MANY BY USER
+   * GET ALL ADDRESSES BY USER
    * ============================================================
    */
-  static async findManyByUserId(userId: string) {
+  static async findByUserId(
+    userId: string
+  ) {
     return prisma.address.findMany({
       where: {
         userId,
@@ -70,42 +28,7 @@ export class AddressRepository {
 
   /**
    * ============================================================
-   * FIND BY ID
-   * ============================================================
-   */
-  static async findById(id: string) {
-    return prisma.address.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
-    });
-  }
-
-  /**
-   * ============================================================
-   * FIND BY ID + USER
-   *
-   * Security boundary:
-   * address harus benar-benar milik user.
-   * ============================================================
-   */
-  static async findByIdAndUserId(
-    id: string,
-    userId: string
-  ) {
-    return prisma.address.findFirst({
-      where: {
-        id,
-        userId,
-        deletedAt: null,
-      },
-    });
-  }
-
-  /**
-   * ============================================================
-   * FIND DEFAULT ADDRESS
+   * GET DEFAULT ADDRESS
    * ============================================================
    */
   static async findDefaultByUserId(
@@ -122,28 +45,71 @@ export class AddressRepository {
 
   /**
    * ============================================================
-   * COUNT ACTIVE ADDRESS
+   * FIND ACTIVE ADDRESS BY ID
+   * ============================================================
+   *
+   * Hanya address aktif yang boleh dikembalikan.
+   *
+   * Address dengan deletedAt != null dianggap sudah tidak ada.
    * ============================================================
    */
-  static async countByUserId(
-    userId: string
+  static async findById(
+    addressId: string
   ) {
-    return prisma.address.count({
+    return prisma.address.findFirst({
       where: {
-        userId,
+        id: addressId,
         deletedAt: null,
+      },
+
+      include: {
+        orders: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
   }
 
   /**
    * ============================================================
-   * CREATE
+   * CREATE ADDRESS
    * ============================================================
    */
-  static async create(
-    data: CreateAddressRepositoryInput
-  ) {
+  static async create(data: {
+    userId: string;
+
+    receiverName: string;
+    receiverPhone: string;
+
+    /**
+     * Administrative region codes
+     */
+    provinceCode?: string | null;
+    cityCode?: string | null;
+    districtCode?: string | null;
+    villageCode?: string | null;
+
+    /**
+     * Administrative region names
+     */
+    province: string;
+    city: string;
+    district: string;
+    village: string;
+
+    postalCode: string;
+    fullAddress: string;
+
+    latitude?: number | null;
+    longitude?: number | null;
+
+    label?: string | null;
+    notes?: string | null;
+
+    isDefault?: boolean;
+  }) {
     return prisma.address.create({
       data: {
         userId: data.userId,
@@ -154,6 +120,24 @@ export class AddressRepository {
         receiverPhone:
           data.receiverPhone,
 
+        /**
+         * Administrative region codes
+         */
+        provinceCode:
+          data.provinceCode ?? null,
+
+        cityCode:
+          data.cityCode ?? null,
+
+        districtCode:
+          data.districtCode ?? null,
+
+        villageCode:
+          data.villageCode ?? null,
+
+        /**
+         * Administrative region names
+         */
         province:
           data.province,
 
@@ -192,107 +176,507 @@ export class AddressRepository {
 
   /**
    * ============================================================
-   * UPDATE
+   * CREATE ADDRESS WITH DEFAULT HANDLING
    * ============================================================
-   */
-  static async update(
-    id: string,
-    data: UpdateAddressRepositoryInput
-  ) {
-    return prisma.address.update({
-      where: {
-        id,
-      },
-
-      data,
-    });
-  }
-
-  /**
-   * ============================================================
-   * SOFT DELETE
-   * ============================================================
-   */
-  static async softDelete(
-    id: string
-  ) {
-    return prisma.address.update({
-      where: {
-        id,
-      },
-
-      data: {
-        deletedAt: new Date(),
-        isDefault: false,
-      },
-    });
-  }
-
-  /**
-   * ============================================================
-   * CLEAR DEFAULT
    *
-   * Hanya address aktif milik user.
-   * ============================================================
-   */
-  static async clearDefaultByUserId(
-    userId: string
-  ) {
-    return prisma.address.updateMany({
-      where: {
-        userId,
-        deletedAt: null,
-        isDefault: true,
-      },
-
-      data: {
-        isDefault: false,
-      },
-    });
-  }
-
-  /**
-   * ============================================================
-   * SET DEFAULT
+   * Seluruh proses dilakukan dalam satu transaction:
    *
-   * Dilakukan dalam transaction.
+   * 1. Hitung address aktif milik user.
+   * 2. Address pertama otomatis menjadi default.
+   * 3. Jika user meminta address baru menjadi default,
+   *    default lama dinonaktifkan.
+   * 4. Address baru dibuat.
+   *
+   * Dengan transaction, clear default dan create address
+   * tidak berjalan sebagai dua operasi terpisah.
    * ============================================================
    */
-  static async setDefault(
-    id: string,
-    userId: string
+  static async createWithDefaultHandling(
+    userId: string,
+    data: {
+      receiverName: string;
+      receiverPhone: string;
+
+      /**
+       * Administrative region codes
+       */
+      provinceCode?: string | null;
+      cityCode?: string | null;
+      districtCode?: string | null;
+      villageCode?: string | null;
+
+      /**
+       * Administrative region names
+       */
+      province: string;
+      city: string;
+      district: string;
+      village: string;
+
+      postalCode: string;
+      fullAddress: string;
+
+      latitude?: number | null;
+      longitude?: number | null;
+
+      label?: string | null;
+      notes?: string | null;
+
+      isDefault: boolean;
+    }
   ) {
     return prisma.$transaction(
       async (tx) => {
-        const address =
-          await tx.address.findFirst({
+        /**
+         * ========================================================
+         * COUNT ACTIVE ADDRESSES
+         * ========================================================
+         */
+        const activeAddressCount =
+          await tx.address.count({
             where: {
-              id,
               userId,
               deletedAt: null,
             },
           });
 
-        if (!address) {
-          throw new Error(
-            "Alamat tidak ditemukan atau bukan milik customer."
-          );
+        /**
+         * ========================================================
+         * DETERMINE DEFAULT STATUS
+         * ========================================================
+         *
+         * Address pertama selalu menjadi default.
+         *
+         * Untuk address berikutnya:
+         * - isDefault = true  → menjadi default
+         * - isDefault = false → tidak mengubah default lama
+         */
+        const shouldBeDefault =
+          activeAddressCount === 0 ||
+          data.isDefault;
+
+        /**
+         * ========================================================
+         * CLEAR CURRENT DEFAULT
+         * ========================================================
+         */
+        if (shouldBeDefault) {
+          await tx.address.updateMany({
+            where: {
+              userId,
+              isDefault: true,
+              deletedAt: null,
+            },
+
+            data: {
+              isDefault: false,
+            },
+          });
         }
 
+        /**
+         * ========================================================
+         * CREATE ADDRESS
+         * ========================================================
+         */
+        return tx.address.create({
+          data: {
+            userId,
+
+            receiverName:
+              data.receiverName,
+
+            receiverPhone:
+              data.receiverPhone,
+
+            /**
+             * Administrative region codes
+             */
+            provinceCode:
+              data.provinceCode ?? null,
+
+            cityCode:
+              data.cityCode ?? null,
+
+            districtCode:
+              data.districtCode ?? null,
+
+            villageCode:
+              data.villageCode ?? null,
+
+            /**
+             * Administrative region names
+             */
+            province:
+              data.province,
+
+            city:
+              data.city,
+
+            district:
+              data.district,
+
+            village:
+              data.village,
+
+            postalCode:
+              data.postalCode,
+
+            fullAddress:
+              data.fullAddress,
+
+            latitude:
+              data.latitude ?? null,
+
+            longitude:
+              data.longitude ?? null,
+
+            label:
+              data.label ?? null,
+
+            notes:
+              data.notes ?? null,
+
+            isDefault:
+              shouldBeDefault,
+          },
+        });
+      }
+    );
+  }
+
+  /**
+   * ============================================================
+   * UPDATE ADDRESS
+   * ============================================================
+   *
+   * userId digunakan sebagai ownership guard tambahan.
+   *
+   * Address hanya boleh di-update apabila:
+   *
+   * - id sesuai
+   * - userId sesuai
+   * - deletedAt masih null
+   * ============================================================
+   */
+  static async update(
+    userId: string,
+    addressId: string,
+    data: {
+      receiverName: string;
+      receiverPhone: string;
+
+      /**
+       * Administrative region codes
+       */
+      provinceCode?: string | null;
+      cityCode?: string | null;
+      districtCode?: string | null;
+      villageCode?: string | null;
+
+      /**
+       * Administrative region names
+       */
+      province: string;
+      city: string;
+      district: string;
+      village: string;
+
+      postalCode: string;
+      fullAddress: string;
+
+      latitude?: number | null;
+      longitude?: number | null;
+
+      label?: string | null;
+      notes?: string | null;
+    }
+  ) {
+    return prisma.address.updateMany({
+      where: {
+        id: addressId,
+        userId,
+        deletedAt: null,
+      },
+
+      data: {
+        receiverName:
+          data.receiverName,
+
+        receiverPhone:
+          data.receiverPhone,
+
+        /**
+         * Administrative region codes
+         */
+        provinceCode:
+          data.provinceCode ?? null,
+
+        cityCode:
+          data.cityCode ?? null,
+
+        districtCode:
+          data.districtCode ?? null,
+
+        villageCode:
+          data.villageCode ?? null,
+
+        /**
+         * Administrative region names
+         */
+        province:
+          data.province,
+
+        city:
+          data.city,
+
+        district:
+          data.district,
+
+        village:
+          data.village,
+
+        postalCode:
+          data.postalCode,
+
+        fullAddress:
+          data.fullAddress,
+
+        latitude:
+          data.latitude ?? null,
+
+        longitude:
+          data.longitude ?? null,
+
+        label:
+          data.label ?? null,
+
+        notes:
+          data.notes ?? null,
+      },
+    });
+  }
+
+  /**
+   * ============================================================
+   * REMOVE DEFAULT ADDRESS
+   * ============================================================
+   */
+  static async clearDefault(
+    userId: string
+  ) {
+    return prisma.address.updateMany({
+      where: {
+        userId,
+        isDefault: true,
+        deletedAt: null,
+      },
+
+      data: {
+        isDefault: false,
+      },
+    });
+  }
+
+  /**
+   * ============================================================
+   * SET DEFAULT ADDRESS
+   * ============================================================
+   *
+   * Hanya address milik user yang bersangkutan dan masih aktif
+   * yang boleh dijadikan default.
+   *
+   * Seluruh perubahan dilakukan dalam transaction agar tidak
+   * terjadi kondisi di mana semua address menjadi non-default
+   * ketika update address target gagal.
+   * ============================================================
+   */
+  static async setDefault(
+    userId: string,
+    addressId: string
+  ) {
+    return prisma.$transaction(async (tx) => {
+      /**
+       * --------------------------------------------------------
+       * CLEAR CURRENT DEFAULT
+       * --------------------------------------------------------
+       */
+      await tx.address.updateMany({
+        where: {
+          userId,
+          isDefault: true,
+          deletedAt: null,
+        },
+
+        data: {
+          isDefault: false,
+        },
+      });
+
+      /**
+       * --------------------------------------------------------
+       * SET TARGET AS DEFAULT
+       * --------------------------------------------------------
+       *
+       * Ownership dan active-state diverifikasi kembali
+       * di level database.
+       *
+       * Ini penting karena addressId berasal dari client.
+       * --------------------------------------------------------
+       */
+      const result =
         await tx.address.updateMany({
           where: {
+            id: addressId,
             userId,
             deletedAt: null,
           },
 
           data: {
+            isDefault: true,
+          },
+        });
+
+      /**
+       * --------------------------------------------------------
+       * TARGET NOT FOUND / NOT OWNED / DELETED
+       * --------------------------------------------------------
+       */
+      if (result.count !== 1) {
+        throw new Error(
+          "ADDRESS_NOT_FOUND"
+        );
+      }
+
+      /**
+       * --------------------------------------------------------
+       * RETURN UPDATED ADDRESS
+       * --------------------------------------------------------
+       */
+      return tx.address.findUnique({
+        where: {
+          id: addressId,
+        },
+      });
+    });
+  }
+
+  /**
+   * ============================================================
+   * DELETE ADDRESS + PROMOTE DEFAULT
+   * ============================================================
+   *
+   * Semua operasi berada dalam satu transaction.
+   *
+   * Jika address yang dihapus adalah default:
+   *
+   * 1. soft-delete address
+   * 2. cari address aktif berikutnya
+   * 3. jadikan default
+   *
+   * Jika address bukan default:
+   *
+   * hanya soft-delete.
+   * ============================================================
+   */
+  static async deleteAndPromoteDefault(
+    userId: string,
+    addressId: string
+  ) {
+    return prisma.$transaction(
+      async (tx) => {
+        /**
+         * --------------------------------------------------------
+         * FIND ACTIVE ADDRESS
+         * --------------------------------------------------------
+         */
+        const address =
+          await tx.address.findFirst({
+            where: {
+              id: addressId,
+              userId,
+              deletedAt: null,
+            },
+
+            select: {
+              id: true,
+              isDefault: true,
+            },
+          });
+
+        if (!address) {
+          throw new Error(
+            "ADDRESS_NOT_FOUND"
+          );
+        }
+
+        /**
+         * --------------------------------------------------------
+         * SOFT DELETE
+         * --------------------------------------------------------
+         */
+        await tx.address.update({
+          where: {
+            id: address.id,
+          },
+
+          data: {
+            deletedAt: new Date(),
             isDefault: false,
           },
         });
 
+        /**
+         * --------------------------------------------------------
+         * BUKAN DEFAULT
+         * --------------------------------------------------------
+         *
+         * Tidak perlu promote address lain.
+         */
+        if (!address.isDefault) {
+          return null;
+        }
+
+        /**
+         * --------------------------------------------------------
+         * FIND NEXT ACTIVE ADDRESS
+         * --------------------------------------------------------
+         *
+         * Mengambil address aktif yang paling lama dibuat.
+         */
+        const nextAddress =
+          await tx.address.findFirst({
+            where: {
+              userId,
+              deletedAt: null,
+            },
+
+            orderBy: {
+              createdAt: "asc",
+            },
+
+            select: {
+              id: true,
+            },
+          });
+
+        /**
+         * --------------------------------------------------------
+         * TIDAK ADA ADDRESS LAIN
+         * --------------------------------------------------------
+         */
+        if (!nextAddress) {
+          return null;
+        }
+
+        /**
+         * --------------------------------------------------------
+         * PROMOTE
+         * --------------------------------------------------------
+         */
         return tx.address.update({
           where: {
-            id,
+            id: nextAddress.id,
           },
 
           data: {
@@ -301,6 +685,22 @@ export class AddressRepository {
         });
       }
     );
+  }
+
+  /**
+   * ============================================================
+   * COUNT ACTIVE ADDRESSES BY USER
+   * ============================================================
+   */
+  static async countActiveByUserId(
+    userId: string
+  ) {
+    return prisma.address.count({
+      where: {
+        userId,
+        deletedAt: null,
+      },
+    });
   }
 }
 

@@ -625,6 +625,11 @@ model Address {
   receiverName  String
   receiverPhone String
 
+  provinceCode String?
+  cityCode     String?
+  districtCode String?
+  villageCode  String?
+
   province String
   city     String
   district String
@@ -646,6 +651,10 @@ model Address {
   deletedAt DateTime?
 
   @@index([userId])
+  @@index([provinceCode])
+  @@index([cityCode])
+  @@index([districtCode])
+  @@index([villageCode])
 }
 
 model Category {

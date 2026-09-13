@@ -10,6 +10,11 @@ export async function updateAddressAction(
   data: {
     receiverName: string;
     receiverPhone: string;
+provinceCode?: string | null;
+cityCode?: string | null;
+districtCode?: string | null;
+villageCode?: string | null;
+
 
     province: string;
     city: string;

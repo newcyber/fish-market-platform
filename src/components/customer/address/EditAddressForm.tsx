@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
   useTransition,
 } from "react";
@@ -19,6 +20,12 @@ import {
 import {
   updateAddressAction,
 } from "@/actions/address/update-address";
+
+import RegionSelector, {
+  type RegionOption,
+} from "@/components/customer/address/RegionSelector";
+
+import useRegionOptions from "@/hooks/useRegionOptions";
 
 import dynamic from "next/dynamic";
 
@@ -40,9 +47,16 @@ interface EditAddressFormProps {
     receiverPhone: string;
 
     province: string;
+    provinceCode?: string | null;
+
     city: string;
+    cityCode?: string | null;
+
     district: string;
+    districtCode?: string | null;
+
     village: string;
+    villageCode?: string | null;
 
     postalCode: string;
     fullAddress: string;
@@ -61,6 +75,24 @@ export default function EditAddressForm({
   initialAddress,
 }: EditAddressFormProps) {
   const router = useRouter();
+
+  const {
+  provinces,
+  cities,
+  districts,
+  villages,
+  provincesLoading,
+  citiesLoading,
+  districtsLoading,
+  villagesLoading,
+  error: regionError,
+  loadCities,
+  loadDistricts,
+  loadVillages,
+  clearCities,
+  clearDistricts,
+  clearVillages,
+} = useRegionOptions();
 
   const [
     isPending,
@@ -100,14 +132,26 @@ export default function EditAddressForm({
     province:
       initialAddress.province,
 
+    provinceCode:
+      initialAddress.provinceCode ?? "",
+
     city:
       initialAddress.city,
+
+    cityCode:
+      initialAddress.cityCode ?? "",
 
     district:
       initialAddress.district,
 
+    districtCode:
+      initialAddress.districtCode ?? "",
+
     village:
       initialAddress.village,
+
+    villageCode:
+      initialAddress.villageCode ?? "",
 
     postalCode:
       initialAddress.postalCode,
@@ -133,6 +177,18 @@ export default function EditAddressForm({
       initialAddress.notes,
   });
 
+  const [selectedProvince, setSelectedProvince] =
+    useState<RegionOption | null>(null);
+
+  const [selectedCity, setSelectedCity] =
+    useState<RegionOption | null>(null);
+
+  const [selectedDistrict, setSelectedDistrict] =
+    useState<RegionOption | null>(null);
+
+  const [selectedVillage, setSelectedVillage] =
+    useState<RegionOption | null>(null);
+
   /**
    * ============================================================
    * HANDLE CHANGE
@@ -156,6 +212,276 @@ export default function EditAddressForm({
       })
     );
   }
+
+  function handleProvinceChange(
+  option: RegionOption | null,
+) {
+  setSelectedProvince(option);
+
+  setSelectedCity(null);
+  setSelectedDistrict(null);
+  setSelectedVillage(null);
+
+  clearCities();
+  clearDistricts();
+  clearVillages();
+
+  setFormData((previous) => ({
+    ...previous,
+
+    provinceCode:
+      option?.code ?? "",
+
+    province:
+      option?.name ?? "",
+
+    cityCode: "",
+    city: "",
+
+    districtCode: "",
+    district: "",
+
+    villageCode: "",
+    village: "",
+  }));
+
+  if (option) {
+    void loadCities(option.code);
+  }
+}
+
+function handleCityChange(
+  option: RegionOption | null,
+) {
+  setSelectedCity(option);
+
+  setSelectedDistrict(null);
+  setSelectedVillage(null);
+
+  clearDistricts();
+  clearVillages();
+
+  setFormData((previous) => ({
+    ...previous,
+
+    cityCode:
+      option?.code ?? "",
+
+    city:
+      option?.name ?? "",
+
+    districtCode: "",
+    district: "",
+
+    villageCode: "",
+    village: "",
+  }));
+
+  if (option) {
+    void loadDistricts(option.code);
+  }
+}
+
+function handleDistrictChange(
+  option: RegionOption | null,
+) {
+  setSelectedDistrict(option);
+
+  setSelectedVillage(null);
+
+  clearVillages();
+
+  setFormData((previous) => ({
+    ...previous,
+
+    districtCode:
+      option?.code ?? "",
+
+    district:
+      option?.name ?? "",
+
+    villageCode: "",
+    village: "",
+  }));
+
+  if (option) {
+    void loadVillages(option.code);
+  }
+}
+
+function handleVillageChange(
+  option: RegionOption | null,
+) {
+  setSelectedVillage(option);
+
+  setFormData((previous) => ({
+    ...previous,
+
+    villageCode:
+      option?.code ?? "",
+
+    village:
+      option?.name ?? "",
+  }));
+}
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function preloadRegion() {
+    if (!provinces.length) {
+      return;
+    }
+
+    const province =
+      provinces.find(
+        (item) =>
+          item.code ===
+          initialAddress.provinceCode,
+      ) ??
+      provinces.find(
+        (item) =>
+          item.name.trim().toLowerCase() ===
+          initialAddress.province
+            .trim()
+            .toLowerCase(),
+      );
+
+    if (!province) {
+      return;
+    }
+
+    if (cancelled) {
+      return;
+    }
+
+    setSelectedProvince(province);
+
+    setFormData((previous) => ({
+      ...previous,
+      provinceCode: province.code,
+      province: province.name,
+    }));
+
+    const cityOptions =
+      await loadCities(province.code);
+
+    if (cancelled) {
+      return;
+    }
+
+    const city =
+      cityOptions.find(
+        (item) =>
+          item.code ===
+          initialAddress.cityCode,
+      ) ??
+      cityOptions.find(
+        (item) =>
+          item.name.trim().toLowerCase() ===
+          initialAddress.city
+            .trim()
+            .toLowerCase(),
+      );
+
+    if (!city) {
+      return;
+    }
+
+    setSelectedCity(city);
+
+    setFormData((previous) => ({
+      ...previous,
+      cityCode: city.code,
+      city: city.name,
+    }));
+
+    const districtOptions =
+      await loadDistricts(city.code);
+
+    if (cancelled) {
+      return;
+    }
+
+    const district =
+      districtOptions.find(
+        (item) =>
+          item.code ===
+          initialAddress.districtCode,
+      ) ??
+      districtOptions.find(
+        (item) =>
+          item.name.trim().toLowerCase() ===
+          initialAddress.district
+            .trim()
+            .toLowerCase(),
+      );
+
+    if (!district) {
+      return;
+    }
+
+    setSelectedDistrict(district);
+
+    setFormData((previous) => ({
+      ...previous,
+      districtCode: district.code,
+      district: district.name,
+    }));
+
+    const villageOptions =
+      await loadVillages(district.code);
+
+    if (cancelled) {
+      return;
+    }
+
+    const village =
+      villageOptions.find(
+        (item) =>
+          item.code ===
+          initialAddress.villageCode,
+      ) ??
+      villageOptions.find(
+        (item) =>
+          item.name.trim().toLowerCase() ===
+          initialAddress.village
+            .trim()
+            .toLowerCase(),
+      );
+
+    if (!village) {
+      return;
+    }
+
+    setSelectedVillage(village);
+
+    setFormData((previous) => ({
+      ...previous,
+      villageCode: village.code,
+      village: village.name,
+    }));
+  }
+
+  void preloadRegion();
+
+  return () => {
+    cancelled = true;
+  };
+}, [
+  provinces,
+  initialAddress.province,
+  initialAddress.provinceCode,
+  initialAddress.city,
+  initialAddress.cityCode,
+  initialAddress.district,
+  initialAddress.districtCode,
+  initialAddress.village,
+  initialAddress.villageCode,
+  loadCities,
+  loadDistricts,
+  loadVillages,
+]);
 
   /**
  * ============================================================
@@ -321,14 +647,26 @@ function handleDetectLocation() {
               receiverPhone:
                 formData.receiverPhone,
 
+              provinceCode:
+                formData.provinceCode || null,
+
               province:
                 formData.province,
+
+              cityCode:
+                formData.cityCode || null,
 
               city:
                 formData.city,
 
+              districtCode:
+                formData.districtCode || null,
+
               district:
                 formData.district,
+
+              villageCode:
+                formData.villageCode || null,
 
               village:
                 formData.village,
@@ -458,106 +796,83 @@ function handleDetectLocation() {
         </h2>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="province"
-              className="mb-2 block text-sm font-medium"
-            >
-              Provinsi
-            </label>
+  <RegionSelector
+    id="province"
+    label="Provinsi"
+    value={selectedProvince}
+    options={provinces}
+    loading={provincesLoading}
+    required
+    placeholder="Cari provinsi..."
+    onChange={handleProvinceChange}
+  />
 
-            <input
-              id="province"
-              name="province"
-              required
-              value={
-                formData.province
-              }
-              onChange={handleChange}
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
+  <RegionSelector
+    id="city"
+    label="Kota / Kabupaten"
+    value={selectedCity}
+    options={cities}
+    loading={citiesLoading}
+    disabled={!selectedProvince}
+    required
+    placeholder={
+      selectedProvince
+        ? "Cari kota / kabupaten..."
+        : "Pilih provinsi terlebih dahulu"
+    }
+    onChange={handleCityChange}
+  />
 
-          <div>
-            <label
-              htmlFor="city"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kota / Kabupaten
-            </label>
+  <RegionSelector
+    id="district"
+    label="Kecamatan"
+    value={selectedDistrict}
+    options={districts}
+    loading={districtsLoading}
+    disabled={!selectedCity}
+    required
+    placeholder={
+      selectedCity
+        ? "Cari kecamatan..."
+        : "Pilih kota / kabupaten terlebih dahulu"
+    }
+    onChange={handleDistrictChange}
+  />
 
-            <input
-              id="city"
-              name="city"
-              required
-              value={
-                formData.city
-              }
-              onChange={handleChange}
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
+  <RegionSelector
+    id="village"
+    label="Kelurahan / Desa"
+    value={selectedVillage}
+    options={villages}
+    loading={villagesLoading}
+    disabled={!selectedDistrict}
+    required
+    placeholder={
+      selectedDistrict
+        ? "Cari kelurahan / desa..."
+        : "Pilih kecamatan terlebih dahulu"
+    }
+    onChange={handleVillageChange}
+  />
 
-          <div>
-            <label
-              htmlFor="district"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kecamatan
-            </label>
+  <div>
+    <label
+      htmlFor="postalCode"
+      className="mb-2 block text-sm font-medium"
+    >
+      Kode Pos
+    </label>
 
-            <input
-              id="district"
-              name="district"
-              required
-              value={
-                formData.district
-              }
-              onChange={handleChange}
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="village"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kelurahan / Desa
-            </label>
-
-            <input
-              id="village"
-              name="village"
-              required
-              value={
-                formData.village
-              }
-              onChange={handleChange}
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="postalCode"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kode Pos
-            </label>
-
-            <input
-              id="postalCode"
-              name="postalCode"
-              required
-              value={
-                formData.postalCode
-              }
-              onChange={handleChange}
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
-        </div>
+    <input
+      id="postalCode"
+      name="postalCode"
+      required
+      value={formData.postalCode}
+      onChange={handleChange}
+      className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
+    />
+  </div>
+</div>
       </div>
 
       {/* ====================================================== */}

@@ -20,6 +20,12 @@ import {
 
 import { createAddressAction } from "@/actions/address/create-address";
 
+import RegionSelector, {
+  type RegionOption,
+} from "@/components/customer/address/RegionSelector";
+
+import useRegionOptions from "@/hooks/useRegionOptions";
+
 const AddressMapPicker = dynamic(
   () =>
     import(
@@ -52,9 +58,16 @@ export default function CreateAddressForm() {
       receiverPhone: "",
 
       province: "",
+      provinceCode: "",
+
       city: "",
+      cityCode: "",
+
       district: "",
+      districtCode: "",
+
       village: "",
+      villageCode: "",
 
       postalCode: "",
       fullAddress: "",
@@ -65,6 +78,124 @@ export default function CreateAddressForm() {
       notes: "",
       isDefault: false,
     });
+
+const {
+  provinces,
+  cities,
+  districts,
+  villages,
+
+  provincesLoading,
+  citiesLoading,
+  districtsLoading,
+  villagesLoading,
+
+  error: regionError,
+
+  loadCities,
+  loadDistricts,
+  loadVillages,
+} = useRegionOptions();
+
+const selectedProvince: RegionOption | null =
+  formData.provinceCode
+    ? {
+        code: formData.provinceCode,
+        name: formData.province,
+      }
+    : null;
+
+const selectedCity: RegionOption | null =
+  formData.cityCode
+    ? {
+        code: formData.cityCode,
+        name: formData.city,
+      }
+    : null;
+
+const selectedDistrict: RegionOption | null =
+  formData.districtCode
+    ? {
+        code: formData.districtCode,
+        name: formData.district,
+      }
+    : null;
+
+const selectedVillage: RegionOption | null =
+  formData.villageCode
+    ? {
+        code: formData.villageCode,
+        name: formData.village,
+      }
+    : null;
+
+    function handleProvinceChange(
+  option: RegionOption | null,
+) {
+  setFormData((previous) => ({
+    ...previous,
+
+    province: option?.name ?? "",
+    provinceCode: option?.code ?? "",
+
+    city: "",
+    cityCode: "",
+
+    district: "",
+    districtCode: "",
+
+    village: "",
+    villageCode: "",
+  }));
+
+  void loadCities(option?.code ?? "");
+}
+
+function handleCityChange(
+  option: RegionOption | null,
+) {
+  setFormData((previous) => ({
+    ...previous,
+
+    city: option?.name ?? "",
+    cityCode: option?.code ?? "",
+
+    district: "",
+    districtCode: "",
+
+    village: "",
+    villageCode: "",
+  }));
+
+  void loadDistricts(option?.code ?? "");
+}
+
+function handleDistrictChange(
+  option: RegionOption | null,
+) {
+  setFormData((previous) => ({
+    ...previous,
+
+    district: option?.name ?? "",
+    districtCode: option?.code ?? "",
+
+    village: "",
+    villageCode: "",
+  }));
+
+  void loadVillages(option?.code ?? "");
+}
+
+function handleVillageChange(
+  option: RegionOption | null,
+) {
+  setFormData((previous) => ({
+    ...previous,
+
+    village: option?.name ?? "",
+    villageCode: option?.code ?? "",
+  }));
+}
 
   /**
    * ============================================================
@@ -243,6 +374,18 @@ function handleDetectLocation() {
           receiverPhone:
             formData.receiverPhone,
 
+          provinceCode:
+            formData.provinceCode || null,
+
+          cityCode:
+            formData.cityCode || null,
+
+          districtCode:
+            formData.districtCode || null,
+
+          villageCode:
+            formData.villageCode || null,
+
           province:
             formData.province,
 
@@ -384,101 +527,93 @@ function handleDetectLocation() {
         </h2>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="province"
-              className="mb-2 block text-sm font-medium"
-            >
-              Provinsi
-            </label>
+  <RegionSelector
+    id="province"
+    label="Provinsi"
+    value={selectedProvince}
+    options={provinces}
+    loading={provincesLoading}
+    required
+    placeholder="Cari provinsi..."
+    onChange={handleProvinceChange}
+  />
 
-            <input
-              id="province"
-              name="province"
-              required
-              value={formData.province}
-              onChange={handleChange}
-              placeholder="Contoh: Jawa Barat"
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
+  <RegionSelector
+    id="city"
+    label="Kota / Kabupaten"
+    value={selectedCity}
+    options={cities}
+    loading={citiesLoading}
+    disabled={!formData.provinceCode}
+    required
+    placeholder={
+      formData.provinceCode
+        ? "Cari kota / kabupaten..."
+        : "Pilih provinsi terlebih dahulu"
+    }
+    onChange={handleCityChange}
+  />
 
-          <div>
-            <label
-              htmlFor="city"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kota / Kabupaten
-            </label>
+  <RegionSelector
+    id="district"
+    label="Kecamatan"
+    value={selectedDistrict}
+    options={districts}
+    loading={districtsLoading}
+    disabled={!formData.cityCode}
+    required
+    placeholder={
+      formData.cityCode
+        ? "Cari kecamatan..."
+        : "Pilih kota / kabupaten terlebih dahulu"
+    }
+    onChange={handleDistrictChange}
+  />
 
-            <input
-              id="city"
-              name="city"
-              required
-              value={formData.city}
-              onChange={handleChange}
-              placeholder="Contoh: Bandung"
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
+  <RegionSelector
+    id="village"
+    label="Kelurahan / Desa"
+    value={selectedVillage}
+    options={villages}
+    loading={villagesLoading}
+    disabled={!formData.districtCode}
+    required
+    placeholder={
+      formData.districtCode
+        ? "Cari kelurahan / desa..."
+        : "Pilih kecamatan terlebih dahulu"
+    }
+    onChange={handleVillageChange}
+  />
 
-          <div>
-            <label
-              htmlFor="district"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kecamatan
-            </label>
+  <div>
+  <label
+    htmlFor="postalCode"
+    className="mb-2 block text-sm font-medium"
+  >
+    Kode Pos
+  </label>
 
-            <input
-              id="district"
-              name="district"
-              required
-              value={formData.district}
-              onChange={handleChange}
-              placeholder="Nama kecamatan"
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
+  <input
+    id="postalCode"
+    name="postalCode"
+    type="text"
+    inputMode="numeric"
+    required
+    value={formData.postalCode}
+    onChange={handleChange}
+    placeholder="Contoh: 55714"
+    maxLength={5}
+    className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
+  />
+</div>
+</div>
 
-          <div>
-            <label
-              htmlFor="village"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kelurahan / Desa
-            </label>
-
-            <input
-              id="village"
-              name="village"
-              required
-              value={formData.village}
-              onChange={handleChange}
-              placeholder="Nama kelurahan"
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="postalCode"
-              className="mb-2 block text-sm font-medium"
-            >
-              Kode Pos
-            </label>
-
-            <input
-              id="postalCode"
-              name="postalCode"
-              required
-              value={formData.postalCode}
-              onChange={handleChange}
-              placeholder="Contoh: 40123"
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
-        </div>
+{regionError && (
+  <p className="mt-3 text-sm text-red-600">
+    {regionError}
+  </p>
+)}
       </div>
 
       {/* ====================================================== */}

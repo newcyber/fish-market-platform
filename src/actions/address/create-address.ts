@@ -9,6 +9,11 @@ export async function createAddressAction(data: {
   receiverName: string;
   receiverPhone: string;
 
+  provinceCode?: string | null;
+  cityCode?: string | null;
+  districtCode?: string | null;
+  villageCode?: string | null;
+
   province: string;
   city: string;
   district: string;
@@ -68,6 +73,11 @@ export async function createAddressAction(data: {
     revalidatePath("/customer/addresses");
     revalidatePath("/customer/checkout");
 
+    /**
+     * ============================================================
+     * SUCCESS RESPONSE
+     * ============================================================
+     */
     return {
       success: true,
       message:

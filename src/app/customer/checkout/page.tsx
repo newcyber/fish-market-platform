@@ -136,7 +136,7 @@ const checkoutItems =
    */
 
   const addresses =
-    await AddressRepository.findManyByUserId(
+    await AddressRepository.findByUserId(
       userId
     );
 

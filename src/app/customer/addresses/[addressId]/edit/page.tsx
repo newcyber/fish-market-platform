@@ -83,14 +83,26 @@ export default async function EditAddressPage(
     province:
       address.province,
 
+    provinceCode:
+      address.provinceCode ?? null,
+
     city:
       address.city,
+
+    cityCode:
+      address.cityCode ?? null,
 
     district:
       address.district,
 
+    districtCode:
+      address.districtCode ?? null,
+
     village:
       address.village,
+
+    villageCode:
+      address.villageCode ?? null,
 
     postalCode:
       address.postalCode,

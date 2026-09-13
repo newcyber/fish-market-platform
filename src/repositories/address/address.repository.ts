@@ -83,6 +83,17 @@ export class AddressRepository {
     receiverName: string;
     receiverPhone: string;
 
+    /**
+     * Administrative region codes
+     */
+    provinceCode?: string | null;
+    cityCode?: string | null;
+    districtCode?: string | null;
+    villageCode?: string | null;
+
+    /**
+     * Administrative region names
+     */
     province: string;
     city: string;
     district: string;
@@ -109,6 +120,24 @@ export class AddressRepository {
         receiverPhone:
           data.receiverPhone,
 
+        /**
+         * Administrative region codes
+         */
+        provinceCode:
+          data.provinceCode ?? null,
+
+        cityCode:
+          data.cityCode ?? null,
+
+        districtCode:
+          data.districtCode ?? null,
+
+        villageCode:
+          data.villageCode ?? null,
+
+        /**
+         * Administrative region names
+         */
         province:
           data.province,
 
@@ -145,7 +174,7 @@ export class AddressRepository {
     });
   }
 
-    /**
+  /**
    * ============================================================
    * CREATE ADDRESS WITH DEFAULT HANDLING
    * ============================================================
@@ -168,6 +197,17 @@ export class AddressRepository {
       receiverName: string;
       receiverPhone: string;
 
+      /**
+       * Administrative region codes
+       */
+      provinceCode?: string | null;
+      cityCode?: string | null;
+      districtCode?: string | null;
+      villageCode?: string | null;
+
+      /**
+       * Administrative region names
+       */
       province: string;
       city: string;
       district: string;
@@ -249,6 +289,24 @@ export class AddressRepository {
             receiverPhone:
               data.receiverPhone,
 
+            /**
+             * Administrative region codes
+             */
+            provinceCode:
+              data.provinceCode ?? null,
+
+            cityCode:
+              data.cityCode ?? null,
+
+            districtCode:
+              data.districtCode ?? null,
+
+            villageCode:
+              data.villageCode ?? null,
+
+            /**
+             * Administrative region names
+             */
             province:
               data.province,
 
@@ -308,6 +366,17 @@ export class AddressRepository {
       receiverName: string;
       receiverPhone: string;
 
+      /**
+       * Administrative region codes
+       */
+      provinceCode?: string | null;
+      cityCode?: string | null;
+      districtCode?: string | null;
+      villageCode?: string | null;
+
+      /**
+       * Administrative region names
+       */
       province: string;
       city: string;
       district: string;
@@ -337,6 +406,24 @@ export class AddressRepository {
         receiverPhone:
           data.receiverPhone,
 
+        /**
+         * Administrative region codes
+         */
+        provinceCode:
+          data.provinceCode ?? null,
+
+        cityCode:
+          data.cityCode ?? null,
+
+        districtCode:
+          data.districtCode ?? null,
+
+        villageCode:
+          data.villageCode ?? null,
+
+        /**
+         * Administrative region names
+         */
         province:
           data.province,
 
@@ -391,88 +478,88 @@ export class AddressRepository {
     });
   }
 
-/**
- * ============================================================
- * SET DEFAULT ADDRESS
- * ============================================================
- *
- * Hanya address milik user yang bersangkutan dan masih aktif
- * yang boleh dijadikan default.
- *
- * Seluruh perubahan dilakukan dalam transaction agar tidak
- * terjadi kondisi di mana semua address menjadi non-default
- * ketika update address target gagal.
- * ============================================================
- */
-static async setDefault(
-  userId: string,
-  addressId: string
-) {
-  return prisma.$transaction(async (tx) => {
-    /**
-     * --------------------------------------------------------
-     * CLEAR CURRENT DEFAULT
-     * --------------------------------------------------------
-     */
-    await tx.address.updateMany({
-      where: {
-        userId,
-        isDefault: true,
-        deletedAt: null,
-      },
-
-      data: {
-        isDefault: false,
-      },
-    });
-
-    /**
-     * --------------------------------------------------------
-     * SET TARGET AS DEFAULT
-     * --------------------------------------------------------
-     *
-     * Ownership dan active-state diverifikasi kembali
-     * di level database.
-     *
-     * Ini penting karena addressId berasal dari client.
-     * --------------------------------------------------------
-     */
-    const result =
+  /**
+   * ============================================================
+   * SET DEFAULT ADDRESS
+   * ============================================================
+   *
+   * Hanya address milik user yang bersangkutan dan masih aktif
+   * yang boleh dijadikan default.
+   *
+   * Seluruh perubahan dilakukan dalam transaction agar tidak
+   * terjadi kondisi di mana semua address menjadi non-default
+   * ketika update address target gagal.
+   * ============================================================
+   */
+  static async setDefault(
+    userId: string,
+    addressId: string
+  ) {
+    return prisma.$transaction(async (tx) => {
+      /**
+       * --------------------------------------------------------
+       * CLEAR CURRENT DEFAULT
+       * --------------------------------------------------------
+       */
       await tx.address.updateMany({
         where: {
-          id: addressId,
           userId,
+          isDefault: true,
           deletedAt: null,
         },
 
         data: {
-          isDefault: true,
+          isDefault: false,
         },
       });
 
-    /**
-     * --------------------------------------------------------
-     * TARGET NOT FOUND / NOT OWNED / DELETED
-     * --------------------------------------------------------
-     */
-    if (result.count !== 1) {
-      throw new Error(
-        "ADDRESS_NOT_FOUND"
-      );
-    }
+      /**
+       * --------------------------------------------------------
+       * SET TARGET AS DEFAULT
+       * --------------------------------------------------------
+       *
+       * Ownership dan active-state diverifikasi kembali
+       * di level database.
+       *
+       * Ini penting karena addressId berasal dari client.
+       * --------------------------------------------------------
+       */
+      const result =
+        await tx.address.updateMany({
+          where: {
+            id: addressId,
+            userId,
+            deletedAt: null,
+          },
 
-    /**
-     * --------------------------------------------------------
-     * RETURN UPDATED ADDRESS
-     * --------------------------------------------------------
-     */
-    return tx.address.findUnique({
-      where: {
-        id: addressId,
-      },
+          data: {
+            isDefault: true,
+          },
+        });
+
+      /**
+       * --------------------------------------------------------
+       * TARGET NOT FOUND / NOT OWNED / DELETED
+       * --------------------------------------------------------
+       */
+      if (result.count !== 1) {
+        throw new Error(
+          "ADDRESS_NOT_FOUND"
+        );
+      }
+
+      /**
+       * --------------------------------------------------------
+       * RETURN UPDATED ADDRESS
+       * --------------------------------------------------------
+       */
+      return tx.address.findUnique({
+        where: {
+          id: addressId,
+        },
+      });
     });
-  });
-}
+  }
 
   /**
    * ============================================================
