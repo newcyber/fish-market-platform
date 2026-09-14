@@ -46,22 +46,19 @@ class LandingPageRepository {
    * ==========================================================
    */
 
-  async getOrCreate(config: Prisma.InputJsonValue = {}) {
-    const existingSettings = await this.get();
-
-    if (existingSettings) {
-      return existingSettings;
-    }
-
-    return prisma.landingPageSettings.create({
-      data: {
-        key: LANDING_PAGE_KEY,
-        enabled: true,
-        config,
-      },
-    });
-  }
-
+async getOrCreate(config: Prisma.InputJsonValue = {}) {
+  return prisma.landingPageSettings.upsert({
+    where: {
+      key: LANDING_PAGE_KEY,
+    },
+    update: {},
+    create: {
+      key: LANDING_PAGE_KEY,
+      enabled: true,
+      config,
+    },
+  });
+}
   /**
    * ==========================================================
    * UPDATE LANDING PAGE SETTINGS
