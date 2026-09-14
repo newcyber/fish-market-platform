@@ -3211,6 +3211,117 @@ model StoreSettings {
 }
 
 // ============================================================
+// LANDING PAGE SETTINGS
+// ============================================================
+//
+// Konfigurasi khusus marketing landing page:
+// https://pusatikansegar.com
+//
+// Berbeda dengan StoreSettings yang digunakan storefront:
+// https://app.pusatikansegar.com
+//
+// ============================================================
+
+model LandingPageSettings {
+  id      String  @id @default(uuid())
+  key     String  @unique @default("default")
+  enabled Boolean @default(true)
+
+  /**
+   * Seluruh konten landing page.
+   * Struktur JSON divalidasi oleh Landing Page Service,
+   * bukan diserahkan langsung ke Prisma.
+   */
+  config Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seoAnalyses LandingPageSeoAnalysis[]
+}
+
+// ============================================================
+// LANDING PAGE SEO ANALYSIS
+// ============================================================
+//
+// Menyimpan histori hasil audit SEO landing page.
+//
+// Score dihitung deterministic oleh application,
+// sedangkan AI hanya memberikan rekomendasi.
+//
+// ============================================================
+
+model LandingPageSeoAnalysis {
+  id                    String @id @default(uuid())
+  landingPageSettingsId String
+
+  /**
+   * SEO score 0 - 100.
+   */
+  score Int
+
+  /**
+   * Detail hasil pemeriksaan SEO.
+   */
+  analysis Json
+
+  /**
+   * Rekomendasi perbaikan.
+   */
+  recommendations Json
+
+  /**
+   * Sumber analisis.
+   * RULE_ENGINE = deterministic analyzer
+   * AI          = AI recommendation/analyzer
+   */
+  source String @default("RULE_ENGINE")
+
+  createdAt DateTime @default(now())
+
+  landingPageSettings LandingPageSettings @relation(fields: [landingPageSettingsId], references: [id], onDelete: Cascade)
+
+  @@index([landingPageSettingsId, createdAt])
+}
+
+// ============================================================
+// LANDING PAGE ANDROID APP
+// ============================================================
+//
+// Metadata APK Android.
+//
+// Binary APK TIDAK disimpan di database.
+// Database hanya menyimpan metadata dan lokasi file.
+//
+// ============================================================
+
+model LandingPageAndroidApp {
+  id      String  @id @default(uuid())
+  key     String  @unique @default("default")
+  enabled Boolean @default(false)
+
+  appName     String
+  version     String
+  description String?
+
+  /**
+   * Metadata file APK.
+   */
+  fileName String?
+  fileUrl  String?
+  mimeType String?
+  fileSize Int?
+
+  /**
+   * SHA-256 untuk verifikasi integritas APK.
+   */
+  sha256 String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
 // CHANGELOG
 // ============================================================
 

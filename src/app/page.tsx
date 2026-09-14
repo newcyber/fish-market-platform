@@ -1,19 +1,85 @@
-import DynamicSiteFooter from "@/components/layout/DynamicSiteFooter";
+import type { Metadata } from "next";
 
-import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
+import PisjoLandingPage from "@/components/landing/PisjoLandingPage";
 
-import SharedHomePage from "@/components/customer/home/SharedHomePage";
+import settingsService from "@/services/settings/settings.service";
 
-export default async function Home() {
-  return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+import landingPageService from "@/repositories/landing-page/landing-page.service";
 
-      <DynamicSiteHeader activePage="home" />
+import {
+  buildSeoMetadata,
+  type SeoSettings,
+} from "@/lib/seo/seo-metadata";
 
-      <SharedHomePage mode="guest" />
+const LANDING_PAGE_URL = "https://pusatikansegar.com";
 
-      <DynamicSiteFooter />
+export async function generateMetadata(): Promise<Metadata> {
+  const [settings, landingPage] = await Promise.all([
+    settingsService.getSettings(),
+    landingPageService.getLandingPage(),
+  ]);
 
-    </main>
-  );
+  const config = landingPage.config;
+
+  const hero = config.hero ?? {};
+  const images = config.images ?? {};
+
+  const storeName =
+    settings.storeName?.trim() || "Pisjo Market";
+
+  const storeDescription =
+    settings.storeDescription?.trim() ||
+    "Fresh Seafood";
+
+  const title =
+    hero.title?.trim() ||
+    `${storeName} - Seafood Segar dan Pilihan`;
+
+  const description =
+    hero.description?.trim() ||
+    storeDescription;
+
+  const ogTitle =
+    hero.title?.trim() ||
+    title;
+
+  const ogDescription =
+    hero.description?.trim() ||
+    description;
+
+  const ogImage =
+    images.ogImage?.trim() ||
+    null;
+
+  const seoSettings: SeoSettings = {
+    seoTitle: settings.seoTitle,
+    seoDescription: settings.seoDescription,
+    seoKeywords: settings.seoKeywords,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
+    seoOgTitle: settings.seoOgTitle,
+    seoOgDescription: settings.seoOgDescription,
+    seoOgImage: settings.seoOgImage,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification:
+      settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
+    storeName,
+    storeDescription,
+  };
+
+  return buildSeoMetadata(seoSettings, {
+    baseUrl: LANDING_PAGE_URL,
+    pathname: "/",
+    title,
+    description,
+    ogTitle,
+    ogDescription,
+    image: ogImage,
+  });
+}
+
+export default function Home() {
+  return <PisjoLandingPage />;
 }

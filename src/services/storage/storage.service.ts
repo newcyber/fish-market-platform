@@ -6,9 +6,7 @@ import {
 
 import path from "path";
 
-import {
-  randomUUID,
-} from "crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 /**
  * ============================================================
@@ -105,6 +103,25 @@ const SETTINGS_UPLOAD_DIRECTORY =
     "settings"
   );
 
+const LANDING_UPLOAD_DIRECTORY =
+  path.join(
+    PROJECT_ROOT,
+    "public",
+    "uploads",
+    "settings",
+    "landing"
+  );
+
+  const LANDING_ANDROID_UPLOAD_DIRECTORY =
+  path.join(
+    PROJECT_ROOT,
+    "public",
+    "uploads",
+    "settings",
+    "landing",
+    "android",
+  );
+
 const LOGIN_UPLOAD_DIRECTORY =
   path.join(
     PROJECT_ROOT,
@@ -155,6 +172,146 @@ const MIME_TO_EXTENSION:
  */
 
 export class StorageService {
+
+  static async saveLandingAndroidApk(
+  file: File,
+): Promise<{
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  fileSize: number;
+  sha256: string;
+}> {
+  if (!(file instanceof File)) {
+    throw new Error("File APK tidak valid.");
+  }
+
+  const originalFileName = file.name?.trim() ?? "";
+
+  if (
+    !originalFileName ||
+    !originalFileName.toLowerCase().endsWith(".apk")
+  ) {
+    throw new Error(
+      "File harus menggunakan ekstensi .apk.",
+    );
+  }
+
+  const mimeType =
+    file.type?.trim().toLowerCase() || "";
+
+  const allowedMimeTypes = new Set([
+    "",
+    "application/vnd.android.package-archive",
+    "application/octet-stream",
+    "application/x-apk",
+  ]);
+
+  if (!allowedMimeTypes.has(mimeType)) {
+    throw new Error(
+      "Format MIME file APK tidak didukung.",
+    );
+  }
+
+  const MAX_APK_SIZE =
+    100 * 1024 * 1024;
+
+  if (file.size <= 0) {
+    throw new Error("File APK kosong.");
+  }
+
+  if (file.size > MAX_APK_SIZE) {
+    throw new Error(
+      "Ukuran APK maksimal 100 MB.",
+    );
+  }
+
+  const buffer = Buffer.from(
+    await file.arrayBuffer(),
+  );
+
+  if (!buffer.length) {
+    throw new Error("File APK kosong.");
+  }
+
+  /*
+   * APK pada dasarnya adalah ZIP archive.
+   * Validasi signature dasar untuk mencegah file
+   * non-ZIP yang hanya diganti ekstensi menjadi .apk.
+   */
+  const isZip =
+    buffer.length >= 4 &&
+    buffer[0] === 0x50 &&
+    buffer[1] === 0x4b &&
+    (
+      (
+        buffer[2] === 0x03 &&
+        buffer[3] === 0x04
+      ) ||
+      (
+        buffer[2] === 0x05 &&
+        buffer[3] === 0x06
+      ) ||
+      (
+        buffer[2] === 0x07 &&
+        buffer[3] === 0x08
+      )
+    );
+
+  if (!isZip) {
+    throw new Error(
+      "File tidak terlihat seperti APK/ZIP yang valid.",
+    );
+  }
+
+  await mkdir(
+    LANDING_ANDROID_UPLOAD_DIRECTORY,
+    {
+      recursive: true,
+    },
+  );
+
+  const generatedFileName =
+    `${randomUUID()}.apk`;
+
+  const filepath = path.join(
+    LANDING_ANDROID_UPLOAD_DIRECTORY,
+    generatedFileName,
+  );
+
+  await writeFile(filepath, buffer);
+
+  const sha256 =
+    createHash("sha256")
+      .update(buffer)
+      .digest("hex");
+
+  return {
+    fileName: originalFileName,
+    fileUrl:
+      `/uploads/settings/landing/android/${generatedFileName}`,
+    mimeType:
+      mimeType ||
+      "application/vnd.android.package-archive",
+    fileSize: buffer.length,
+    sha256,
+  };
+}
+
+static async deleteLandingAndroidApk(
+  fileUrl: string | null,
+): Promise<void> {
+  if (!fileUrl) {
+    return;
+  }
+
+  await this.deleteFromDirectory(
+    fileUrl,
+    "uploads/settings/landing/android/",
+    LANDING_ANDROID_UPLOAD_DIRECTORY,
+  );
+}
+
   /**
    * ==========================================================
    * SAVE PAYMENT QRIS
@@ -306,6 +463,26 @@ static async deleteCategoryImage(
       "/uploads/settings"
     );
   }
+
+  static async saveLandingImage(
+  file: File
+): Promise<string> {
+  return this.saveToDirectory(
+    file,
+    LANDING_UPLOAD_DIRECTORY,
+    "/uploads/settings/landing"
+  );
+}
+
+static async deleteLandingImage(
+  imagePath: string
+): Promise<void> {
+  await this.deleteFromDirectory(
+    imagePath,
+    "uploads/settings/landing/",
+    LANDING_UPLOAD_DIRECTORY
+  );
+}
 
   /**
  * ==========================================================

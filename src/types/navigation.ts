@@ -16,6 +16,7 @@ export type NavigationIcon =
   | "reward-voucher"
   | "reward-catalog"
   | "reward-category"
+  | "landing-page"
   | "reward-points";
 
 import type { Role } from "@prisma/client";

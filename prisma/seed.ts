@@ -1160,6 +1160,152 @@ async function main() {
   console.log(
     "✅ Payment channels seeded."
   );
+
+  /**
+   * ============================================================
+   * LANDING PAGE SETTINGS SEEDER
+   * ============================================================
+   *
+   * Konfigurasi default marketing landing page:
+   *
+   * https://pusatikansegar.com
+   *
+   * Berbeda dengan storefront:
+   *
+   * https://app.pusatikansegar.com
+   *
+   * Menggunakan upsert agar aman dijalankan berulang kali.
+   *
+   * ============================================================
+   */
+
+  await prisma.landingPageSettings.upsert({
+    where: {
+      key: "default",
+    },
+
+    update: {},
+
+    create: {
+      key: "default",
+
+      enabled: true,
+
+      config: {
+  hero: {
+    eyebrow: "Belanja seafood jadi lebih mudah",
+
+    title: "Seafood pilihan,",
+
+    highlight: "langsung lebih mudah.",
+
+    description:
+      "Temukan berbagai kebutuhan seafood dan produk pilihan melalui Pisjo Market. Belanja lebih praktis, pesan dengan mudah, dan pantau pesanan Anda dalam satu tempat.",
+
+    primaryButtonLabel: "Kunjungi Store",
+
+    secondaryButtonLabel: "Download Android",
+  },
+
+  benefits: [
+    {
+      title: "Produk pilihan",
+
+      description:
+        "Temukan berbagai produk seafood dan kebutuhan pilihan dalam satu tempat.",
+    },
+
+    {
+      title: "Belanja praktis",
+
+      description:
+        "Pilih produk, masukkan ke keranjang, lalu selesaikan pesanan dengan mudah.",
+    },
+
+    {
+      title: "Pesanan lebih terpantau",
+
+      description:
+        "Lihat status pesanan Anda agar proses belanja terasa lebih nyaman.",
+    },
+  ],
+
+  app: {
+    enabled: true,
+
+    title: "Belanja kapan saja, langsung dari smartphone.",
+
+    description:
+      "Akses Pisjo Market dari perangkat Android untuk pengalaman belanja yang lebih praktis.",
+
+    image: null,
+
+    buttonLabel: "Download Aplikasi Android",
+  },
+
+  steps: [
+    {
+      number: 1,
+
+      title: "Buka Pisjo Market",
+
+      description:
+        "Kunjungi store Pisjo Market melalui browser atau perangkat Android.",
+    },
+
+    {
+      number: 2,
+
+      title: "Pilih produk",
+
+      description:
+        "Cari dan pilih produk seafood atau kebutuhan yang Anda inginkan.",
+    },
+
+    {
+      number: 3,
+
+      title: "Checkout",
+
+      description:
+        "Masukkan produk ke keranjang dan selesaikan proses pemesanan.",
+    },
+
+    {
+      number: 4,
+
+      title: "Pantau pesanan",
+
+      description:
+        "Pantau perkembangan pesanan Anda sampai proses selesai.",
+    },
+  ],
+
+  cta: {
+    eyebrow: "SIAP BELANJA?",
+
+    title: "Yuk, mulai belanja di Pisjo Market.",
+
+    description:
+      "Kunjungi store Pisjo Market atau akses dari perangkat Android untuk mulai menikmati pengalaman belanja yang lebih praktis.",
+
+    buttonLabel: "Kunjungi Store",
+  },
+
+  images: {
+    hero: null,
+
+    app: null,
+
+    ogImage: null,
+  },
+},
+    },
+  });
+
+  console.log(
+    "✅ Landing page settings seeded."
+  );
 }
 
 /**

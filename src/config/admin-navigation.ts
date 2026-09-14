@@ -276,33 +276,42 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
    * ==========================================================
    */
   {
-    id: "settings",
-    title: "Settings",
-    href: "/admin/settings",
-    icon: "settings",
-    roles: SUPER_ADMIN_ONLY,
-    order: 9,
+  id: "settings",
+  title: "Settings",
+  href: "/admin/settings",
+  icon: "settings",
+  roles: SUPER_ADMIN_ONLY,
+  order: 9,
 
-    children: [
-      {
-        id: "store-settings",
-        title: "Pengaturan Toko",
-        href: "/admin/settings",
-        icon: "settings",
-        roles: SUPER_ADMIN_ONLY,
-        order: 1,
-      },
+  children: [
+    {
+      id: "store-settings",
+      title: "Pengaturan Toko",
+      href: "/admin/settings",
+      icon: "settings",
+      roles: SUPER_ADMIN_ONLY,
+      order: 1,
+    },
 
-      {
-        id: "payment-channels",
-        title: "Metode Pembayaran",
-        href: "/admin/payment-channels",
-        icon: "payments",
-        roles: SUPER_ADMIN_ONLY,
-        order: 2,
-      },
-    ],
-  },
+    {
+      id: "payment-channels",
+      title: "Metode Pembayaran",
+      href: "/admin/payment-channels",
+      icon: "payments",
+      roles: SUPER_ADMIN_ONLY,
+      order: 2,
+    },
+
+    {
+      id: "landing-page",
+      title: "Landing Page",
+      href: "/admin/landing-page",
+      icon: "landing-page",
+      roles: SUPER_ADMIN_ONLY,
+      order: 3,
+    },
+  ],
+},
 
   /**
    * ==========================================================

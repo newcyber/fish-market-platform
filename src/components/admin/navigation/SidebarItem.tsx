@@ -24,6 +24,7 @@ import {
   Tags,
   Calculator,
   Image,
+  PanelsTopLeft,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -70,6 +71,7 @@ const ICON_MAP: Record<
   "reward-catalog": Award,
   "reward-category": Tags,
   "reward-points": Calculator,
+  "landing-page": PanelsTopLeft,
 };
 
 /**

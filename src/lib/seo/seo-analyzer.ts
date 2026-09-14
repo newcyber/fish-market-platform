@@ -204,11 +204,18 @@ export function analyzeSeoMetadata(
   }
 
   /**
-   * ============================================================
-   * SLUG
-   * ============================================================
-   */
+ * ============================================================
+ * SLUG
+ * ============================================================
+ *
+ * Landing Page / site menggunakan root URL dan tidak
+ * membutuhkan slug.
+ *
+ * Entity lain seperti product, category, promotion,
+ * dan flash-sale tetap dianalisis seperti sebelumnya.
+ */
 
+if (input.entityType !== "site") {
   if (!slug) {
     issues.push({
       code: "SLUG_MISSING",
@@ -250,6 +257,7 @@ export function analyzeSeoMetadata(
       });
     }
   }
+}
 
   /**
    * ============================================================

@@ -38,6 +38,7 @@ export type SeoPageOverrides = {
   ogDescription?: string | null;
   pathname?: string;
   image?: string | null;
+  baseUrl?: string | null;
   noIndex?: boolean;
   noFollow?: boolean;
 };
@@ -59,7 +60,9 @@ export function buildSeoMetadata(
     settings.storeDescription?.trim() || undefined
   );
 
-  const baseUrl = resolveSeoBaseUrl(settings.seoCanonicalUrl);
+  const baseUrl = resolveSeoBaseUrl(
+  overrides.baseUrl || settings.seoCanonicalUrl,
+);
 
   const title = resolveSeoTitle(
     overrides.title,
