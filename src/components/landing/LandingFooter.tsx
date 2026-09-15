@@ -1,0 +1,79 @@
+import Image from "next/image";
+import Link from "next/link";
+
+type LandingFooterProps = {
+  storeName: string;
+  storeDescription: string;
+  siteLogo?: string | null;
+  storeInitial: string;
+  storeUrl: string;
+  androidUrl: string;
+};
+
+export default function LandingFooter({
+  storeName,
+  storeDescription,
+  siteLogo,
+  storeInitial,
+  storeUrl,
+  androidUrl,
+}: LandingFooterProps) {
+  return (
+    <footer className="border-t border-slate-200 bg-white">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-[var(--pisjo-primary)] text-xs font-bold text-white">
+            {siteLogo ? (
+              <Image
+                src={siteLogo}
+                alt={`${storeName} Logo`}
+                fill
+                sizes="36px"
+                className="object-contain p-1"
+                unoptimized
+              />
+            ) : (
+              storeInitial
+            )}
+          </div>
+
+          <div>
+            <p className="text-sm font-bold text-slate-900">{storeName}</p>
+
+            <p className="text-xs text-slate-400">{storeDescription}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+          <a
+            href={storeUrl}
+            className="transition hover:text-[var(--pisjo-primary)]"
+          >
+            Store
+          </a>
+
+          <a
+            href={androidUrl}
+            className="transition hover:text-[var(--pisjo-primary)]"
+          >
+            Android
+          </a>
+
+          <Link
+            href="/privacy-policy"
+            className="transition hover:text-[var(--pisjo-primary)]"
+          >
+            Privasi
+          </Link>
+
+          <Link
+            href="/terms-and-conditions"
+            className="transition hover:text-[var(--pisjo-primary)]"
+          >
+            Syarat & Ketentuan
+          </Link>
+        </div>
+      </div>
+    </footer>
+  );
+}

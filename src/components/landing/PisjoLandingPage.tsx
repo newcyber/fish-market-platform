@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
@@ -15,6 +14,8 @@ import {
   Truck,
 } from "lucide-react";
 
+import LandingFooter from "@/components/landing/LandingFooter";
+import LandingHeader from "@/components/landing/LandingHeader";
 import landingPageService from "@/repositories/landing-page/landing-page.service";
 
 export default async function PisjoLandingPage() {
@@ -63,56 +64,13 @@ export default async function PisjoLandingPage() {
       {/* HEADER                                                  */}
       {/* ====================================================== */}
 
-      <header className="relative z-50 border-b border-slate-200/70 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link
-            href="/"
-            className="flex items-center gap-3"
-            aria-label={`${storeName} Beranda`}
-          >
-            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--pisjo-primary)] text-sm font-bold text-white shadow-sm">
-              {siteLogo ? (
-                <Image
-                  src={siteLogo}
-                  alt={`${storeName} Logo`}
-                  fill
-                  sizes="40px"
-                  className="object-contain p-1"
-                  priority
-                  unoptimized
-                />
-              ) : (
-                storeInitial
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold tracking-tight text-slate-950 sm:text-base">
-                {storeName}
-              </p>
-
-              <p className="hidden truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--pisjo-primary)] sm:block">
-                {storeDescription}
-              </p>
-            </div>
-          </Link>
-
-            <a
-  href={urls.store}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--pisjo-ocean)] sm:px-5"
-          >
-            <span className="hidden sm:inline">
-              Belanja Sekarang
-            </span>
-
-            <span className="sm:hidden">
-              Belanja
-            </span>
-
-            <ArrowRight className="h-4 w-4" />
-          </a>
-        </div>
-      </header>
+      <LandingHeader
+        storeName={storeName}
+        storeDescription={storeDescription}
+        siteLogo={siteLogo}
+        storeInitial={storeInitial}
+        storeUrl={urls.store}
+      />
 
       {/* ====================================================== */}
       {/* HERO                                                    */}
@@ -580,66 +538,14 @@ export default async function PisjoLandingPage() {
       {/* FOOTER                                                  */}
       {/* ====================================================== */}
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-[var(--pisjo-primary)] text-xs font-bold text-white">
-              {siteLogo ? (
-                <Image
-                  src={siteLogo}
-                  alt={`${storeName} Logo`}
-                  fill
-                  sizes="36px"
-                  className="object-contain p-1"
-                  unoptimized
-                />
-              ) : (
-                storeInitial
-              )}
-            </div>
-
-            <div>
-              <p className="text-sm font-bold text-slate-900">
-                {storeName}
-              </p>
-
-              <p className="text-xs text-slate-400">
-                {storeDescription}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-            <a
-              href={urls.store}
-              className="transition hover:text-[var(--pisjo-primary)]"
-            >
-              Store
-            </a>
-
-            <a
-              href={androidUrl}
-              className="transition hover:text-[var(--pisjo-primary)]"
-            >
-              Android
-            </a>
-
-            <Link
-              href="/privacy-policy"
-              className="transition hover:text-[var(--pisjo-primary)]"
-            >
-              Privasi
-            </Link>
-
-            <Link
-              href="/terms-and-conditions"
-              className="transition hover:text-[var(--pisjo-primary)]"
-            >
-              Syarat & Ketentuan
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <LandingFooter
+        storeName={storeName}
+        storeDescription={storeDescription}
+        siteLogo={siteLogo}
+        storeInitial={storeInitial}
+        storeUrl={urls.store}
+        androidUrl={androidUrl}
+      />
     </main>
   );
 }

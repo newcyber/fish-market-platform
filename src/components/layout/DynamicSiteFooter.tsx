@@ -492,6 +492,17 @@ export default async function DynamicSiteFooter() {
                 </Link>
               </li>
 
+              <li>
+                <Link
+                  href="/kontak-kami"
+                  className="group flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <MessageCircle className="h-4 w-4 shrink-0" />
+
+                  <span>Kontak Kami</span>
+                </Link>
+              </li>
+
 <li>
   <Link
     href="/changelog"
