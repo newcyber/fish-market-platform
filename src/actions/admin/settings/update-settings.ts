@@ -47,6 +47,10 @@ export interface UpdateSettingsActionInput {
 
   storeDescription?: string;
 
+  landingPageUrl?: string | null;
+
+  storefrontUrl?: string | null;
+
   /**
    * Deskripsi khusus untuk Footer Customer.
    */
@@ -270,6 +274,12 @@ storeName:
 
 storeDescription:
   input.storeDescription,
+
+landingPageUrl:
+  input.landingPageUrl,
+
+storefrontUrl:
+  input.storefrontUrl,
 
 footerDescription:
   input.footerDescription,

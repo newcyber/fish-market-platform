@@ -61,6 +61,8 @@ interface SettingsFormProps {
     storeName: string;
     storeDescription: string | null;
     footerDescription: string | null;
+    landingPageUrl: string | null;
+    storefrontUrl: string | null;
 
         /**
      * ==========================================================
@@ -684,6 +686,14 @@ export default function SettingsForm({
         formData.get("footerDescription") ?? ""
       ),
 
+      landingPageUrl: String(
+        formData.get("landingPageUrl") ?? "",
+      ),
+
+      storefrontUrl: String(
+        formData.get("storefrontUrl") ?? "",
+      ),
+
       seoTitle: String(formData.get("seoTitle") ?? ""),
       seoDescription: String(formData.get("seoDescription") ?? ""),
       seoKeywords: String(formData.get("seoKeywords") ?? ""),
@@ -1072,6 +1082,100 @@ export default function SettingsForm({
 
             <p className="mt-2 text-xs text-slate-500">
               Deskripsi ini akan ditampilkan pada bagian footer halaman customer.
+            </p>
+          </div>
+        </div>
+      </section>
+
+            {/* ====================================================== */}
+      {/* DOMAIN & URL */}
+      {/* ====================================================== */}
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="mb-6 flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
+            <Navigation className="h-5 w-5" />
+          </div>
+
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Domain & URL
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Atur alamat utama Landing Page dan Storefront.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {/* LANDING PAGE URL */}
+
+          <div>
+            <label
+              htmlFor="landingPageUrl"
+              className="mb-2 block text-sm font-semibold text-slate-700"
+            >
+              Landing Page URL
+            </label>
+
+            <input
+              id="landingPageUrl"
+              name="landingPageUrl"
+              type="url"
+              required
+              defaultValue={
+                settings.landingPageUrl ??
+                "https://pusatikansegar.com"
+              }
+              disabled={isPending}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              placeholder="https://pusatikansegar.com"
+            />
+
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              URL utama halaman marketing atau landing page.
+            </p>
+          </div>
+
+          {/* STOREFRONT URL */}
+
+          <div>
+            <label
+              htmlFor="storefrontUrl"
+              className="mb-2 block text-sm font-semibold text-slate-700"
+            >
+              Storefront URL
+            </label>
+
+            <input
+              id="storefrontUrl"
+              name="storefrontUrl"
+              type="url"
+              required
+              defaultValue={
+                settings.storefrontUrl ??
+                "https://app.pusatikansegar.com"
+              }
+              disabled={isPending}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              placeholder="https://app.pusatikansegar.com"
+            />
+
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              URL utama toko yang digunakan customer untuk
+              melihat produk dan melakukan pemesanan.
+            </p>
+          </div>
+
+          {/* INFO */}
+
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <p className="text-xs leading-5 text-blue-800">
+              Host Landing Page dan Storefront harus berbeda.
+              Host seperti <strong>www</strong> akan diturunkan
+              otomatis dari Landing Page URL dan tidak perlu
+              disimpan sebagai pengaturan terpisah.
             </p>
           </div>
         </div>

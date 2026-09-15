@@ -34,6 +34,10 @@ export interface UpdateStoreSettingsPayload {
 
   storeDescription?: string;
 
+  landingPageUrl?: string | null;
+
+  storefrontUrl?: string | null;
+
   footerDescription?: string;
 
     /**
@@ -250,6 +254,57 @@ export interface UpdateSeoSettingsPayload {
   seoAiEnabled?: boolean;
 }
 
+function normalizeSiteUrl(
+  value?: string | null,
+): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  let parsed: URL;
+
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(
+      "URL situs tidak valid. Gunakan URL lengkap seperti https://example.com.",
+    );
+  }
+
+  if (
+    parsed.protocol !== "http:" &&
+    parsed.protocol !== "https:"
+  ) {
+    throw new Error(
+      "URL situs hanya boleh menggunakan HTTP atau HTTPS.",
+    );
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new Error(
+      "URL situs tidak boleh mengandung username atau password.",
+    );
+  }
+
+  if (parsed.search || parsed.hash) {
+    throw new Error(
+      "URL situs tidak boleh mengandung query parameter atau hash.",
+    );
+  }
+
+  return parsed.origin;
+}
+
 /**
  * ============================================================
  * SETTINGS SERVICE
@@ -369,6 +424,45 @@ class SettingsService {
   async updateSettings(
     payload: UpdateStoreSettingsPayload
   ) {
+
+        const landingPageUrl =
+      normalizeSiteUrl(
+        payload.landingPageUrl,
+      );
+
+    const storefrontUrl =
+      normalizeSiteUrl(
+        payload.storefrontUrl,
+      );
+
+    if (
+      landingPageUrl &&
+      storefrontUrl
+    ) {
+      const landingHost =
+        new URL(
+          landingPageUrl,
+        ).hostname
+          .trim()
+          .toLowerCase();
+
+      const storefrontHost =
+        new URL(
+          storefrontUrl,
+        ).hostname
+          .trim()
+          .toLowerCase();
+
+      if (
+        landingHost ===
+        storefrontHost
+      ) {
+        throw new Error(
+          "Landing Page URL dan Storefront URL harus menggunakan host yang berbeda.",
+        );
+      }
+    }
+
     /**
      * --------------------------------------------------------
      * VALIDASI STORE NAME
@@ -834,19 +928,23 @@ const normalize = (
 
       storeDescription:
         normalize(
-          payload.storeDescription
+          payload.storeDescription,
         ),
 
-footerDescription:
-  normalize(
-    payload.footerDescription
-  ),
+      landingPageUrl,
 
-/**
- * ------------------------------------------------------
- * GLOBAL SEO
- * ------------------------------------------------------
- */
+      storefrontUrl,
+
+      footerDescription:
+        normalize(
+          payload.footerDescription,
+        ),
+
+      /**
+       * ------------------------------------------------------
+       * GLOBAL SEO
+       * ------------------------------------------------------
+       */
 
 seoTitle:
   normalize(

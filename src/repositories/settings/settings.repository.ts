@@ -30,6 +30,10 @@ export interface UpdateSettingsPayload {
 
   storeDescription?: string | null;
 
+  landingPageUrl?: string | null;
+
+  storefrontUrl?: string | null;
+
   footerDescription?: string | null;
 
   /**
@@ -782,6 +786,12 @@ class SettingsRepository {
 
         storeDescription:
           data.storeDescription ?? null,
+
+        landingPageUrl:
+          data.landingPageUrl ?? null,
+
+        storefrontUrl:
+          data.storefrontUrl ?? null,
 
         footerDescription:
           data.footerDescription ?? null,

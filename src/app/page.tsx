@@ -14,16 +14,7 @@ import {
   type SeoSettings,
 } from "@/lib/seo/seo-metadata";
 
-const LANDING_PAGE_URL =
-  "https://pusatikansegar.com";
-
-const STORE_URL =
-  "https://app.pusatikansegar.com";
-
-const LANDING_HOSTS = new Set([
-  "pusatikansegar.com",
-  "www.pusatikansegar.com",
-]);
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 /**
  * ==========================================================
@@ -36,12 +27,14 @@ const LANDING_HOSTS = new Set([
  *
  * proxy_set_header Host $host;
  *
- * Karena itu host request dapat digunakan untuk
- * menentukan apakah request berasal dari:
+ * Host digunakan untuk menentukan apakah request berasal dari:
  *
- * pusatikansegar.com
+ * pusatikansegar.com / www.pusatikansegar.com
  * atau
  * app.pusatikansegar.com
+ *
+ * Host landing tidak lagi hardcoded.
+ * Nilainya berasal dari Site URL Settings.
  *
  * ==========================================================
  */
@@ -57,12 +50,6 @@ async function getRequestHost(): Promise<string> {
   );
 }
 
-function isLandingHost(
-  host: string,
-): boolean {
-  return LANDING_HOSTS.has(host);
-}
-
 /**
  * ==========================================================
  * FORCE DYNAMIC
@@ -70,13 +57,14 @@ function isLandingHost(
  *
  * Root "/" memiliki dua fungsi berdasarkan hostname:
  *
- * pusatikansegar.com
+ * Landing host
  * -> Landing Page
  *
- * app.pusatikansegar.com
+ * Storefront host
  * -> Storefront
  *
- * Selain itu status Landing Page berasal dari database.
+ * Selain itu URL domain dan status Landing Page
+ * berasal dari database.
  *
  * Jangan prerender "/" saat build.
  *
@@ -88,48 +76,56 @@ export const dynamic = "force-dynamic";
  * ==========================================================
  * METADATA
  * ==========================================================
+ *
+ * Global SEO Settings menjadi sumber utama:
+ *
+ * SEO Title
+ * SEO Description
+ * SEO OG Title
+ * SEO OG Description
+ * SEO OG Image
+ *
+ * Landing Page Settings hanya mengatur metadata khusus
+ * yang memang bersifat visual/content landing.
+ *
+ * Hero Title tetap digunakan sebagai H1 di landing page,
+ * bukan sebagai <title> SEO.
+ *
+ * ==========================================================
  */
 export async function generateMetadata(): Promise<Metadata> {
+  const siteUrls = await getSiteUrls();
   const host = await getRequestHost();
 
-  const [
-    settings,
-    landingPage,
-  ] = await Promise.all([
+  const landingHosts = new Set(siteUrls.landingHosts);
+  const isLandingHost = landingHosts.has(host);
+
+  const [settings, landingPage] = await Promise.all([
     settingsService.getSettings(),
-    isLandingHost(host)
+    isLandingHost
       ? landingPageService.getLandingPage()
       : Promise.resolve(null),
   ]);
 
   const storeName =
-    settings.storeName?.trim() ||
-    "Pisjo Market";
+    settings.storeName?.trim() || "Pisjo Market";
 
   const storeDescription =
-    settings.storeDescription?.trim() ||
-    "Fresh Seafood";
+    settings.storeDescription?.trim() || "Fresh Seafood";
 
   const seoSettings: SeoSettings = {
     seoTitle: settings.seoTitle,
     seoDescription: settings.seoDescription,
     seoKeywords: settings.seoKeywords,
-    seoCanonicalUrl:
-      settings.seoCanonicalUrl,
+    seoCanonicalUrl: settings.seoCanonicalUrl,
     seoOgTitle: settings.seoOgTitle,
-    seoOgDescription:
-      settings.seoOgDescription,
+    seoOgDescription: settings.seoOgDescription,
     seoOgImage: settings.seoOgImage,
-    seoTwitterCard:
-      settings.seoTwitterCard,
-    seoRobotsIndex:
-      settings.seoRobotsIndex,
-    seoRobotsFollow:
-      settings.seoRobotsFollow,
-    seoGoogleVerification:
-      settings.seoGoogleVerification,
-    seoAiEnabled:
-      settings.seoAiEnabled,
+    seoTwitterCard: settings.seoTwitterCard,
+    seoRobotsIndex: settings.seoRobotsIndex,
+    seoRobotsFollow: settings.seoRobotsFollow,
+    seoGoogleVerification: settings.seoGoogleVerification,
+    seoAiEnabled: settings.seoAiEnabled,
     storeName,
     storeDescription,
   };
@@ -138,45 +134,44 @@ export async function generateMetadata(): Promise<Metadata> {
    * ========================================================
    * LANDING PAGE METADATA
    * ========================================================
+   *
+   * Landing menggunakan Global SEO sebagai sumber utama
+   * untuk title dan description.
+   *
+   * Landing image dapat menggunakan ogImage khusus dari
+   * Landing Page Settings, dengan fallback ke Global SEO.
+   *
+   * ========================================================
    */
-  if (
-    isLandingHost(host) &&
-    landingPage
-  ) {
-    const config =
-      landingPage.config;
-
-    const hero =
-      config.hero ?? {};
-
-    const images =
-      config.images ?? {};
+  if (isLandingHost && landingPage) {
+    const config = landingPage.config;
+    const images = config.images ?? {};
 
     const title =
-      hero.title?.trim() ||
+      seoSettings.seoTitle?.trim() ||
       `${storeName} - Seafood Segar dan Pilihan`;
 
     const description =
-      hero.description?.trim() ||
+      seoSettings.seoDescription?.trim() ||
       storeDescription;
 
     const ogTitle =
-      hero.title?.trim() ||
+      seoSettings.seoOgTitle?.trim() ||
       title;
 
     const ogDescription =
-      hero.description?.trim() ||
+      seoSettings.seoOgDescription?.trim() ||
       description;
 
     const ogImage =
       images.ogImage?.trim() ||
+      seoSettings.seoOgImage?.trim() ||
       null;
 
     return buildSeoMetadata(
       seoSettings,
       {
-        baseUrl:
-          LANDING_PAGE_URL,
+        baseUrl: siteUrls.landingPageUrl,
         pathname: "/",
         title,
         description,
@@ -192,13 +187,17 @@ export async function generateMetadata(): Promise<Metadata> {
    * STOREFRONT METADATA
    * ========================================================
    *
-   * Jangan gunakan canonical Landing Page untuk
-   * app.pusatikansegar.com.
+   * Storefront menggunakan Storefront URL dari Admin Settings.
+   *
+   * Jangan menggunakan Landing Page URL untuk canonical
+   * storefront.
+   *
+   * ========================================================
    */
   return buildSeoMetadata(
     seoSettings,
     {
-      baseUrl: STORE_URL,
+      baseUrl: siteUrls.storefrontUrl,
       pathname: "/",
     },
   );
@@ -209,48 +208,30 @@ export async function generateMetadata(): Promise<Metadata> {
  * HOME
  * ==========================================================
  *
- * pusatikansegar.com
+ * Landing host
  * -> PisjoLandingPage
  *
- * app.pusatikansegar.com
+ * Storefront host
  * -> SharedHomePage
+ *
+ * Host ditentukan dari Site URL Settings.
  *
  * ==========================================================
  */
 export default async function Home() {
-  const host =
-    await getRequestHost();
+  const siteUrls = await getSiteUrls();
+  const host = await getRequestHost();
 
-  /**
-   * ========================================================
-   * LANDING DOMAIN
-   * ========================================================
-   */
-  if (
-    isLandingHost(host)
-  ) {
-    return (
-      <PisjoLandingPage />
-    );
+  const landingHosts = new Set(siteUrls.landingHosts);
+
+  if (landingHosts.has(host)) {
+    return <PisjoLandingPage />;
   }
 
-  /**
-   * ========================================================
-   * STOREFRONT DOMAIN
-   * ========================================================
-   *
-   * app.pusatikansegar.com
-   */
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <DynamicSiteHeader
-        activePage="home"
-      />
-
-      <SharedHomePage
-        mode="guest"
-      />
-
+      <DynamicSiteHeader activePage="home" />
+      <SharedHomePage mode="guest" />
       <DynamicSiteFooter />
     </main>
   );

@@ -6,7 +6,8 @@ import {
 
 import landingPageService from "@/repositories/landing-page/landing-page.service";
 
-const LANDING_PAGE_URL = "https://pusatikansegar.com";
+import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 export type LandingPageSeoAnalysis = {
   name: string;
@@ -27,8 +28,15 @@ function getString(
 }
 
 export async function analyzeLandingPageSeo(): Promise<LandingPageSeoAnalysis> {
-  const landingPage =
-    await landingPageService.getLandingPage();
+  const [
+    landingPage,
+    settings,
+    siteUrls,
+  ] = await Promise.all([
+    landingPageService.getLandingPage(),
+    settingsService.getSettings(),
+    getSiteUrls(),
+  ]);
 
   const config = landingPage.config;
 
@@ -37,20 +45,29 @@ export async function analyzeLandingPageSeo(): Promise<LandingPageSeoAnalysis> {
   const steps = config.steps ?? [];
   const images = config.images ?? {};
 
-  const title = normalize(
-    getString(hero.title),
-  );
+  const title =
+    settings.seoTitle?.trim() ||
+    "Pisjo Market";
 
-  const description = normalize(
-    getString(hero.description),
-  );
+  const description =
+    settings.seoDescription?.trim() ||
+    settings.storeDescription?.trim() ||
+    "Fresh Seafood";
 
-  const ogImage = normalize(
-    getString(images.ogImage),
-  );
+  const ogTitle =
+    settings.seoOgTitle?.trim() ||
+    title;
+
+  const ogDescription =
+    settings.seoOgDescription?.trim() ||
+    description;
+
+  const ogImage =
+    getString(images.ogImage) ||
+    getString(settings.seoOgImage);
 
   const heroImage = normalize(
-    getString(images.hero),
+    getString(hero.title),
   );
 
   const appImage = normalize(
@@ -62,12 +79,14 @@ export async function analyzeLandingPageSeo(): Promise<LandingPageSeoAnalysis> {
   const metadataAnalysis =
     analyzeSeoMetadata({
       entityType: "site",
-      name: "Pisjo Market",
+      name:
+        settings.storeName?.trim() ||
+        "Pisjo Market",
       title,
       description,
-      canonicalUrl: LANDING_PAGE_URL,
-      ogTitle: title,
-      ogDescription: description,
+      canonicalUrl: siteUrls.landingPageUrl,
+      ogTitle,
+      ogDescription,
       ogImage,
 
       // Root landing page tidak memiliki slug.
@@ -228,13 +247,12 @@ export async function analyzeLandingPageSeo(): Promise<LandingPageSeoAnalysis> {
         );
 
   return {
-    name: "Pisjo Market Landing Page",
-    url: LANDING_PAGE_URL,
-    analysis: {
-      score,
-      issues,
-      analyzedAt:
-        new Date().toISOString(),
-    },
-  };
+  name: "Pisjo Market Landing Page",
+  url: siteUrls.landingPageUrl,
+  analysis: {
+    score,
+    issues,
+    analyzedAt: new Date().toISOString(),
+  },
+};
 }

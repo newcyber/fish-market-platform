@@ -2973,6 +2973,9 @@ model WishlistItem {
 model StoreSettings {
   id String @id @default(uuid())
 
+  landingPageUrl String? @default("https://pusatikansegar.com")
+  storefrontUrl  String? @default("https://app.pusatikansegar.com")
+
   // ----------------------------------------------------------
   // INFORMASI TOKO
   // ----------------------------------------------------------

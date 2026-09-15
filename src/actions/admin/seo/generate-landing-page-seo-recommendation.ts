@@ -19,8 +19,7 @@ import settingsService from "@/services/settings/settings.service";
 
 import landingPageService from "@/repositories/landing-page/landing-page.service";
 
-const LANDING_PAGE_URL =
-  "https://pusatikansegar.com";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 export interface GenerateLandingPageSeoRecommendationActionResult {
   success: boolean;
@@ -43,6 +42,9 @@ export async function generateLandingPageSeoRecommendationAction(): Promise<Gene
     const settings =
       await settingsService.getSettings();
 
+    const siteUrls =
+      await getSiteUrls();
+
     if (!settings.seoAiEnabled) {
       return {
         success: false,
@@ -57,37 +59,65 @@ export async function generateLandingPageSeoRecommendationAction(): Promise<Gene
     const analysis =
       await analyzeLandingPageSeo();
 
-    const hero =
-      landingPage.config.hero ?? {};
-
     const images =
       landingPage.config.images ?? {};
 
+    /**
+     * ========================================================
+     * CURRENT GLOBAL SEO METADATA
+     * ========================================================
+     *
+     * Global SEO Settings menjadi sumber utama metadata
+     * Landing Page.
+     *
+     * Hero Title tetap merupakan H1/content Landing Page
+     * dan tidak digunakan sebagai SEO title.
+     *
+     * ========================================================
+     */
+
     const title =
-      getString(hero.title);
+      settings.seoTitle?.trim() ||
+      settings.storeName?.trim() ||
+      "Pisjo Market";
 
     const description =
-      getString(hero.description);
+      settings.seoDescription?.trim() ||
+      settings.storeDescription?.trim() ||
+      "Fresh Seafood";
+
+    const ogTitle =
+      settings.seoOgTitle?.trim() ||
+      title;
+
+    const ogDescription =
+      settings.seoOgDescription?.trim() ||
+      description;
 
     const ogImage =
-      getString(images.ogImage);
+      getString(images.ogImage) ||
+      settings.seoOgImage?.trim() ||
+      null;
 
     const input: AiSeoRecommendationInput = {
       entityType: "site",
       entityId: landingPage.id,
 
-      name: "Pisjo Market",
+      name:
+        settings.storeName?.trim() ||
+        "Pisjo Market",
+
       description,
+
       slug: "home",
 
       currentMetadata: {
         title,
         description,
         canonicalUrl:
-          LANDING_PAGE_URL,
-        ogTitle: title,
-        ogDescription:
-          description,
+          siteUrls.landingPageUrl,
+        ogTitle,
+        ogDescription,
         ogImage,
       },
 

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import settingsRepository from "@/repositories/settings/settings.repository";
 import landingPageRepository from "./landing-page.repository";
 import StorageService from "@/services/storage/storage.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 import {
   normalizeLandingPageConfig,
@@ -43,9 +44,6 @@ import type {
  *
  * ============================================================
  */
-
-const LANDING_STORE_URL =
-  "https://app.pusatikansegar.com";
 
 function toInputJsonValue(
   value: unknown,
@@ -118,48 +116,50 @@ class LandingPageService {
    */
 
   async getPublicLandingPage(): Promise<PublicLandingPageData> {
-    const [
-      landingPage,
-      storeSettings,
-      androidApp,
-    ] = await Promise.all([
-      this.getLandingPage(),
-      settingsRepository.getOrCreate(),
-      landingPageRepository.getAndroidApp(),
-    ]);
+  const [
+    landingPage,
+    storeSettings,
+    androidApp,
+  ] = await Promise.all([
+    this.getLandingPage(),
+    settingsRepository.getOrCreate(),
+    landingPageRepository.getAndroidApp(),
+  ]);
 
-    return {
-      enabled: landingPage.enabled,
+  const siteUrls = await getSiteUrls();
 
-      brand: {
-        storeName:
-          storeSettings.storeName?.trim() ||
-          "Pisjo Market",
+  return {
+    enabled: landingPage.enabled,
 
-        storeDescription:
-          storeSettings.storeDescription?.trim() ||
-          "Fresh Seafood",
+    brand: {
+      storeName:
+        storeSettings.storeName?.trim() ||
+        "Pisjo Market",
 
-        siteLogo:
-          storeSettings.siteLogo?.trim() ||
-          null,
-      },
+      storeDescription:
+        storeSettings.storeDescription?.trim() ||
+        "Fresh Seafood",
 
-      config: landingPage.config,
+      siteLogo:
+        storeSettings.siteLogo?.trim() ||
+        null,
+    },
 
-      androidApp,
+    config: landingPage.config,
 
-      urls: {
-        store: LANDING_STORE_URL,
+    androidApp,
 
-        android:
-          androidApp?.enabled &&
-          androidApp.fileUrl
-            ? androidApp.fileUrl
-            : null,
-      },
-    };
-  }
+    urls: {
+      store: siteUrls.storefrontUrl,
+
+      android:
+        androidApp?.enabled &&
+        androidApp.fileUrl
+          ? androidApp.fileUrl
+          : null,
+    },
+  };
+}
 
   /**
    * ==========================================================
