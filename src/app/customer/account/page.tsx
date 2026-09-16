@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import {
   ArrowRight,
+  Award,
   CheckCircle2,
   ChevronRight,
   Heart,
@@ -313,6 +314,25 @@ const rewardVoucherItems =
 
                 <p className="truncate text-sm font-semibold text-slate-900">
                   Keranjang
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              href="/customer/rewards"
+              className="group flex items-center gap-3 px-5 py-5 transition hover:bg-slate-50"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50">
+                <Award className="h-5 w-5 text-cyan-600" />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">
+                  Point Anda
+                </p>
+
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {rewardPoints.toLocaleString("id-ID")} Poin
                 </p>
               </div>
             </Link>
