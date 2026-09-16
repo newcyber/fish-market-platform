@@ -1573,77 +1573,130 @@ const categoryIds =
     sm:group-hover:to-(--fresh-100)
   "
 >
+{image ? (
+  <>
+    <Image
+      src={image}
+      alt={product.name}
+      fill
+      unoptimized
+      sizes="
+        (max-width: 639px) 33vw,
+        (max-width: 1023px) 25vw,
+        (max-width: 1535px) 20vw,
+        16vw
+      "
+      className={`
+        object-cover
 
-                          {image ? (
+        transition-all
+        duration-500
+        ease-out
 
-                            <Image
-                              src={
-                                image
-                              }
-                              alt={
-                                product.name
-                              }
-                              fill
-                              unoptimized
-                              sizes="
-                                (max-width: 639px) 33vw,
-                                (max-width: 1023px) 25vw,
-                                (max-width: 1535px) 20vw,
-                                16vw
-                              "
-                              className="
-  object-cover
+        ${
+          outOfStock
+            ? "grayscale opacity-60"
+            : "sm:group-hover:scale-[1.035]"
+        }
+      `}
+    />
 
-  transition-transform
-  duration-500
-  ease-out
+    {outOfStock && (
+      <>
+        {/* DARK OVERLAY */}
+        <div
+          className="
+            absolute
+            inset-0
+            z-10
+            bg-slate-950/20
+          "
+        />
 
-  sm:group-hover:scale-[1.035]
-"
-                            />
+        {/* SOLD OUT RIBBON */}
+        <div
+          className="
+            absolute
+            left-1/2
+            top-1/2
+            z-20
+            w-[125%]
+            -translate-x-1/2
+            -translate-y-1/2
+            -rotate-[12deg]
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              justify-center
 
-                          ) : (
+              border-y-2
+              border-red-700
 
-                            <div
-                              className="
-                                flex
-                                h-full
-                                w-full
+              bg-red-600
 
-                                flex-col
-                                items-center
-                                justify-center
-                                gap-1
+              px-4
+              py-2.5
 
-                                text-(--ink-400)
-                              "
-                            >
+              shadow-[0_4px_12px_rgba(0,0,0,0.22)]
+            "
+          >
+            <span
+              className="
+                text-sm
+                font-black
+                uppercase
+                tracking-[0.18em]
+                text-white
 
-                              <Fish
-                                className="
-                                  h-7
-                                  w-7
+                sm:text-base
+              "
+            >
+              HABIS
+            </span>
+          </div>
+        </div>
+      </>
+    )}
+  </>
+) : (
+  <div
+    className="
+      flex
+      h-full
+      w-full
 
-                                  sm:h-9
-                                  sm:w-9
-                                "
-                              />
+      flex-col
+      items-center
+      justify-center
+      gap-1
 
-                              <span
-                                className="
-                                  text-[8px]
+      text-(--ink-400)
+    "
+  >
+    <Fish
+      className="
+        h-7
+        w-7
 
-                                  sm:text-xs
-                                "
-                              >
+        sm:h-9
+        sm:w-9
+      "
+    />
 
-                                Belum ada gambar
+    <span
+      className="
+        text-[8px]
 
-                              </span>
-
-                            </div>
-
-                          )}
+        sm:text-xs
+      "
+    >
+      Belum ada gambar
+    </span>
+  </div>
+)}
 
                           {/* ================================== */}
                           {/* BADGES */}

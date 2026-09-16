@@ -454,6 +454,11 @@ function serializeHomepageProduct(
   const hasVariants =
     product.variantGroups.length > 0;
 
+    const hasAvailableSku =
+  product.skus.some(
+    (sku) => sku.stock > 0
+  );
+
   const lowestActiveSku =
     product.skus[0] ?? null;
 
@@ -468,49 +473,51 @@ function serializeHomepageProduct(
       : null;
 
   return {
-    id:
-      product.id,
+  id: product.id,
 
-    name:
-      product.name,
+  name: product.name,
 
-    slug:
-      product.slug,
+  slug: product.slug,
 
-    price:
-      displayPrice,
+  price: displayPrice,
 
-    stock:
-      displayStock,
+  stock: displayStock,
 
-    isPreOrder:
-      product.isPreOrder,
+  isPreOrder:
+    product.isPreOrder,
 
-    preOrderMinDays:
-      product.preOrderMinDays,
+  preOrderMinDays:
+    product.preOrderMinDays,
 
-    preOrderMaxDays:
-      product.preOrderMaxDays,
+  preOrderMaxDays:
+    product.preOrderMaxDays,
 
-    images:
-      product.images.map(
-        (image) => ({
-          id:
-            image.id,
+  isOutOfStock:
+    !product.isPreOrder &&
+    (
+      hasVariants
+        ? !hasAvailableSku
+        : displayStock !== null &&
+          displayStock <= 0
+    ),
 
-          image:
-            image.image,
+  images:
+    product.images.map(
+      (image) => ({
+        id: image.id,
 
-          sortOrder:
-            image.sortOrder,
+        image: image.image,
 
-          isThumbnail:
-            image.isThumbnail,
-        })
-      ),
+        sortOrder:
+          image.sortOrder,
 
-    hasVariants,
-  };
+        isThumbnail:
+          image.isThumbnail,
+      })
+    ),
+
+  hasVariants,
+};
 }
 
 /**
@@ -985,8 +992,6 @@ customerUserId
 
                 stock: true,
               },
-
-              take: 1,
             },
           },
         },

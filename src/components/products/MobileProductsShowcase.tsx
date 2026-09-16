@@ -220,37 +220,93 @@ export default function MobileProductsShowcase({
                   shadow-sm
                 "
                             >
-                                {/* PRODUCT IMAGE */}
+{/* PRODUCT IMAGE */}
 
-                                <div className="relative aspect-square overflow-hidden bg-slate-100">
-                                    {product.image ? (
-                                        <Image
-                                            src={product.image}
-                                            alt={product.name}
-                                            fill
-                                            sizes="128px"
-                                            className="
-                        object-cover
-                        transition-transform
-                        duration-300
-                        group-hover:scale-105
-                      "
-                      unoptimized
-                                        />
-                                    ) : (
-                                        <div className="flex h-full items-center justify-center text-3xl">
-                                            🐟
-                                        </div>
-                                    )}
+<div className="relative aspect-square overflow-hidden bg-slate-100">
+  {product.image ? (
+    <>
+      <Image
+        src={product.image}
+        alt={product.name}
+        fill
+        sizes="128px"
+        className={`
+          object-cover
+          transition-all
+          duration-300
+          ${
+            product.stock <= 0
+              ? "grayscale opacity-60"
+              : "group-hover:scale-105"
+          }
+        `}
+        unoptimized
+      />
 
-                                    {product.stock <= 0 ? (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50">
-                                            <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-800">
-                                                HABIS
-                                            </span>
-                                        </div>
-                                    ) : null}
-                                </div>
+      {product.stock <= 0 ? (
+        <>
+          {/* DARK OVERLAY */}
+          <div
+            className="
+              absolute
+              inset-0
+              z-10
+              bg-slate-950/20
+            "
+          />
+
+          {/* SOLD OUT RIBBON */}
+          <div
+            className="
+              absolute
+              left-1/2
+              top-1/2
+              z-20
+              w-[125%]
+              -translate-x-1/2
+              -translate-y-1/2
+              -rotate-[12deg]
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                justify-center
+
+                border-y-2
+                border-red-700
+
+                bg-red-600
+
+                px-3
+                py-2
+
+                shadow-[0_3px_10px_rgba(0,0,0,0.25)]
+              "
+            >
+              <span
+                className="
+                  text-[10px]
+                  font-black
+                  uppercase
+                  tracking-[0.18em]
+                  text-white
+                "
+              >
+                HABIS
+              </span>
+            </div>
+          </div>
+        </>
+      ) : null}
+    </>
+  ) : (
+    <div className="flex h-full items-center justify-center text-3xl">
+      🐟
+    </div>
+  )}
+</div>
 
                                 {/* PRODUCT INFO */}
 

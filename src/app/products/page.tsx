@@ -309,6 +309,15 @@ const products =
         stock:
           product.stock ?? 0,
 
+        isPreOrder:
+          product.isPreOrder === true,
+
+        preOrderMinDays:
+          product.preOrderMinDays ?? null,
+
+        preOrderMaxDays:
+          product.preOrderMaxDays ?? null,
+
         images:
           product.images.map(
             (image) => ({
