@@ -1,9 +1,17 @@
 import Link from "next/link";
 import DeleteProductButton from "@/components/admin/products/DeleteProductButton";
+import ProductPriceDialog, {
+  type ProductPriceItem,
+} from "@/components/admin/products/ProductPriceDialog";
+import ProductStockDialog, {
+  type ProductStockItem,
+} from "@/components/admin/products/ProductStockDialog";
 import TogglePublishButton from "@/components/admin/products/TogglePublishButton";
 
 import {
+  Boxes,
   Pencil,
+  Tag,
 } from "lucide-react";
 
 import {
@@ -42,6 +50,10 @@ export interface ProductTableItem {
 
   stock: number;
 
+  stockItems: ProductStockItem[];
+
+  priceItems: ProductPriceItem[];
+
   featured: boolean;
 
   published: boolean;
@@ -64,41 +76,29 @@ export function ProductTable({
             Kelola seluruh produk marketplace.
           </CardDescription>
         </div>
-
-
       </CardHeader>
 
       <CardContent>
         <Table>
-
           <TableHeader>
             <TableRow>
-
               <TableHead>Produk</TableHead>
-
               <TableHead>Kategori</TableHead>
-
               <TableHead>SKU</TableHead>
-
               <TableHead className="text-right">
                 Harga
               </TableHead>
-
               <TableHead className="text-center">
                 Stock
               </TableHead>
-
               <TableHead>Status</TableHead>
-
               <TableHead className="text-right">
                 Aksi
               </TableHead>
-
             </TableRow>
           </TableHeader>
 
           <TableBody>
-
             {products.length === 0 ? (
               <TableRow>
                 <TableCell
@@ -111,17 +111,12 @@ export function ProductTable({
             ) : (
               products.map((product) => (
                 <TableRow key={product.id}>
-
                   <TableCell>
-
                     <div className="flex flex-col">
-
                       <span className="font-medium">
                         {product.name}
                       </span>
-
                     </div>
-
                   </TableCell>
 
                   <TableCell>
@@ -140,13 +135,20 @@ export function ProductTable({
                   </TableCell>
 
                   <TableCell className="text-center">
-                    {product.stock}
+                    <div className="flex flex-col items-center">
+                      <span className="font-semibold">
+                        {product.stock}
+                      </span>
+                      {product.stockItems.length > 1 && (
+                        <span className="text-xs text-muted-foreground">
+                          {product.stockItems.length} SKU
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
 
                   <TableCell>
-
                     <div className="flex gap-2">
-
                       <Badge
                         variant={
                           product.published
@@ -164,47 +166,70 @@ export function ProductTable({
                           Featured
                         </Badge>
                       )}
-
                     </div>
-
                   </TableCell>
 
                   <TableCell>
-
                     <div className="flex justify-end gap-2">
+                      <ProductStockDialog
+                        productId={product.id}
+                        productName={product.name}
+                        items={product.stockItems}
+                        trigger={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Boxes className="h-4 w-4" />
+                            Atur Stok
+                          </Button>
+                        }
+                      />
+
+                      <ProductPriceDialog
+                        productId={product.id}
+                        productName={product.name}
+                        items={product.priceItems}
+                        trigger={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Tag className="h-4 w-4" />
+                            Atur Harga
+                          </Button>
+                        }
+                      />
 
                       <Link
-  href={`/admin/products/${product.id}/edit`}
->
-  <Button
-    type="button"
-    variant="outline"
-    size="icon"
-  >
-    <Pencil className="h-4 w-4" />
-  </Button>
-</Link>
+                        href={`/admin/products/${product.id}/edit`}
+                      >
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Link>
 
                       <TogglePublishButton
-  id={product.id}
-  published={product.published}
-/>
+                        id={product.id}
+                        published={product.published}
+                      />
 
                       <DeleteProductButton
-  id={product.id}
-  name={product.name}
-/>
-
+                        id={product.id}
+                        name={product.name}
+                      />
                     </div>
-
                   </TableCell>
-
                 </TableRow>
               ))
             )}
-
           </TableBody>
-
         </Table>
       </CardContent>
     </Card>

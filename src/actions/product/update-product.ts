@@ -758,6 +758,46 @@ const imageFiles =
       "price"
     ),
 
+    isPreOrder:
+  formData.get(
+    "isPreOrder"
+  ) === "true" ||
+  formData.get(
+    "isPreOrder"
+  ) === "on",
+
+preOrderMinDays: (() => {
+  const value =
+    formData.get(
+      "preOrderMinDays"
+    );
+
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  return Number(value);
+})(),
+
+preOrderMaxDays: (() => {
+  const value =
+    formData.get(
+      "preOrderMaxDays"
+    );
+
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  return Number(value);
+})(),
+
   /**
    * ==========================================================
    * PRODUCT DISCOUNT

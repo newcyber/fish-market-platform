@@ -10,6 +10,11 @@ export async function getProductVariants(
   input: GetProductVariantsInput
 ) {
   try {
+    /**
+     * ==========================================================
+     * VALIDATE PRODUCT ID
+     * ==========================================================
+     */
     const productId =
       typeof input?.productId === "string"
         ? input.productId.trim()
@@ -22,6 +27,11 @@ export async function getProductVariants(
       };
     }
 
+    /**
+     * ==========================================================
+     * GET PRODUCT
+     * ==========================================================
+     */
     const product =
       await ProductService.getProductById(
         productId
@@ -34,6 +44,11 @@ export async function getProductVariants(
       };
     }
 
+    /**
+     * ==========================================================
+     * PRODUCT AVAILABILITY
+     * ==========================================================
+     */
     if (!product.isPublished) {
       return {
         success: false,
@@ -41,11 +56,18 @@ export async function getProductVariants(
       };
     }
 
+    /**
+     * ==========================================================
+     * VARIANT GROUPS
+     * ==========================================================
+     */
     const variantGroups =
       product.variantGroups.map(
         (group) => ({
           id: group.id,
+
           name: group.name,
+
           sortOrder:
             group.sortOrder,
 
@@ -53,7 +75,9 @@ export async function getProductVariants(
             group.options.map(
               (option) => ({
                 id: option.id,
+
                 label: option.label,
+
                 sortOrder:
                   option.sortOrder,
               })
@@ -61,10 +85,25 @@ export async function getProductVariants(
         })
       );
 
+    /**
+     * ==========================================================
+     * SKU
+     * ==========================================================
+     *
+     * Semua SKU dikirim ke client.
+     *
+     * Untuk Pre-Order:
+     *
+     *   isActive = true
+     *   stock    = 0
+     *
+     * SKU tetap tersedia untuk dipilih.
+     */
     const skus =
       product.skus.map(
         (sku) => ({
           id: sku.id,
+
           sku: sku.sku,
 
           price:
@@ -98,6 +137,14 @@ export async function getProductVariants(
         })
       );
 
+    /**
+     * ==========================================================
+     * RESPONSE
+     * ==========================================================
+     *
+     * Pre-Order adalah property Product,
+     * bukan property SKU.
+     */
     return {
       success: true,
 
@@ -108,12 +155,26 @@ export async function getProductVariants(
         productName:
           product.name,
 
+        isPreOrder:
+          product.isPreOrder,
+
+        preOrderMinDays:
+          product.preOrderMinDays,
+
+        preOrderMaxDays:
+          product.preOrderMaxDays,
+
         variantGroups,
 
         skus,
       },
     };
   } catch (error) {
+    /**
+     * ==========================================================
+     * ERROR HANDLING
+     * ==========================================================
+     */
     console.error(
       "[GET_PRODUCT_VARIANTS]",
       error
@@ -121,6 +182,7 @@ export async function getProductVariants(
 
     return {
       success: false,
+
       message:
         "Gagal mengambil pilihan varian produk.",
     };

@@ -1,9 +1,6 @@
 import { OrderStatus, PaymentMethod, PaymentStatus, Prisma, } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import OrderRepository, {
-    type CustomerOrderCursor,
-    type OrderFilters,
-} from "@/repositories/OrderRepository";
+import OrderRepository, { type CustomerOrderCursor, type OrderFilters, } from "@/repositories/OrderRepository";
 import { StorageService, } from "@/services/storage/storage.service";
 import notificationService from "@/services/notification/notification.service";
 import ProductPricingService from "@/services/pricing/product-pricing.service";
@@ -23,21 +20,18 @@ export interface OrderDashboardSummary {
     completedOrders: number;
     deletedOrders: number;
 }
-
 export interface MobileOrderPaginationOptions {
     limit: number;
     cursor?: string | null;
     status?: OrderStatus;
 }
-
 export interface AdminOrderListOptions {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: OrderStatus;
-  paymentStatus?: PaymentStatus;
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: OrderStatus;
+    paymentStatus?: PaymentStatus;
 }
-
 export interface CreateOrderItemInput {
     /**
      * Product parent.
@@ -98,119 +92,83 @@ export interface UpdateOrderInput {
     items: CreateOrderItemInput[];
 }
 export default class OrderService {
-    private static encodeOrderCursor(
-        cursor: CustomerOrderCursor
-    ): string {
+    private static encodeOrderCursor(cursor: CustomerOrderCursor): string {
         const payload = JSON.stringify({
             createdAt: cursor.createdAt.toISOString(),
             id: cursor.id,
         });
-
         return Buffer.from(payload, "utf8").toString("base64url");
     }
-
-    private static decodeOrderCursor(
-        cursor: string
-    ): CustomerOrderCursor {
+    private static decodeOrderCursor(cursor: string): CustomerOrderCursor {
         try {
             const decoded = Buffer.from(cursor, "base64url").toString("utf8");
-
             const payload = JSON.parse(decoded) as {
                 createdAt?: unknown;
                 id?: unknown;
             };
-
-            if (
-                typeof payload.createdAt !== "string" ||
+            if (typeof payload.createdAt !== "string" ||
                 typeof payload.id !== "string" ||
-                !payload.id.trim()
-            ) {
+                !payload.id.trim()) {
                 throw new Error("INVALID_CURSOR");
             }
-
             const createdAt = new Date(payload.createdAt);
-
             if (Number.isNaN(createdAt.getTime())) {
                 throw new Error("INVALID_CURSOR");
             }
-
             return {
                 createdAt,
                 id: payload.id,
             };
-        } catch {
+        }
+        catch {
             throw new Error("INVALID_ORDER_CURSOR");
         }
     }
-
     /**
      * Daftar order aktif.
      */
     static async getOrders(filters: OrderFilters = {}) {
         return OrderRepository.findMany(filters);
     }
-        /**
-     * ==========================================================
-     * ADMIN ORDER LIST
-     * ==========================================================
-     *
-     * Pagination berbasis page/offset khusus Admin Order.
-     *
-     * Tidak mengubah contract getOrders() existing.
-     */
-    static async getAdminOrders(
-        options: AdminOrderListOptions = {}
-    ) {
+    /**
+ * ==========================================================
+ * ADMIN ORDER LIST
+ * ==========================================================
+ *
+ * Pagination berbasis page/offset khusus Admin Order.
+ *
+ * Tidak mengubah contract getOrders() existing.
+ */
+    static async getAdminOrders(options: AdminOrderListOptions = {}) {
         const page = options.page ?? 1;
         const limit = options.limit ?? 20;
-
-        if (
-            !Number.isInteger(page) ||
-            page < 1
-        ) {
+        if (!Number.isInteger(page) ||
+            page < 1) {
             throw new Error("INVALID_ORDER_PAGE");
         }
-
-        if (
-            !Number.isInteger(limit) ||
+        if (!Number.isInteger(limit) ||
             limit < 1 ||
-            limit > 100
-        ) {
+            limit > 100) {
             throw new Error("INVALID_ORDER_LIMIT");
         }
-
-        const search =
-            options.search?.trim() || undefined;
-
+        const search = options.search?.trim() || undefined;
         const filters = {
             search,
             status: options.status,
-            paymentStatus:
-                options.paymentStatus,
+            paymentStatus: options.paymentStatus,
         };
-
         const skip = (page - 1) * limit;
-
-        const [
-            orders,
-            total,
-        ] = await Promise.all([
+        const [orders, total,] = await Promise.all([
             OrderRepository.findManyForAdminList({
                 ...filters,
                 skip,
                 take: limit,
             }),
-
-            OrderRepository.countForAdminList(
-                filters
-            ),
+            OrderRepository.countForAdminList(filters),
         ]);
-
-        const totalPages =
-            total > 0
-                ? Math.ceil(total / limit)
-                : 1;
-
+        const totalPages = total > 0
+            ? Math.ceil(total / limit)
+            : 1;
         return {
             orders,
             pagination: {
@@ -218,21 +176,17 @@ export default class OrderService {
                 limit,
                 total,
                 totalPages,
-                hasNextPage:
-                    page < totalPages,
-                hasPreviousPage:
-                    page > 1,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1,
             },
         };
     }
-
     /**
      * Statistik untuk dashboard Admin Order.
      */
     static async getAdminOrderStats() {
         return OrderRepository.getAdminOrderStats();
     }
-
     /**
      * Jumlah order per status untuk tab Admin Order.
      */
@@ -289,53 +243,36 @@ export default class OrderService {
     static async getOrdersByUserId(userId: string, statuses?: OrderStatus[]) {
         return OrderRepository.findByUserId(userId, statuses);
     }
-
-    static async getOrdersByUserIdPaginated(
-    userId: string,
-    options: MobileOrderPaginationOptions
-) {
-    if (!userId) {
-        throw new Error("CUSTOMER wajib diidentifikasi.");
-    }
-
-    const limit = options.limit;
-
-    if (
-        !Number.isInteger(limit) ||
-        limit < 1 ||
-        limit > 50
-    ) {
-        throw new Error("INVALID_ORDER_LIMIT");
-    }
-
-    let cursor: CustomerOrderCursor | undefined;
-
-    if (options.cursor) {
-        cursor = this.decodeOrderCursor(options.cursor);
-    }
-
-    const result =
-        await OrderRepository.findByUserIdPaginated(
-            userId,
-            {
-                limit,
-                cursor,
-                status: options.status,
-            }
-        );
-
-    return {
-        orders: result.orders,
-        pagination: {
+    static async getOrdersByUserIdPaginated(userId: string, options: MobileOrderPaginationOptions) {
+        if (!userId) {
+            throw new Error("CUSTOMER wajib diidentifikasi.");
+        }
+        const limit = options.limit;
+        if (!Number.isInteger(limit) ||
+            limit < 1 ||
+            limit > 50) {
+            throw new Error("INVALID_ORDER_LIMIT");
+        }
+        let cursor: CustomerOrderCursor | undefined;
+        if (options.cursor) {
+            cursor = this.decodeOrderCursor(options.cursor);
+        }
+        const result = await OrderRepository.findByUserIdPaginated(userId, {
             limit,
-            hasNextPage: result.hasNextPage,
-            nextCursor: result.nextCursor
-                ? this.encodeOrderCursor(result.nextCursor)
-                : null,
-        },
-    };
-}
-
+            cursor,
+            status: options.status,
+        });
+        return {
+            orders: result.orders,
+            pagination: {
+                limit,
+                hasNextPage: result.hasNextPage,
+                nextCursor: result.nextCursor
+                    ? this.encodeOrderCursor(result.nextCursor)
+                    : null,
+            },
+        };
+    }
     /**
       * Order terbaru.
     */
@@ -764,11 +701,14 @@ export default class OrderService {
                 /**
                  * Initial stock validation.
                  *
-                 * Final atomic guard tetap dilakukan
-                 * ketika UPDATE ProductSku dijalankan.
+                 * Pre-Order tidak membutuhkan stock fisik
+                 * untuk dapat dibuat menjadi order.
+                 *
+                 * Produk normal tetap wajib memiliki stock
+                 * yang mencukupi.
                  */
-                if (sku.stock <
-                    requiredQuantity) {
+                if (!product.isPreOrder &&
+                    sku.stock < requiredQuantity) {
                     throw new Error(`Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${sku.stock}.`);
                 }
                 /**
@@ -1095,6 +1035,11 @@ export default class OrderService {
                 if (!sku) {
                     throw new Error("SKU tidak ditemukan.");
                 }
+                const product = productMap.get(sku.productId);
+                if (!product) {
+                    throw new Error("Produk tidak ditemukan.");
+                }
+
                 const stockBefore = sku.stock;
                 const result = await tx.productSku.updateMany({
                     where: {
@@ -1485,41 +1430,236 @@ export default class OrderService {
                     throw new Error(`SKU "${sku.sku}" sedang tidak aktif.`);
                 }
             }
-            /**
-             * ==========================================================
-             * 9. BUILD OLD STOCK MAP
-             * ==========================================================
-             *
-             * Stok sekarang sudah berada pada kondisi:
-             *
-             *   current SKU stock
-             *
-             * yaitu setelah order lama mengambil stock.
-             *
-             * Untuk mengetahui stok efektif:
-             *
-             *   currentStock + oldOrderQuantity
-             *
-             * tetapi seluruh perhitungan dilakukan per SKU.
-             */
-            const oldStockMap = new Map<string, number>();
-            for (const item of order.items) {
-                if (!item.skuId) {
-                    continue;
-                }
-                oldStockMap.set(item.skuId, (oldStockMap.get(item.skuId) ?? 0) +
-                    item.quantity);
-            }
-            /**
-             * ==========================================================
-             * 10. BUILD NEW STOCK MAP
-             * ==========================================================
-             */
-            const newStockMap = new Map<string, number>();
-            for (const item of finalItems) {
-                newStockMap.set(item.skuId, (newStockMap.get(item.skuId) ?? 0) +
-                    item.quantity);
-            }
+/**
+ * ==========================================================
+ * 9. BUILD HISTORICAL PHYSICAL STOCK RESERVATION MAP
+ * ==========================================================
+ *
+ * Jangan menggunakan OrderItem.quantity sebagai indikator
+ * bahwa order pernah mengambil stock fisik.
+ *
+ * Sumber kebenaran histori stock adalah StockLedger.
+ *
+ * Order normal:
+ *
+ *   SALE   -5
+ *
+ * Order yang quantity-nya dikurangi:
+ *
+ *   SALE   -5
+ *   RETURN +2
+ *
+ * Net:
+ *
+ *   -3
+ *
+ * Artinya order masih memiliki physical reservation:
+ *
+ *   3
+ *
+ * Pre-Order:
+ *
+ *   tidak memiliki SALE
+ *
+ * Maka:
+ *
+ *   physical reservation = 0
+ *
+ * Hal ini penting karena Product.isPreOrder dapat berubah
+ * setelah order dibuat.
+ */
+const oldStockMap =
+    new Map<string, number>();
+
+/**
+ * Ambil seluruh SKU yang pernah digunakan
+ * oleh order lama.
+ */
+const historicalSkuIds = [
+    ...new Set(
+        order.items
+            .map((item) => item.skuId)
+            .filter(
+                (skuId): skuId is string =>
+                    Boolean(skuId)
+            )
+    ),
+];
+
+/**
+ * Ambil histori SALE dan RETURN untuk order ini.
+ *
+ * Jangan menggunakan product.isPreOrder di sini.
+ *
+ * Kita ingin mengetahui fakta historis:
+ *
+ * "Apakah order ini benar-benar pernah mengambil
+ * stock fisik?"
+ */
+if (historicalSkuIds.length > 0) {
+    const historicalLedgers =
+        await tx.stockLedger.findMany({
+            where: {
+                orderId: order.id,
+                skuId: {
+                    in: historicalSkuIds,
+                },
+                type: {
+                    in: [
+                        "SALE",
+                        "RETURN",
+                    ],
+                },
+            },
+            select: {
+                skuId: true,
+                type: true,
+                quantity: true,
+            },
+        });
+
+    /**
+     * Hitung net movement per SKU.
+     *
+     * SALE:
+     *   quantity negatif
+     *
+     * RETURN:
+     *   quantity positif
+     */
+    for (const ledger of historicalLedgers) {
+        if (!ledger.skuId) {
+            continue;
+        }
+
+        const currentNet =
+            oldStockMap.get(
+                ledger.skuId
+            ) ?? 0;
+
+        oldStockMap.set(
+            ledger.skuId,
+            currentNet +
+                ledger.quantity
+        );
+    }
+
+    /**
+     * Konversi net ledger menjadi
+     * physical reservation.
+     *
+     * Contoh:
+     *
+     *   SALE -5
+     *   RETURN +2
+     *
+     *   net = -3
+     *
+     *   reservation = 3
+     *
+     * Jika hasil positif atau nol:
+     *
+     *   tidak ada stock fisik yang masih
+     *   dianggap reserved oleh order.
+     */
+    for (const skuId of historicalSkuIds) {
+        const netLedgerQuantity =
+            oldStockMap.get(
+                skuId
+            ) ?? 0;
+
+        oldStockMap.set(
+            skuId,
+            Math.max(
+                0,
+                -netLedgerQuantity
+            )
+        );
+    }
+}
+/**
+ * ==========================================================
+ * 10. BUILD NEW PHYSICAL STOCK MAP
+ * ==========================================================
+ *
+ * IMPORTANT:
+ *
+ * newStockMap bukan lagi sekadar quantity OrderItem.
+ *
+ * Map ini menunjukkan:
+ *
+ *     berapa quantity STOCK FISIK
+ *     yang seharusnya sedang di-reserve
+ *     oleh order setelah update selesai.
+ *
+ * NORMAL:
+ *
+ *     quantity order = physical reservation
+ *
+ * PRE-ORDER:
+ *
+ *     quantity order = 0 physical reservation
+ *
+ * Contoh:
+ *
+ * Normal:
+ *     quantity 5
+ *     => physical reservation 5
+ *
+ * Pre-Order:
+ *     quantity 5
+ *     => physical reservation 0
+ *
+ * Ini penting untuk transition:
+ *
+ *     NORMAL -> PRE-ORDER
+ *
+ * supaya stock yang sebelumnya pernah diambil
+ * oleh order dikembalikan seluruhnya.
+ *
+ * Dan:
+ *
+ *     PRE-ORDER -> NORMAL
+ *
+ * supaya stock baru mulai di-reserve ketika
+ * order kembali menggunakan stock fisik.
+ */
+const newStockMap =
+    new Map<string, number>();
+
+for (const item of finalItems) {
+    const product =
+        productMap.get(
+            item.productId
+        );
+
+    if (!product) {
+        throw new Error(
+            `Produk "${item.productId}" tidak ditemukan saat membangun stock map.`
+        );
+    }
+
+    /**
+     * Pre-Order tidak mempunyai
+     * physical stock reservation.
+     *
+     * Normal product menggunakan
+     * quantity order sebagai reservation.
+     */
+    const physicalQuantity =
+        product.isPreOrder
+            ? 0
+            : item.quantity;
+
+    newStockMap.set(
+        item.skuId,
+        (
+            newStockMap.get(
+                item.skuId
+            ) ?? 0
+        ) + physicalQuantity
+    );
+}
             /**
        * ==========================================================
        * 10A. DETECT ORDER ITEM CHANGES
@@ -1577,47 +1717,135 @@ export default class OrderService {
                 itemsChanged) {
                 throw new Error("Order yang menggunakan voucher tidak dapat mengubah produk atau quantity.");
             }
-            /**
-       * ==========================================================
-       * 11. VALIDATE NEW STOCK
-       * ==========================================================
-       *
-       * Stock hanya perlu divalidasi apabila
-       * item order benar-benar berubah.
-       *
-       * Jika hanya metadata yang berubah
-       * (address / shipping / notes), maka:
-       *
-       * - tidak perlu validasi stock ulang
-       * - tidak ada perubahan stock
-       *
-       * Jika item berubah:
-       *
-       * availableStock =
-       *   current SKU stock +
-       *   quantity yang sebelumnya
-       *   sudah di-reserve oleh order lama
-       *
-       * Dengan demikian quantity lama
-       * dianggap dikembalikan terlebih dahulu
-       * sebelum menghitung kebutuhan order baru.
-       */
-            if (itemsChanged) {
-                for (const [skuId, newQuantity,] of newStockMap) {
-                    const sku = skuMap.get(skuId);
-                    if (!sku) {
-                        throw new Error("SKU tidak ditemukan.");
-                    }
-                    const oldQuantity = oldStockMap.get(skuId) ?? 0;
-                    const availableStock = sku.stock +
-                        oldQuantity;
-                    if (availableStock <
-                        newQuantity) {
-                        throw new Error(`Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${availableStock}.`);
-                    }
-                }
-            }
-            /**
+/**
+ * ==========================================================
+ * 11. VALIDATE NEW PHYSICAL STOCK
+ * ==========================================================
+ *
+ * oldPhysicalQuantity:
+ *
+ *     stock fisik yang benar-benar pernah
+ *     diambil oleh order berdasarkan StockLedger.
+ *
+ * newQuantity:
+ *
+ *     stock fisik yang dibutuhkan oleh order
+ *     setelah update.
+ *
+ * Untuk Pre-Order:
+ *
+ *     newQuantity = 0
+ *
+ * sehingga tidak membutuhkan stock fisik.
+ *
+ * Untuk Normal:
+ *
+ *     newQuantity = quantity order.
+ *
+ * availableStock dihitung dengan:
+ *
+ *     current SKU stock
+ *     +
+ *     stock historis yang sebelumnya
+ *     masih reserved oleh order
+ *
+ * Dengan demikian customer dapat:
+ *
+ *     quantity 5 -> quantity 7
+ *
+ * selama:
+ *
+ *     current stock + old reservation >= 7
+ */
+if (itemsChanged) {
+    for (const [
+        skuId,
+        newQuantity,
+    ] of newStockMap) {
+        const sku =
+            skuMap.get(
+                skuId
+            );
+
+        if (!sku) {
+            throw new Error(
+                "SKU tidak ditemukan."
+            );
+        }
+
+        const product =
+            productMap.get(
+                sku.productId
+            );
+
+        if (!product) {
+            throw new Error(
+                `Produk untuk SKU "${sku.sku}" tidak ditemukan.`
+            );
+        }
+
+        /**
+         * ======================================================
+         * PRE-ORDER
+         * ======================================================
+         *
+         * newQuantity sudah bernilai 0
+         * untuk Pre-Order.
+         *
+         * Karena itu tidak perlu melakukan
+         * validasi stock fisik.
+         */
+        if (product.isPreOrder) {
+            continue;
+        }
+
+        /**
+         * ======================================================
+         * HISTORICAL PHYSICAL RESERVATION
+         * ======================================================
+         *
+         * Jangan menggunakan:
+         *
+         *     OrderItem.quantity
+         *
+         * karena order dapat sebelumnya merupakan
+         * Pre-Order atau sudah pernah melakukan RETURN.
+         *
+         * Gunakan StockLedger.
+         */
+        const oldPhysicalQuantity =
+            oldStockMap.get(
+                skuId
+            ) ?? 0;
+
+        /**
+         * Stock yang tersedia untuk update order:
+         *
+         * current stock
+         * +
+         * stock yang sebelumnya di-reserve
+         * oleh order ini.
+         */
+        const availableStock =
+            sku.stock +
+            oldPhysicalQuantity;
+
+        /**
+         * ======================================================
+         * STOCK VALIDATION
+         * ======================================================
+         */
+        if (
+            availableStock <
+            newQuantity
+        ) {
+            throw new Error(
+                `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${availableStock}.`
+            );
+        }
+    }
+}
+        /**
        * ==========================================================
        * 12. BUILD NEW ORDER ITEMS
        * ==========================================================
@@ -1809,6 +2037,10 @@ export default class OrderService {
                     const sku = skuMap.get(skuId);
                     if (!sku) {
                         throw new Error(`SKU ${skuId} tidak ditemukan.`);
+                    }
+                    const product = productMap.get(sku.productId);
+                    if (!product) {
+                        throw new Error(`Produk untuk SKU "${sku.sku}" tidak ditemukan.`);
                     }
                     /**
                  * ========================================================
@@ -2647,6 +2879,165 @@ export default class OrderService {
             sku.id,
             sku,
         ]));
+        const productIds = [
+            ...new Set(currentOrder.items.map((item) => item.productId)),
+        ];
+        const products = await tx.product.findMany({
+            where: {
+                id: {
+                    in: productIds,
+                },
+            },
+            select: {
+                id: true,
+                isPreOrder: true,
+            },
+        });
+        const productMap = new Map(products.map((product) => [
+            product.id,
+            product,
+        ]));
+        /**
+ * ========================================================
+ * HISTORICAL PHYSICAL STOCK RESERVATION
+ * ========================================================
+ *
+ * Cancellation tidak boleh menentukan restore stock
+ * berdasarkan Product.isPreOrder.
+ *
+ * Product dapat berubah:
+ *
+ *   NORMAL -> PRE-ORDER
+ *
+ * atau:
+ *
+ *   PRE-ORDER -> NORMAL
+ *
+ * setelah order dibuat.
+ *
+ * Karena itu kita menggunakan StockLedger sebagai
+ * sumber kebenaran histori stock.
+ *
+ * SALE:
+ *   quantity negatif
+ *
+ * RETURN:
+ *   quantity positif
+ *
+ * Contoh:
+ *
+ *   SALE -5
+ *   RETURN +2
+ *
+ * Net:
+ *
+ *   -3
+ *
+ * Maka physical stock yang masih pernah diambil
+ * oleh order:
+ *
+ *   3
+ *
+ * Jika tidak ada SALE:
+ *
+ *   physical reservation = 0
+ *
+ * Ini berarti order Pre-Order tidak akan
+ * melakukan restore stock ketika dibatalkan.
+ */
+const historicalSkuIds = [
+    ...new Set(
+        currentOrder.items
+            .map(
+                (item) => item.skuId
+            )
+            .filter(
+                (
+                    skuId
+                ): skuId is string =>
+                    Boolean(skuId)
+            )
+    ),
+];
+
+const historicalStockMap =
+    new Map<string, number>();
+
+if (
+    historicalSkuIds.length > 0
+) {
+    const historicalLedgers =
+        await tx.stockLedger.findMany({
+            where: {
+                orderId:
+                    currentOrder.id,
+                skuId: {
+                    in:
+                        historicalSkuIds,
+                },
+                type: {
+                    in: [
+                        "SALE",
+                        "RETURN",
+                    ],
+                },
+            },
+            select: {
+                skuId: true,
+                quantity: true,
+            },
+        });
+
+    /**
+     * Hitung net movement per SKU.
+     */
+    for (
+        const ledger of historicalLedgers
+    ) {
+        if (!ledger.skuId) {
+            continue;
+        }
+
+        const currentNet =
+            historicalStockMap.get(
+                ledger.skuId
+            ) ?? 0;
+
+        historicalStockMap.set(
+            ledger.skuId,
+            currentNet +
+                ledger.quantity
+        );
+    }
+
+    /**
+     * Convert net movement menjadi
+     * physical reservation.
+     *
+     * SALE = negatif
+     * RETURN = positif
+     *
+     * Hanya net negatif yang berarti
+     * masih ada stock fisik yang pernah
+     * diambil oleh order.
+     */
+    for (
+        const skuId of historicalSkuIds
+    ) {
+        const netQuantity =
+            historicalStockMap.get(
+                skuId
+            ) ?? 0;
+
+        historicalStockMap.set(
+            skuId,
+            Math.max(
+                0,
+                -netQuantity
+            )
+        );
+    }
+}
         /**
    * ========================================================
    * 7. RESTORE SKU STOCK + CREATE LEDGER
@@ -2682,6 +3073,57 @@ export default class OrderService {
             if (!sku) {
                 throw new Error(`SKU "${skuId}" tidak ditemukan saat restore stock.`);
             }
+            const product = productMap.get(sku.productId);
+            if (!product) {
+                throw new Error(`Produk untuk SKU "${sku.sku}" tidak ditemukan saat pembatalan order.`);
+            }
+            /**
+ * ========================================================
+ * DETERMINE PHYSICAL STOCK TO RESTORE
+ * ========================================================
+ *
+ * Jangan restore berdasarkan OrderItem.quantity.
+ *
+ * Restore hanya stock yang benar-benar pernah
+ * diambil oleh order berdasarkan StockLedger.
+ */
+const physicalReservedQuantity =
+    historicalStockMap.get(
+        skuId
+    ) ?? 0;
+
+/**
+ * Jika tidak pernah mengambil stock fisik,
+ * tidak ada stock yang perlu dikembalikan.
+ *
+ * Ini termasuk:
+ *
+ * - Pre-Order sejak awal
+ * - order yang seluruh reservation-nya
+ *   sudah dikembalikan melalui RETURN
+ */
+if (
+    physicalReservedQuantity <= 0
+) {
+    continue;
+}
+
+const quantityToRestore =
+    physicalReservedQuantity;
+
+/**
+ * Validasi reservation historis.
+ */
+if (
+    !Number.isInteger(
+        quantityToRestore
+    ) ||
+    quantityToRestore <= 0
+) {
+    throw new Error(
+        `Quantity restore SKU "${sku.sku}" tidak valid.`
+    );
+}
             /**
              * --------------------------------------------------------
              * VALIDATE QUANTITY
@@ -2691,91 +3133,54 @@ export default class OrderService {
                 quantity <= 0) {
                 throw new Error(`Quantity restore SKU "${sku.sku}" tidak valid.`);
             }
-            const stockBefore = sku.stock;
-            /**
-             * --------------------------------------------------------
-             * ATOMIC STOCK RESTORE
-             * --------------------------------------------------------
-             *
-             * Guard:
-             *
-             *   stock = stockBefore
-             *
-             * Artinya stock yang kita restore harus masih sama
-             * dengan stock yang dibaca sebelumnya.
-             *
-             * Jika ada transaksi lain yang sudah mengubah stock,
-             * update gagal dan seluruh transaction dibatalkan.
-             *
-             * Dengan demikian:
-             *
-             *   stockBefore
-             *   +
-             *   quantity
-             *   =
-             *   stockAfter
-             *
-             * tetap konsisten dengan database.
-             */
-            const updatedSku = await tx.productSku.updateMany({
-                where: {
-                    id: sku.id,
-                    productId: sku.productId,
-                    stock: stockBefore,
-                },
-                data: {
-                    stock: {
-                        increment: quantity,
-                    },
-                },
-            });
-            /**
-             * --------------------------------------------------------
-             * CONCURRENCY CHECK
-             * --------------------------------------------------------
-             */
-            if (updatedSku.count !==
-                1) {
-                throw new Error(`Stock SKU "${sku.sku}" berubah sebelum stock dikembalikan. Silakan coba lagi.`);
-            }
-            /**
-             * --------------------------------------------------------
-             * CALCULATE STOCK AFTER
-             * --------------------------------------------------------
-             */
-            const stockAfter = stockBefore +
-                quantity;
-            /**
-             * --------------------------------------------------------
-             * CREATE STOCK LEDGER
-             * --------------------------------------------------------
-             *
-             * CANCEL:
-             *
-             *   quantity = positive
-             *
-             * Contoh:
-             *
-             *   stockBefore = 10
-             *   cancelled   = 2
-             *   stockAfter  = 12
-             *
-             * Ledger:
-             *
-             *   CANCEL +2
-             */
-            await tx.stockLedger.create({
-                data: {
-                    productId: sku.productId,
-                    skuId: sku.id,
-                    orderId: currentOrder.id,
-                    type: "CANCEL",
-                    quantity,
-                    stockBefore,
-                    stockAfter,
-                    note: `Pembatalan order ${currentOrder.orderNumber} - SKU ${sku.sku}`,
-                },
-            });
+            const stockBefore =
+    sku.stock;
+
+const updatedSku =
+    await tx.productSku.updateMany({
+        where: {
+            id: sku.id,
+            productId:
+                sku.productId,
+            stock: stockBefore,
+        },
+        data: {
+            stock: {
+                increment:
+                    quantityToRestore,
+            },
+        },
+    });
+
+if (
+    updatedSku.count !== 1
+) {
+    throw new Error(
+        `Stock SKU "${sku.sku}" berubah sebelum stock dikembalikan. Silakan coba lagi.`
+    );
+}
+
+const stockAfter =
+    stockBefore +
+    quantityToRestore;
+
+await tx.stockLedger.create({
+    data: {
+        productId:
+            sku.productId,
+        skuId:
+            sku.id,
+        orderId:
+            currentOrder.id,
+        type: "CANCEL",
+        quantity:
+            quantityToRestore,
+        stockBefore,
+        stockAfter,
+        note:
+            `Pembatalan order ${currentOrder.orderNumber} - SKU ${sku.sku}`,
+    },
+});
         }
         /**
          * ========================================================
@@ -3828,146 +4233,127 @@ export default class OrderService {
       * - Cleanup old proof safely
       * ============================================================
     */
-static async submitPaymentProof(
-    userId: string,
-    input: {
+    static async submitPaymentProof(userId: string, input: {
         orderId: string;
         file: File;
         bankName?: string | null;
         accountName?: string | null;
         accountNumber?: string | null;
-    }
-) {
-    let uploadedImagePath: string | null = null;
-
-    try {
-        /**
-         * ========================================================
-         * VALIDATE FILE
-         * ========================================================
-         */
-        if (!(input.file instanceof File)) {
-            return {
-                success: false,
-                message: "Bukti pembayaran wajib dipilih.",
-            };
-        }
-
-        if (input.file.size <= 0) {
-            return {
-                success: false,
-                message: "File bukti pembayaran tidak valid.",
-            };
-        }
-
-        /**
-         * ========================================================
-         * VALIDATE IMAGE TYPE
-         *
-         * Allowed:
-         * - JPG
-         * - JPEG
-         * - PNG
-         * - WEBP
-         * ========================================================
-         */
-        const allowedMimeTypes = [
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/webp",
-        ];
-
-        if (!allowedMimeTypes.includes(input.file.type)) {
-            return {
-                success: false,
-                message:
-                    "Format bukti pembayaran harus berupa JPG, JPEG, PNG, atau WEBP.",
-            };
-        }
-
-        /**
-         * ========================================================
-         * MAX FILE SIZE
-         *
-         * 5 MB
-         * ========================================================
-         */
-        const maxFileSize = 5 * 1024 * 1024;
-
-        if (input.file.size > maxFileSize) {
-            return {
-                success: false,
-                message:
-                    "Ukuran bukti pembayaran maksimal 5 MB.",
-            };
-        }
-
-        /**
-         * ========================================================
-         * SAVE NEW IMAGE
-         *
-         * File system bukan bagian dari DB transaction.
-         *
-         * Karena itu file baru dibuat terlebih dahulu.
-         *
-         * Jika transaction gagal, catch block akan menghapus
-         * file baru tersebut.
-         * ========================================================
-         */
-        uploadedImagePath =
-            await StorageService.save(input.file);
-
-        /**
-         * ========================================================
-         * DATABASE TRANSACTION
-         *
-         * CRITICAL CONCURRENCY RULE:
-         *
-         * Order row harus dikunci terlebih dahulu.
-         *
-         * Dengan demikian concurrent payment-proof upload
-         * akan diproses secara serial:
-         *
-         * Request A
-         *   LOCK Order
-         *   READ PaymentProof
-         *   WRITE A
-         *   COMMIT
-         *
-         * Request B
-         *   WAIT LOCK
-         *   LOCK Order
-         *   READ PaymentProof = A
-         *   WRITE B
-         *   COMMIT
-         *
-         * Request B kemudian membersihkan A.
-         * ========================================================
-         */
-        const paymentProof = await prisma.$transaction(
-            async (tx) => {
+    }) {
+        let uploadedImagePath: string | null = null;
+        try {
+            /**
+             * ========================================================
+             * VALIDATE FILE
+             * ========================================================
+             */
+            if (!(input.file instanceof File)) {
+                return {
+                    success: false,
+                    message: "Bukti pembayaran wajib dipilih.",
+                };
+            }
+            if (input.file.size <= 0) {
+                return {
+                    success: false,
+                    message: "File bukti pembayaran tidak valid.",
+                };
+            }
+            /**
+             * ========================================================
+             * VALIDATE IMAGE TYPE
+             *
+             * Allowed:
+             * - JPG
+             * - JPEG
+             * - PNG
+             * - WEBP
+             * ========================================================
+             */
+            const allowedMimeTypes = [
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+                "image/webp",
+            ];
+            if (!allowedMimeTypes.includes(input.file.type)) {
+                return {
+                    success: false,
+                    message: "Format bukti pembayaran harus berupa JPG, JPEG, PNG, atau WEBP.",
+                };
+            }
+            /**
+             * ========================================================
+             * MAX FILE SIZE
+             *
+             * 5 MB
+             * ========================================================
+             */
+            const maxFileSize = 5 * 1024 * 1024;
+            if (input.file.size > maxFileSize) {
+                return {
+                    success: false,
+                    message: "Ukuran bukti pembayaran maksimal 5 MB.",
+                };
+            }
+            /**
+             * ========================================================
+             * SAVE NEW IMAGE
+             *
+             * File system bukan bagian dari DB transaction.
+             *
+             * Karena itu file baru dibuat terlebih dahulu.
+             *
+             * Jika transaction gagal, catch block akan menghapus
+             * file baru tersebut.
+             * ========================================================
+             */
+            uploadedImagePath =
+                await StorageService.save(input.file);
+            /**
+             * ========================================================
+             * DATABASE TRANSACTION
+             *
+             * CRITICAL CONCURRENCY RULE:
+             *
+             * Order row harus dikunci terlebih dahulu.
+             *
+             * Dengan demikian concurrent payment-proof upload
+             * akan diproses secara serial:
+             *
+             * Request A
+             *   LOCK Order
+             *   READ PaymentProof
+             *   WRITE A
+             *   COMMIT
+             *
+             * Request B
+             *   WAIT LOCK
+             *   LOCK Order
+             *   READ PaymentProof = A
+             *   WRITE B
+             *   COMMIT
+             *
+             * Request B kemudian membersihkan A.
+             * ========================================================
+             */
+            const paymentProof = await prisma.$transaction(async (tx) => {
                 /**
                  * ====================================================
                  * 1. LOCK ORDER ROW
                  * ====================================================
                  */
-                const lockedOrder =
-                    await tx.$queryRaw<
-                        Array<{ id: string }>
-                    >`
+                const lockedOrder = await tx.$queryRaw<Array<{
+                    id: string;
+                }>> `
                         SELECT "id"
                         FROM "Order"
                         WHERE "id" = ${input.orderId}
                         FOR UPDATE
                     `;
-
                 if (lockedOrder.length === 0) {
-                    throw new Error(
-                        "Pesanan tidak ditemukan atau Anda tidak memiliki akses."
-                    );
+                    throw new Error("Pesanan tidak ditemukan atau Anda tidak memiliki akses.");
                 }
-
                 /**
                  * ====================================================
                  * 2. READ LATEST ORDER STATE
@@ -3981,54 +4367,39 @@ static async submitPaymentProof(
                  * sebelumnya selesai.
                  * ====================================================
                  */
-                const order =
-                    await tx.order.findFirst({
-                        where: {
-                            id: input.orderId,
-                            userId,
-                            deletedAt: null,
-                        },
-                        include: {
-                            paymentProof: true,
-                        },
-                    });
-
+                const order = await tx.order.findFirst({
+                    where: {
+                        id: input.orderId,
+                        userId,
+                        deletedAt: null,
+                    },
+                    include: {
+                        paymentProof: true,
+                    },
+                });
                 if (!order) {
-                    throw new Error(
-                        "Pesanan tidak ditemukan atau Anda tidak memiliki akses."
-                    );
+                    throw new Error("Pesanan tidak ditemukan atau Anda tidak memiliki akses.");
                 }
-
                 /**
                  * ====================================================
                  * 3. VALIDATE ORDER STATUS
                  * ====================================================
                  */
-                if (
+                if (order.status ===
+                    OrderStatus.COMPLETED ||
                     order.status ===
-                        OrderStatus.COMPLETED ||
-                    order.status ===
-                        OrderStatus.CANCELLED
-                ) {
-                    throw new Error(
-                        "Bukti pembayaran tidak dapat dikirim untuk pesanan ini."
-                    );
+                        OrderStatus.CANCELLED) {
+                    throw new Error("Bukti pembayaran tidak dapat dikirim untuk pesanan ini.");
                 }
-
                 /**
                  * ====================================================
                  * 4. PAYMENT ALREADY VERIFIED
                  * ====================================================
                  */
-                if (
-                    order.paymentStatus ===
-                    PaymentStatus.VERIFIED
-                ) {
-                    throw new Error(
-                        "Pembayaran pesanan ini sudah diverifikasi dan tidak dapat diubah."
-                    );
+                if (order.paymentStatus ===
+                    PaymentStatus.VERIFIED) {
+                    throw new Error("Pembayaran pesanan ini sudah diverifikasi dan tidak dapat diubah.");
                 }
-
                 /**
                  * ====================================================
                  * 5. CAPTURE CURRENT IMAGE
@@ -4040,63 +4411,48 @@ static async submitPaymentProof(
                  * Jangan membaca dari snapshot sebelum transaction.
                  * ====================================================
                  */
-                const oldImagePath =
-                    order.paymentProof?.image ?? null;
-
+                const oldImagePath = order.paymentProof?.image ?? null;
                 /**
                  * ====================================================
                  * 6. CREATE OR UPDATE PAYMENT PROOF
                  * ====================================================
                  */
-                const proof =
-                    await tx.paymentProof.upsert({
-                        where: {
-                            orderId: order.id,
-                        },
-
-                        create: {
-                            orderId: order.id,
-                            image: uploadedImagePath!,
-                            bankName:
-                                input.bankName?.trim() ||
-                                null,
-                            accountName:
-                                input.accountName?.trim() ||
-                                null,
-                            accountNumber:
-                                input.accountNumber?.trim() ||
-                                null,
-                            status:
-                                PaymentStatus.PENDING,
-                            verifiedAt: null,
-                            verifiedById: null,
-                            rejectionReason: null,
-                        },
-
-                        update: {
-                            image: uploadedImagePath!,
-                            bankName:
-                                input.bankName?.trim() ||
-                                null,
-                            accountName:
-                                input.accountName?.trim() ||
-                                null,
-                            accountNumber:
-                                input.accountNumber?.trim() ||
-                                null,
-
-                            /**
-                             * Upload ulang mengembalikan
-                             * payment proof menjadi PENDING.
-                             */
-                            status:
-                                PaymentStatus.PENDING,
-                            verifiedAt: null,
-                            verifiedById: null,
-                            rejectionReason: null,
-                        },
-                    });
-
+                const proof = await tx.paymentProof.upsert({
+                    where: {
+                        orderId: order.id,
+                    },
+                    create: {
+                        orderId: order.id,
+                        image: uploadedImagePath!,
+                        bankName: input.bankName?.trim() ||
+                            null,
+                        accountName: input.accountName?.trim() ||
+                            null,
+                        accountNumber: input.accountNumber?.trim() ||
+                            null,
+                        status: PaymentStatus.PENDING,
+                        verifiedAt: null,
+                        verifiedById: null,
+                        rejectionReason: null,
+                    },
+                    update: {
+                        image: uploadedImagePath!,
+                        bankName: input.bankName?.trim() ||
+                            null,
+                        accountName: input.accountName?.trim() ||
+                            null,
+                        accountNumber: input.accountNumber?.trim() ||
+                            null,
+                        /**
+                         * Upload ulang mengembalikan
+                         * payment proof menjadi PENDING.
+                         */
+                        status: PaymentStatus.PENDING,
+                        verifiedAt: null,
+                        verifiedById: null,
+                        rejectionReason: null,
+                    },
+                });
                 /**
                  * ====================================================
                  * 7. UPDATE ORDER PAYMENT STATUS
@@ -4107,13 +4463,10 @@ static async submitPaymentProof(
                         id: order.id,
                     },
                     data: {
-                        paymentStatus:
-                            PaymentStatus.PENDING,
-                        status:
-                            OrderStatus.WAITING_VERIFICATION,
+                        paymentStatus: PaymentStatus.PENDING,
+                        status: OrderStatus.WAITING_VERIFICATION,
                     },
                 });
-
                 /**
                  * ====================================================
                  * 8. CLEANUP OLD IMAGE
@@ -4135,89 +4488,70 @@ static async submitPaymentProof(
                     proof,
                     oldImagePath,
                 };
+            });
+            /**
+             * ========================================================
+             * DELETE OLD IMAGE
+             *
+             * Hanya request yang benar-benar menggantikan image lama
+             * yang memiliki oldImagePath.
+             * ========================================================
+             */
+            if (paymentProof.oldImagePath &&
+                paymentProof.oldImagePath !==
+                    uploadedImagePath) {
+                try {
+                    await StorageService.delete(paymentProof.oldImagePath);
+                }
+                catch (storageError) {
+                    /**
+                     * Database sudah benar.
+                     *
+                     * Kegagalan cleanup storage tidak boleh
+                     * membatalkan transaksi database yang sudah commit.
+                     */
+                    console.error("[PAYMENT_PROOF_OLD_IMAGE_DELETE_ERROR]", storageError);
+                }
             }
-        );
-
-        /**
-         * ========================================================
-         * DELETE OLD IMAGE
-         *
-         * Hanya request yang benar-benar menggantikan image lama
-         * yang memiliki oldImagePath.
-         * ========================================================
-         */
-        if (
-            paymentProof.oldImagePath &&
-            paymentProof.oldImagePath !==
-                uploadedImagePath
-        ) {
-            try {
-                await StorageService.delete(
-                    paymentProof.oldImagePath
-                );
-            } catch (storageError) {
-                /**
-                 * Database sudah benar.
-                 *
-                 * Kegagalan cleanup storage tidak boleh
-                 * membatalkan transaksi database yang sudah commit.
-                 */
-                console.error(
-                    "[PAYMENT_PROOF_OLD_IMAGE_DELETE_ERROR]",
-                    storageError
-                );
-            }
+            /**
+             * ========================================================
+             * SUCCESS
+             * ========================================================
+             */
+            return {
+                success: true,
+                message: "Bukti pembayaran berhasil dikirim dan sedang menunggu verifikasi.",
+                data: paymentProof.proof,
+            };
         }
-
-        /**
-         * ========================================================
-         * SUCCESS
-         * ========================================================
-         */
-        return {
-            success: true,
-            message:
-                "Bukti pembayaran berhasil dikirim dan sedang menunggu verifikasi.",
-            data: paymentProof.proof,
-        };
-    } catch (error) {
-        /**
-         * ========================================================
-         * CLEANUP NEW FILE IF DATABASE PROCESS FAILED
-         *
-         * Jika transaction gagal:
-         *
-         * DB -> rollback
-         * File baru -> hapus
-         * ========================================================
-         */
-        if (uploadedImagePath) {
-            try {
-                await StorageService.delete(
-                    uploadedImagePath
-                );
-            } catch (storageError) {
-                console.error(
-                    "[PAYMENT_PROOF_NEW_IMAGE_CLEANUP_ERROR]",
-                    storageError
-                );
+        catch (error) {
+            /**
+             * ========================================================
+             * CLEANUP NEW FILE IF DATABASE PROCESS FAILED
+             *
+             * Jika transaction gagal:
+             *
+             * DB -> rollback
+             * File baru -> hapus
+             * ========================================================
+             */
+            if (uploadedImagePath) {
+                try {
+                    await StorageService.delete(uploadedImagePath);
+                }
+                catch (storageError) {
+                    console.error("[PAYMENT_PROOF_NEW_IMAGE_CLEANUP_ERROR]", storageError);
+                }
             }
-        }
-
-        console.error(
-            "[SUBMIT_PAYMENT_PROOF_ERROR]",
-            error
-        );
-
-        return {
-            success: false,
-            message:
-                error instanceof Error
+            console.error("[SUBMIT_PAYMENT_PROOF_ERROR]", error);
+            return {
+                success: false,
+                message: error instanceof Error
                     ? error.message
                     : "Gagal mengirim bukti pembayaran.",
-        };
+            };
+        }
     }
-}
     /**
       * ============================================================
       * CREATE CHECKOUT ORDER
@@ -4238,15 +4572,7 @@ static async submitPaymentProof(
       *
       * ============================================================
     */
-    static async createCheckoutOrder(
-    userId: string,
-    addressId: string,
-    paymentChannelId: string,
-    notes?: string | null,
-    shippingProvider: ShippingProviderCode = "INTERNAL",
-    voucherCode?: string | null,
-    selectedItemIds?: string[] | null,
-) {
+    static async createCheckoutOrder(userId: string, addressId: string, paymentChannelId: string, notes?: string | null, shippingProvider: ShippingProviderCode = "INTERNAL", voucherCode?: string | null, selectedItemIds?: string[] | null) {
         const normalizedVoucherCode = voucherCode
             ?.trim()
             .toUpperCase() ||
@@ -4275,7 +4601,6 @@ static async submitPaymentProof(
                     message: "Metode pembayaran tidak valid.",
                 };
             }
-
             /**
  * ============================================================
  * VALIDATE SELECTED CART ITEMS
@@ -4288,21 +4613,16 @@ static async submitPaymentProof(
  * bukan productId.
  * ============================================================
  */
-const normalizedSelectedItemIds =
-    selectedItemIds
-        ?.map((id) => id.trim())
-        .filter(Boolean) ?? null;
-
-if (
-    normalizedSelectedItemIds !== null &&
-    normalizedSelectedItemIds.length === 0
-) {
-    return {
-        success: false,
-        message: "Tidak ada produk yang dipilih untuk checkout.",
-    };
-}
-
+            const normalizedSelectedItemIds = selectedItemIds
+                ?.map((id) => id.trim())
+                .filter(Boolean) ?? null;
+            if (normalizedSelectedItemIds !== null &&
+                normalizedSelectedItemIds.length === 0) {
+                return {
+                    success: false,
+                    message: "Tidak ada produk yang dipilih untuk checkout.",
+                };
+            }
             /**
               * ========================================================
               * VALIDATE SHIPPING PROVIDER
@@ -4486,7 +4806,6 @@ if (
                     cart.items.length === 0) {
                     throw new Error("Keranjang belanja Anda kosong.");
                 }
-
                 /**
  * ============================================================
  * RESOLVE SELECTED CART ITEMS
@@ -4503,30 +4822,17 @@ if (
  * digunakan.
  * ============================================================
  */
-
-const selectedCartItems =
-    normalizedSelectedItemIds === null
-        ? cart.items
-        : cart.items.filter((item) =>
-              normalizedSelectedItemIds.includes(item.id)
-          );
-
-if (selectedCartItems.length === 0) {
-    throw new Error(
-        "Tidak ada produk yang dipilih untuk checkout."
-    );
-}
-
-if (
-    normalizedSelectedItemIds !== null &&
-    selectedCartItems.length !==
-        normalizedSelectedItemIds.length
-) {
-    throw new Error(
-        "Sebagian produk yang dipilih tidak ditemukan di keranjang."
-    );
-}
-
+                const selectedCartItems = normalizedSelectedItemIds === null
+                    ? cart.items
+                    : cart.items.filter((item) => normalizedSelectedItemIds.includes(item.id));
+                if (selectedCartItems.length === 0) {
+                    throw new Error("Tidak ada produk yang dipilih untuk checkout.");
+                }
+                if (normalizedSelectedItemIds !== null &&
+                    selectedCartItems.length !==
+                        normalizedSelectedItemIds.length) {
+                    throw new Error("Sebagian produk yang dipilih tidak ditemukan di keranjang.");
+                }
                 /**
                  * ====================================================
                  * GENERATE ORDER NUMBER
@@ -4541,11 +4847,9 @@ if (
                   * RE-VALIDATE CART ITEMS
                   * ====================================================
                 */
-const productIds = [
-    ...new Set(
-        selectedCartItems.map((item) => item.productId)
-    ),
-];
+                const productIds = [
+                    ...new Set(selectedCartItems.map((item) => item.productId)),
+                ];
                 const products = await tx.product.findMany({
                     where: {
                         id: {
@@ -4558,6 +4862,17 @@ const productIds = [
                         id: true,
                         name: true,
                         price: true,
+                        /**
+                         * ==================================================
+                         * PRE-ORDER
+                         * ==================================================
+                         *
+                         * Dibutuhkan untuk menentukan apakah produk
+                         * boleh checkout tanpa stock fisik.
+                         */
+                        isPreOrder: true,
+                        preOrderMinDays: true,
+                        preOrderMaxDays: true,
                     },
                 });
                 const productMap = new Map(products.map((product) => [
@@ -4565,25 +4880,32 @@ const productIds = [
                     product,
                 ]));
                 /**
-                  * ====================================================
-                  * VALIDATE PRODUCT EXISTENCE + CANONICAL SKU
-                  * ====================================================
-                  *
-                  * Checkout customer menggunakan skuId yang tersimpan
-                  * di CartItem sebagai source of truth.
-                  *
-                  * Product.stock TIDAK lagi digunakan untuk stock checkout.
-                  * Stock canonical berada pada ProductSku.stock.
-                */
+                 * ====================================================
+                 * VALIDATE PRODUCT EXISTENCE + CANONICAL SKU
+                 * ====================================================
+                 *
+                 * Checkout customer menggunakan skuId yang tersimpan
+                 * di CartItem sebagai source of truth.
+                 *
+                 * Product.stock TIDAK lagi digunakan untuk stock checkout.
+                 * Stock canonical berada pada ProductSku.stock.
+                 *
+                 * Pre-Order:
+                 * - tetap wajib memiliki SKU yang valid
+                 * - tetap wajib memiliki SKU aktif
+                 * - tidak wajib memiliki stock fisik
+                 */
                 for (const item of selectedCartItems) {
                     const product = productMap.get(item.productId);
                     if (!product) {
                         throw new Error(`Produk ${item.product.name} sudah tidak tersedia.`);
                     }
-                    if (!item.skuId || !item.sku) {
+                    if (!item.skuId ||
+                        !item.sku) {
                         throw new Error(`SKU untuk produk "${product.name}" tidak ditemukan. Silakan hapus produk tersebut dari keranjang dan tambahkan kembali.`);
                     }
-                    if (item.sku.productId !== product.id) {
+                    if (item.sku.productId !==
+                        product.id) {
                         throw new Error(`SKU "${item.sku.sku}" tidak sesuai dengan produk "${product.name}".`);
                     }
                     if (!item.sku.isActive) {
@@ -4595,13 +4917,15 @@ const productIds = [
                     }
                 }
                 /**
-                  * ========================================================
-                  * RESOLVE CHECKOUT ITEM PRICING
-                  * ========================================================
-                  *
-                  * Semua harga checkout harus menggunakan pricing engine
-                  * yang sama dengan createOrder() dan updateOrder().
-                */
+                 * ========================================================
+                 * RESOLVE CHECKOUT ITEM PRICING
+                 * ========================================================
+                 *
+                 * Semua harga checkout harus menggunakan pricing engine
+                 * yang sama dengan createOrder() dan updateOrder().
+                 *
+                 * Pre-Order tetap menggunakan pricing engine yang sama.
+                 */
                 const normalizedItems = [];
                 const flashSaleRequirements: FlashSaleCheckoutRequirement[] = [];
                 for (const item of selectedCartItems) {
@@ -4610,18 +4934,51 @@ const productIds = [
                         throw new Error("Produk tidak ditemukan.");
                     }
                     /**
-                      * Resolve harga menggunakan canonical SKU.
-                      *
-                      * productVariant / productWeight bukan lagi source
-                      * of truth untuk harga checkout.
-                    */
+                     * ------------------------------------------------------
+                     * RESOLVE CANONICAL SKU
+                     * ------------------------------------------------------
+                     *
+                     * SKU dari CartItem menjadi source of truth.
+                     */
                     const { sku } = item;
                     if (!sku) {
                         throw new Error(`SKU untuk produk "${product.name}" tidak ditemukan.`);
                     }
-                    if (sku.stock < item.quantity) {
+                    /**
+                     * ------------------------------------------------------
+                     * STOCK VALIDATION
+                     * ------------------------------------------------------
+                     *
+                     * Produk normal:
+                     * - wajib memiliki stock
+                     * - quantity tidak boleh melebihi stock
+                     *
+                     * Pre-Order:
+                     * - tidak membutuhkan stock fisik
+                     * - boleh checkout meskipun stock = 0
+                     * - boleh checkout meskipun quantity > stock
+                     *
+                     * Stock ProductSku tetap menjadi canonical stock
+                     * untuk produk normal.
+                     */
+                    if (!product.isPreOrder &&
+                        sku.stock < item.quantity) {
                         throw new Error(`Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${sku.stock}.`);
                     }
+                    /**
+                     * ------------------------------------------------------
+                     * RESOLVE PRODUCT PRICING
+                     * ------------------------------------------------------
+                     *
+                     * Harga tetap harus melalui pricing engine agar:
+                     *
+                     * - harga SKU
+                     * - Flash Sale
+                     * - pricing rules
+                     * - fallback price
+                     *
+                     * tetap konsisten dengan flow checkout lainnya.
+                     */
                     const pricing = await ProductPricingService.resolve(tx, {
                         productId: product.id,
                         skuId: sku.id,
@@ -4794,56 +5151,52 @@ const productIds = [
                   * ====================================================
                 */
                 const createdOrder = await tx.order.create({
-data: {
-    orderNumber,
-    userId,
-    addressId,
-    paymentMethod,
-    paymentChannelId,
-    subtotal,
-
-    voucherId: voucherResult?.voucher.id ??
-        null,
-    voucherCode: voucherResult?.voucher.code ??
-        null,
-    voucherName: voucherResult?.voucher.name ??
-        null,
-    voucherDiscount,
-
-    shippingProvider: normalizedShippingProvider,
-    shippingCost: shippingCost,
-    total,
-
-    notes: notes?.trim() ||
-        null,
-
-    items: {
-        create: normalizedItems.map((item) => ({
-            productId: item.productId,
-            skuId: item.skuId,
-            productName: item.productName,
-            productVariant: item.productVariant ?? null,
-            productWeight: item.productWeight ?? null,
-            weightSku: item.weightSku ?? null,
-            customerNote: item.customerNote ?? null,
-            price: item.price,
-            quantity: item.quantity,
-            subtotal: item.subtotal,
-        })),
-    },
-},
+                    data: {
+                        orderNumber,
+                        userId,
+                        addressId,
+                        paymentMethod,
+                        paymentChannelId,
+                        subtotal,
+                        voucherId: voucherResult?.voucher.id ??
+                            null,
+                        voucherCode: voucherResult?.voucher.code ??
+                            null,
+                        voucherName: voucherResult?.voucher.name ??
+                            null,
+                        voucherDiscount,
+                        shippingProvider: normalizedShippingProvider,
+                        shippingCost: shippingCost,
+                        total,
+                        notes: notes?.trim() ||
+                            null,
+                        items: {
+                            create: normalizedItems.map((item) => ({
+                                productId: item.productId,
+                                skuId: item.skuId,
+                                productName: item.productName,
+                                productVariant: item.productVariant ?? null,
+                                productWeight: item.productWeight ?? null,
+                                weightSku: item.weightSku ?? null,
+                                customerNote: item.customerNote ?? null,
+                                price: item.price,
+                                quantity: item.quantity,
+                                subtotal: item.subtotal,
+                            })),
+                        },
+                    },
                     include: {
-    user: true,
-    address: true,
-    paymentProof: true,
-    paymentChannel: true,
-    items: {
-        include: {
-            product: true,
-            sku: true,
-        },
-    },
-},
+                        user: true,
+                        address: true,
+                        paymentProof: true,
+                        paymentChannel: true,
+                        items: {
+                            include: {
+                                product: true,
+                                sku: true,
+                            },
+                        },
+                    },
                 });
                 /**
                  * ==========================================================
@@ -5027,9 +5380,19 @@ data: {
                  *
                  * ProductSku.stock adalah canonical stock.
                  *
+                 * PRE-ORDER:
+                 * - tidak membutuhkan stock fisik
+                 * - tidak mengurangi ProductSku.stock
+                 * - tidak membuat StockLedger SALE
+                 *
+                 * PRODUK NORMAL:
+                 * - validasi stock
+                 * - decrement ProductSku.stock
+                 * - create StockLedger SALE
+                 *
                  * ====================================================
                  */
-                for (const [skuId, quantity,] of lockedSkuIds.map((id) => [
+                for (const [skuId, quantity] of lockedSkuIds.map((id) => [
                     id,
                     stockRequirements.get(id) ?? 0,
                 ] as const)) {
@@ -5060,11 +5423,41 @@ data: {
                     }
                     /**
                      * --------------------------------------------------
+                     * GET PRODUCT
+                     * --------------------------------------------------
+                     *
+                     * Product digunakan untuk menentukan apakah
+                     * SKU tersebut berasal dari produk Pre-Order.
+                     */
+                    const checkoutProduct = productMap.get(currentSku.productId);
+                    if (!checkoutProduct) {
+                        throw new Error(`Produk untuk SKU "${currentSku.sku}" tidak ditemukan saat checkout.`);
+                    }
+                    /**
+                     * --------------------------------------------------
                      * VALIDATE SKU ACTIVE
                      * --------------------------------------------------
                      */
                     if (!currentSku.isActive) {
                         throw new Error(`SKU "${currentSku.sku}" sedang tidak aktif.`);
+                    }
+                    /**
+                     * --------------------------------------------------
+                     * PRE-ORDER
+                     * --------------------------------------------------
+                     *
+                     * Pre-Order tidak menggunakan stock fisik.
+                     *
+                     * Karena itu:
+                     *
+                     * - tidak validasi stock >= quantity
+                     * - tidak decrement ProductSku.stock
+                     * - tidak membuat StockLedger SALE
+                     *
+                     * Order tetap berhasil dibuat.
+                     */
+                    if (checkoutProduct.isPreOrder) {
+                        continue;
                     }
                     /**
                      * --------------------------------------------------
@@ -5080,8 +5473,7 @@ data: {
                      * Karena row sudah di-lock, pengecekan dilakukan
                      * terhadap stock aktual SKU.
                      */
-                    if (stockBefore <
-                        quantity) {
+                    if (stockBefore < quantity) {
                         throw new Error(`Stok SKU "${currentSku.sku}" tidak mencukupi. Stok tersedia: ${stockBefore}, dibutuhkan: ${quantity}.`);
                     }
                     /**
@@ -5105,8 +5497,7 @@ data: {
                             },
                         },
                     });
-                    if (stockResult.count !==
-                        1) {
+                    if (stockResult.count !== 1) {
                         throw new Error(`Stok SKU "${currentSku.sku}" berubah sebelum checkout selesai. Silakan coba lagi.`);
                     }
                     /**
@@ -5114,8 +5505,7 @@ data: {
                      * STOCK AFTER
                      * --------------------------------------------------
                      */
-                    const stockAfter = stockBefore -
-                        quantity;
+                    const stockAfter = stockBefore - quantity;
                     /**
                      * --------------------------------------------------
                      * CREATE STOCK LEDGER
@@ -5170,27 +5560,27 @@ data: {
                  *
                  * ====================================================
                  */
-/**
- * ====================================================
- * CLEAR SELECTED CART ITEMS
- * ====================================================
- *
- * Hanya CartItem yang berhasil masuk ke Order yang
- * boleh dihapus.
- *
- * Item yang tidak dipilih tetap berada di cart.
- *
- * Semua masih berada di dalam transaction yang sama.
- * ====================================================
- */
-await tx.cartItem.deleteMany({
-    where: {
-        cartId: cart.id,
-        id: {
-            in: selectedCartItems.map((item) => item.id),
-        },
-    },
-});
+                /**
+                 * ====================================================
+                 * CLEAR SELECTED CART ITEMS
+                 * ====================================================
+                 *
+                 * Hanya CartItem yang berhasil masuk ke Order yang
+                 * boleh dihapus.
+                 *
+                 * Item yang tidak dipilih tetap berada di cart.
+                 *
+                 * Semua masih berada di dalam transaction yang sama.
+                 * ====================================================
+                 */
+                await tx.cartItem.deleteMany({
+                    where: {
+                        cartId: cart.id,
+                        id: {
+                            in: selectedCartItems.map((item) => item.id),
+                        },
+                    },
+                });
                 return createdOrder;
             });
             /**

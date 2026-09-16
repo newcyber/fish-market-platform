@@ -57,8 +57,17 @@ interface ProductSku {
 
 interface ProductVariantData {
   productId: string;
+
   productName: string;
+
+  isPreOrder: boolean;
+
+  preOrderMinDays: number | null;
+
+  preOrderMaxDays: number | null;
+
   variantGroups: ProductVariantGroup[];
+
   skus: ProductSku[];
 }
 
@@ -213,14 +222,17 @@ export default function HomeProductQuickAddSheet({
   );
 
   const activeSkus = useMemo(
-    () =>
-      (data?.skus ?? []).filter(
-        (sku) =>
-          sku.isActive &&
-          sku.stock > 0
-      ),
-    [data]
-  );
+  () =>
+    (data?.skus ?? []).filter(
+      (sku) =>
+        sku.isActive &&
+        (
+          sku.stock > 0 ||
+          data?.isPreOrder === true
+        )
+    ),
+  [data]
+);
 
   /**
    * ==========================================================
@@ -426,18 +438,20 @@ export default function HomeProductQuickAddSheet({
   };
 
   const increaseQuantity = () => {
-    if (!selectedSku) {
-      return;
-    }
+  if (!selectedSku) {
+    return;
+  }
 
-    setQuantity(
-      (current) =>
-        Math.min(
-          selectedStock,
-          current + 1
-        )
-    );
-  };
+  setQuantity(
+    (current) =>
+      data?.isPreOrder === true
+        ? current + 1
+        : Math.min(
+            selectedStock,
+            current + 1
+          )
+  );
+};
 
   /**
    * ==========================================================
@@ -445,6 +459,9 @@ export default function HomeProductQuickAddSheet({
    * ==========================================================
    */
   const handleAddToCart = () => {
+    const isPreOrder =
+      data?.isPreOrder === true;
+
     if (!selectedSku) {
       setMessage(
         "Silakan pilih semua varian produk."
@@ -453,7 +470,16 @@ export default function HomeProductQuickAddSheet({
       return;
     }
 
-    if (selectedStock <= 0) {
+    /**
+     * Produk normal wajib mempunyai stock.
+     *
+     * Pre-Order boleh diproses walaupun
+     * stock SKU saat ini 0.
+     */
+    if (
+      !isPreOrder &&
+      selectedStock <= 0
+    ) {
       setMessage(
         "Stok produk sedang habis."
       );
@@ -461,8 +487,22 @@ export default function HomeProductQuickAddSheet({
       return;
     }
 
+    /**
+     * Validasi quantity.
+     *
+     * Pre-Order tidak dibatasi oleh stock
+     * karena stock fisik belum tersedia.
+     */
+    if (quantity < 1) {
+      setMessage(
+        "Jumlah pembelian minimal 1."
+      );
+
+      return;
+    }
+
     if (
-      quantity < 1 ||
+      !isPreOrder &&
       quantity > selectedStock
     ) {
       setMessage(
@@ -711,11 +751,31 @@ export default function HomeProductQuickAddSheet({
                     </div>
 
                     <div className="mt-3 text-xs text-slate-500">
-                      Stok tersedia:{" "}
-                      <span className="font-semibold text-slate-700">
-                        {selectedStock}
-                      </span>
-                    </div>
+  {data?.isPreOrder === true ? (
+    <>
+      <span className="font-semibold text-[#ef3030]">
+        Pre-Order
+      </span>
+
+      {data.preOrderMinDays != null &&
+      data.preOrderMaxDays != null ? (
+        <>
+          {" • "}
+          Estimasi{" "}
+          {data.preOrderMinDays}-
+          {data.preOrderMaxDays} hari
+        </>
+      ) : null}
+    </>
+  ) : (
+    <>
+      Stok tersedia:{" "}
+      <span className="font-semibold text-slate-700">
+        {selectedStock}
+      </span>
+    </>
+  )}
+</div>
                   </>
                 ) : (
                   <p className="text-sm text-slate-500">
@@ -733,8 +793,10 @@ export default function HomeProductQuickAddSheet({
                   </p>
 
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Maksimal sesuai stok
-                  </p>
+  {data?.isPreOrder === true
+    ? "Jumlah Pre-Order tidak dibatasi stok tersedia"
+    : "Maksimal sesuai stok"}
+</p>
                 </div>
 
                 <div className="flex items-center rounded-xl border border-slate-200">
@@ -764,10 +826,13 @@ export default function HomeProductQuickAddSheet({
                       increaseQuantity
                     }
                     disabled={
-                      !selectedSku ||
-                      quantity >= selectedStock ||
-                      isPending
-                    }
+  !selectedSku ||
+  (
+    data?.isPreOrder !== true &&
+    quantity >= selectedStock
+  ) ||
+  isPending
+}
                     className="flex h-10 w-10 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
                     aria-label="Tambah jumlah"
                   >
@@ -799,8 +864,10 @@ export default function HomeProductQuickAddSheet({
   type="button"
   onClick={handleAddToCart}
   disabled={
-    !selectedSku ||
-    selectedStock <= 0 ||
+  (
+    data?.isPreOrder !== true &&
+    selectedStock <= 0
+  ) ||
     isPending ||
     success
   }

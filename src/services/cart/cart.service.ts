@@ -433,12 +433,17 @@ static async getItemCount(owner: CartOwner) {
         },
 
         select: {
-          id: true,
-          name: true,
-          price: true,
-          stock: true,
+  id: true,
 
-          skus: {
+  name: true,
+
+  price: true,
+
+  stock: true,
+
+  isPreOrder: true,
+
+  skus: {
             where: {
               isActive: true,
             },
@@ -746,14 +751,26 @@ static async addItem({
            * ======================================================
            */
           const availableStock =
-            sku?.stock ?? product.stock;
+  sku?.stock ?? product.stock;
 
-          if (availableStock <= 0) {
-            throw new CartError(
-              "OUT_OF_STOCK",
-              `Stok ${sku?.sku ?? product.name} sedang habis.`
-            );
-          }
+/**
+ * Pre-Order boleh masuk cart walaupun
+ * stock fisik saat ini 0.
+ *
+ * Produk normal tetap mengikuti stock.
+ */
+if (
+  !product.isPreOrder &&
+  availableStock <= 0
+) {
+  throw new CartError(
+    "OUT_OF_STOCK",
+    `Stok ${
+      sku?.sku ??
+      product.name
+    } sedang habis.`
+  );
+}
 
           /**
            * ======================================================
@@ -861,16 +878,18 @@ static async addItem({
            * Validasi terhadap FINAL quantity.
            */
           if (
-            newQuantity >
-            availableStock
-          ) {
-            throw new CartError(
-              "INSUFFICIENT_STOCK",
-              `Jumlah melebihi stok tersedia. Stok ${
-                sku?.sku ?? product.name
-              } hanya ${availableStock}.`
-            );
-          }
+  !product.isPreOrder &&
+  newQuantity >
+    availableStock
+) {
+  throw new CartError(
+    "INSUFFICIENT_STOCK",
+    `Jumlah melebihi stok tersedia. Stok ${
+      sku?.sku ??
+      product.name
+    } hanya ${availableStock}.`
+  );
+}
 
           /**
            * ======================================================
@@ -1240,17 +1259,18 @@ if (!hasOwnership) {
        * ==========================================================
        */
 
-      if (
-        availableStock <= 0
-      ) {
-        throw new CartError(
-          "OUT_OF_STOCK",
-          `Stok ${
-            sku?.sku ??
-            product.name
-          } sedang habis.`
-        );
-      }
+     if (
+  !product.isPreOrder &&
+  availableStock <= 0
+) {
+  throw new CartError(
+    "OUT_OF_STOCK",
+    `Stok ${
+      sku?.sku ??
+      product.name
+    } sedang habis.`
+  );
+}
 
       /**
        * ==========================================================
@@ -1260,18 +1280,19 @@ if (!hasOwnership) {
        * quantity adalah FINAL quantity.
        */
 
-      if (
-        quantity >
-        availableStock
-      ) {
-        throw new CartError(
-          "INSUFFICIENT_STOCK",
-          `Jumlah melebihi stok tersedia. Stok ${
-            sku?.sku ??
-            product.name
-          } hanya ${availableStock}.`
-        );
-      }
+    if (
+  !product.isPreOrder &&
+  quantity >
+    availableStock
+) {
+  throw new CartError(
+    "INSUFFICIENT_STOCK",
+    `Jumlah melebihi stok tersedia. Stok ${
+      sku?.sku ??
+      product.name
+    } hanya ${availableStock}.`
+  );
+}
 
       /**
        * ==========================================================
@@ -1574,21 +1595,28 @@ static async changeItemSku({
       }
 
       /**
-       * ==========================================================
-       * TARGET STOCK
-       * ==========================================================
-       */
-
-      if (
-        targetSku.stock <= 0
-      ) {
-        throw new CartError(
-          "OUT_OF_STOCK",
-          `Stok SKU ${
-            targetSku.sku
-          } sedang habis.`
-        );
-      }
+ * ==========================================================
+ * TARGET STOCK
+ * ==========================================================
+ *
+ * Product normal:
+ * - SKU harus memiliki stock > 0.
+ *
+ * Pre-Order:
+ * - SKU boleh stock = 0.
+ * - Stock fisik tidak menjadi blocker.
+ */
+if (
+  !product.isPreOrder &&
+  targetSku.stock <= 0
+) {
+  throw new CartError(
+    "OUT_OF_STOCK",
+    `Stok SKU ${
+      targetSku.sku
+    } sedang habis.`
+  );
+}
 
       /**
        * ==========================================================
@@ -1642,24 +1670,30 @@ static async changeItemSku({
         cartItem.quantity;
 
       /**
-       * ==========================================================
-       * STOCK VALIDATION
-       * ==========================================================
-       */
-
-      if (
-        finalQuantity >
-        targetSku.stock
-      ) {
-        throw new CartError(
-          "INSUFFICIENT_STOCK",
-          `Jumlah melebihi stok tersedia. Stok SKU ${
-            targetSku.sku
-          } hanya ${
-            targetSku.stock
-          }.`
-        );
-      }
+ * ==========================================================
+ * STOCK VALIDATION
+ * ==========================================================
+ *
+ * Product normal:
+ * quantity tidak boleh melebihi stock SKU.
+ *
+ * Pre-Order:
+ * quantity tidak dibatasi oleh stock fisik.
+ */
+if (
+  !product.isPreOrder &&
+  finalQuantity >
+    targetSku.stock
+) {
+  throw new CartError(
+    "INSUFFICIENT_STOCK",
+    `Jumlah melebihi stok tersedia. Stok SKU ${
+      targetSku.sku
+    } hanya ${
+      targetSku.stock
+    }.`
+  );
+}
 
       /**
        * ==========================================================

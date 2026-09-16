@@ -780,8 +780,11 @@ const normalizedFlashSaleItems =
   const stock =
     product.stock;
 
+  const isPreOrder =
+    product.isPreOrder === true;
+
   const outOfStock =
-    stock <= 0;
+    !isPreOrder && stock <= 0;
 
   /**
    * ============================================================
@@ -972,43 +975,35 @@ const normalizedFlashSaleItems =
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
 
-                  {outOfStock ? (
+                  {isPreOrder ? (
+  <div className="mt-1">
+    <p className="text-sm font-medium text-cyan-700">
+      Produk tersedia melalui Pre-Order
+    </p>
 
-                    <span
-                      className="
-                        inline-flex
-                        items-center
-                        rounded-full
-                        bg-red-50
-                        px-3
-                        py-1.5
-                        text-xs
-                        font-semibold
-                        text-red-600
-                      "
-                    >
-                      Stok sedang habis
-                    </span>
-
-                  ) : (
-
-                    <span
-                      className="
-                        inline-flex
-                        items-center
-                        rounded-full
-                        bg-emerald-50
-                        px-3
-                        py-1.5
-                        text-xs
-                        font-semibold
-                        text-emerald-700
-                      "
-                    >
-                      Stok tersedia
-                    </span>
-
-                  )}
+    {product.preOrderMinDays != null &&
+    product.preOrderMaxDays != null ? (
+      <p className="mt-0.5 text-xs text-slate-500">
+        Estimasi{" "}
+        <span className="font-semibold text-slate-700">
+          {product.preOrderMinDays}–
+          {product.preOrderMaxDays} hari
+        </span>
+      </p>
+    ) : null}
+  </div>
+) : outOfStock ? (
+  <p className="mt-1 text-sm text-red-600">
+    Stok sedang habis
+  </p>
+) : (
+  <p className="mt-1 text-sm text-slate-500">
+    Stok tersedia
+    <span className="ml-1 font-medium text-slate-900">
+      ({stock} tersedia)
+    </span>
+  </p>
+)}
 
                 </div>
 
@@ -1513,6 +1508,15 @@ const normalizedFlashSaleItems =
                         product.price
                       )
                     }
+
+                    isPreOrder={
+                      product.isPreOrder}
+
+                    preOrderMinDays={
+                      product.preOrderMinDays}
+
+                    preOrderMaxDays={
+                      product.preOrderMaxDays}
 
                     variantGroups={
                       variantGroups

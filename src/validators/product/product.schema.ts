@@ -234,6 +234,45 @@ usageInstructions: z
     .finite("Harga produk tidak valid.")
     .min(0, "Harga produk tidak boleh negatif."),
 
+    isPreOrder: z
+  .union([
+    z.boolean(),
+    z.literal("true"),
+    z.literal("false"),
+  ])
+  .transform(
+    (value) =>
+      value === true ||
+      value === "true"
+  )
+  .default(false),
+
+preOrderMinDays: z
+  .coerce
+  .number()
+  .int(
+    "Estimasi minimum Pre-Order harus berupa bilangan bulat."
+  )
+  .min(
+    1,
+    "Estimasi minimum Pre-Order minimal 1 hari."
+  )
+  .nullable()
+  .optional(),
+
+preOrderMaxDays: z
+  .coerce
+  .number()
+  .int(
+    "Estimasi maksimum Pre-Order harus berupa bilangan bulat."
+  )
+  .min(
+    1,
+    "Estimasi maksimum Pre-Order minimal 1 hari."
+  )
+  .nullable()
+  .optional(),
+
   /**
    * Legacy/fallback product-level stock.
    * Untuk produk dengan SKU, stok transaksi berasal dari SKU.
@@ -363,17 +402,94 @@ function addVariantSkuValidation<
           : [];
 
       const skus =
-        Array.isArray(
-          validationData.skus
-        )
-          ? validationData.skus
-          : [];
+  Array.isArray(
+    validationData.skus
+  )
+    ? validationData.skus
+    : [];
 
-      /**
-       * --------------------------------------------------------
-       * Duplicate group names
-       * --------------------------------------------------------
-       */
+const record =
+  data as Record<
+    string,
+    unknown
+  >;
+
+const isPreOrder =
+  record.isPreOrder === true ||
+  record.isPreOrder === "true";
+
+if (isPreOrder) {
+  const minDays =
+    Number(
+      record.preOrderMinDays
+    );
+
+  const maxDays =
+    Number(
+      record.preOrderMaxDays
+    );
+
+  if (
+    !Number.isInteger(
+      minDays
+    ) ||
+    minDays < 1
+  ) {
+    context.addIssue({
+      code:
+        z.ZodIssueCode.custom,
+
+      path: [
+        "preOrderMinDays",
+      ],
+
+      message:
+        "Estimasi minimum Pre-Order minimal 1 hari.",
+    });
+  }
+
+  if (
+    !Number.isInteger(
+      maxDays
+    ) ||
+    maxDays < 1
+  ) {
+    context.addIssue({
+      code:
+        z.ZodIssueCode.custom,
+
+      path: [
+        "preOrderMaxDays",
+      ],
+
+      message:
+        "Estimasi maksimum Pre-Order minimal 1 hari.",
+    });
+  } else if (
+    Number.isInteger(
+      minDays
+    ) &&
+    maxDays < minDays
+  ) {
+    context.addIssue({
+      code:
+        z.ZodIssueCode.custom,
+
+      path: [
+        "preOrderMaxDays",
+      ],
+
+      message:
+        "Estimasi maksimum tidak boleh lebih kecil dari minimum.",
+    });
+  }
+}
+
+/**
+ * --------------------------------------------------------
+ * Duplicate group names
+ * --------------------------------------------------------
+ */
 
       const groupNameSet =
         new Set<string>();
@@ -846,6 +962,15 @@ export const ProductUpdateSchema =
 
       price: ProductBaseFields.price.optional(),
       stock: ProductBaseFields.stock.optional(),
+
+      isPreOrder:
+        ProductBaseFields.isPreOrder.optional(),
+
+      preOrderMinDays:
+        ProductBaseFields.preOrderMinDays,
+
+      preOrderMaxDays:
+        ProductBaseFields.preOrderMaxDays,
 
       isDiscountActive:
         ProductBaseFields.isDiscountActive.optional(),

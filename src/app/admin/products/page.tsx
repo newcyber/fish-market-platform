@@ -53,6 +53,42 @@ export default async function ProductsPage({
 
       stock: product.stock,
 
+      stockItems: product.skus.map((sku) => ({
+        skuId: sku.id,
+        sku: sku.sku,
+        stock: sku.stock,
+        optionLabels: sku.skuOptions
+          .map((skuOption) => ({
+            groupName: skuOption.variantOption.group.name,
+            optionLabel: skuOption.variantOption.label,
+          }))
+          .sort((a, b) =>
+            `${a.groupName} ${a.optionLabel}`.localeCompare(
+              `${b.groupName} ${b.optionLabel}`,
+              "id-ID"
+            )
+          )
+          .map((option) => `${option.groupName}: ${option.optionLabel}`),
+      })),
+
+      priceItems: product.skus.map((sku) => ({
+        skuId: sku.id,
+        sku: sku.sku,
+        price: Number(sku.price),
+        optionLabels: sku.skuOptions
+          .map((skuOption) => ({
+            groupName: skuOption.variantOption.group.name,
+            optionLabel: skuOption.variantOption.label,
+          }))
+          .sort((a, b) =>
+            `${a.groupName} ${a.optionLabel}`.localeCompare(
+              `${b.groupName} ${b.optionLabel}`,
+              "id-ID"
+            )
+          )
+          .map((option) => `${option.groupName}: ${option.optionLabel}`),
+      })),
+
       featured: product.featured,
 
       published: product.isPublished,

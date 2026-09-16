@@ -230,67 +230,93 @@ export default class ProductPricingService {
       );
     }
 
-    /**
-     * ==========================================================
-     * GET PRODUCT
-     * ==========================================================
-     *
-     * Product tetap diambil karena masih diperlukan untuk
-     * compatibility path produk legacy tanpa SKU.
-     *
-     * Untuk product dengan SKU:
-     *
-     * - price menggunakan ProductSku.price
-     * - discount menggunakan ProductSku.discount*
-     */
-    const product =
-      await tx.product.findUnique({
-        where: {
-          id:
-            productId,
-        },
+/**
+ * ==========================================================
+ * GET PRODUCT
+ * ==========================================================
+ *
+ * Product tetap diambil karena masih diperlukan untuk
+ * compatibility path produk legacy tanpa SKU.
+ *
+ * Untuk product dengan SKU:
+ *
+ * - price menggunakan ProductSku.price
+ * - discount menggunakan ProductSku.discount*
+ *
+ * Pre-Order:
+ *
+ * - isPreOrder digunakan untuk menentukan apakah produk
+ *   boleh mengikuti Flash Sale.
+ * - preOrderMinDays / preOrderMaxDays digunakan untuk
+ *   informasi estimasi Pre-Order di layer berikutnya.
+ */
+const product =
+  await tx.product.findUnique({
+    where: {
+      id:
+        productId,
+    },
 
-        select: {
-          id:
-            true,
+    select: {
+      id:
+        true,
 
-          price:
-            true,
+      price:
+        true,
 
-          /**
-           * Legacy product discount.
-           *
-           * Hanya digunakan ketika skuId
-           * tidak tersedia.
-           */
-          isDiscountActive:
-            true,
+      /**
+       * ======================================================
+       * PRE-ORDER
+       * ======================================================
+       *
+       * Digunakan oleh pricing layer untuk memastikan
+       * produk Pre-Order tidak mengikuti Flash Sale.
+       */
+      isPreOrder:
+        true,
 
-          discountType:
-            true,
+      preOrderMinDays:
+        true,
 
-          discountValue:
-            true,
+      preOrderMaxDays:
+        true,
 
-          discountStartAt:
-            true,
+      /**
+       * ======================================================
+       * LEGACY PRODUCT DISCOUNT
+       * ======================================================
+       *
+       * Hanya digunakan ketika skuId
+       * tidak tersedia.
+       */
+      isDiscountActive:
+        true,
 
-          discountEndAt:
-            true,
-        },
-      });
+      discountType:
+        true,
 
-    if (!product) {
-      throw new Error(
-        "Produk tidak ditemukan."
-      );
-    }
+      discountValue:
+        true,
 
-    /**
-     * ==========================================================
-     * RESOLVE CANONICAL PRICE + DISCOUNT SOURCE
-     * ==========================================================
-     */
+      discountStartAt:
+        true,
+
+      discountEndAt:
+        true,
+    },
+  });
+
+if (!product) {
+  throw new Error(
+    "Produk tidak ditemukan."
+  );
+}
+
+/**
+ * ==========================================================
+ * RESOLVE CANONICAL PRICE + DISCOUNT SOURCE
+ * ==========================================================
+ */
 
     let originalPrice:
       Prisma.Decimal;
@@ -575,7 +601,8 @@ export default class ProductPricingService {
      */
 
     if (
-      preferredFlashSaleItemId
+  !product.isPreOrder &&
+  preferredFlashSaleItemId
     ) {
       const preferredItem =
         await tx.flashSaleItem.findFirst({
@@ -656,8 +683,9 @@ export default class ProductPricingService {
      */
 
     if (
-      !flashSaleItem &&
-      skuId
+  !product.isPreOrder &&
+  !flashSaleItem &&
+  skuId
     ) {
       const skuFlashSaleItems =
         await tx.flashSaleItem.findMany({
@@ -738,8 +766,9 @@ export default class ProductPricingService {
      */
 
     if (
-      !flashSaleItem &&
-      skuId
+  !product.isPreOrder &&
+  !flashSaleItem &&
+  skuId
     ) {
       const legacyFlashSaleItems =
         await tx.flashSaleItem.findMany({

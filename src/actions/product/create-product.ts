@@ -348,6 +348,44 @@ const parsed =
     price:
       formData.get("price"),
 
+      isPreOrder:
+  normalizeBoolean(
+    formData.get("isPreOrder"),
+    false
+  ),
+
+preOrderMinDays: (() => {
+  const value =
+    formData.get(
+      "preOrderMinDays"
+    );
+
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  return Number(value);
+})(),
+
+preOrderMaxDays: (() => {
+  const value =
+    formData.get(
+      "preOrderMaxDays"
+    );
+
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  return Number(value);
+})(),
+
         isDiscountActive:
           normalizeBoolean(
             formData.get(

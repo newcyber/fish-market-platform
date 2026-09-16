@@ -301,135 +301,255 @@ export default class FlashSaleRepository {
     );
   }
   
-  /**
-   * ============================================================
-   * FIND ACTIVE FLASH SALE FOR HOMEPAGE
-   * ============================================================
-   *
-   * Read-only query khusus homepage.
-   *
-   * Mengambil satu Flash Sale yang:
-   *
-   * - ACTIVE
-   * - Belum dihapus
-   * - Sudah dimulai
-   * - Belum berakhir
-   * - Memiliki item aktif
-   *
-   * Tidak mengubah:
-   *
-   * - stock
-   * - sold quantity
-   * - pricing
-   * - cart
-   * - checkout
-   */
+/**
+ * ============================================================
+ * FIND ACTIVE FLASH SALE FOR HOMEPAGE
+ * ============================================================
+ *
+ * Read-only query khusus homepage.
+ *
+ * Mengambil satu Flash Sale yang:
+ *
+ * - ACTIVE
+ * - Belum dihapus
+ * - Sudah dimulai
+ * - Belum berakhir
+ * - Memiliki item aktif
+ *
+ * Tidak mengubah:
+ *
+ * - stock
+ * - sold quantity
+ * - pricing
+ * - cart
+ * - checkout
+ *
+ * Data variant dan SKU ikut diambil agar homepage dapat
+ * menggunakan Quick Add Modal untuk pemilihan variant.
+ *
+ * ============================================================
+ */
 
-  static async findActiveForHomepage() {
-    const now =
-      new Date();
+static async findActiveForHomepage() {
+  const now =
+    new Date();
 
-    return prisma.flashSale.findFirst({
-      where: {
-        status:
-          FlashSaleStatus.ACTIVE,
+  return prisma.flashSale.findFirst({
+    where: {
+      status:
+        FlashSaleStatus.ACTIVE,
 
-        deletedAt:
-          null,
+      deletedAt:
+        null,
 
-        startAt: {
-          lte:
-            now,
-        },
+      startAt: {
+        lte:
+          now,
+      },
 
-        endAt: {
-          gt:
-            now,
-        },
+      endAt: {
+        gt:
+          now,
+      },
 
-        items: {
-          some: {
-            isActive:
-              true,
+      items: {
+        some: {
+          isActive:
+            true,
 
-            stockLimit: {
-              gt:
-                0,
-            },
+          stockLimit: {
+            gt:
+              0,
           },
         },
       },
+    },
 
-      orderBy: [
-        {
-          sortOrder:
-            "asc",
-        },
+    orderBy: [
+      {
+        sortOrder:
+          "asc",
+      },
 
-        {
-          startAt:
-            "asc",
-        },
-      ],
+      {
+        startAt:
+          "asc",
+      },
+    ],
 
-      include: {
-        items: {
-          where: {
-            isActive:
-              true,
-
-            stockLimit: {
-              gt:
-                0,
-            },
-          },
-
-          orderBy: [
-            {
-              sortOrder:
-                "asc",
-            },
-
-            {
-              createdAt:
-                "asc",
-            },
-          ],
-
-          include: {
-  product: {
     include: {
-      images: {
+      items: {
+        where: {
+          isActive:
+            true,
+
+          stockLimit: {
+            gt:
+              0,
+          },
+        },
+
         orderBy: [
           {
-            isThumbnail: "desc",
+            sortOrder:
+              "asc",
           },
+
           {
-            sortOrder: "asc",
+            createdAt:
+              "asc",
           },
         ],
-      },
-    },
-  },
 
-  sku: true,
+        include: {
+          /**
+           * ======================================================
+           * PRODUCT
+           * ======================================================
+           */
+          product: {
+            include: {
+              /**
+               * PRODUCT IMAGES
+               */
+              images: {
+                orderBy: [
+                  {
+                    isThumbnail:
+                      "desc",
+                  },
 
-  _count: {
-    select: {
-      purchases: true,
-    },
-  },
-},
+                  {
+                    sortOrder:
+                      "asc",
+                  },
+                ],
+              },
+
+              /**
+               * ==================================================
+               * VARIANT GROUPS
+               * ==================================================
+               *
+               * Digunakan oleh Flash Sale Quick Add Modal.
+               *
+               * Contoh:
+               *
+               * Ukuran
+               * ├── 500 Gram
+               * └── 1 Kg
+               *
+               * Jenis
+               * ├── Fresh
+               * └── Frozen
+               *
+               * ==================================================
+               */
+              variantGroups: {
+                where: {
+                  isActive:
+                    true,
+                },
+
+                orderBy: {
+                  sortOrder:
+                    "asc",
+                },
+
+                include: {
+                  options: {
+                    where: {
+                      isActive:
+                        true,
+                    },
+
+                    orderBy: {
+                      sortOrder:
+                        "asc",
+                    },
+                  },
+                },
+              },
+
+              /**
+               * ==================================================
+               * PRODUCT SKUs
+               * ==================================================
+               *
+               * Semua SKU aktif diperlukan untuk mencocokkan
+               * kombinasi variant yang dipilih customer.
+               *
+               * ==================================================
+               */
+              skus: {
+                where: {
+                  isActive:
+                    true,
+                },
+
+                orderBy: {
+                  price:
+                    "asc",
+                },
+
+                include: {
+                  skuOptions: {
+                    include: {
+                      variantOption:
+                        true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          /**
+           * ======================================================
+           * FLASH SALE SKU
+           * ======================================================
+           *
+           * Jangan menggunakan:
+           *
+           *   sku: true
+           *
+           * karena Quick Add Modal membutuhkan skuOptions.
+           *
+           * ======================================================
+           */
+          sku: {
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption:
+                    true,
+                },
+              },
+            },
+          },
+
+          /**
+           * ======================================================
+           * PURCHASE COUNT
+           * ======================================================
+           */
+          _count: {
+            select: {
+              purchases:
+                true,
+            },
+          },
         },
       },
-    });
-  }
+    },
+  });
+}
 
-  /**
-   * ============================================================
-   * ADMIN - FIND MANY FLASH SALES
-   * ============================================================
-   */
+/**
+ * ============================================================
+ * ADMIN - FIND MANY FLASH SALES
+ * ============================================================
+ */
 
   static async findMany({
     skip = 0,

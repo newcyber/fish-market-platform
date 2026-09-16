@@ -226,6 +226,15 @@ export default async function EditProductPage({
     price:
       Number(product.price),
 
+    isPreOrder:
+      product.isPreOrder,
+
+    preOrderMinDays:
+      product.preOrderMinDays ?? "",
+
+    preOrderMaxDays:
+      product.preOrderMaxDays ?? "",
+
     isDiscountActive:
       product.isDiscountActive,
 

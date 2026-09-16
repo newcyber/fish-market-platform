@@ -13,6 +13,9 @@ export interface ProductRecommendation {
   slug: string;
   price: number;
   stock: number;
+  isPreOrder?: boolean;
+  preOrderMinDays?: number | null;
+  preOrderMaxDays?: number | null;
   images: Array<{
     id: string;
     image: string;
@@ -43,8 +46,14 @@ export default function ProductRecommendationCard({
     product.images[0]?.image ??
     null;
 
-  const price = currencyFormatter.format(Number(product.price));
-  const outOfStock = product.stock <= 0;
+const price = currencyFormatter.format(Number(product.price));
+
+const isPreOrder =
+  product.isPreOrder === true;
+
+const outOfStock =
+  !isPreOrder &&
+  product.stock <= 0;
 
   return (
     <>
@@ -79,15 +88,29 @@ export default function ProductRecommendationCard({
               {price}
             </p>
 
-            {product.stock > 0 ? (
-              <p className="mt-1 text-[11px] text-slate-400">
-                Stok {product.stock}
+            {isPreOrder ? (
+              <div className="mt-1 space-y-0.5">
+              <p className="text-[10px] font-bold tracking-wide text-[#ef3030]">
+                PRE-ORDER
               </p>
-            ) : (
-              <p className="mt-1 text-[11px] font-medium text-red-500">
-                Stok habis
-              </p>
-            )}
+
+                {product.preOrderMinDays != null &&
+              product.preOrderMaxDays != null ? (
+                <p className="text-[10px] text-slate-400">
+                  Estimasi {product.preOrderMinDays}–
+                  {product.preOrderMaxDays} hari
+                </p>
+              ) : null}
+            </div>
+          ) : product.stock > 0 ? (
+            <p className="mt-1 text-[11px] text-slate-400">
+              Stok {product.stock}
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] font-medium text-red-500">
+              Stok habis
+            </p>
+          )}
           </div>
         </Link>
 

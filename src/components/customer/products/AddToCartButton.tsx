@@ -149,6 +149,10 @@ interface AddToCartButtonProps {
   stock?: number;
   basePrice?: number;
 
+  isPreOrder?: boolean;
+  preOrderMinDays?: number | null;
+  preOrderMaxDays?: number | null;
+
   /**
    * Canonical variant system.
    */
@@ -214,6 +218,10 @@ export default function AddToCartButton({
 
   stock = 0,
   basePrice = 0,
+
+  isPreOrder = false,
+  preOrderMinDays = null,
+  preOrderMaxDays = null,
 
   variantGroups = [],
   skus = [],
@@ -722,9 +730,12 @@ export default function AddToCartButton({
    * EFFECTIVE MAX QUANTITY
    * ==========================================================
    */
-  const effectiveMaxQuantity =
-    flashSaleRemainingStock !==
-    null
+const effectiveMaxQuantity =
+  isPreOrder
+    ? flashSaleRemainingStock !== null
+      ? flashSaleRemainingStock
+      : Number.MAX_SAFE_INTEGER
+    : flashSaleRemainingStock !== null
       ? Math.min(
           currentStock,
           flashSaleRemainingStock
@@ -743,9 +754,9 @@ export default function AddToCartButton({
     requiresVariant &&
     !selectedSku;
 
-  const outOfStock =
-    selectionIncomplete ||
-    currentStock <= 0;
+const outOfStock =
+  selectionIncomplete ||
+  (!isPreOrder && currentStock <= 0);
 
   /**
    * ==========================================================
@@ -786,9 +797,11 @@ export default function AddToCartButton({
       })
     );
 
-    setQuantity(
-      (current) =>
-        Math.max(
+setQuantity(
+  (current) =>
+    isPreOrder
+      ? Math.max(1, current)
+      : Math.max(
           1,
           Math.min(
             current,
@@ -798,7 +811,7 @@ export default function AddToCartButton({
             )
           )
         )
-    );
+);
 
     resetMessage();
   }
@@ -958,16 +971,17 @@ export default function AddToCartButton({
      * --------------------------------------------------------
      */
     if (
-      currentStock <= 0
-    ) {
-      setSuccess(false);
+  !isPreOrder &&
+  currentStock <= 0
+) {
+  setSuccess(false);
 
-      setMessage(
-        "Produk untuk pilihan ini sedang habis."
-      );
+  setMessage(
+    "Produk untuk pilihan ini sedang habis."
+  );
 
-      return false;
-    }
+  return false;
+}
 
     /**
      * --------------------------------------------------------
@@ -1702,16 +1716,42 @@ export default function AddToCartButton({
           </div>
 
           <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+  <span className="text-xs text-slate-500">
+    {isPreOrder ? "Status" : "Stok varian"}
+  </span>
 
-            <span className="text-xs text-slate-500">
-              Stok varian
-            </span>
+  <span
+    className={
+      isPreOrder
+        ? "text-xs font-bold text-cyan-700"
+        : "text-xs font-semibold text-slate-700"
+    }
+  >
+    {isPreOrder ? "Pre-Order" : currentStock}
+  </span>
+</div>
 
-            <span className="text-xs font-semibold text-slate-700">
-              {currentStock}
-            </span>
+{isPreOrder && (
+  <div className="mt-2 rounded-lg border border-cyan-100 bg-cyan-50 px-3 py-2">
+    <p className="text-[11px] font-bold uppercase tracking-wide text-cyan-700">
+      PRE-ORDER
+    </p>
 
-          </div>
+    {preOrderMinDays != null &&
+    preOrderMaxDays != null ? (
+      <p className="mt-0.5 text-xs text-cyan-700">
+        Estimasi tersedia dalam{" "}
+        <span className="font-bold">
+          {preOrderMinDays}–{preOrderMaxDays} hari
+        </span>
+      </p>
+    ) : (
+      <p className="mt-0.5 text-xs text-cyan-700">
+        Produk diproses berdasarkan jadwal Pre-Order.
+      </p>
+    )}
+  </div>
+)}
         </div>
       )}
 
@@ -2180,15 +2220,16 @@ export default function AddToCartButton({
         {/* ACTION HELPER */}
 
         {!outOfStock &&
-          !isFlashSaleSoldOut &&
-          effectiveMaxQuantity >
-            0 && (
-            <p className="mt-3 text-center text-xs text-slate-400">
-              {isFlashSaleApplied
-                ? `Maksimal ${effectiveMaxQuantity} produk sesuai kuota Flash Sale.`
-                : `Maksimal ${effectiveMaxQuantity} produk dapat dibeli.`}
-            </p>
-          )}
+  !isFlashSaleSoldOut &&
+  effectiveMaxQuantity > 0 && (
+    <p className="mt-3 text-center text-xs text-slate-400">
+      {isFlashSaleApplied
+        ? `Maksimal ${effectiveMaxQuantity} produk sesuai kuota Flash Sale.`
+        : isPreOrder
+          ? "Jumlah Pre-Order tidak dibatasi stok tersedia."
+          : `Maksimal ${effectiveMaxQuantity} produk dapat dibeli.`}
+    </p>
+  )}
 
       </div>
 

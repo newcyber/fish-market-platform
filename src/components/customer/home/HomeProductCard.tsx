@@ -67,6 +67,12 @@ export interface HomeProductCardProduct {
   soldQuantity?: number;
 
   hasVariants?: boolean;
+
+  isPreOrder?: boolean;
+
+  preOrderMinDays?: number | null;
+
+  preOrderMaxDays?: number | null;
 }
 
 export type HomeProductBadge =
@@ -314,6 +320,16 @@ export default function HomeProductCard({
     typeof product.stock ===
     "number";
 
+  const isPreOrder =
+    product.isPreOrder === true;
+
+  const preOrderEstimate =
+    isPreOrder &&
+    product.preOrderMinDays != null &&
+    product.preOrderMaxDays != null
+      ? `${product.preOrderMinDays}–${product.preOrderMaxDays} hari`
+      : null;
+
   return (
     <>
       <div
@@ -489,6 +505,38 @@ export default function HomeProductCard({
                 rank
               }
             />
+
+            {isPreOrder && (
+  <div
+    className="
+      absolute
+      bottom-1
+      left-1
+      z-30
+      inline-flex
+      items-center
+      rounded-md
+      border
+      border-white/30
+      bg-(--ocean-950)
+      px-1.5
+      py-1
+      text-[8px]
+      font-black
+      tracking-wide
+      text-white
+      shadow-lg
+
+      sm:bottom-1.5
+      sm:left-1.5
+      sm:px-2
+      sm:py-1.5
+      sm:text-[10px]
+    "
+  >
+    PRE-ORDER
+  </div>
+)}
 
           </div>
 

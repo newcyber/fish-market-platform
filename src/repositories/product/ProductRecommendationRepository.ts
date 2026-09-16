@@ -207,17 +207,22 @@ export class ProductRecommendationRepository {
             : Number(product.price);
 
         return {
-          id: product.id,
-          name: product.name,
-          slug: product.slug,
-          price,
-          stock,
-          images: product.images,
-          hasVariants:
-            product.skus.length > 1,
-          purchaseCount:
-            item.purchaseCount,
-        };
+  id: product.id,
+  name: product.name,
+  slug: product.slug,
+  price,
+  stock,
+  isPreOrder: product.isPreOrder,
+  preOrderMinDays:
+    product.preOrderMinDays,
+  preOrderMaxDays:
+    product.preOrderMaxDays,
+  images: product.images,
+  hasVariants:
+    product.skus.length > 1,
+  purchaseCount:
+    item.purchaseCount,
+};
       })
       .filter(
         (
@@ -326,15 +331,20 @@ export class ProductRecommendationRepository {
           );
 
         return {
-          id: product.id,
-          name: product.name,
-          slug: product.slug,
-          price,
-          stock,
-          images: product.images,
-          hasVariants:
-            product.skus.length > 1,
-        };
+  id: product.id,
+  name: product.name,
+  slug: product.slug,
+  price,
+  stock,
+  isPreOrder: product.isPreOrder,
+  preOrderMinDays:
+    product.preOrderMinDays,
+  preOrderMaxDays:
+    product.preOrderMaxDays,
+  images: product.images,
+  hasVariants:
+    product.skus.length > 1,
+};
       }
     );
   }

@@ -129,6 +129,10 @@ export interface ProductFormValues {
   sku: string;
   price: number;
 
+  isPreOrder: boolean;
+  preOrderMinDays: number | "";
+  preOrderMaxDays: number | "";
+
   isDiscountActive: boolean;
   discountType:
     | "PERCENTAGE"
@@ -764,6 +768,15 @@ const slugManuallyEditedRef =
         Number(
           defaultValues?.price ?? 0
         ),
+
+      isPreOrder:
+        defaultValues?.isPreOrder ?? false,
+
+      preOrderMinDays:
+        defaultValues?.preOrderMinDays ?? "",
+
+      preOrderMaxDays:
+        defaultValues?.preOrderMaxDays ?? "",
 
               /**
        * ========================================================
@@ -2600,6 +2613,144 @@ const totalSkuStock =
           </div>
         </div>
       </Card>
+
+      {/* ====================================================== */}
+{/* PRE-ORDER */}
+{/* ====================================================== */}
+
+<Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+  <div>
+    <h2 className="text-lg font-semibold">
+      Pre-Order
+    </h2>
+
+    <p className="text-sm text-muted-foreground">
+      Izinkan customer memesan produk sebelum stok fisik tersedia.
+    </p>
+  </div>
+
+  <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+    <div>
+      <Label htmlFor="isPreOrder">
+        Aktifkan Pre-Order
+      </Label>
+
+      <p className="mt-1 text-sm text-muted-foreground">
+        Produk tetap dapat dipesan walaupun stok SKU saat ini 0.
+      </p>
+    </div>
+
+    <Switch
+      id="isPreOrder"
+      checked={form.isPreOrder}
+      onCheckedChange={(checked) =>
+        setForm((previous) => ({
+          ...previous,
+          isPreOrder: checked,
+          preOrderMinDays: checked
+            ? previous.preOrderMinDays || 1
+            : "",
+          preOrderMaxDays: checked
+            ? previous.preOrderMaxDays || 3
+            : "",
+        }))
+      }
+    />
+  </div>
+
+  <input
+    type="hidden"
+    name="isPreOrder"
+    value={form.isPreOrder ? "true" : "false"}
+  />
+
+  {form.isPreOrder && (
+    <>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="preOrderMinDays">
+            Estimasi Minimum
+          </Label>
+
+          <Input
+            id="preOrderMinDays"
+            name="preOrderMinDays"
+            type="number"
+            min="1"
+            step="1"
+            value={form.preOrderMinDays}
+            onChange={(event) => {
+              const value = event.target.value;
+
+              setForm((previous) => ({
+                ...previous,
+                preOrderMinDays:
+                  value === ""
+                    ? ""
+                    : Math.max(
+                        1,
+                        Math.trunc(
+                          Number(value) || 1
+                        )
+                      ),
+              }));
+            }}
+            required
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Jumlah hari persiapan paling cepat.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="preOrderMaxDays">
+            Estimasi Maksimum
+          </Label>
+
+          <Input
+            id="preOrderMaxDays"
+            name="preOrderMaxDays"
+            type="number"
+            min="1"
+            step="1"
+            value={form.preOrderMaxDays}
+            onChange={(event) => {
+              const value = event.target.value;
+
+              setForm((previous) => ({
+                ...previous,
+                preOrderMaxDays:
+                  value === ""
+                    ? ""
+                    : Math.max(
+                        1,
+                        Math.trunc(
+                          Number(value) || 1
+                        )
+                      ),
+              }));
+            }}
+            required
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Jumlah hari persiapan paling lama.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        Customer akan melihat estimasi{" "}
+        <strong>
+          {form.preOrderMinDays || 1}–
+          {form.preOrderMaxDays || 3} hari
+        </strong>{" "}
+        dan produk dapat dipesan sebelum stok fisik tersedia.
+      </div>
+    </>
+  )}
+</Card>
 
       {/* ====================================================== */}
       {/* ====================================================== */}

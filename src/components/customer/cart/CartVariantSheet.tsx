@@ -74,6 +74,11 @@ interface ProductSku {
 interface VariantData {
   productId: string;
   productName: string;
+
+  isPreOrder: boolean;
+  preOrderMinDays: number | null;
+  preOrderMaxDays: number | null;
+
   currentSkuId: string | null;
   variantGroups: VariantGroup[];
   skus: ProductSku[];
@@ -157,14 +162,19 @@ export default function CartVariantSheet({
           result.message ??
             "Gagal mengambil varian."
         );
+
         return;
       }
 
-      if (!result.success || !result.data) {
+      if (
+        !result.success ||
+        !result.data
+      ) {
         setError(
           result.message ??
             "Gagal mengambil varian."
         );
+
         return;
       }
 
@@ -178,7 +188,7 @@ export default function CartVariantSheet({
        * INITIAL SELECTION
        * ======================================================
        *
-       * Ambil option dari SKU yang sedang dipakai.
+       * Ambil option dari SKU yang sedang digunakan.
        */
 
       const currentSku =
@@ -192,7 +202,10 @@ export default function CartVariantSheet({
         const initialSelection:
           Record<string, string> = {};
 
-        for (const option of currentSku.options) {
+        for (
+          const option of
+          currentSku.options
+        ) {
           initialSelection[
             option.groupId
           ] =
@@ -251,7 +264,7 @@ export default function CartVariantSheet({
    * RESOLVE SELECTED SKU
    * ==========================================================
    *
-   * SKU valid hanya apabila:
+   * SKU valid apabila:
    *
    * 1. aktif
    * 2. memiliki jumlah option yang sesuai
@@ -271,19 +284,30 @@ export default function CartVariantSheet({
               group.options.length > 0
           )
           .map(
-            (group) => group.id
+            (group) =>
+              group.id
           );
 
+      /**
+       * Produk tanpa group varian.
+       *
+       * Ambil SKU aktif pertama.
+       */
       if (
         selectedGroupIds.length ===
         0
       ) {
-        return data.skus.find(
-          (sku) =>
-            sku.isActive
-        ) ?? null;
+        return (
+          data.skus.find(
+            (sku) =>
+              sku.isActive
+          ) ?? null
+        );
       }
 
+      /**
+       * Semua group harus sudah dipilih.
+       */
       const allGroupsSelected =
         selectedGroupIds.every(
           (groupId) =>
@@ -298,6 +322,10 @@ export default function CartVariantSheet({
         return null;
       }
 
+      /**
+       * Cari SKU yang cocok dengan
+       * seluruh kombinasi option.
+       */
       return (
         data.skus.find(
           (sku) => {
@@ -347,16 +375,35 @@ export default function CartVariantSheet({
       setError(
         "Silakan pilih kombinasi varian yang tersedia."
       );
+
       return;
     }
 
-    if (selectedSku.stock <= 0) {
+    /**
+     * ======================================================
+     * STOCK VALIDATION
+     * ======================================================
+     *
+     * NORMAL:
+     *   stock 0 -> tidak boleh dipilih
+     *
+     * PRE-ORDER:
+     *   stock 0 -> tetap boleh dipilih
+     */
+    if (
+      data?.isPreOrder !== true &&
+      selectedSku.stock <= 0
+    ) {
       setError(
         "Varian yang dipilih sedang habis."
       );
+
       return;
     }
 
+    /**
+     * Tidak ada perubahan SKU.
+     */
     if (
       selectedSku.id ===
       currentSkuId
@@ -381,16 +428,16 @@ export default function CartVariantSheet({
             result.message ??
               "Gagal mengubah varian."
           );
+
           return;
         }
 
         setIsOpen(false);
 
         /**
-         * Cart parent dapat melakukan refresh
+         * Parent dapat melakukan refresh
          * setelah server action selesai.
          */
-
         onChanged?.();
       }
     );
@@ -410,6 +457,24 @@ export default function CartVariantSheet({
       )
       .join(" • ") ??
     currentLabel;
+
+  /**
+   * ==========================================================
+   * PRE-ORDER ESTIMATE LABEL
+   * ==========================================================
+   */
+
+  const preOrderEstimate =
+    data?.isPreOrder === true
+      ? data.preOrderMinDays !== null &&
+        data.preOrderMaxDays !== null
+        ? `${data.preOrderMinDays}–${data.preOrderMaxDays} hari`
+        : data.preOrderMinDays !== null
+          ? `${data.preOrderMinDays} hari`
+          : data.preOrderMaxDays !== null
+            ? `${data.preOrderMaxDays} hari`
+            : null
+      : null;
 
   return (
     <>
@@ -600,6 +665,63 @@ export default function CartVariantSheet({
                 </div>
               ) : data ? (
                 <div className="space-y-5">
+
+                  {/* ================================================= */}
+                  {/* PRE-ORDER INFO                                   */}
+                  {/* ================================================= */}
+
+                  {data.isPreOrder && (
+                    <div
+                      className="
+                        rounded-xl
+                        border
+                        border-emerald-100
+                        bg-emerald-50
+                        px-4
+                        py-3
+                      "
+                    >
+                      <p
+                        className="
+                          text-xs
+                          font-bold
+                          text-emerald-700
+                        "
+                      >
+                        PRE-ORDER
+                      </p>
+
+                      {preOrderEstimate && (
+                        <p
+                          className="
+                            mt-0.5
+                            text-xs
+                            text-slate-600
+                          "
+                        >
+                          Estimasi pemenuhan{" "}
+                          {preOrderEstimate}
+                        </p>
+                      )}
+
+                      <p
+                        className="
+                          mt-1
+                          text-[11px]
+                          text-slate-500
+                        "
+                      >
+                        Pesanan dapat dilakukan
+                        meskipun stok fisik saat ini
+                        belum tersedia.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* ================================================= */}
+                  {/* VARIANT GROUPS                                   */}
+                  {/* ================================================= */}
+
                   {data.variantGroups.map(
                     (group) => (
                       <div
@@ -631,6 +753,10 @@ export default function CartVariantSheet({
                                 ] ===
                                 option.id;
 
+                              /**
+                               * Cari apakah ada SKU aktif
+                               * yang memiliki option ini.
+                               */
                               const matchingSku =
                                 data.skus.find(
                                   (sku) => {
@@ -650,66 +776,89 @@ export default function CartVariantSheet({
                                   }
                                 );
 
-const hasStock =
-  data.skus.some(
-    (sku) => {
-      /**
-       * SKU harus aktif dan memiliki stok.
-       */
-      if (
-        !sku.isActive ||
-        sku.stock <= 0
-      ) {
-        return false;
-      }
+                              /**
+                               * ==================================================
+                               * HAS STOCK / AVAILABLE
+                               * ==================================================
+                               *
+                               * NORMAL:
+                               *   SKU aktif + stock > 0
+                               *
+                               * PRE-ORDER:
+                               *   SKU aktif saja.
+                               *
+                               * Jadi stock 0 tetap available untuk Pre-Order.
+                               */
+                              const hasStock =
+                                data.skus.some(
+                                  (sku) => {
+                                    if (
+                                      !sku.isActive
+                                    ) {
+                                      return false;
+                                    }
 
-      /**
-       * Option yang sedang diperiksa harus
-       * ada pada SKU ini.
-       */
-      const currentOptionMatches =
-        sku.options.some(
-          (skuOption) =>
-            skuOption.groupId ===
-              group.id &&
-            skuOption.variantOptionId ===
-              option.id
-        );
+                                    if (
+                                      data.isPreOrder !==
+                                        true &&
+                                      sku.stock <= 0
+                                    ) {
+                                      return false;
+                                    }
 
-      if (!currentOptionMatches) {
-        return false;
-      }
+                                    /**
+                                     * Option candidate
+                                     * harus cocok.
+                                     */
+                                    const currentOptionMatches =
+                                      sku.options.some(
+                                        (skuOption) =>
+                                          skuOption.groupId ===
+                                            group.id &&
+                                          skuOption.variantOptionId ===
+                                            option.id
+                                      );
 
-      /**
-       * Semua pilihan dari group lain yang
-       * SUDAH dipilih harus cocok dengan SKU ini.
-       *
-       * Group yang sedang diperiksa sengaja
-       * tidak ikut dibandingkan karena option
-       * candidate sudah dicek di atas.
-       */
-      return Object.entries(
-        selectedOptions
-      ).every(
-        ([selectedGroupId, selectedOptionId]) => {
-          if (
-            selectedGroupId ===
-            group.id
-          ) {
-            return true;
-          }
+                                    if (
+                                      !currentOptionMatches
+                                    ) {
+                                      return false;
+                                    }
 
-          return sku.options.some(
-            (skuOption) =>
-              skuOption.groupId ===
-                selectedGroupId &&
-              skuOption.variantOptionId ===
-                selectedOptionId
-          );
-        }
-      );
-    }
-  );
+                                    /**
+                                     * Group lain yang sudah
+                                     * dipilih harus cocok.
+                                     */
+                                    return Object.entries(
+                                      selectedOptions
+                                    ).every(
+                                      ([
+                                        selectedGroupId,
+                                        selectedOptionId,
+                                      ]) => {
+                                        /**
+                                         * Group yang sedang
+                                         * diperiksa tidak perlu
+                                         * dibandingkan lagi.
+                                         */
+                                        if (
+                                          selectedGroupId ===
+                                          group.id
+                                        ) {
+                                          return true;
+                                        }
+
+                                        return sku.options.some(
+                                          (skuOption) =>
+                                            skuOption.groupId ===
+                                              selectedGroupId &&
+                                            skuOption.variantOptionId ===
+                                              selectedOptionId
+                                        );
+                                      }
+                                    );
+                                  }
+                                );
 
                               return (
                                 <button
@@ -784,6 +933,10 @@ const hasStock =
                     )
                   )}
 
+                  {/* ================================================= */}
+                  {/* NO VARIANT                                      */}
+                  {/* ================================================= */}
+
                   {data.variantGroups.length ===
                     0 && (
                     <div
@@ -802,9 +955,9 @@ const hasStock =
                     </div>
                   )}
 
-                  {/* ======================================= */}
-                  {/* SELECTED SKU                             */}
-                  {/* ======================================= */}
+                  {/* ================================================= */}
+                  {/* SELECTED SKU                                    */}
+                  {/* ================================================= */}
 
                   {selectedSku && (
                     <div
@@ -825,7 +978,7 @@ const hasStock =
                           gap-3
                         "
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p
                             className="
                               text-xs
@@ -850,9 +1003,25 @@ const hasStock =
                               )
                               .join(" • ")}
                           </p>
+
+                          <p
+                            className="
+                              mt-1
+                              text-[11px]
+                              text-slate-500
+                            "
+                          >
+                            SKU:{" "}
+                            {selectedSku.sku}
+                          </p>
                         </div>
 
-                        <div className="text-right">
+                        <div
+                          className="
+                            shrink-0
+                            text-right
+                          "
+                        >
                           <p
                             className="
                               text-base
@@ -865,21 +1034,77 @@ const hasStock =
                             )}
                           </p>
 
+                          {data.isPreOrder ? (
+                            <div className="mt-1">
+                              <p
+                                className="
+                                  text-[11px]
+                                  font-semibold
+                                  text-emerald-600
+                                "
+                              >
+                                PRE-ORDER
+                              </p>
+
+                              {preOrderEstimate && (
+                                <p
+                                  className="
+                                    text-[11px]
+                                    text-slate-500
+                                  "
+                                >
+                                  Estimasi{" "}
+                                  {
+                                    preOrderEstimate
+                                  }
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p
+                              className="
+                                text-[11px]
+                                text-slate-500
+                              "
+                            >
+                              Stok{" "}
+                              {
+                                selectedSku.stock
+                              }
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* PRE-ORDER STOCK NOTE */}
+
+                      {data.isPreOrder && (
+                        <div
+                          className="
+                            mt-3
+                            border-t
+                            border-emerald-100
+                            pt-2
+                          "
+                        >
                           <p
                             className="
                               text-[11px]
                               text-slate-500
                             "
                           >
-                            Stok{" "}
-                            {
-                              selectedSku.stock
-                            }
+                            Jumlah Pre-Order tidak
+                            dibatasi stok fisik
+                            yang tersedia saat ini.
                           </p>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
+
+                  {/* ================================================= */}
+                  {/* ERROR                                            */}
+                  {/* ================================================= */}
 
                   {error && (
                     <div
@@ -899,7 +1124,9 @@ const hasStock =
               ) : null}
             </div>
 
-            {/* FOOTER */}
+            {/* ==================================================== */}
+            {/* FOOTER                                              */}
+            {/* ==================================================== */}
 
             <div
               className="
@@ -946,6 +1173,7 @@ const hasStock =
                         animate-spin
                       "
                     />
+
                     Menyimpan...
                   </>
                 ) : (

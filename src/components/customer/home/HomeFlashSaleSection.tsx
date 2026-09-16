@@ -2,17 +2,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
+
 import {
   ChevronRight,
   Flame,
   Package,
+  Plus,
   Timer,
 } from "lucide-react";
+
 import {
   useEffect,
   useMemo,
   useState,
 } from "react";
+
+import FlashSaleQuickAddModal from
+  "@/components/customer/home/FlashSaleQuickAddModal";
 
 /**
  * ============================================================
@@ -47,12 +53,46 @@ interface FlashSaleProductImage {
   isThumbnail?: boolean;
 }
 
+interface FlashSaleVariantOption {
+  id: string;
+  groupId: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+interface FlashSaleVariantGroup {
+  id: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  options: FlashSaleVariantOption[];
+}
+
+interface FlashSaleSkuOption {
+  id: string;
+  skuId: string;
+  variantOptionId: string;
+  variantOption: FlashSaleVariantOption;
+}
+
+interface FlashSaleSku {
+  id: string;
+  sku: string;
+  price: NumericValue;
+  stock: number;
+  isActive: boolean;
+  skuOptions: FlashSaleSkuOption[];
+}
+
 interface FlashSaleProduct {
   id: string;
   name: string;
   slug: string;
   price: NumericValue;
   images?: FlashSaleProductImage[];
+  variantGroups?: FlashSaleVariantGroup[];
+  skus?: FlashSaleSku[];
 }
 
 interface FlashSaleItem {
@@ -62,14 +102,7 @@ interface FlashSaleItem {
   stockLimit: number;
   soldQuantity: number;
   product: FlashSaleProduct;
-  sku:
-    | {
-        id: string;
-        sku: string;
-        price: NumericValue;
-        stock: number;
-      }
-    | null;
+  sku: FlashSaleSku | null;
 }
 
 interface FlashSaleData {
@@ -396,8 +429,12 @@ function Countdown({
 
 function FlashSaleProductCard({
   item,
+  onQuickAdd,
 }: {
   item: FlashSaleItem;
+  onQuickAdd: (
+    item: FlashSaleItem
+  ) => void;
 }) {
   const image = getProductImage(
     item.product.images
@@ -421,9 +458,8 @@ function FlashSaleProductCard({
       : 0;
 
   return (
-    <Link
-      href={`/customer/products/${item.product.slug}`}
-      className="
+    <div
+  className="
         group
         block
         w-[138px]
@@ -445,219 +481,266 @@ function FlashSaleProductCard({
       "
     >
 {/* IMAGE */}
-<div
-  className="
-    relative
-    aspect-square
-    overflow-hidden
-    bg-(--ice-50)
-    sm:aspect-[1.05/1]
-  "
+<Link
+  href={`/customer/products/${item.product.slug}`}
+  className="block"
 >
-  {image ? (
-    <Image
-      src={image}
-      alt={item.product.name}
-      fill
-      sizes="
-        (max-width: 639px) 138px,
-        (max-width: 1023px) 170px,
-        190px
-      "
-      className="
-        object-contain
-        p-1.5
-        transition
-        duration-300
-        group-hover:scale-105
-        sm:p-2
-      "
-      unoptimized
-    />
-  ) : (
-    <div
-      className="
-        flex
-        h-full
-        w-full
-        items-center
-        justify-center
-        text-slate-300
-      "
-    >
-      <Package className="h-6 w-6" />
-    </div>
-  )}
+  <div
+    className="
+      relative
+      aspect-square
+      overflow-hidden
+      bg-(--ice-50)
+      sm:aspect-[1.05/1]
+    "
+  >
+    {image ? (
+      <Image
+        src={image}
+        alt={item.product.name}
+        fill
+        sizes="
+          (max-width: 639px) 138px,
+          (max-width: 1023px) 170px,
+          190px
+        "
+        className="
+          object-contain
+          p-1.5
+          transition
+          duration-300
+          group-hover:scale-105
+          sm:p-2
+        "
+        unoptimized
+      />
+    ) : (
+      <div
+        className="
+          flex
+          h-full
+          w-full
+          items-center
+          justify-center
+          text-slate-300
+        "
+      >
+        <Package className="h-6 w-6" />
+      </div>
+    )}
 
-  {/* DISCOUNT BADGE */}
-  {discount > 0 && (
+    {/* DISCOUNT BADGE */}
+    {discount > 0 && (
+      <span
+        className="
+          absolute
+          left-1.5
+          top-1.5
+          z-10
+          rounded-md
+          bg-rose-500
+          px-2
+          py-1
+          text-[9px]
+          font-black
+          leading-none
+          text-white
+          shadow-sm
+          sm:text-[10px]
+        "
+      >
+        -{discount}%
+      </span>
+    )}
+
+    {/* FLASH SALE BADGE */}
     <span
       className="
         absolute
+        bottom-1.5
         left-1.5
-        top-1.5
         z-10
+        inline-flex
+        items-center
+        gap-1
         rounded-md
-        bg-rose-500
-        px-2
+        bg-[var(--ocean-950)]/90
+        px-1.5
         py-1
-        text-[9px]
+        text-[7px]
         font-black
+        uppercase
         leading-none
+        tracking-wide
         text-white
         shadow-sm
-        sm:text-[10px]
+        backdrop-blur-sm
+        sm:text-[8px]
       "
     >
-      -{discount}%
-    </span>
-  )}
-
-  {/* FLASH SALE BADGE */}
-  <span
-    className="
-      absolute
-      bottom-1.5
-      left-1.5
-      z-10
-      inline-flex
-      items-center
-      gap-1
-      rounded-md
-      bg-[var(--ocean-950)]/90
-      px-1.5
-      py-1
-      text-[7px]
-      font-black
-      uppercase
-      leading-none
-      tracking-wide
-      text-white
-      shadow-sm
-      backdrop-blur-sm
-      sm:text-[8px]
-    "
-  >
-    <Flame
-      aria-hidden="true"
-      className="
-        h-2.5
-        w-2.5
-        shrink-0
-        text-[var(--fresh-400)]
-        sm:h-3
-        sm:w-3
-      "
-    />
-    Flash Sale
-  </span>
-</div>
-
-      {/* CONTENT */}
-      <div className="p-2.5 sm:p-3">
-        <h3
-          className="
-            line-clamp-2
-            min-h-8
-            text-[10px]
-            font-bold
-            leading-4
-            text-slate-800
-            sm:text-[11px]
-          "
-        >
-          {item.product.name}
-        </h3>
-
-<p
-  className="
-    mt-1.5
-    text-[14px]
-    font-black
-    leading-5
-    tracking-tight
-    text-[var(--ocean-900)]
-    sm:text-[15px]
-  "
->
-          {formatRupiah(item.flashPrice)}
-        </p>
-
-<p
-  className="
-    mt-0.5
-    truncate
-    text-[10px]
-    leading-4
-    text-slate-400
-    line-through
-    sm:text-[11px]
-  "
->
-          {formatRupiah(item.originalPrice)}
-        </p>
-
-        {/* STOCK */}
-<div className="mt-2">
-  <div
-    className="
-      h-1.5
-      overflow-hidden
-      rounded-full
-      bg-slate-100
-    "
-  >
-    <div
-      className="
-        h-full
-        rounded-full
-        bg-rose-500
-        transition-all
-      "
-      style={{
-        width: `${soldPercent}%`,
-      }}
-    />
-  </div>
-
-  <div
-    className="
-      mt-1
-      flex
-      items-center
-      justify-between
-      gap-2
-    "
-  >
-    <p
-      className="
-        text-[9px]
-        font-semibold
-        leading-3
-        text-slate-400
-        sm:text-[10px]
-      "
-    >
-      {soldPercent}% terjual
-    </p>
-
-    {soldPercent >= 50 && (
-      <span
+      <Flame
+        aria-hidden="true"
         className="
+          h-2.5
+          w-2.5
           shrink-0
-          text-[8px]
-          font-bold
-          text-rose-500
-          sm:text-[9px]
+          text-[var(--fresh-400)]
+          sm:h-3
+          sm:w-3
+        "
+      />
+      Flash Sale
+    </span>
+  </div>
+</Link>
+
+{/* CONTENT */}
+<div className="p-2.5 sm:p-3">
+  <Link
+    href={`/customer/products/${item.product.slug}`}
+    className="
+      line-clamp-2
+      min-h-8
+      text-[10px]
+      font-bold
+      leading-4
+      text-slate-800
+      transition
+      hover:text-[var(--ocean-900)]
+      sm:text-[11px]
+    "
+  >
+    {item.product.name}
+  </Link>
+
+  {/* PRICE */}
+  <div className="mt-1.5 flex items-center justify-between gap-2">
+    <div className="min-w-0">
+      <p
+        className="
+          text-[14px]
+          font-black
+          leading-5
+          tracking-tight
+          text-[var(--ocean-900)]
+          sm:text-[15px]
         "
       >
-        Hampir habis
-      </span>
-    )}
+        {formatRupiah(item.flashPrice)}
+      </p>
+
+      <p
+        className="
+          mt-0.5
+          truncate
+          text-[10px]
+          leading-4
+          text-slate-400
+          line-through
+          sm:text-[11px]
+        "
+      >
+        {formatRupiah(item.originalPrice)}
+      </p>
+    </div>
+
+    {/* SELECT VARIANT */}
+    <button
+  type="button"
+  onClick={() =>
+    onQuickAdd(item)
+  }
+  aria-label={`Tambah ${item.product.name} ke keranjang`}
+  title="Tambah ke keranjang"
+  className="
+    inline-flex
+    h-9
+    w-9
+    shrink-0
+    items-center
+    justify-center
+    rounded-full
+    bg-[var(--ocean-900)]
+    text-white
+    shadow-sm
+    transition
+    hover:scale-105
+    hover:bg-[var(--ocean-950)]
+    active:scale-95
+    focus:outline-none
+    focus:ring-2
+    focus:ring-[var(--ocean-900)]/30
+  "
+>
+  <Plus
+    aria-hidden="true"
+    className="h-5 w-5"
+    strokeWidth={2.5}
+  />
+</button>
+  </div>
+
+  {/* STOCK */}
+  <div className="mt-2">
+    <div
+      className="
+        h-1.5
+        overflow-hidden
+        rounded-full
+        bg-slate-100
+      "
+    >
+      <div
+        className="
+          h-full
+          rounded-full
+          bg-rose-500
+          transition-all
+        "
+        style={{
+          width: `${soldPercent}%`,
+        }}
+      />
+    </div>
+
+    <div
+      className="
+        mt-1
+        flex
+        items-center
+        justify-between
+        gap-2
+      "
+    >
+      <p
+        className="
+          text-[9px]
+          font-semibold
+          leading-3
+          text-slate-400
+          sm:text-[10px]
+        "
+      >
+        {soldPercent}% terjual
+      </p>
+
+      {soldPercent >= 50 && (
+        <span
+          className="
+            shrink-0
+            text-[8px]
+            font-bold
+            text-rose-500
+            sm:text-[9px]
+          "
+        >
+          Hampir habis
+        </span>
+      )}
   </div>
 </div>
-      </div>
-    </Link>
+</div>
+</div>
   );
 }
 
@@ -673,19 +756,17 @@ export default function HomeFlashSaleSection({
   bannerImage,
   bannerContent,
 }: HomeFlashSaleSectionProps) {
-  const [remaining, setRemaining] =
-    useState(
-      getRemainingTime(
-        flashSale.endAt
-      )
-    );
+  const [quickAddItem, setQuickAddItem] =
+    useState<FlashSaleItem | null>(null);
+
+  const [remaining, setRemaining] = useState(
+    getRemainingTime(flashSale.endAt)
+  );
 
   useEffect(() => {
     const update = () => {
       setRemaining(
-        getRemainingTime(
-          flashSale.endAt
-        )
+        getRemainingTime(flashSale.endAt)
       );
     };
 
@@ -716,395 +797,435 @@ export default function HomeFlashSaleSection({
     return null;
   }
 
-const flashSaleHref = "/flash-sale";
+  const flashSaleHref = "/flash-sale";
 
   return (
-    <section
-      className="
-        relative
-        w-full
-        overflow-hidden
-        bg-gradient-to-b
-        from-[var(--ice-100)]
-        via-[var(--ice-50)]
-        to-white
-        py-4
-        sm:py-7
-        lg:py-10
-      "
-    >
-      {/* ====================================================
-          PISJO OCEAN DECORATION
-      ==================================================== */}
+    <>
+      {/* ============================================================
+          FLASH SALE SECTION
+      ============================================================ */}
 
-      <div
-        aria-hidden="true"
-        className="
-          pointer-events-none
-          absolute
-          inset-0
-          overflow-hidden
-        "
-      >
-        <div
-          className="
-            absolute
-            -left-24
-            top-10
-            h-64
-            w-64
-            rounded-full
-            bg-[var(--ocean-200)]/35
-            blur-3xl
-          "
-        />
-
-        <div
-          className="
-            absolute
-            -right-24
-            top-0
-            h-80
-            w-80
-            rounded-full
-            bg-[var(--ocean-300)]/25
-            blur-3xl
-          "
-        />
-
-        <div
-          className="
-            absolute
-            left-1/2
-            top-32
-            h-56
-            w-56
-            -translate-x-1/2
-            rounded-full
-            border
-            border-white/70
-          "
-        />
-
-        <div
-          className="
-            absolute
-            left-1/2
-            top-44
-            h-72
-            w-72
-            -translate-x-1/2
-            rounded-full
-            border
-            border-white/45
-          "
-        />
-      </div>
-
-      <div
+      <section
         className="
           relative
-          z-10
-          mx-auto
           w-full
-          max-w-7xl
-          px-4
-          sm:px-6
-          lg:px-8
+          overflow-hidden
+          bg-gradient-to-b
+          from-[var(--ice-100)]
+          via-[var(--ice-50)]
+          to-white
+          py-4
+          sm:py-7
+          lg:py-10
         "
       >
-{/* ====================================================
-    FLASH SALE BANNER
-==================================================== */}
+        {/* ====================================================
+            PISJO OCEAN DECORATION
+        ==================================================== */}
 
-<div
-  className="
-    relative
-    mx-auto
-    mb-5
-    w-full
-    overflow-hidden
-    rounded-3xl
-    border
-    border-white/70
-    bg-[var(--ocean-900)]
-    shadow-[0_10px_30px_rgba(0,80,150,0.12)]
-    sm:mb-6
-  "
->
-  {/* BACKGROUND IMAGE */}
-  {bannerImage ? (
-    <div className="absolute inset-0">
-      <Image
-        src={bannerImage}
-        alt="Flash Sale Pisjo Market"
-        fill
-        priority
-        sizes="
-          (max-width: 639px) 100vw,
-          (max-width: 1279px) 100vw,
-          1280px
-        "
-        className="object-cover object-center"
-      />
-    </div>
-  ) : (
-    <div
-      aria-hidden="true"
-      className="
-        absolute
-        inset-0
-        bg-gradient-to-br
-        from-[var(--ocean-950)]
-        via-[var(--ocean-800)]
-        to-[var(--ocean-500)]
-      "
-    />
-  )}
-
-  {/* OVERLAY */}
-  <div
-    aria-hidden="true"
-    className="
-      absolute
-      inset-0
-      bg-gradient-to-r
-      from-[var(--ocean-950)]/90
-      via-[var(--ocean-900)]/65
-      to-transparent
-    "
-  />
-
-  {/* CONTENT */}
-{/* CONTENT */}
-<div
-  className="
-    relative
-    z-10
-    flex
-    min-h-[185px]
-    flex-col
-    justify-between
-    px-4
-    py-4
-    sm:min-h-[215px]
-    sm:px-7
-    sm:py-5
-    lg:min-h-[250px]
-    lg:px-10
-    lg:py-7
-  "
->
-    {/* TOP */}
-    <div
-      className="
-        flex
-        items-start
-        justify-between
-        gap-4
-      "
-    >
-      {/* LEFT */}
-      <div className="min-w-0">
-        {/* BADGE */}
         <div
+          aria-hidden="true"
           className="
-            inline-flex
-            items-center
-            gap-1.5
-            rounded-full
-            border
-            border-white/20
-            bg-white/10
-            px-3
-            py-1.5
-            text-[9px]
-            font-black
-            uppercase
-            tracking-[0.14em]
-            text-white
-            backdrop-blur-sm
-            sm:text-[10px]
+            pointer-events-none
+            absolute
+            inset-0
+            overflow-hidden
           "
         >
-          <Flame
-            aria-hidden="true"
+          <div
             className="
-              h-3.5
-              w-3.5
-              text-[var(--fresh-400)]
+              absolute
+              -left-24
+              top-10
+              h-64
+              w-64
+              rounded-full
+              bg-[var(--ocean-200)]/35
+              blur-3xl
             "
           />
 
-          {bannerContent?.label || "Flash Sale"}
+          <div
+            className="
+              absolute
+              -right-24
+              top-0
+              h-80
+              w-80
+              rounded-full
+              bg-[var(--ocean-300)]/25
+              blur-3xl
+            "
+          />
+
+          <div
+            className="
+              absolute
+              left-1/2
+              top-32
+              h-56
+              w-56
+              -translate-x-1/2
+              rounded-full
+              border
+              border-white/70
+            "
+          />
+
+          <div
+            className="
+              absolute
+              left-1/2
+              top-44
+              h-72
+              w-72
+              -translate-x-1/2
+              rounded-full
+              border
+              border-white/45
+            "
+          />
         </div>
 
-        {/* TITLE */}
-        <h2
-          className="
-            mt-4
-            max-w-[420px]
-            text-[23px]
-            font-black
-            leading-[1.05]
-            tracking-tight
-            text-white
-            sm:text-3xl
-            lg:text-4xl
-          "
-        >
-          {bannerContent?.title || "Seafood Favorit,"}
-
-<span
-  className="
-    block
-    text-[var(--fresh-400)]
-  "
->
-  {bannerContent?.highlight ||
-    "Harga Lebih Menarik."}
-</span>
-        </h2>
-      </div>
-
-      {/* COUNTDOWN */}
-      <div className="shrink-0">
-        <Countdown remaining={remaining} />
-      </div>
-    </div>
-
-    {/* BOTTOM */}
-    <div
-      className="
-        mt-6
-        flex
-        items-end
-        justify-between
-        gap-3
-        border-t
-        border-white/15
-        pt-3
-        sm:mt-7
-        sm:pt-4
-      "
-    >
-      <div className="min-w-0">
-        <p
-          className="
-            text-[8px]
-            font-black
-            uppercase
-            tracking-[0.16em]
-            text-[var(--fresh-400)]
-            sm:text-[9px]
-          "
-        >
-          Flash Sale
-        </p>
-
-        <h3
-          className="
-            mt-0.5
-            truncate
-            text-sm
-            font-black
-            text-white
-            sm:text-base
-            lg:text-lg
-          "
-        >
-          {flashSale.name}
-        </h3>
-      </div>
-
-      <Link
-        href={flashSaleHref}
-        className="
-          group
-          inline-flex
-          shrink-0
-          items-center
-          gap-0.5
-          rounded-full
-          border
-          border-white/20
-          bg-white/10
-          px-3
-          py-1.5
-          text-[10px]
-          font-bold
-          text-white
-          backdrop-blur-sm
-          transition
-          hover:bg-white/20
-          sm:px-3.5
-          sm:py-2
-          sm:text-xs
-        "
-      >
-        <span className="whitespace-nowrap">
-          Lihat Semua
-        </span>
-
-        <ChevronRight
-          aria-hidden="true"
-          className="
-            h-3.5
-            w-3.5
-            transition-transform
-            group-hover:translate-x-0.5
-            sm:h-4
-            sm:w-4
-          "
-        />
-      </Link>
-    </div>
-  </div>
-</div>
-
         {/* ====================================================
-            PRODUCT RAIL
+            MAIN CONTENT
         ==================================================== */}
 
         <div
           className="
-            -mx-4
-            flex
-            snap-x
-            snap-mandatory
-            gap-3
-            overflow-x-auto
-            overscroll-x-contain
-            rounded-3xl
+            relative
+            z-10
+            mx-auto
+            w-full
+            max-w-7xl
             px-4
-            pb-3
-            scrollbar-none
-
-            sm:mx-0
-            sm:grid
-            sm:grid-cols-4
-            sm:gap-4
-            sm:overflow-visible
-            sm:px-0
-
-            lg:grid-cols-5
-            lg:gap-5
+            sm:px-6
+            lg:px-8
           "
         >
-          {items.map((item) => (
+          {/* ====================================================
+              FLASH SALE BANNER
+          ==================================================== */}
+
+          <div
+            className="
+              relative
+              mx-auto
+              mb-5
+              w-full
+              overflow-hidden
+              rounded-3xl
+              border
+              border-white/70
+              bg-[var(--ocean-900)]
+              shadow-[0_10px_30px_rgba(0,80,150,0.12)]
+              sm:mb-6
+            "
+          >
+            {/* BACKGROUND IMAGE */}
+
+            {bannerImage ? (
+              <div className="absolute inset-0">
+                <Image
+                  src={bannerImage}
+                  alt="Flash Sale Pisjo Market"
+                  fill
+                  priority
+                  sizes="
+                    (max-width: 639px) 100vw,
+                    (max-width: 1279px) 100vw,
+                    1280px
+                  "
+                  className="object-cover object-center"
+                />
+              </div>
+            ) : (
+              <div
+                aria-hidden="true"
+                className="
+                  absolute
+                  inset-0
+                  bg-gradient-to-br
+                  from-[var(--ocean-950)]
+                  via-[var(--ocean-800)]
+                  to-[var(--ocean-500)]
+                "
+              />
+            )}
+
+            {/* OVERLAY */}
+
             <div
-              key={item.id}
+              aria-hidden="true"
               className="
-                snap-start
+                absolute
+                inset-0
+                bg-gradient-to-r
+                from-[var(--ocean-950)]/90
+                via-[var(--ocean-900)]/65
+                to-transparent
+              "
+            />
+
+            {/* CONTENT */}
+
+            <div
+              className="
+                relative
+                z-10
+                flex
+                min-h-[185px]
+                flex-col
+                justify-between
+                px-4
+                py-4
+                sm:min-h-[215px]
+                sm:px-7
+                sm:py-5
+                lg:min-h-[250px]
+                lg:px-10
+                lg:py-7
               "
             >
-              <FlashSaleProductCard
-                item={item}
-              />
+              {/* TOP */}
+
+              <div
+                className="
+                  flex
+                  items-start
+                  justify-between
+                  gap-4
+                "
+              >
+                {/* LEFT */}
+
+                <div className="min-w-0">
+                  {/* BADGE */}
+
+                  <div
+                    className="
+                      inline-flex
+                      items-center
+                      gap-1.5
+                      rounded-full
+                      border
+                      border-white/20
+                      bg-white/10
+                      px-3
+                      py-1.5
+                      text-[9px]
+                      font-black
+                      uppercase
+                      tracking-[0.14em]
+                      text-white
+                      backdrop-blur-sm
+                      sm:text-[10px]
+                    "
+                  >
+                    <Flame
+                      aria-hidden="true"
+                      className="
+                        h-3.5
+                        w-3.5
+                        text-[var(--fresh-400)]
+                      "
+                    />
+
+                    {bannerContent?.label ||
+                      "Flash Sale"}
+                  </div>
+
+                  {/* TITLE */}
+
+                  <h2
+                    className="
+                      mt-4
+                      max-w-[420px]
+                      text-[23px]
+                      font-black
+                      leading-[1.05]
+                      tracking-tight
+                      text-white
+                      sm:text-3xl
+                      lg:text-4xl
+                    "
+                  >
+                    {bannerContent?.title ||
+                      "Seafood Favorit,"}
+
+                    <span
+                      className="
+                        block
+                        text-[var(--fresh-400)]
+                      "
+                    >
+                      {bannerContent?.highlight ||
+                        "Harga Lebih Menarik."}
+                    </span>
+                  </h2>
+                </div>
+
+                {/* COUNTDOWN */}
+
+                <div className="shrink-0">
+                  <Countdown
+                    remaining={remaining}
+                  />
+                </div>
+              </div>
+
+              {/* BOTTOM */}
+
+              <div
+                className="
+                  mt-6
+                  flex
+                  items-end
+                  justify-between
+                  gap-3
+                  border-t
+                  border-white/15
+                  pt-3
+                  sm:mt-7
+                  sm:pt-4
+                "
+              >
+                <div className="min-w-0">
+                  <p
+                    className="
+                      text-[8px]
+                      font-black
+                      uppercase
+                      tracking-[0.16em]
+                      text-[var(--fresh-400)]
+                      sm:text-[9px]
+                    "
+                  >
+                    Flash Sale
+                  </p>
+
+                  <h3
+                    className="
+                      mt-0.5
+                      truncate
+                      text-sm
+                      font-black
+                      text-white
+                      sm:text-base
+                      lg:text-lg
+                    "
+                  >
+                    {flashSale.name}
+                  </h3>
+                </div>
+
+                <Link
+                  href={flashSaleHref}
+                  className="
+                    group
+                    inline-flex
+                    shrink-0
+                    items-center
+                    gap-0.5
+                    rounded-full
+                    border
+                    border-white/20
+                    bg-white/10
+                    px-3
+                    py-1.5
+                    text-[10px]
+                    font-bold
+                    text-white
+                    backdrop-blur-sm
+                    transition
+                    hover:bg-white/20
+                    sm:px-3.5
+                    sm:py-2
+                    sm:text-xs
+                  "
+                >
+                  <span className="whitespace-nowrap">
+                    Lihat Semua
+                  </span>
+
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="
+                      h-3.5
+                      w-3.5
+                      transition-transform
+                      group-hover:translate-x-0.5
+                      sm:h-4
+                      sm:w-4
+                    "
+                  />
+                </Link>
+              </div>
             </div>
-          ))}
+          </div>
+
+          {/* ====================================================
+              PRODUCT RAIL
+          ==================================================== */}
+
+          <div
+            className="
+              -mx-4
+              flex
+              snap-x
+              snap-mandatory
+              gap-3
+              overflow-x-auto
+              overscroll-x-contain
+              rounded-3xl
+              px-4
+              pb-3
+              scrollbar-none
+
+              sm:mx-0
+              sm:grid
+              sm:grid-cols-4
+              sm:gap-4
+              sm:overflow-visible
+              sm:px-0
+
+              lg:grid-cols-5
+              lg:gap-5
+            "
+          >
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="snap-start"
+              >
+                <FlashSaleProductCard
+                  item={item}
+                  onQuickAdd={setQuickAddItem}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* ============================================================
+          QUICK ADD MODAL
+
+          PENTING:
+          Modal sengaja diletakkan DI LUAR <section>.
+          Dengan begitu overflow-hidden pada Flash Sale
+          tidak akan memotong modal.
+      ============================================================ */}
+
+      {quickAddItem && (
+        <FlashSaleQuickAddModal
+          item={quickAddItem}
+          flashSaleItems={flashSale.items}
+          onClose={() =>
+            setQuickAddItem(null)
+          }
+        />
+      )}
+    </>
   );
 }

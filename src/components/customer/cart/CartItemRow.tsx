@@ -5,9 +5,7 @@ import {
 import CartService from "@/services/cart/cart.service";
 
 import CartQuantityControl from "@/components/customer/cart/CartQuantityControl";
-
 import CartVariantSheet from "@/components/customer/cart/CartVariantSheet";
-
 import DeleteCartItemButton from "@/components/customer/cart/DeleteCartItemButton";
 
 /**
@@ -121,6 +119,43 @@ export default function CartItemRow({
 
   /**
    * ==========================================================
+   * PRE-ORDER
+   * ==========================================================
+   */
+
+  const isPreOrder =
+    item.product.isPreOrder === true;
+
+  const preOrderMinDays =
+    item.product.preOrderMinDays ?? null;
+
+  const preOrderMaxDays =
+    item.product.preOrderMaxDays ?? null;
+
+  /**
+   * ==========================================================
+   * PRE-ORDER ESTIMATE
+   * ==========================================================
+   *
+   * Normalisasi agar:
+   *
+   * - 2 / 5     -> 2–5 hari
+   * - null / 5  -> 5 hari
+   * - 2 / null  -> 2 hari
+   */
+
+  const preOrderEstimate =
+    preOrderMinDays !== null &&
+    preOrderMaxDays !== null
+      ? `${preOrderMinDays}–${preOrderMaxDays} hari`
+      : preOrderMinDays !== null
+        ? `${preOrderMinDays} hari`
+        : preOrderMaxDays !== null
+          ? `${preOrderMaxDays} hari`
+          : null;
+
+  /**
+   * ==========================================================
    * CUSTOMER NOTE
    * ==========================================================
    */
@@ -131,29 +166,49 @@ export default function CartItemRow({
       ? item.customerNote.trim()
       : "";
 
-/**
- * ==========================================================
- * VARIANT / SKU LABEL
- * ==========================================================
- *
- * SKU adalah source of truth.
- *
- * Legacy:
- *   productVariant
- *   productWeight
- *
- * tidak lagi digunakan untuk menampilkan pilihan
- * produk di cart.
- */
+  /**
+   * ==========================================================
+   * VARIANT / SKU LABEL
+   * ==========================================================
+   *
+   * SKU adalah source of truth.
+   *
+   * Legacy:
+   *   productVariant
+   *   productWeight
+   *
+   * tidak lagi digunakan untuk menampilkan pilihan
+   * produk di cart.
+   */
 
-const variantLabel =
-  item.sku?.skuOptions
-    ?.map(
-      (skuOption) =>
-        skuOption.variantOption.label
-    )
-    .filter(Boolean)
-    .join(" • ") ?? "";
+  const variantLabel =
+    item.sku?.skuOptions
+      ?.map(
+        (skuOption) =>
+          skuOption.variantOption.label
+      )
+      .filter(Boolean)
+      .join(" • ") ?? "";
+
+  /**
+   * ==========================================================
+   * QUANTITY MAX
+   * ==========================================================
+   *
+   * Product Pre-Order:
+   * quantity tidak dibatasi oleh stock SKU.
+   *
+   * Product normal:
+   * quantity mengikuti stock SKU.
+   */
+
+  const maxQuantity =
+    isPreOrder
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(
+          0,
+          Number(stock)
+        );
 
   /**
    * ==========================================================
@@ -175,45 +230,45 @@ const variantLabel =
     >
       <div className="flex gap-3">
 
-{/* ================================================== */}
-{/* CHECKBOX SELECTION                                 */}
-{/* ================================================== */}
+        {/* ================================================== */}
+        {/* CHECKBOX SELECTION                                 */}
+        {/* ================================================== */}
 
-<div className="flex shrink-0 items-start pt-1">
-  <button
-    type="button"
-    onClick={() => onToggle(item.id)}
-    aria-label={
-      selected
-        ? `Batalkan pilihan ${item.product.name}`
-        : `Pilih ${item.product.name}`
-    }
-    aria-pressed={selected}
-    className={[
-      "flex h-5 w-5 items-center justify-center rounded-md border-2 transition",
-      "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1",
-      selected
-        ? "border-emerald-600 bg-emerald-600 text-white"
-        : "border-slate-300 bg-white",
-    ].join(" ")}
-  >
-    {selected && (
-      <svg
-        viewBox="0 0 20 20"
-        fill="none"
-        className="h-3.5 w-3.5"
-      >
-        <path
-          d="m5 10 3 3 7-7"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    )}
-  </button>
-</div>
+        <div className="flex shrink-0 items-start pt-1">
+          <button
+            type="button"
+            onClick={() => onToggle(item.id)}
+            aria-label={
+              selected
+                ? `Batalkan pilihan ${item.product.name}`
+                : `Pilih ${item.product.name}`
+            }
+            aria-pressed={selected}
+            className={[
+              "flex h-5 w-5 items-center justify-center rounded-md border-2 transition",
+              "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1",
+              selected
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-slate-300 bg-white",
+            ].join(" ")}
+          >
+            {selected && (
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                className="h-3.5 w-3.5"
+              >
+                <path
+                  d="m5 10 3 3 7-7"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
+        </div>
 
         {/* ================================================== */}
         {/* IMAGE                                               */}
@@ -293,30 +348,34 @@ const variantLabel =
                 {item.product.name}
               </h3>
 
-{item.sku ? (
-  <CartVariantSheet
-    cartItemId={item.id}
-    productName={item.product.name}
-    currentSkuId={item.sku.id}
-    currentLabel={variantLabel}
-    onChanged={() => {
-      window.location.reload();
-    }}
-  />
-) : (
-  variantLabel && (
-    <p
-      className="
-        mt-0.5
-        truncate
-        text-[11px]
-        text-slate-500
-      "
-    >
-      {variantLabel}
-    </p>
-  )
-)}
+              {/* ============================================ */}
+              {/* VARIANT / SKU                                */}
+              {/* ============================================ */}
+
+              {item.sku ? (
+                <CartVariantSheet
+                  cartItemId={item.id}
+                  productName={item.product.name}
+                  currentSkuId={item.sku.id}
+                  currentLabel={variantLabel}
+                  onChanged={() => {
+                    window.location.reload();
+                  }}
+                />
+              ) : (
+                variantLabel && (
+                  <p
+                    className="
+                      mt-0.5
+                      truncate
+                      text-[11px]
+                      text-slate-500
+                    "
+                  >
+                    {variantLabel}
+                  </p>
+                )
+              )}
 
             </div>
 
@@ -327,20 +386,89 @@ const variantLabel =
           </div>
 
           {/* ================================================ */}
-          {/* STOCK                                             */}
+          {/* STOCK / PRE-ORDER                                */}
           {/* ================================================ */}
 
-{stock <= 5 && (
-  <p
-    className="
-      mt-1
-      text-[11px]
-      text-red-500
-    "
-  >
-    Sisa {stock}
-  </p>
-)}
+          {isPreOrder ? (
+            <div
+              className="
+                mt-2
+                rounded-lg
+                border
+                border-emerald-100
+                bg-emerald-50
+                px-2.5
+                py-2
+              "
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="
+                    inline-flex
+                    items-center
+                    rounded-full
+                    bg-emerald-600
+                    px-2
+                    py-0.5
+                    text-[9px]
+                    font-bold
+                    uppercase
+                    tracking-wide
+                    text-white
+                  "
+                >
+                  PRE-ORDER
+                </span>
+
+                <span
+                  className="
+                    text-[10px]
+                    font-medium
+                    text-emerald-700
+                  "
+                >
+                  Pesanan berdasarkan pre-order
+                </span>
+              </div>
+
+              {preOrderEstimate && (
+                <p
+                  className="
+                    mt-1
+                    text-[11px]
+                    text-emerald-700
+                  "
+                >
+                  Estimasi diproses dalam{" "}
+                  <span className="font-semibold">
+                    {preOrderEstimate}
+                  </span>
+                </p>
+              )}
+
+              <p
+                className="
+                  mt-0.5
+                  text-[10px]
+                  text-slate-500
+                "
+              >
+                Jumlah tidak dibatasi stok tersedia.
+              </p>
+            </div>
+          ) : (
+            stock <= 5 && (
+              <p
+                className="
+                  mt-1
+                  text-[11px]
+                  text-red-500
+                "
+              >
+                Sisa {stock}
+              </p>
+            )
+          )}
 
           {/* ================================================ */}
           {/* CUSTOMER NOTE                                    */}
@@ -359,53 +487,75 @@ const variantLabel =
             </p>
           )}
 
-{/* ================================================ */}
-{/* PRICE + QUANTITY                                  */}
-{/* ================================================ */}
+          {/* ================================================ */}
+          {/* PRICE + QUANTITY                                  */}
+          {/* ================================================ */}
 
-<div
-  className="
-    mt-2
-    flex
-    items-end
-    justify-between
-    gap-3
-  "
->
-  {/* PRICE */}
+          <div
+            className="
+              mt-2
+              flex
+              items-end
+              justify-between
+              gap-3
+            "
+          >
 
-  <div className="min-w-0">
-    <p
-      className="
-        text-sm
-        font-bold
-        text-slate-950
-      "
-    >
-      {formatRupiah(item.price)}
-    </p>
+            {/* PRICE */}
 
-    {item.quantity > 1 && (
-      <p
-        className="
-          mt-0.5
-          text-[10px]
-          text-slate-400
-        "
-      >
-        {item.quantity} × {formatRupiah(item.price)}
-      </p>
-    )}
-  </div>
+            <div className="min-w-0">
 
-  {/* QUANTITY */}
+              <p
+                className="
+                  text-sm
+                  font-bold
+                  text-slate-950
+                "
+              >
+                {formatRupiah(item.price)}
+              </p>
 
-  <CartQuantityControl
-    cartItemId={item.id}
-    initialQuantity={item.quantity}
-    maxQuantity={stock}
-  />
-</div>
+              {item.quantity > 1 && (
+                <p
+                  className="
+                    mt-0.5
+                    text-[10px]
+                    text-slate-400
+                  "
+                >
+                  {item.quantity} ×{" "}
+                  {formatRupiah(item.price)}
+                </p>
+              )}
+
+              {/* SUBTOTAL */}
+
+              {item.quantity > 1 && (
+                <p
+                  className="
+                    mt-0.5
+                    text-[11px]
+                    font-semibold
+                    text-slate-600
+                  "
+                >
+                  Subtotal{" "}
+                  {formatRupiah(itemSubtotal)}
+                </p>
+              )}
+
+            </div>
+
+            {/* QUANTITY */}
+
+            <CartQuantityControl
+              cartItemId={item.id}
+              initialQuantity={item.quantity}
+              maxQuantity={maxQuantity}
+              isPreOrder={isPreOrder}
+            />
+
+          </div>
 
         </div>
 

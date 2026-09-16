@@ -205,19 +205,28 @@ export async function getCartProductVariants(
       success: true,
 
       data: {
-        productId:
-          product.id,
+  productId:
+    product.id,
 
-        productName:
-          product.name,
+  productName:
+    product.name,
 
-        currentSkuId:
-          cartItem.sku?.id ?? null,
+  isPreOrder:
+    product.isPreOrder === true,
 
-        variantGroups,
+  preOrderMinDays:
+    product.preOrderMinDays ?? null,
 
-        skus,
-      },
+  preOrderMaxDays:
+    product.preOrderMaxDays ?? null,
+
+  currentSkuId:
+    cartItem.sku?.id ?? null,
+
+  variantGroups,
+
+  skus,
+},
     };
   } catch (error) {
     console.error(

@@ -90,6 +90,10 @@ export interface CreateProductInput {
   price: number;
   stock: number;
 
+  isPreOrder?: boolean;
+  preOrderMinDays?: number | null;
+  preOrderMaxDays?: number | null;
+
   isDiscountActive?: boolean;
   discountType?: ProductDiscountType | null;
   discountValue?: number | null;
@@ -598,6 +602,20 @@ export class ProductService {
                   groups.length > 0
                     ? 0
                     : input.stock,
+
+                    isPreOrder:
+                      input.isPreOrder ??
+                    false,
+
+                    preOrderMinDays:
+                      input.isPreOrder
+                      ? input.preOrderMinDays ?? null
+                    : null,
+
+                    preOrderMaxDays:
+                      input.isPreOrder
+                      ? input.preOrderMaxDays ?? null
+                    : null,
 
                 isDiscountActive:
                   input.isDiscountActive ??
@@ -1318,16 +1336,38 @@ if (
 
               ...(input.stock !==
                 undefined &&
-                groups === undefined && {
+                  groups === undefined && {
                   stock:
-                    input.stock,
-                }),
+                input.stock,
+              }),
 
-              /**
-               * --------------------------------------------------
-               * DISCOUNT
-               * --------------------------------------------------
-               */
+              ...(input.isPreOrder !==
+                undefined && {
+                  isPreOrder:
+                input.isPreOrder,
+              }),
+
+              ...(input.preOrderMinDays !==
+                undefined && {
+                  preOrderMinDays:
+                input.isPreOrder === false
+                ? null
+                : input.preOrderMinDays,
+              }),
+
+              ...(input.preOrderMaxDays !==
+                undefined && {
+                  preOrderMaxDays:
+                input.isPreOrder === false
+                ? null
+                : input.preOrderMaxDays,
+              }),
+
+          /**
+          * --------------------------------------------------
+          * DISCOUNT
+          * --------------------------------------------------
+          */
 
               ...(input.isDiscountActive !==
                 undefined && {

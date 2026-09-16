@@ -17,18 +17,23 @@ interface CartQuantityControlProps {
   cartItemId: string;
   initialQuantity: number;
   maxQuantity: number;
+  isPreOrder?: boolean;
 }
 
 export default function CartQuantityControl({
   cartItemId,
   initialQuantity,
   maxQuantity,
+  isPreOrder = false,
 }: CartQuantityControlProps) {
   const [
     quantity,
     setQuantity,
   ] = useState(
-    initialQuantity
+    Math.max(
+      1,
+      initialQuantity
+    )
   );
 
   const [
@@ -43,6 +48,19 @@ export default function CartQuantityControl({
     string | null
   >(null);
 
+  /**
+   * ============================================================
+   * UPDATE QUANTITY
+   * ============================================================
+   *
+   * Product normal:
+   * - quantity tidak boleh melebihi stock.
+   *
+   * Product Pre-Order:
+   * - quantity tidak dibatasi stock.
+   * - tetap minimal 1.
+   */
+
   function updateQuantity(
     newQuantity: number
   ) {
@@ -56,9 +74,18 @@ export default function CartQuantityControl({
     }
 
     /**
-     * Jangan melebihi stock.
+     * ==========================================================
+     * STOCK VALIDATION
+     * ==========================================================
+     *
+     * Untuk Pre-Order, stock tidak digunakan sebagai batas
+     * quantity.
+     *
+     * Untuk produk normal, tetap gunakan maxQuantity.
      */
+
     if (
+      !isPreOrder &&
       newQuantity > maxQuantity
     ) {
       setMessage(
@@ -72,11 +99,14 @@ export default function CartQuantityControl({
       quantity;
 
     /**
-     * Optimistic UI.
+     * ==========================================================
+     * OPTIMISTIC UI
+     * ==========================================================
      *
-     * Quantity langsung berubah
-     * sebelum database selesai update.
+     * Quantity langsung berubah sebelum database selesai
+     * melakukan update.
      */
+
     setQuantity(
       newQuantity
     );
@@ -91,11 +121,15 @@ export default function CartQuantityControl({
             newQuantity
           );
 
+        /**
+         * ======================================================
+         * UPDATE GAGAL
+         * ======================================================
+         *
+         * Kembalikan quantity ke nilai sebelumnya.
+         */
+
         if (!result.success) {
-          /**
-           * Kembalikan quantity lama
-           * jika update gagal.
-           */
           setQuantity(
             previousQuantity
           );
@@ -108,6 +142,12 @@ export default function CartQuantityControl({
           return;
         }
 
+        /**
+         * ======================================================
+         * UPDATE BERHASIL
+         * ======================================================
+         */
+
         setMessage(
           result.message ??
             null
@@ -116,13 +156,38 @@ export default function CartQuantityControl({
     );
   }
 
+  /**
+   * ============================================================
+   * BUTTON STATE
+   * ============================================================
+   */
+
   const isDecreaseDisabled =
     isPending ||
     quantity <= 1;
 
+  /**
+   * Untuk Pre-Order:
+   *
+   * quantity boleh terus ditambah tanpa membandingkan
+   * quantity dengan maxQuantity.
+   *
+   * Untuk produk normal:
+   * quantity berhenti ketika mencapai stock maksimum.
+   */
+
   const isIncreaseDisabled =
     isPending ||
-    quantity >= maxQuantity;
+    (
+      !isPreOrder &&
+      quantity >= maxQuantity
+    );
+
+  /**
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
 
   return (
     <div
@@ -170,9 +235,9 @@ export default function CartQuantityControl({
           sm:hover:shadow-[0_8px_20px_rgba(23,50,77,0.10)]
         "
       >
-        {/* ================================================
-            DECREASE BUTTON
-        ================================================= */}
+        {/* ================================================ */}
+        {/* DECREASE BUTTON                                  */}
+        {/* ================================================ */}
 
         <button
           type="button"
@@ -231,9 +296,9 @@ export default function CartQuantityControl({
           />
         </button>
 
-        {/* ================================================
-            QUANTITY DISPLAY
-        ================================================= */}
+        {/* ================================================ */}
+        {/* QUANTITY DISPLAY                                 */}
+        {/* ================================================ */}
 
         <div
           className="
@@ -288,9 +353,9 @@ export default function CartQuantityControl({
           )}
         </div>
 
-        {/* ================================================
-            INCREASE BUTTON
-        ================================================= */}
+        {/* ================================================ */}
+        {/* INCREASE BUTTON                                  */}
+        {/* ================================================ */}
 
         <button
           type="button"
@@ -351,9 +416,28 @@ export default function CartQuantityControl({
         </button>
       </div>
 
-      {/* ================================================
-          STATUS MESSAGE
-      ================================================= */}
+      {/* ================================================ */}
+      {/* PRE-ORDER INFO                                   */}
+      {/* ================================================ */}
+
+      {isPreOrder && (
+        <p
+          className="
+            max-w-[220px]
+            text-right
+            text-[10px]
+            font-medium
+            text-emerald-600
+          "
+        >
+          Jumlah Pre-Order tidak
+          dibatasi stok tersedia.
+        </p>
+      )}
+
+      {/* ================================================ */}
+      {/* STATUS MESSAGE                                   */}
+      {/* ================================================ */}
 
       {message && (
         <p
