@@ -267,12 +267,25 @@ const products =
         },
 
         include: {
-          images: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
-        },
+  images: {
+    orderBy: {
+      sortOrder: "asc",
+    },
+  },
+
+  skus: {
+    where: {
+      isActive: true,
+    },
+    orderBy: {
+      price: "asc",
+    },
+    select: {
+      price: true,
+      stock: true,
+    },
+  },
+},
 
         orderBy: {
           createdAt: "desc",
@@ -308,6 +321,32 @@ const products =
 
         stock:
           product.stock ?? 0,
+
+        hasVariants:
+  product.skus.length > 1,
+
+lowStockVariantStock: (() => {
+  const lowStocks =
+    product.skus
+      .map((sku) => sku.stock)
+      .filter(
+        (stock) =>
+          stock > 0 &&
+          stock <= 5
+      );
+
+  return lowStocks.length > 0
+    ? Math.min(...lowStocks)
+    : null;
+})(),
+
+isOutOfStock:
+  product.skus.length > 0
+    ? product.skus.every(
+        (sku) =>
+          sku.stock <= 0
+      )
+    : (product.stock ?? 0) <= 0,
 
         isPreOrder:
           product.isPreOrder === true,

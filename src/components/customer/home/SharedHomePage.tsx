@@ -451,16 +451,34 @@ function serializeHomepageProduct(
     }>;
   }
 ) {
-  const hasVariants =
-    product.variantGroups.length > 0;
+const hasVariants =
+  product.variantGroups.length > 0;
 
-    const hasAvailableSku =
+const hasAvailableSku =
   product.skus.some(
     (sku) => sku.stock > 0
   );
 
-  const lowestActiveSku =
-    product.skus[0] ?? null;
+const lowStockVariantStocks =
+  hasVariants
+    ? product.skus
+        .map((sku) => sku.stock)
+        .filter(
+          (stock) =>
+            stock > 0 &&
+            stock <= 5
+        )
+    : [];
+
+const lowStockVariantStock =
+  lowStockVariantStocks.length > 0
+    ? Math.min(
+        ...lowStockVariantStocks
+      )
+    : null;
+
+const lowestActiveSku =
+  product.skus[0] ?? null;
 
   const displayPrice =
     lowestActiveSku
@@ -517,6 +535,8 @@ function serializeHomepageProduct(
     ),
 
   hasVariants,
+
+lowStockVariantStock,
 };
 }
 
@@ -648,9 +668,6 @@ const [
               id:
                 true,
             },
-
-            take:
-              1,
           },
 
           skus: {
@@ -784,9 +801,6 @@ const [
               stock:
                 true,
             },
-
-            take:
-              1,
           },
         },
 
@@ -1157,9 +1171,6 @@ customerUserId
                 stock:
                   true,
               },
-
-              take:
-                1,
             },
           },
         })

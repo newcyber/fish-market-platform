@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import {
+  AlertTriangle,
   Clock,
   Flame,
   Package,
@@ -69,6 +70,13 @@ export interface HomeProductCardProduct {
 
   hasVariants?: boolean;
 
+  /**
+   * Stock terendah dari variant aktif
+   * yang masih memiliki stock positif
+   * dan berada pada range low stock.
+   */
+  lowStockVariantStock?: number | null;
+
   isOutOfStock?: boolean;
 
   isPreOrder?: boolean;
@@ -94,6 +102,17 @@ interface HomeProductCardProps {
 
   rank?: number;
 }
+
+/**
+ * ============================================================
+ * CONSTANTS
+ * ============================================================
+ */
+
+/**
+ * Produk dengan stock 1-5 dianggap hampir habis.
+ */
+const LOW_STOCK_THRESHOLD = 5;
 
 /**
  * ============================================================
@@ -313,26 +332,127 @@ export default function HomeProductCard({
     typeof product.soldQuantity ===
     "number";
 
+  /**
+   * Produk memiliki variant.
+   */
   const hasVariants =
     product.hasVariants === true;
+
+  /**
+   * Apakah field stock tersedia.
+   */
+  const hasStock =
+    typeof product.stock === "number";
+
+  /**
+   * Pre-order tidak menggunakan
+   * logic low-stock / sold-out biasa.
+   */
+  const isPreOrder =
+    product.isPreOrder === true;
+
+  /**
+   * ==========================================================
+   * OUT OF STOCK
+   * ==========================================================
+   *
+   * Untuk produk variant, status HABIS ditentukan oleh
+   * product.isOutOfStock dari server.
+   *
+   * Server menentukan HABIS berdasarkan seluruh SKU aktif:
+   * semua variant harus stock <= 0.
+   *
+   * Jadi satu variant habis tidak membuat seluruh produk HABIS
+   * selama masih ada variant lain yang memiliki stock.
+   *
+   * Pre-order tidak pernah dianggap habis.
+   */
+
+  const outOfStock =
+    !isPreOrder &&
+    (
+      product.isOutOfStock === true ||
+      (
+        !hasVariants &&
+        hasStock &&
+        (product.stock ?? 0) <= 0
+      )
+    );
+
+  /**
+   * ==========================================================
+   * CURRENT STOCK
+   * ==========================================================
+   *
+   * Hanya digunakan untuk produk tanpa variant.
+   *
+   * Stock tidak pernah ditampilkan
+   * sebagai angka negatif.
+   */
+
+  const currentStock =
+    hasStock
+      ? Math.max(
+          0,
+          product.stock ?? 0
+        )
+      : null;
+
+  /**
+   * ==========================================================
+   * LOW STOCK
+   * ==========================================================
+   *
+   * Rules:
+   *
+   * Non-variant:
+   * stock 1-5 = Hampir Habis
+   *
+   * Variant:
+   * minimal salah satu variant aktif
+   * memiliki stock 1-5 = Hampir Habis.
+   *
+   * Pre-order tidak pernah menampilkan
+   * Hampir Habis.
+   *
+   * Out-of-stock tidak pernah menampilkan
+   * Hampir Habis.
+   */
+
+  const isLowStock =
+    !isPreOrder &&
+    !outOfStock &&
+    (
+      (
+        hasVariants &&
+        typeof product.lowStockVariantStock ===
+          "number" &&
+        product.lowStockVariantStock > 0 &&
+        product.lowStockVariantStock <=
+          LOW_STOCK_THRESHOLD
+      ) ||
+      (
+        !hasVariants &&
+        currentStock !== null &&
+        currentStock > 0 &&
+        currentStock <=
+          LOW_STOCK_THRESHOLD
+      )
+    );
+
+  /**
+   * Stock yang ditampilkan pada badge
+   * "Sisa N".
+   */
+  const lowStockDisplay =
+    hasVariants
+      ? product.lowStockVariantStock
+      : currentStock;
 
   const displayPriceLabel =
     hasVariants
       ? "Mulai dari"
       : null;
-
-  const hasStock =
-  typeof product.stock === "number";
-
-const isPreOrder =
-  product.isPreOrder === true;
-
-const outOfStock =
-  !isPreOrder &&
-  (
-    product.isOutOfStock === true ||
-    (hasStock && (product.stock ?? 0) <= 0)
-  );
 
   const showPreOrderBadge =
     isPreOrder;
@@ -454,170 +574,278 @@ const outOfStock =
               </div>
             )}
 
-{outOfStock && (
-  <>
-    {/* Darken image */}
-    <div
-      className="
-        pointer-events-none
-        absolute
-        inset-0
-        z-20
-        bg-slate-950/20
-      "
-    />
+            {/* ================================================== */}
+            {/* LOW STOCK BADGE */}
+            {/* ================================================== */}
 
-    {/* ================================================== */}
-    {/* FLOATING SOLD OUT BRUSH */}
-    {/* ================================================== */}
-    <div
-      className="
-        pointer-events-none
-        absolute
-        left-1/2
-        top-1/2
-        z-30
-        w-[82%]
-        -translate-x-1/2
-        -translate-y-1/2
-        rotate-[-10deg]
-      "
-    >
-      <svg
-  viewBox="0 0 500 130"
-  className="
-    block
-    h-auto
-    w-full
-    overflow-visible
-    drop-shadow-[0_4px_6px_rgba(0,0,0,0.25)]
-  "
-  aria-hidden="true"
->
-  {/* MAIN BRUSH */}
-  <path
-    d="
-      M 42 30
-      C 72 20, 102 27, 132 20
-      C 164 16, 192 24, 222 18
-      C 254 14, 282 23, 313 17
-      C 344 14, 373 22, 402 17
-      C 428 14, 449 21, 458 29
+            {isLowStock && (
+              <div
+                className="
+                  absolute
+                  left-2
+                  top-2
+                  z-30
+                  flex
+                  flex-col
+                  items-start
+                "
+              >
+                {/* HAMPIR HABIS */}
 
-      L 452 101
+                <div
+                  className="
+                    inline-flex
+                    h-6
+                    w-[82px]
+                    items-center
+                    justify-center
+                    gap-0.5
+                    rounded-full
+                    bg-red-500
+                    px-1.5
+                    py-1
+                    text-white
+                    shadow-[0_2px_6px_rgba(0,0,0,0.16)]
 
-      C 428 108, 402 104, 375 110
-      C 345 115, 316 107, 286 112
-      C 255 117, 226 109, 196 114
-      C 165 118, 136 110, 108 115
-      C 82 118, 59 111, 43 104
+                    sm:w-[102px]
+                    sm:gap-1
+                    sm:px-2.5
+                  "
+                >
+                  <AlertTriangle
+                    className="
+                      h-2.5
+                      w-2.5
+                      shrink-0
+                      fill-yellow-300
+                      text-yellow-300
+                      stroke-[2.5]
 
-      L 48 88
-      L 42 69
-      Z
-    "
-    fill="#ef1010"
-  />
+                      sm:h-3
+                      sm:w-3
+                    "
+                  />
 
-  {/* LEFT UPPER BRUSH */}
-  <path
-    d="
-      M 44 29
-      C 34 29, 27 34, 20 39
-      L 38 44
-      L 49 37
-      Z
-    "
-    fill="#ef1010"
-  />
+                  <span
+                    className="
+                      whitespace-nowrap
+                      text-[8px]
+                      font-bold
+                      leading-none
 
-  {/* LEFT LOWER BRUSH */}
-  <path
-    d="
-      M 44 98
-      C 34 101, 27 106, 20 111
-      L 41 108
-      L 50 102
-      Z
-    "
-    fill="#d90808"
-  />
+                      sm:text-[9px]
+                    "
+                  >
+                    Hampir Habis
+                  </span>
+                </div>
 
-  {/* RIGHT UPPER BRUSH */}
-  <path
-    d="
-      M 455 28
-      C 466 28, 474 33, 481 39
-      L 461 44
-      L 451 36
-      Z
-    "
-    fill="#ef1010"
-  />
+                {/* SISA STOCK */}
 
-  {/* RIGHT LOWER BRUSH */}
-  <path
-    d="
-      M 454 101
-      C 466 99, 474 103, 481 109
-      L 460 110
-      L 451 103
-      Z
-    "
-    fill="#d90808"
-  />
+                <div
+                  className="
+                    ml-1
+                    mt-1
+                    inline-flex
+                    min-h-[20px]
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-white
+                    px-2
+                    py-1
+                    text-[8px]
+                    font-semibold
+                    leading-none
+                    text-slate-700
+                    shadow-[0_2px_5px_rgba(0,0,0,0.12)]
+                  "
+                >
+                  Sisa{" "}
+                  {lowStockDisplay}
+                </div>
+              </div>
+            )}
 
-  {/* TOP BRUSH STREAKS */}
-  <path
-    d="M 25 46 L 58 38"
-    fill="none"
-    stroke="#ff3333"
-    strokeWidth="3"
-    strokeLinecap="round"
-  />
+            {/* ================================================== */}
+            {/* OUT OF STOCK */}
+            {/* ================================================== */}
 
-  <path
-    d="M 438 37 L 477 45"
-    fill="none"
-    stroke="#ff3333"
-    strokeWidth="3"
-    strokeLinecap="round"
-  />
+            {outOfStock && (
+              <>
+                {/* Darken image */}
 
-  {/* BOTTOM BRUSH STREAKS */}
-  <path
-    d="M 25 105 L 61 112"
-    fill="none"
-    stroke="#c90707"
-    strokeWidth="3"
-    strokeLinecap="round"
-  />
+                <div
+                  className="
+                    pointer-events-none
+                    absolute
+                    inset-0
+                    z-20
+                    bg-slate-950/20
+                  "
+                />
 
-  <path
-    d="M 439 110 L 477 102"
-    fill="none"
-    stroke="#c90707"
-    strokeWidth="3"
-    strokeLinecap="round"
-  />
+                {/* ================================================== */}
+                {/* FLOATING SOLD OUT BRUSH */}
+                {/* ================================================== */}
 
-  {/* HABIS */}
-  <text
-    x="250"
-    y="88"
-    textAnchor="middle"
-    fill="#ffffff"
-    fontSize="48"
-    fontWeight="900"
-    fontFamily="Arial, Helvetica, sans-serif"
-    letterSpacing="6"
-  >
-    HABIS
-  </text>
-</svg>
-    </div>
-  </>
-)}
+                <div
+                  className="
+                    pointer-events-none
+                    absolute
+                    left-1/2
+                    top-1/2
+                    z-30
+                    w-[82%]
+                    -translate-x-1/2
+                    -translate-y-1/2
+                    rotate-[-10deg]
+                  "
+                >
+                  <svg
+                    viewBox="0 0 500 130"
+                    className="
+                      block
+                      h-auto
+                      w-full
+                      overflow-visible
+                      drop-shadow-[0_4px_6px_rgba(0,0,0,0.25)]
+                    "
+                    aria-hidden="true"
+                  >
+                    {/* MAIN BRUSH */}
+
+                    <path
+                      d="
+                        M 42 30
+                        C 72 20, 102 27, 132 20
+                        C 164 16, 192 24, 222 18
+                        C 254 14, 282 23, 313 17
+                        C 344 14, 373 22, 402 17
+                        C 428 14, 449 21, 458 29
+
+                        L 452 101
+
+                        C 428 108, 402 104, 375 110
+                        C 345 115, 316 107, 286 112
+                        C 255 117, 226 109, 196 114
+                        C 165 118, 136 110, 108 115
+                        C 82 118, 59 111, 43 104
+
+                        L 48 88
+                        L 42 69
+                        Z
+                      "
+                      fill="#ef1010"
+                    />
+
+                    {/* LEFT UPPER BRUSH */}
+
+                    <path
+                      d="
+                        M 44 29
+                        C 34 29, 27 34, 20 39
+                        L 38 44
+                        L 49 37
+                        Z
+                      "
+                      fill="#ef1010"
+                    />
+
+                    {/* LEFT LOWER BRUSH */}
+
+                    <path
+                      d="
+                        M 44 98
+                        C 34 101, 27 106, 20 111
+                        L 41 108
+                        L 50 102
+                        Z
+                      "
+                      fill="#d90808"
+                    />
+
+                    {/* RIGHT UPPER BRUSH */}
+
+                    <path
+                      d="
+                        M 455 28
+                        C 466 28, 474 33, 481 39
+                        L 461 44
+                        L 451 36
+                        Z
+                      "
+                      fill="#ef1010"
+                    />
+
+                    {/* RIGHT LOWER BRUSH */}
+
+                    <path
+                      d="
+                        M 454 101
+                        C 466 99, 474 103, 481 109
+                        L 460 110
+                        L 451 103
+                        Z
+                      "
+                      fill="#d90808"
+                    />
+
+                    {/* TOP BRUSH STREAKS */}
+
+                    <path
+                      d="M 25 46 L 58 38"
+                      fill="none"
+                      stroke="#ff3333"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+
+                    <path
+                      d="M 438 37 L 477 45"
+                      fill="none"
+                      stroke="#ff3333"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+
+                    {/* BOTTOM BRUSH STREAKS */}
+
+                    <path
+                      d="M 25 105 L 61 112"
+                      fill="none"
+                      stroke="#c90707"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+
+                    <path
+                      d="M 439 110 L 477 102"
+                      fill="none"
+                      stroke="#c90707"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+
+                    {/* HABIS */}
+
+                    <text
+                      x="250"
+                      y="88"
+                      textAnchor="middle"
+                      fill="#ffffff"
+                      fontSize="48"
+                      fontWeight="900"
+                      fontFamily="Arial, Helvetica, sans-serif"
+                      letterSpacing="6"
+                    >
+                      HABIS
+                    </text>
+                  </svg>
+                </div>
+              </>
+            )}
+
             {/* ================================================== */}
             {/* IMAGE BOTTOM GRADIENT */}
             {/* ================================================== */}
@@ -636,150 +864,152 @@ const outOfStock =
               "
             />
 
-{/* ================================================== */}
-{/* RANK */}
-{/* ================================================== */}
+            {/* ================================================== */}
+            {/* RANK */}
+            {/* ================================================== */}
 
-{badge === "best-seller" &&
-  rank && (
-    <div
-      className="
-        absolute
-        z-30
-        left-1
-        top-1
-        flex
-        h-6
-        min-w-6
-        items-center
-        justify-center
-        rounded-md
-        border
-        border-white/20
-        bg-(--ocean-950)
-        px-1
-        text-[9px]
-        font-black
-        text-white
-        shadow-lg
+            {badge === "best-seller" &&
+              rank && (
+                <div
+                  className="
+                    absolute
+                    z-30
+                    left-1
+                    top-1
+                    flex
+                    h-6
+                    min-w-6
+                    items-center
+                    justify-center
+                    rounded-md
+                    border
+                    border-white/20
+                    bg-(--ocean-950)
+                    px-1
+                    text-[9px]
+                    font-black
+                    text-white
+                    shadow-lg
 
-        sm:left-1.5
-        sm:top-1.5
-        sm:h-8
-        sm:min-w-8
-        sm:rounded-lg
-        sm:px-2
-        sm:text-sm
-      "
-    >
-      #{rank}
-    </div>
-  )}
+                    sm:left-1.5
+                    sm:top-1.5
+                    sm:h-8
+                    sm:min-w-8
+                    sm:rounded-lg
+                    sm:px-2
+                    sm:text-sm
+                  "
+                >
+                  #{rank}
+                </div>
+              )}
 
-{/* ================================================== */}
-{/* PRODUCT BADGE */}
-{/* ================================================== */}
+            {/* ================================================== */}
+            {/* PRODUCT BADGE */}
+            {/* ================================================== */}
 
-<ProductBadge
-  badge={badge}
-  rank={rank}
-/>
+            <ProductBadge
+              badge={badge}
+              rank={rank}
+            />
 
-{/* ================================================== */}
-{/* PRE-ORDER BADGE */}
-{/* ================================================== */}
+            {/* ================================================== */}
+            {/* PRE-ORDER BADGE */}
+            {/* ================================================== */}
 
-{showPreOrderBadge && (
-  <div
-    className="
-      absolute
-      left-2
-      top-2
-      z-40
-      flex
-      flex-col
-      items-start
-    "
-  >
-    {/* PRE-ORDER */}
-    <div
-  className="
-    inline-flex
-    min-h-[25px]
-    items-center
-    gap-1
-    rounded-full
-    bg-red-500
-    px-2.5
-    py-1
-    text-white
-    shadow-[0_2px_6px_rgba(0,0,0,0.16)]
+            {showPreOrderBadge && (
+              <div
+                className="
+                  absolute
+                  left-2
+                  top-2
+                  z-40
+                  flex
+                  flex-col
+                  items-start
+                "
+              >
+                {/* PRE-ORDER */}
 
-    sm:min-h-[28px]
-    sm:gap-1.5
-    sm:px-3
-    sm:py-1.5
-  "
->
-  <Clock
-    className="
-      h-3
-      w-3
-      shrink-0
-      stroke-[2.5]
+                <div
+                  className="
+                    inline-flex
+                    min-h-[25px]
+                    items-center
+                    gap-1
+                    rounded-full
+                    bg-red-500
+                    px-2.5
+                    py-1
+                    text-white
+                    shadow-[0_2px_6px_rgba(0,0,0,0.16)]
 
-      sm:h-3.5
-      sm:w-3.5
-    "
-  />
+                    sm:min-h-[28px]
+                    sm:gap-1.5
+                    sm:px-3
+                    sm:py-1.5
+                  "
+                >
+                  <Clock
+                    className="
+                      h-3
+                      w-3
+                      shrink-0
+                      stroke-[2.5]
 
-  <span
-    className="
-      whitespace-nowrap
-      text-[9px]
-      font-bold
-      leading-none
+                      sm:h-3.5
+                      sm:w-3.5
+                    "
+                  />
 
-      sm:text-[10px]
-    "
-  >
-    Pre-Order
-  </span>
-</div>
+                  <span
+                    className="
+                      whitespace-nowrap
+                      text-[9px]
+                      font-bold
+                      leading-none
 
-    {/* ESTIMASI */}
-    {preOrderEstimate && (
-  <div
-    className="
-      ml-1
-      mt-1
-      inline-flex
-      min-h-[20px]
-      items-center
-      justify-center
-      rounded-full
-      bg-white
-      px-2.5
-      py-1
-      text-[8px]
-      font-semibold
-      leading-none
-      text-slate-700
-      shadow-[0_2px_5px_rgba(0,0,0,0.12)]
-      whitespace-nowrap
+                      sm:text-[10px]
+                    "
+                  >
+                    Pre-Order
+                  </span>
+                </div>
 
-      sm:ml-1.5
-      sm:mt-1
-      sm:min-h-[22px]
-      sm:px-3
-      sm:text-[9px]
-    "
-  >
-    Estimasi {preOrderEstimate}
-  </div>
-)}
-  </div>
-)}
+                {/* ESTIMASI */}
+
+                {preOrderEstimate && (
+                  <div
+                    className="
+                      ml-1
+                      mt-1
+                      inline-flex
+                      min-h-[20px]
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-white
+                      px-2.5
+                      py-1
+                      text-[8px]
+                      font-semibold
+                      leading-none
+                      text-slate-700
+                      shadow-[0_2px_5px_rgba(0,0,0,0.12)]
+                      whitespace-nowrap
+
+                      sm:ml-1.5
+                      sm:mt-1
+                      sm:min-h-[22px]
+                      sm:px-3
+                      sm:text-[9px]
+                    "
+                  >
+                    Estimasi {preOrderEstimate}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ================================================== */}
