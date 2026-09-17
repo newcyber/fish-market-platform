@@ -5,9 +5,7 @@ import landingPageRepository from "./landing-page.repository";
 import StorageService from "@/services/storage/storage.service";
 import { getSiteUrls } from "@/services/site/site-url.service";
 
-import {
-  normalizeLandingPageConfig,
-} from "./landing-page.validation";
+import { normalizeLandingPageConfig } from "./landing-page.validation";
 
 import type {
   LandingPageAndroidAppData,
@@ -16,6 +14,10 @@ import type {
   LandingPageSettingsData,
   PublicLandingPageData,
 } from "./landing-page.types";
+
+import type {
+  LandingPageIosAppData,
+} from "./landing-page-ios.types";
 
 /**
  * ============================================================
@@ -41,6 +43,7 @@ import type {
  * - business rules sederhana
  * - upload APK
  * - cleanup file APK lama
+ * - validasi sederhana konfigurasi iOS
  *
  * ============================================================
  */
@@ -113,53 +116,74 @@ class LandingPageService {
    * ==========================================================
    * GET PUBLIC LANDING PAGE
    * ==========================================================
+   *
+   * Mengambil seluruh data yang diperlukan oleh
+   * public landing page.
+   *
+   * Android:
+   * - URL hanya diberikan jika enabled = true
+   * - fileUrl tersedia
+   *
+   * iOS:
+   * - URL hanya diberikan jika enabled = true
+   * - appStoreUrl tersedia
+   *
+   * ============================================================
    */
 
   async getPublicLandingPage(): Promise<PublicLandingPageData> {
-  const [
-    landingPage,
-    storeSettings,
-    androidApp,
-  ] = await Promise.all([
-    this.getLandingPage(),
-    settingsRepository.getOrCreate(),
-    landingPageRepository.getAndroidApp(),
-  ]);
+    const [
+      landingPage,
+      storeSettings,
+      androidApp,
+      iosApp,
+    ] = await Promise.all([
+      this.getLandingPage(),
+      settingsRepository.getOrCreate(),
+      landingPageRepository.getAndroidApp(),
+      landingPageRepository.getIosApp(),
+    ]);
 
-  const siteUrls = await getSiteUrls();
+    const siteUrls = await getSiteUrls();
 
-  return {
-    enabled: landingPage.enabled,
+    return {
+      enabled: landingPage.enabled,
 
-    brand: {
-      storeName:
-        storeSettings.storeName?.trim() ||
-        "Pisjo Market",
+      brand: {
+        storeName:
+          storeSettings.storeName?.trim() ||
+          "Pisjo Market",
 
-      storeDescription:
-        storeSettings.storeDescription?.trim() ||
-        "Fresh Seafood",
+        storeDescription:
+          storeSettings.storeDescription?.trim() ||
+          "Fresh Seafood",
 
-      siteLogo:
-        storeSettings.siteLogo?.trim() ||
-        null,
-    },
+        siteLogo:
+          storeSettings.siteLogo?.trim() ||
+          null,
+      },
 
-    config: landingPage.config,
+      config: landingPage.config,
 
-    androidApp,
+      androidApp,
 
-    urls: {
-      store: siteUrls.storefrontUrl,
+      urls: {
+        store: siteUrls.storefrontUrl,
 
-      android:
-        androidApp?.enabled &&
-        androidApp.fileUrl
-          ? androidApp.fileUrl
-          : null,
-    },
-  };
-}
+        android:
+          androidApp?.enabled &&
+          androidApp.fileUrl
+            ? androidApp.fileUrl
+            : null,
+
+        ios:
+          iosApp?.enabled &&
+          iosApp.appStoreUrl
+            ? iosApp.appStoreUrl
+            : null,
+      },
+    };
+  }
 
   /**
    * ==========================================================
@@ -289,6 +313,120 @@ class LandingPageService {
 
   /**
    * ==========================================================
+   * GET IOS APP
+   * ==========================================================
+   *
+   * Mengambil konfigurasi aplikasi iOS.
+   *
+   * ============================================================
+   */
+
+  async getIosApp(): Promise<
+    LandingPageIosAppData | null
+  > {
+    return landingPageRepository.getIosApp();
+  }
+
+  /**
+   * ==========================================================
+   * GET OR CREATE IOS APP
+   * ==========================================================
+   *
+   * Mengambil konfigurasi iOS.
+   *
+   * Jika belum ada record, repository akan membuat
+   * konfigurasi default.
+   *
+   * ============================================================
+   */
+
+  async getOrCreateIosApp(): Promise<
+    LandingPageIosAppData
+  > {
+    return landingPageRepository.getOrCreateIosApp();
+  }
+
+  /**
+   * ==========================================================
+   * UPDATE IOS APP
+   * ==========================================================
+   *
+   * Business logic konfigurasi aplikasi iOS.
+   *
+   * Tidak ada upload IPA.
+   * iOS menggunakan URL App Store.
+   *
+   * ============================================================
+   */
+
+  async updateIosApp(data: {
+    enabled?: boolean;
+    appName?: string;
+    version?: string;
+    description?: string | null;
+    appStoreUrl?: string | null;
+  }): Promise<LandingPageIosAppData> {
+    const appName =
+      data.appName?.trim() || "";
+
+    const version =
+      data.version?.trim() || "";
+
+    const description =
+      data.description?.trim() || null;
+
+    const appStoreUrl =
+      data.appStoreUrl?.trim() || null;
+
+    if (!appName) {
+      throw new Error(
+        "Nama aplikasi iOS wajib diisi.",
+      );
+    }
+
+    if (!version) {
+      throw new Error(
+        "Versi aplikasi iOS wajib diisi.",
+      );
+    }
+
+    /**
+     * Jika URL diberikan, pastikan URL valid
+     * dan menggunakan HTTPS.
+     */
+    if (appStoreUrl) {
+      try {
+        const url =
+          new URL(appStoreUrl);
+
+        if (url.protocol !== "https:") {
+          throw new Error(
+            "URL App Store harus menggunakan HTTPS.",
+          );
+        }
+      } catch {
+        throw new Error(
+          "URL App Store tidak valid.",
+        );
+      }
+    }
+
+    return landingPageRepository.updateIosApp({
+      enabled:
+        data.enabled ?? false,
+
+      appName,
+
+      version,
+
+      description,
+
+      appStoreUrl,
+    });
+  }
+
+  /**
+   * ==========================================================
    * UPLOAD ANDROID APK
    * ==========================================================
    *
@@ -310,7 +448,7 @@ class LandingPageService {
    * APK baru akan dihapus kembali agar tidak
    * menjadi orphan file.
    *
-   * ==========================================================
+   * ============================================================
    */
 
   async uploadAndroidApk(
@@ -319,7 +457,7 @@ class LandingPageService {
     const currentApp =
       await landingPageRepository.getAndroidApp();
 
-    /*
+    /**
      * Simpan APK baru terlebih dahulu.
      *
      * StorageService bertanggung jawab terhadap:
@@ -329,16 +467,18 @@ class LandingPageService {
      * - SHA-256
      * - metadata file
      */
+
     const uploaded =
       await StorageService.saveLandingAndroidApk(
         file,
       );
 
     try {
-      /*
+      /**
        * Setelah file berhasil disimpan,
        * update metadata database.
        */
+
       const updated =
         await landingPageRepository.updateAndroidApp(
           {
@@ -350,11 +490,12 @@ class LandingPageService {
           },
         );
 
-      /*
+      /**
        * Database sudah menunjuk ke APK baru.
        *
        * Sekarang APK lama aman untuk dihapus.
        */
+
       if (
         currentApp?.fileUrl &&
         currentApp.fileUrl !== uploaded.fileUrl
@@ -364,13 +505,14 @@ class LandingPageService {
             currentApp.fileUrl,
           );
         } catch (cleanupError) {
-          /*
+          /**
            * Cleanup gagal tidak boleh membuat
            * upload APK baru dianggap gagal.
            *
            * File baru dan database sudah benar.
            * APK lama hanya menjadi cleanup task.
            */
+
           console.error(
             "Gagal menghapus APK Android lama:",
             cleanupError,
@@ -380,12 +522,13 @@ class LandingPageService {
 
       return updated;
     } catch (error) {
-      /*
+      /**
        * Database gagal.
        *
        * Hapus APK baru supaya tidak meninggalkan
        * orphan file di filesystem.
        */
+
       try {
         await StorageService.deleteLandingAndroidApk(
           uploaded.fileUrl,
@@ -401,6 +544,12 @@ class LandingPageService {
     }
   }
 }
+
+/**
+ * ============================================================
+ * SINGLETON SERVICE
+ * ============================================================
+ */
 
 const landingPageService =
   new LandingPageService();

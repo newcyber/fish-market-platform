@@ -3352,6 +3352,31 @@ model LandingPageAndroidApp {
 }
 
 // ============================================================
+// LANDING PAGE IOS APP
+// ============================================================
+//
+// Metadata aplikasi iOS.
+// Binary IPA TIDAK disimpan di database.
+// Database hanya menyimpan metadata dan URL App Store.
+//
+// ============================================================
+
+model LandingPageIosApp {
+  id      String  @id @default(uuid())
+  key     String  @unique @default("default")
+  enabled Boolean @default(false)
+
+  appName     String
+  version     String
+  description String?
+
+  appStoreUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
 // CHANGELOG
 // ============================================================
 

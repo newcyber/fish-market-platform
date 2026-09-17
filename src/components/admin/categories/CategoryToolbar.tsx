@@ -30,6 +30,31 @@ interface CategoryToolbarProps {
   status?: string;
 }
 
+type CategoryStatus =
+  | "all"
+  | "active"
+  | "inactive"
+  | "deleted";
+
+function normalizeStatus(
+  active?: string,
+  status?: string,
+): CategoryStatus {
+  if (status === "deleted") {
+    return "deleted";
+  }
+
+  if (active === "active") {
+    return "active";
+  }
+
+  if (active === "inactive") {
+    return "inactive";
+  }
+
+  return "all";
+}
+
 export function CategoryToolbar({
   search = "",
   active = "all",
@@ -39,48 +64,23 @@ export function CategoryToolbar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [searchValue, setSearchValue] = useState(search);
-
   /*
-   * Status UI:
+   * State lokal hanya digunakan untuk input yang sedang diedit
+   * oleh user.
    *
-   * all       = semua kategori aktif/nonaktif
-   * active    = kategori aktif
-   * inactive  = kategori nonaktif
-   * deleted   = kategori yang masuk Recycle Bin
+   * Nilai awal berasal dari server/URL.
+   *
+   * Kita sengaja tidak melakukan setState() di useEffect
+   * untuk menghindari synchronous state update di effect.
    */
-  const [statusValue, setStatusValue] = useState(
-    status === "deleted"
-      ? "deleted"
-      : active === "active"
-        ? "active"
-        : active === "inactive"
-          ? "inactive"
-          : "all",
+  const [searchValue, setSearchValue] = useState(
+    () => search,
   );
 
-  /*
-   * Sinkronisasi search dari URL/server.
-   */
-  useEffect(() => {
-    setSearchValue(search);
-  }, [search]);
-
-  /*
-   * Sinkronisasi status dari URL/server.
-   */
-  useEffect(() => {
-    const nextStatus =
-      status === "deleted"
-        ? "deleted"
-        : active === "active"
-          ? "active"
-          : active === "inactive"
-            ? "inactive"
-            : "all";
-
-    setStatusValue(nextStatus);
-  }, [active, status]);
+  const [statusValue, setStatusValue] =
+    useState<CategoryStatus>(() =>
+      normalizeStatus(active, status),
+    );
 
   /*
    * Update URL ketika search/status berubah.
@@ -97,11 +97,10 @@ export function CategoryToolbar({
       /*
        * SEARCH
        */
-      if (searchValue.trim()) {
-        params.set(
-          "search",
-          searchValue.trim(),
-        );
+      const trimmedSearch = searchValue.trim();
+
+      if (trimmedSearch) {
+        params.set("search", trimmedSearch);
       } else {
         params.delete("search");
       }
@@ -109,13 +108,13 @@ export function CategoryToolbar({
       /*
        * STATUS
        *
-       * Recycle Bin menggunakan:
+       * Recycle Bin:
        * ?status=deleted
        *
-       * Active menggunakan:
+       * Active:
        * ?active=active
        *
-       * Inactive menggunakan:
+       * Inactive:
        * ?active=inactive
        */
       if (statusValue === "deleted") {
@@ -128,10 +127,7 @@ export function CategoryToolbar({
           statusValue === "active" ||
           statusValue === "inactive"
         ) {
-          params.set(
-            "active",
-            statusValue,
-          );
+          params.set("active", statusValue);
         } else {
           params.delete("active");
         }
@@ -148,13 +144,16 @@ export function CategoryToolbar({
         ? `${pathname}?${query}`
         : pathname;
 
-      const currentQuery =
-        searchParams.toString();
+      const currentQuery = searchParams.toString();
 
       const currentUrl = currentQuery
         ? `${pathname}?${currentQuery}`
         : pathname;
 
+      /*
+       * Hindari router.replace() jika URL sebenarnya
+       * tidak berubah.
+       */
       if (nextUrl !== currentUrl) {
         router.replace(nextUrl);
       }
@@ -201,11 +200,9 @@ export function CategoryToolbar({
 
             <Input
               value={searchValue}
-              onChange={(event) =>
-                setSearchValue(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => {
+                setSearchValue(event.target.value);
+              }}
               placeholder="Cari nama atau slug kategori..."
               className="h-10 pl-10"
             />
@@ -217,7 +214,7 @@ export function CategoryToolbar({
               value={statusValue}
               onValueChange={(value) => {
                 setStatusValue(
-                  value || "all",
+                  (value || "all") as CategoryStatus,
                 );
               }}
             >
@@ -264,7 +261,7 @@ export function CategoryToolbar({
         ====================================================== */}
         <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-2">
-            <Filter className="h-4 w-4" />
+            <Filter className="h-4 w-4 shrink-0" />
 
             {statusValue === "deleted" ? (
               <span>

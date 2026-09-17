@@ -284,33 +284,60 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
   order: 9,
 
   children: [
-    {
-      id: "store-settings",
-      title: "Pengaturan Toko",
-      href: "/admin/settings",
-      icon: "settings",
-      roles: SUPER_ADMIN_ONLY,
-      order: 1,
-    },
+  {
+    id: "store-settings",
+    title: "Pengaturan Toko",
+    href: "/admin/settings",
+    icon: "settings",
+    roles: SUPER_ADMIN_ONLY,
+    order: 1,
+  },
 
-    {
-      id: "payment-channels",
-      title: "Metode Pembayaran",
-      href: "/admin/payment-channels",
-      icon: "payments",
-      roles: SUPER_ADMIN_ONLY,
-      order: 2,
-    },
+  {
+    id: "payment-channels",
+    title: "Metode Pembayaran",
+    href: "/admin/payment-channels",
+    icon: "payments",
+    roles: SUPER_ADMIN_ONLY,
+    order: 2,
+  },
 
-    {
-      id: "landing-page",
-      title: "Landing Page",
-      href: "/admin/landing-page",
-      icon: "landing-page",
-      roles: SUPER_ADMIN_ONLY,
-      order: 3,
-    },
-  ],
+  {
+    id: "landing-page",
+    title: "Landing Page",
+    href: "/admin/landing-page",
+    icon: "landing-page",
+    roles: SUPER_ADMIN_ONLY,
+    order: 3,
+  },
+
+  {
+    id: "landing-page-images",
+    title: "Image Landing Page",
+    href: "/admin/landing-page/images",
+    icon: "landing-page",
+    roles: SUPER_ADMIN_ONLY,
+    order: 4,
+  },
+
+  {
+  id: "android-app",
+  title: "Android App",
+  href: "/admin/landing-page/android",
+  icon: "landing-page",
+  roles: SUPER_ADMIN_ONLY,
+  order: 5,
+},
+
+{
+  id: "ios-app",
+  title: "iOS App",
+  href: "/admin/landing-page/ios",
+  icon: "landing-page",
+  roles: SUPER_ADMIN_ONLY,
+  order: 6,
+},
+],
 },
 
   /**

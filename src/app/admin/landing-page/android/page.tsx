@@ -1,39 +1,30 @@
 import { requireSuperAdmin } from "@/lib/auth/admin";
 
-import LandingPageContentForm from "@/components/admin/landing-page/LandingPageContentForm";
-
+import LandingPageAndroidForm from "@/components/admin/landing-page/LandingPageAndroidForm";
 import landingPageService from "@/repositories/landing-page/landing-page.service";
 
-export default async function AdminLandingPage() {
+export default async function AdminLandingPageAndroid() {
   await requireSuperAdmin();
-
-  const landingPage =
-    await landingPageService.getLandingPage();
 
   const androidApp =
     await landingPageService.getOrCreateAndroidApp();
-
-  const iosApp =
-    await landingPageService.getOrCreateIosApp();
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Landing Page
+          Android App
         </h1>
 
         <p className="mt-2 text-sm text-slate-500">
-          Kelola konten halaman marketing
-          pusatikansegar.com.
+          Kelola aplikasi Android Pisjo Market yang
+          digunakan pada Landing Page.
         </p>
       </div>
 
-      <LandingPageContentForm
-        enabled={landingPage.enabled}
-        config={landingPage.config}
+      <LandingPageAndroidForm
+        androidApp={androidApp}
       />
-      
     </div>
   );
 }

@@ -116,14 +116,43 @@ export interface LandingPageAndroidAppData {
   id: string;
   key: string;
   enabled: boolean;
+
   appName: string;
   version: string;
   description: string | null;
+
   fileName: string | null;
   fileUrl: string | null;
   mimeType: string | null;
   fileSize: number | null;
   sha256: string | null;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * ============================================================
+ * IOS APP
+ * ============================================================
+ *
+ * iOS tidak menggunakan file upload seperti Android.
+ * Distribusi aplikasi dilakukan melalui App Store URL.
+ *
+ * ============================================================
+ */
+
+export interface LandingPageIosAppData {
+  id: string;
+  key: string;
+  enabled: boolean;
+
+  appName: string;
+  version: string;
+  description: string | null;
+
+  appStoreUrl: string | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -159,7 +188,22 @@ export interface LandingPageSeoAnalysisData {
 
 export interface PublicLandingPageUrls {
   store: string;
+
+  /**
+   * URL download APK Android.
+   *
+   * null apabila Android app tidak aktif
+   * atau file APK belum tersedia.
+   */
   android: string | null;
+
+  /**
+   * URL App Store untuk aplikasi iOS.
+   *
+   * null apabila iOS app tidak aktif
+   * atau App Store URL belum tersedia.
+   */
+  ios: string | null;
 }
 
 export interface PublicLandingPageData {

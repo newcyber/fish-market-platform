@@ -6,7 +6,11 @@ import { prisma } from "@/lib/prisma";
  * LANDING PAGE REPOSITORY
  * ============================================================
  *
- * Repository khusus untuk akses database LandingPageSettings.
+ * Repository khusus untuk akses database:
+ * - LandingPageSettings
+ * - LandingPageSeoAnalysis
+ * - LandingPageAndroidApp
+ * - LandingPageIosApp
  *
  * Landing Page bersifat singleton menggunakan:
  * key = "default"
@@ -46,19 +50,20 @@ class LandingPageRepository {
    * ==========================================================
    */
 
-async getOrCreate(config: Prisma.InputJsonValue = {}) {
-  return prisma.landingPageSettings.upsert({
-    where: {
-      key: LANDING_PAGE_KEY,
-    },
-    update: {},
-    create: {
-      key: LANDING_PAGE_KEY,
-      enabled: true,
-      config,
-    },
-  });
-}
+  async getOrCreate(config: Prisma.InputJsonValue = {}) {
+    return prisma.landingPageSettings.upsert({
+      where: {
+        key: LANDING_PAGE_KEY,
+      },
+      update: {},
+      create: {
+        key: LANDING_PAGE_KEY,
+        enabled: true,
+        config,
+      },
+    });
+  }
+
   /**
    * ==========================================================
    * UPDATE LANDING PAGE SETTINGS
@@ -194,7 +199,106 @@ async getOrCreate(config: Prisma.InputJsonValue = {}) {
       update: data,
     });
   }
+
+  /**
+   * ==========================================================
+   * GET IOS APP
+   * ==========================================================
+   *
+   * Mengambil konfigurasi iOS berdasarkan singleton key.
+   *
+   * Binary IPA TIDAK disimpan di database.
+   * Database hanya menyimpan metadata aplikasi dan
+   * URL App Store.
+   *
+   * ==========================================================
+   */
+
+  async getIosApp() {
+    return prisma.landingPageIosApp.findUnique({
+      where: {
+        key: LANDING_PAGE_KEY,
+      },
+    });
+  }
+
+  /**
+   * ==========================================================
+   * GET OR CREATE IOS APP
+   * ==========================================================
+   *
+   * Membuat konfigurasi default iOS jika belum tersedia.
+   *
+   * Default:
+   * - enabled  = false
+   * - appName  = Pisjo Market
+   * - version  = 1.0.0
+   * - URL       = null
+   *
+   * ==========================================================
+   */
+
+  async getOrCreateIosApp() {
+    const existingApp = await this.getIosApp();
+
+    if (existingApp) {
+      return existingApp;
+    }
+
+    return prisma.landingPageIosApp.create({
+      data: {
+        key: LANDING_PAGE_KEY,
+        enabled: false,
+        appName: "Pisjo Market",
+        version: "1.0.0",
+        description: null,
+        appStoreUrl: null,
+      },
+    });
+  }
+
+  /**
+   * ==========================================================
+   * UPDATE IOS APP
+   * ==========================================================
+   *
+   * Update atau create konfigurasi iOS.
+   *
+   * Tidak ada upload IPA.
+   * iOS menggunakan URL resmi App Store.
+   *
+   * ==========================================================
+   */
+
+  async updateIosApp(data: {
+    enabled?: boolean;
+    appName?: string;
+    version?: string;
+    description?: string | null;
+    appStoreUrl?: string | null;
+  }) {
+    return prisma.landingPageIosApp.upsert({
+      where: {
+        key: LANDING_PAGE_KEY,
+      },
+      create: {
+        key: LANDING_PAGE_KEY,
+        enabled: data.enabled ?? false,
+        appName: data.appName ?? "Pisjo Market",
+        version: data.version ?? "1.0.0",
+        description: data.description ?? null,
+        appStoreUrl: data.appStoreUrl ?? null,
+      },
+      update: data,
+    });
+  }
 }
+
+/**
+ * ============================================================
+ * SINGLETON INSTANCE
+ * ============================================================
+ */
 
 const landingPageRepository = new LandingPageRepository();
 

@@ -7,7 +7,8 @@ type LandingFooterProps = {
   siteLogo?: string | null;
   storeInitial: string;
   storeUrl: string;
-  androidUrl: string;
+  androidUrl?: string | null;
+  iosUrl?: string | null;
 };
 
 export default function LandingFooter({
@@ -17,12 +18,17 @@ export default function LandingFooter({
   storeInitial,
   storeUrl,
   androidUrl,
+  iosUrl,
 }: LandingFooterProps) {
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+        {/* ================================================== */}
+        {/* BRAND                                               */}
+        {/* ================================================== */}
+
         <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-[var(--pisjo-primary)] text-xs font-bold text-white">
+          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--pisjo-primary)] text-xs font-bold text-white">
             {siteLogo ? (
               <Image
                 src={siteLogo}
@@ -37,14 +43,23 @@ export default function LandingFooter({
             )}
           </div>
 
-          <div>
-            <p className="text-sm font-bold text-slate-900">{storeName}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-slate-900">
+              {storeName}
+            </p>
 
-            <p className="text-xs text-slate-400">{storeDescription}</p>
+            <p className="truncate text-xs text-slate-400">
+              {storeDescription}
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+        {/* ================================================== */}
+        {/* NAVIGATION                                          */}
+        {/* ================================================== */}
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+          {/* Store */}
           <a
             href={storeUrl}
             className="transition hover:text-[var(--pisjo-primary)]"
@@ -52,13 +67,29 @@ export default function LandingFooter({
             Store
           </a>
 
-          <a
-            href={androidUrl}
-            className="transition hover:text-[var(--pisjo-primary)]"
-          >
-            Android
-          </a>
+          {/* Android */}
+          {androidUrl ? (
+            <a
+              href={androidUrl}
+              className="transition hover:text-[var(--pisjo-primary)]"
+            >
+              Android
+            </a>
+          ) : null}
 
+          {/* iOS */}
+          {iosUrl ? (
+            <a
+              href={iosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition hover:text-[var(--pisjo-primary)]"
+            >
+              iOS
+            </a>
+          ) : null}
+
+          {/* Privacy */}
           <Link
             href="/privacy-policy"
             className="transition hover:text-[var(--pisjo-primary)]"
@@ -66,6 +97,7 @@ export default function LandingFooter({
             Privasi
           </Link>
 
+          {/* Terms */}
           <Link
             href="/terms-and-conditions"
             className="transition hover:text-[var(--pisjo-primary)]"
