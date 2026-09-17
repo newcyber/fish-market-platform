@@ -10,12 +10,6 @@ export default async function AdminLandingPage() {
   const landingPage =
     await landingPageService.getLandingPage();
 
-  const androidApp =
-    await landingPageService.getOrCreateAndroidApp();
-
-  const iosApp =
-    await landingPageService.getOrCreateIosApp();
-
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
       <div>
@@ -33,7 +27,7 @@ export default async function AdminLandingPage() {
         enabled={landingPage.enabled}
         config={landingPage.config}
       />
-      
+
     </div>
   );
 }
