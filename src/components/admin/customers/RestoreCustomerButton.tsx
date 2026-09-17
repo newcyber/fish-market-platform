@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { RotateCcw } from "lucide-react";
 
@@ -17,6 +18,8 @@ export default function RestoreCustomerButton({
   id,
   name,
 }: RestoreCustomerButtonProps) {
+  const router = useRouter();
+
   const [isPending, startTransition] =
     useTransition();
 
@@ -34,6 +37,8 @@ export default function RestoreCustomerButton({
             alert(result.message);
             return;
           }
+
+          router.refresh();
         })
       }
     >

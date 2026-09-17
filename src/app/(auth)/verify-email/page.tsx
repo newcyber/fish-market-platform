@@ -19,7 +19,6 @@ import {
 } from "next/navigation";
 
 import {
-  MailCheck,
   RefreshCw,
   ArrowLeft,
   CheckCircle2,
@@ -744,50 +743,6 @@ function VerifyEmailContent() {
     <AuthCard>
 
       {/* ======================================================
-          HEADER ICON
-      ====================================================== */}
-
-      <div
-        className="
-          mb-5
-          flex
-          justify-center
-          sm:mb-6
-        "
-      >
-        <div
-          className="
-            flex
-            h-14
-            w-14
-            items-center
-            justify-center
-            rounded-2xl
-            bg-[var(--pisjo-primary)]
-          text-white
-            shadow-lg
-            shadow-[var(--pisjo-primary)]/20
-            ring-4
-            ring-[var(--pisjo-soft-blue)]
-            transition-transform
-            duration-300
-            hover:scale-105
-            sm:h-16
-            sm:w-16
-          "
-        >
-          <MailCheck
-            className="
-              h-7
-              w-7
-              sm:h-8
-              sm:w-8
-            "
-          />
-        </div>
-      </div>
-
-      {/* ======================================================
           HEADER
       ====================================================== */}
 
@@ -802,15 +757,18 @@ function VerifyEmailContent() {
 
       <div
         className="
-          mt-5
+          mt-4
           rounded-xl
           border
           border-slate-200
           bg-slate-50
-          px-4
-          py-3
+          px-3
+          py-2.5
           text-center
+
           sm:mt-6
+          sm:px-4
+          sm:py-3
         "
       >
         <p
@@ -845,8 +803,9 @@ function VerifyEmailContent() {
           handleSubmit
         }
         className="
-          mt-5
-          space-y-5
+          mt-4
+          space-y-4
+
           sm:mt-6
           sm:space-y-6
         "
@@ -859,11 +818,11 @@ function VerifyEmailContent() {
 
         <div
           className="
-            flex
+            grid
             w-full
-            justify-center
+            grid-cols-6
             gap-1.5
-            xs:gap-2
+
             sm:gap-3
           "
         >
@@ -915,10 +874,9 @@ function VerifyEmailContent() {
                   handlePaste
                 }
                 className="
-                  h-12
+                  h-11
+                  w-full
                   min-w-0
-                  flex-1
-                  max-w-12
                   rounded-xl
                   border
                   border-slate-200
@@ -963,10 +921,15 @@ focus:shadow-[0_0_0_1px_rgba(7,136,232,0.15)]
 
         <p
           className="
+            px-2
             text-center
-            text-xs
-            leading-5
+            text-[11px]
+            leading-4
             text-slate-500
+
+            sm:px-0
+            sm:text-xs
+            sm:leading-5
           "
         >
           Masukkan 6 digit kode yang
@@ -1081,8 +1044,9 @@ focus:shadow-[0_0_0_1px_rgba(7,136,232,0.15)]
 
       <div
         className="
-          mt-5
+          mt-4
           text-center
+
           sm:mt-6
         "
       >
@@ -1092,7 +1056,9 @@ focus:shadow-[0_0_0_1px_rgba(7,136,232,0.15)]
               rounded-xl
               bg-slate-50
               px-3
-              py-3
+              py-2.5
+
+              sm:py-3
             "
           >
             <p
@@ -1186,7 +1152,7 @@ focus:shadow-[0_0_0_1px_rgba(7,136,232,0.15)]
 
       <div
         className="
-          mt-5
+          mt-4
           border-t
           border-slate-100
           pt-5

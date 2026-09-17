@@ -49,6 +49,14 @@ export interface ProductFilters {
   published?: boolean;
 
   featured?: boolean;
+
+  /**
+   * Admin stock filter:
+   * - available = stock > 5
+   * - low = stock 1..5
+   * - out = stock = 0
+   */
+  stock?: "available" | "low" | "out";
 }
 
 /**
@@ -221,6 +229,33 @@ export class ProductRepository {
 
   /**
    * ============================================================
+   * FIND ALL CATEGORIES
+   * ============================================================
+   *
+   * Digunakan oleh admin product filter.
+   * Hanya mengambil kategori yang masih digunakan oleh produk aktif.
+   */
+  static async findAllCategories() {
+    return prisma.category.findMany({
+      where: {
+        products: {
+          some: {
+            deletedAt: null,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+  }
+
+  /**
+   * ============================================================
    * FIND MANY
    * ============================================================
    */
@@ -241,6 +276,7 @@ static async findMany(
     discounted,
     published,
     featured,
+    stock,
   } = filters;
 
   /**
@@ -323,9 +359,20 @@ static async findMany(
         }
       : {};
 
+  const stockFilter =
+    stock === "available"
+      ? { stock: { gt: 5 } }
+      : stock === "low"
+        ? { stock: { gt: 0, lte: 5 } }
+        : stock === "out"
+          ? { stock: 0 }
+          : {};
+
   return prisma.product.findMany({
     where: {
       deletedAt: null,
+
+      ...stockFilter,
 
       /**
        * ========================================================
@@ -424,6 +471,212 @@ static async findMany(
 
   /**
    * ============================================================
+   * BUILD FILTERED WHERE FOR ADMIN OPERATIONS
+   * ============================================================
+   */
+  private static buildFilteredWhere(
+    filters: ProductFilters = {},
+    extraWhere: Prisma.ProductWhereInput = {}
+  ): Prisma.ProductWhereInput {
+    const {
+      search,
+      categoryId,
+      categoryIds,
+      discounted,
+      published,
+      featured,
+      stock,
+    } = filters;
+
+    const categoryFilter: Prisma.ProductWhereInput =
+      categoryIds && categoryIds.length > 0
+        ? { categoryId: { in: categoryIds } }
+        : categoryId
+          ? { categoryId }
+          : {};
+
+    const discountFilter: Prisma.ProductWhereInput = discounted
+      ? {
+          isDiscountActive: true,
+          AND: [
+            {
+              OR: [
+                { discountStartAt: null },
+                { discountStartAt: { lte: new Date() } },
+              ],
+            },
+            {
+              OR: [
+                { discountEndAt: null },
+                { discountEndAt: { gte: new Date() } },
+              ],
+            },
+          ],
+        }
+      : {};
+
+    const stockFilter: Prisma.ProductWhereInput =
+      stock === "available"
+        ? { stock: { gt: 5 } }
+        : stock === "low"
+          ? { stock: { gt: 0, lte: 5 } }
+          : stock === "out"
+            ? { stock: 0 }
+            : {};
+
+    return {
+      deletedAt: null,
+      ...stockFilter,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { slug: { contains: search, mode: "insensitive" } },
+              { sku: { contains: search, mode: "insensitive" } },
+              {
+                skus: {
+                  some: {
+                    sku: { contains: search, mode: "insensitive" },
+                    isActive: true,
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+      ...categoryFilter,
+      ...discountFilter,
+      ...(published !== undefined ? { isPublished: published } : {}),
+      ...(featured !== undefined ? { featured } : {}),
+      ...extraWhere,
+    };
+  }
+
+  /**
+   * ============================================================
+   * FIND MANY ADMIN PAGINATED
+   * ============================================================
+   *
+   * Admin membutuhkan include lengkap karena tabel menampilkan
+   * gambar, SKU, variant options, harga, dan stok.
+   */
+  static async findManyAdminPaginated(
+    filters: ProductFilters = {},
+    page = 1,
+    limit = 20
+  ) {
+    const where = this.buildFilteredWhere(filters);
+    const safePage = Math.max(1, Math.floor(page));
+    const safeLimit = Math.min(50, Math.max(1, Math.floor(limit)));
+    const skip = (safePage - 1) * safeLimit;
+
+    const [items, total] = await prisma.$transaction([
+      prisma.product.findMany({
+        where,
+        include: this.productInclude,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: safeLimit,
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+    };
+  }
+
+  /**
+   * ============================================================
+   * BULK ACTION BY IDS
+   * ============================================================
+   */
+  static async bulkActionByIds(
+    ids: string[],
+    action: "publish" | "unpublish" | "delete"
+  ) {
+    const normalizedIds = [
+      ...new Set(
+        ids
+          .filter((id): id is string => typeof id === "string")
+          .map((id) => id.trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    if (normalizedIds.length === 0) {
+      return { count: 0 };
+    }
+
+    const where: Prisma.ProductWhereInput = {
+      id: { in: normalizedIds },
+      deletedAt: null,
+    };
+
+    if (action === "delete") {
+      return prisma.product.updateMany({
+        where,
+        data: { deletedAt: new Date() },
+      });
+    }
+
+    return prisma.product.updateMany({
+      where,
+      data: { isPublished: action === "publish" },
+    });
+  }
+
+  /**
+   * ============================================================
+   * BULK ACTION BY FILTER
+   * ============================================================
+   *
+   * Digunakan saat admin memilih seluruh hasil filter lintas halaman.
+   * Operasi dilakukan langsung di database sehingga tidak perlu
+   * mengirim seluruh ID produk ke browser/server action.
+   */
+  static async bulkActionByFilter(
+    filters: ProductFilters,
+    action: "publish" | "unpublish" | "delete",
+    excludedIds: string[] = []
+  ) {
+    const normalizedExcludedIds = [
+      ...new Set(
+        excludedIds
+          .filter((id): id is string => typeof id === "string")
+          .map((id) => id.trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    const where = this.buildFilteredWhere(
+      filters,
+      normalizedExcludedIds.length > 0
+        ? { id: { notIn: normalizedExcludedIds } }
+        : {}
+    );
+
+    if (action === "delete") {
+      return prisma.product.updateMany({
+        where,
+        data: { deletedAt: new Date() },
+      });
+    }
+
+    return prisma.product.updateMany({
+      where,
+      data: {
+        isPublished: action === "publish",
+      },
+    });
+  }
+
+  /**
+   * ============================================================
    * FIND MANY PAGINATED
    * ============================================================
    *
@@ -448,6 +701,7 @@ static async findMany(
       discounted,
       published,
       featured,
+      stock,
     } = filters;
 
     const categoryFilter =
@@ -498,8 +752,19 @@ static async findMany(
           }
         : {};
 
+    const stockFilter =
+      stock === "available"
+        ? { stock: { gt: 5 } }
+        : stock === "low"
+          ? { stock: { gt: 0, lte: 5 } }
+          : stock === "out"
+            ? { stock: 0 }
+            : {};
+
     const where = {
       deletedAt: null,
+
+      ...stockFilter,
 
       ...(search
         ? {

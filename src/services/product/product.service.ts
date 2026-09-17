@@ -14,6 +14,7 @@ export interface ProductFilters {
   discounted?: boolean;
   published?: boolean;
   featured?: boolean;
+  stock?: "available" | "low" | "out";
 }
 
 /**
@@ -444,6 +445,10 @@ export class ProductService {
     return ProductRepository.findMany(filters);
   }
 
+  static async getCategoriesForAdmin() {
+    return ProductRepository.findAllCategories();
+  }
+
   static async getProductsPaginated(
     filters: ProductFilters = {},
     page = 1,
@@ -453,6 +458,37 @@ export class ProductService {
       filters,
       page,
       limit
+    );
+  }
+
+  static async getProductsAdminPaginated(
+    filters: ProductFilters = {},
+    page = 1,
+    limit = 20
+  ) {
+    return ProductRepository.findManyAdminPaginated(
+      filters,
+      page,
+      limit
+    );
+  }
+
+  static async bulkProductActionByIds(
+    ids: string[],
+    action: "publish" | "unpublish" | "delete"
+  ) {
+    return ProductRepository.bulkActionByIds(ids, action);
+  }
+
+  static async bulkProductActionByFilter(
+    filters: ProductFilters,
+    action: "publish" | "unpublish" | "delete",
+    excludedIds: string[] = []
+  ) {
+    return ProductRepository.bulkActionByFilter(
+      filters,
+      action,
+      excludedIds
     );
   }
 

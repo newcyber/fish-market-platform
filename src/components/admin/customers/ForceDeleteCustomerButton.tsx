@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import DeleteButton from "@/components/admin/common/DeleteButton";
 
 import { forceDeleteCustomerAction } from "@/actions/customer/force-delete-customer";
@@ -13,6 +15,8 @@ export default function ForceDeleteCustomerButton({
   id,
   name,
 }: ForceDeleteCustomerButtonProps) {
+  const router = useRouter();
+
   return (
     <DeleteButton
       title="Hapus Permanen"
@@ -26,6 +30,8 @@ export default function ForceDeleteCustomerButton({
         if (!result.success) {
           throw new Error(result.message);
         }
+
+        router.refresh();
       }}
     />
   );

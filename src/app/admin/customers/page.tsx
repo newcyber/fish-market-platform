@@ -7,6 +7,7 @@ import {
 import CustomerStats from "@/components/admin/customers/CustomerStats";
 import CustomerToolbar from "@/components/admin/customers/CustomerToolbar";
 import CustomerTable from "@/components/admin/customers/CustomerTable";
+import CustomerTrashTable from "@/components/admin/customers/CustomerTrashTable";
 import { requireAdmin } from "@/lib/auth/admin";
 
 import CustomerService, {
@@ -208,6 +209,60 @@ export default async function CustomersPage({
 
   const params =
     await searchParams;
+
+  const view =
+    params.status === "trash"
+      ? "trash"
+      : "customers";
+
+  /**
+   * ========================================================
+   * TRASH VIEW
+   * ========================================================
+   *
+   * Trash memakai data yang memang sudah soft-delete.
+   * Tidak menggunakan filter customer aktif agar customer
+   * yang sudah dihapus tidak ikut muncul di daftar normal.
+   */
+  if (view === "trash") {
+    const deletedCustomers =
+      await CustomerService.getDeletedCustomers();
+
+    return (
+      <div className="space-y-6">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold tracking-tight">
+              Customer Trash
+            </h1>
+
+            <p className="mt-1 text-muted-foreground">
+              Customer yang dihapus sementara dan masih dapat dipulihkan.
+            </p>
+          </div>
+
+          <Link
+            href="/admin/customers"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-[var(--pisjo-primary)] hover:bg-[var(--pisjo-soft-blue)] hover:text-[var(--pisjo-ocean)]"
+          >
+            Kembali ke Customer
+          </Link>
+        </div>
+
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800">
+          <span className="font-semibold">
+            {deletedCustomers.length.toLocaleString("id-ID")} customer
+          </span>{" "}
+          berada di Trash. Restore untuk mengembalikannya ke daftar customer,
+          atau hapus permanen jika memang sudah tidak diperlukan.
+        </div>
+
+        <CustomerTrashTable
+          customers={deletedCustomers}
+        />
+      </div>
+    );
+  }
 
   /**
    * ========================================================

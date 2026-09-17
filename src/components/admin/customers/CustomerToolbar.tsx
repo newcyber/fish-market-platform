@@ -9,7 +9,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 import AdminToolbar from "@/components/admin/common/AdminToolbar";
 import AdminSearch from "@/components/admin/common/AdminSearch";
@@ -290,12 +290,25 @@ export default function CustomerToolbar({
         </>
       }
       actions={
-        <Link href="/admin/customers/create">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Tambah Customer
-          </Button>
-        </Link>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Link href="/admin/customers?status=trash" className="w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full rounded-xl sm:w-auto"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Trash
+            </Button>
+          </Link>
+
+          <Link href="/admin/customers/create" className="w-full sm:w-auto">
+            <Button className="w-full rounded-xl sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Tambah Customer
+            </Button>
+          </Link>
+        </div>
       }
     />
   );

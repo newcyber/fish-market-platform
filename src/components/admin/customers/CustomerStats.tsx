@@ -28,13 +28,13 @@ const cards = [
   },
   {
     key: "newCustomersThisMonth",
-    label: "Customer Baru Bulan Ini",
+    label: "Customer Baru",
     description: "Terdaftar bulan berjalan",
     icon: UserPlus,
   },
   {
     key: "activeCustomers30Days",
-    label: "Customer Aktif 30 Hari",
+    label: "Aktif 30 Hari",
     description: "Melakukan pembelian",
     icon: UserCheck,
   },
@@ -50,35 +50,38 @@ export default function CustomerStats({
   stats,
 }: CustomerStatsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => {
         const Icon = card.icon;
         const value = stats[card.key];
 
         return (
-          <Card key={card.key}>
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
+          <Card
+            key={card.key}
+            className="overflow-hidden border-slate-200 shadow-sm"
+          >
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-muted-foreground">
                     {card.label}
                   </p>
 
-                  <p className="text-2xl font-bold tracking-tight">
+                  <p className="mt-1 text-2xl font-bold tracking-tight text-[var(--pisjo-navy)]">
                     {value.toLocaleString("id-ID")}
                   </p>
 
-                  <p className="text-xs text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {card.description}
                   </p>
                 </div>
 
-                <div className="rounded-lg bg-muted p-2.5">
+                <div className="shrink-0 rounded-xl bg-[var(--pisjo-soft-blue)] p-2.5 text-[var(--pisjo-ocean)]">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="mt-4 flex items-center gap-1.5 border-t border-slate-100 pt-3 text-[11px] font-medium text-slate-500">
                 <ArrowUpRight className="h-3.5 w-3.5" />
                 Data aktual sistem
               </div>

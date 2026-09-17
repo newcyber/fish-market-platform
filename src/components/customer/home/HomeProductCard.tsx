@@ -191,11 +191,10 @@ function ProductBadge({
     return (
       <div
         className="
-          absolute
+          relative
           z-30
-          right-1
-          top-1
           inline-flex
+          shrink-0
           items-center
           gap-0.5
           rounded-md
@@ -210,8 +209,6 @@ function ProductBadge({
           text-white
           shadow-lg
 
-          sm:right-1.5
-          sm:top-1.5
           sm:gap-1
           sm:px-2
           sm:text-[10px]
@@ -253,11 +250,10 @@ function ProductBadge({
     return (
       <div
         className="
-          absolute
+          relative
           z-30
-          right-1
-          top-1
           inline-flex
+          shrink-0
           items-center
           gap-0.5
           rounded-md
@@ -275,8 +271,6 @@ function ProductBadge({
           shadow-lg
           shadow-orange-500/30
 
-          sm:right-1.5
-          sm:top-1.5
           sm:gap-1
           sm:px-2
           sm:text-[10px]
@@ -578,95 +572,6 @@ export default function HomeProductCard({
             {/* LOW STOCK BADGE */}
             {/* ================================================== */}
 
-            {isLowStock && (
-              <div
-                className="
-                  absolute
-                  left-2
-                  top-2
-                  z-30
-                  flex
-                  flex-col
-                  items-start
-                "
-              >
-                {/* HAMPIR HABIS */}
-
-                <div
-                  className="
-                    inline-flex
-                    h-6
-                    w-[82px]
-                    items-center
-                    justify-center
-                    gap-0.5
-                    rounded-full
-                    bg-red-500
-                    px-1.5
-                    py-1
-                    text-white
-                    shadow-[0_2px_6px_rgba(0,0,0,0.16)]
-
-                    sm:w-[102px]
-                    sm:gap-1
-                    sm:px-2.5
-                  "
-                >
-                  <AlertTriangle
-                    className="
-                      h-2.5
-                      w-2.5
-                      shrink-0
-                      fill-yellow-300
-                      text-yellow-300
-                      stroke-[2.5]
-
-                      sm:h-3
-                      sm:w-3
-                    "
-                  />
-
-                  <span
-                    className="
-                      whitespace-nowrap
-                      text-[8px]
-                      font-bold
-                      leading-none
-
-                      sm:text-[9px]
-                    "
-                  >
-                    Hampir Habis
-                  </span>
-                </div>
-
-                {/* SISA STOCK */}
-
-                <div
-                  className="
-                    ml-1
-                    mt-1
-                    inline-flex
-                    min-h-[20px]
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-white
-                    px-2
-                    py-1
-                    text-[8px]
-                    font-semibold
-                    leading-none
-                    text-slate-700
-                    shadow-[0_2px_5px_rgba(0,0,0,0.12)]
-                  "
-                >
-                  Sisa{" "}
-                  {lowStockDisplay}
-                </div>
-              </div>
-            )}
-
             {/* ================================================== */}
             {/* OUT OF STOCK */}
             {/* ================================================== */}
@@ -905,111 +810,221 @@ export default function HomeProductCard({
               )}
 
             {/* ================================================== */}
-            {/* PRODUCT BADGE */}
+            {/* TOP BADGE LAYER */}
             {/* ================================================== */}
+            {/*
+             * Mobile cards use 3 columns and can become very narrow.
+             * Stack all top badges on mobile so they can never overlap.
+             * From sm upward, restore the horizontal layout.
+             */}
 
-            <ProductBadge
-              badge={badge}
-              rank={rank}
-            />
+            <div
+              className="
+                pointer-events-none
+                absolute
+                inset-x-1
+                top-1
+                z-40
+                flex
+                flex-col
+                items-start
+                gap-1
 
-            {/* ================================================== */}
-            {/* PRE-ORDER BADGE */}
-            {/* ================================================== */}
-
-            {showPreOrderBadge && (
-              <div
-                className="
-                  absolute
-                  left-2
-                  top-2
-                  z-40
-                  flex
-                  flex-col
-                  items-start
-                "
-              >
-                {/* PRE-ORDER */}
-
+                sm:inset-x-1.5
+                sm:top-1.5
+                sm:flex-row
+                sm:flex-nowrap
+                sm:items-start
+                sm:gap-1.5
+              "
+            >
+              {isLowStock && (
                 <div
                   className="
-                    inline-flex
-                    min-h-[25px]
-                    items-center
-                    gap-1
-                    rounded-full
-                    bg-red-500
-                    px-2.5
-                    py-1
-                    text-white
-                    shadow-[0_2px_6px_rgba(0,0,0,0.16)]
-
-                    sm:min-h-[28px]
-                    sm:gap-1.5
-                    sm:px-3
-                    sm:py-1.5
+                    min-w-0
+                    max-w-full
+                    shrink-0
+                    flex
+                    flex-col
+                    items-start
                   "
                 >
-                  <Clock
+                  <div
                     className="
-                      h-3
-                      w-3
-                      shrink-0
-                      stroke-[2.5]
+                      inline-flex
+                      min-h-[22px]
+                      max-w-full
+                      items-center
+                      justify-center
+                      gap-0.5
+                      rounded-full
+                      bg-red-500
+                      px-2
+                      py-1
+                      text-white
+                      shadow-[0_2px_6px_rgba(0,0,0,0.16)]
 
-                      sm:h-3.5
-                      sm:w-3.5
-                    "
-                  />
-
-                  <span
-                    className="
-                      whitespace-nowrap
-                      text-[9px]
-                      font-bold
-                      leading-none
-
-                      sm:text-[10px]
+                      sm:min-h-6
+                      sm:gap-1
+                      sm:px-2.5
                     "
                   >
-                    Pre-Order
-                  </span>
-                </div>
+                    <AlertTriangle
+                      className="
+                        h-2.5
+                        w-2.5
+                        shrink-0
+                        fill-yellow-300
+                        text-yellow-300
+                        stroke-[2.5]
 
-                {/* ESTIMASI */}
+                        sm:h-3
+                        sm:w-3
+                      "
+                    />
 
-                {preOrderEstimate && (
+                    <span
+                      className="
+                        whitespace-nowrap
+                        text-[8px]
+                        font-bold
+                        leading-none
+
+                        sm:text-[9px]
+                      "
+                    >
+                      Hampir Habis
+                    </span>
+                  </div>
+
                   <div
                     className="
                       ml-1
                       mt-1
                       inline-flex
-                      min-h-[20px]
+                      min-h-[18px]
                       items-center
                       justify-center
                       rounded-full
                       bg-white
-                      px-2.5
+                      px-2
                       py-1
-                      text-[8px]
+                      text-[7px]
                       font-semibold
                       leading-none
                       text-slate-700
                       shadow-[0_2px_5px_rgba(0,0,0,0.12)]
-                      whitespace-nowrap
 
-                      sm:ml-1.5
-                      sm:mt-1
-                      sm:min-h-[22px]
-                      sm:px-3
-                      sm:text-[9px]
+                      sm:min-h-[20px]
+                      sm:px-2
+                      sm:text-[8px]
                     "
                   >
-                    Estimasi {preOrderEstimate}
+                    Sisa{" "}
+                    {lowStockDisplay}
                   </div>
-                )}
+                </div>
+              )}
+
+              {showPreOrderBadge && (
+                <div
+                  className="
+                    min-w-0
+                    max-w-full
+                    shrink-0
+                    flex
+                    flex-col
+                    items-start
+                  "
+                >
+                  <div
+                    className="
+                      inline-flex
+                      min-h-[22px]
+                      max-w-full
+                      items-center
+                      gap-0.5
+                      rounded-full
+                      bg-red-500
+                      px-2
+                      py-1
+                      text-white
+                      shadow-[0_2px_6px_rgba(0,0,0,0.16)]
+
+                      sm:min-h-[28px]
+                      sm:gap-1.5
+                      sm:px-3
+                      sm:py-1.5
+                    "
+                  >
+                    <Clock
+                      className="
+                        h-2.5
+                        w-2.5
+                        shrink-0
+                        stroke-[2.5]
+
+                        sm:h-3.5
+                        sm:w-3.5
+                      "
+                    />
+
+                    <span
+                      className="
+                        whitespace-nowrap
+                        text-[8px]
+                        font-bold
+                        leading-none
+
+                        sm:text-[10px]
+                      "
+                    >
+                      Pre-Order
+                    </span>
+                  </div>
+
+                  {preOrderEstimate && (
+                    <div
+                      className="
+                        ml-1
+                        mt-1
+                        inline-flex
+                        min-h-[18px]
+                        max-w-full
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-white
+                        px-2
+                        py-1
+                        text-[7px]
+                        font-semibold
+                        leading-none
+                        text-slate-700
+                        shadow-[0_2px_5px_rgba(0,0,0,0.12)]
+                        whitespace-nowrap
+
+                        sm:ml-1.5
+                        sm:mt-1
+                        sm:min-h-[22px]
+                        sm:px-3
+                        sm:text-[9px]
+                      "
+                    >
+                      Estimasi {preOrderEstimate}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="shrink-0 sm:ml-auto">
+                <ProductBadge
+                  badge={badge}
+                  rank={rank}
+                />
               </div>
-            )}
+            </div>
+
           </div>
 
           {/* ================================================== */}
