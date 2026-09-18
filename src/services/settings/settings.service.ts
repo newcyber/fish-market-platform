@@ -1,6 +1,7 @@
 import settingsRepository, {
   type UpdateImageBannerSettingsPayload,
   type UpdateSettingsPayload,
+  UpdateImagePopupSettingsPayload,
 } from "@/repositories/settings/settings.repository";
 
 /**
@@ -24,6 +25,7 @@ import settingsRepository, {
  */
 
 export interface UpdateStoreSettingsPayload {
+
   /**
    * ==========================================================
    * STORE INFORMATION
@@ -107,7 +109,7 @@ export interface UpdateStoreSettingsPayload {
 
   flashSaleBannerImage?: string | null;
 
-    heroSlide1Eyebrow?: string | null;
+  heroSlide1Eyebrow?: string | null;
   heroSlide1Title?: string | null;
   heroSlide1Highlight?: string | null;
   heroSlide1Description?: string | null;
@@ -414,6 +416,25 @@ class SettingsService {
   ) {
     return settingsRepository.updateImageBanner(payload);
   }
+
+  /**
+ * ==========================================================
+ * UPDATE IMAGE POPUP SETTINGS
+ * ==========================================================
+ *
+ * Update khusus konfigurasi Image Popup.
+ *
+ * Hanya field Image Popup yang diteruskan
+ * ke repository.
+ */
+
+async updateImagePopupSettings(
+  payload: UpdateImagePopupSettingsPayload
+) {
+  return settingsRepository.updateImagePopup(
+    payload
+  );
+}
 
   /**
    * ==========================================================
@@ -918,6 +939,7 @@ const normalize = (
      */
 
     const data: UpdateSettingsPayload = {
+
       /**
        * ------------------------------------------------------
        * STORE INFORMATION
@@ -1006,7 +1028,7 @@ siteLogo:
   normalize(
     payload.siteLogo
   ),
-              /**
+      /**
        * ======================================================
        * HERO SLIDER
        * ======================================================

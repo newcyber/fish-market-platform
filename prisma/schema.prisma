@@ -3103,6 +3103,54 @@ model StoreSettings {
   promoCard2Button      String?
   promoCard2Href        String?
 
+// ============================================================
+// PROMO POPUP
+// ============================================================
+//
+// Popup promo yang ditampilkan pada storefront.
+//
+// Image popup menggunakan satu artwork utuh sehingga desain
+// seperti referensi dapat dibuat oleh admin/designer tanpa
+// membutuhkan perubahan frontend.
+//
+// ============================================================
+
+  promoPopupEnabled Boolean @default(false)
+
+  promoPopupImage String?
+
+  promoPopupAlt String?
+
+  promoPopupHref String?
+
+/**
+ * Delay popup setelah halaman customer selesai dimuat.
+ * Satuan millisecond.
+ *
+ * Default:
+ * 1200 = 1.2 detik
+ */
+  promoPopupDelay Int @default(1200)
+
+/**
+ * Version/key promo.
+ *
+ * Digunakan frontend untuk membedakan promo lama dan promo baru
+ * pada localStorage.
+ *
+ * Contoh:
+ * bundle-99k-v1
+ * ramadhan-2026-v1
+ */
+  promoPopupVersion String?
+
+/**
+ * Jika true, setelah customer menutup popup,
+ * popup tidak ditampilkan kembali pada browser tersebut
+ * untuk version promo yang sama.
+ */
+  promoPopupRememberClose Boolean @default(true)
+
   email    String?
   whatsapp String?
 

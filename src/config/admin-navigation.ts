@@ -177,6 +177,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         order: 4,
         roles: SUPER_ADMIN_ONLY,
       },
+
+      {
+        id: "image-popup",
+        title: "Image Popup",
+        href: "/admin/promotions/image-popup",
+        icon: "image-popup",
+        order: 5,
+        roles: SUPER_ADMIN_ONLY,
+      },
     ],
   },
 

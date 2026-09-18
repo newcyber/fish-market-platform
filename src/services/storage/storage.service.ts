@@ -140,6 +140,15 @@ const PROMO_UPLOAD_DIRECTORY =
     "promo"
   );
 
+  const PROMO_POPUP_UPLOAD_DIRECTORY =
+  path.join(
+    process.cwd(),
+    "public",
+    "uploads",
+    "settings",
+    "promo-popup"
+  );
+  
 /**
  * ============================================================
  * ALLOWED IMAGE MIME TYPES
@@ -537,6 +546,32 @@ static async savePromoImage(
     "/uploads/settings/promo"
   );
 }
+
+  /**
+   * ==========================================================
+   * SAVE PROMO POPUP IMAGE
+   * ==========================================================
+   *
+   * Storage:
+   *
+   * public/uploads/settings/promo-popup
+   *
+   * Public URL:
+   *
+   * /uploads/settings/promo-popup/{filename}
+   *
+   * ==========================================================
+   */
+
+  static async savePromoPopupImage(
+    file: File
+  ): Promise<string> {
+    return this.saveToDirectory(
+      file,
+      PROMO_POPUP_UPLOAD_DIRECTORY,
+      "/uploads/settings/promo-popup"
+    );
+  }
 
   /**
    * ==========================================================

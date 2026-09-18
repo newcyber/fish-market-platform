@@ -1,11 +1,18 @@
 import { Prisma } from "@prisma/client";
 
 import settingsRepository from "@/repositories/settings/settings.repository";
+
 import landingPageRepository from "./landing-page.repository";
+
 import StorageService from "@/services/storage/storage.service";
+
 import { getSiteUrls } from "@/services/site/site-url.service";
 
 import { normalizeLandingPageConfig } from "./landing-page.validation";
+
+import {
+  RewardCatalogService,
+} from "@/services/reward/reward-catalog.service";
 
 import type {
   LandingPageAndroidAppData,
@@ -13,6 +20,7 @@ import type {
   LandingPageSeoAnalysisData,
   LandingPageSettingsData,
   PublicLandingPageData,
+  PublicLandingPageReward,
 } from "./landing-page.types";
 
 import type {
@@ -37,6 +45,7 @@ import type {
  * Prisma
  *
  * Service bertanggung jawab terhadap:
+ *
  * - normalisasi config JSON
  * - fallback config
  * - transformasi data repository
@@ -44,7 +53,14 @@ import type {
  * - upload APK
  * - cleanup file APK lama
  * - validasi sederhana konfigurasi iOS
+ * - mengambil reward catalog untuk public landing page
  *
+ * ============================================================
+ */
+
+/**
+ * ============================================================
+ * CONVERT VALUE TO PRISMA JSON VALUE
  * ============================================================
  */
 
@@ -55,6 +71,12 @@ function toInputJsonValue(
     JSON.stringify(value),
   ) as Prisma.InputJsonValue;
 }
+
+/**
+ * ============================================================
+ * LANDING PAGE SERVICE
+ * ============================================================
+ */
 
 class LandingPageService {
   /**
@@ -128,26 +150,100 @@ class LandingPageService {
    * - URL hanya diberikan jika enabled = true
    * - appStoreUrl tersedia
    *
-   * ============================================================
+   * Reward:
+   * - hanya reward aktif
+   * - hanya reward dengan stock > 0
+   * - urutan mengikuti RewardCatalogRepository
+   *
+   * Reward TIDAK disimpan di LandingPageSettings.
+   * Reward diambil langsung dari RewardCatalog.
+   *
+   * ==========================================================
    */
 
   async getPublicLandingPage(): Promise<PublicLandingPageData> {
+    /**
+     * ========================================================
+     * LOAD LANDING PAGE DATA
+     * ========================================================
+     *
+     * Semua resource independen diambil secara paralel.
+     */
+
     const [
       landingPage,
       storeSettings,
       androidApp,
       iosApp,
+      availableRewards,
     ] = await Promise.all([
       this.getLandingPage(),
+
       settingsRepository.getOrCreate(),
+
       landingPageRepository.getAndroidApp(),
+
       landingPageRepository.getIosApp(),
+
+      RewardCatalogService.getAvailableRewards(),
     ]);
 
-    const siteUrls = await getSiteUrls();
+    /**
+     * ========================================================
+     * SITE URLS
+     * ========================================================
+     */
+
+    const siteUrls =
+      await getSiteUrls();
+
+    /**
+     * ========================================================
+     * TRANSFORM REWARD DATA
+     * ========================================================
+     *
+     * Hanya expose field yang memang diperlukan
+     * oleh public landing page.
+     *
+     * Tidak expose:
+     * - claims
+     * - category internal
+     * - createdAt
+     * - updatedAt
+     * - field internal lainnya
+     */
+
+    const rewards: PublicLandingPageReward[] =
+      availableRewards.map((reward) => ({
+        id: reward.id,
+
+        name: reward.name,
+
+        description:
+          reward.description ?? null,
+
+        image:
+          reward.image ?? null,
+
+        requiredPoints:
+          reward.requiredPoints,
+
+        stock:
+          reward.stock,
+
+        sortOrder:
+          reward.sortOrder,
+      }));
+
+    /**
+     * ========================================================
+     * PUBLIC RESPONSE
+     * ========================================================
+     */
 
     return {
-      enabled: landingPage.enabled,
+      enabled:
+        landingPage.enabled,
 
       brand: {
         storeName:
@@ -163,12 +259,16 @@ class LandingPageService {
           null,
       },
 
-      config: landingPage.config,
+      config:
+        landingPage.config,
+
+      rewards,
 
       androidApp,
 
       urls: {
-        store: siteUrls.storefrontUrl,
+        store:
+          siteUrls.storefrontUrl,
 
         android:
           androidApp?.enabled &&
@@ -209,12 +309,15 @@ class LandingPageService {
     config?: LandingPageConfig;
   }) {
     return landingPageRepository.update({
-      enabled: data.enabled,
+      enabled:
+        data.enabled,
 
       config:
         data.config === undefined
           ? undefined
-          : toInputJsonValue(data.config),
+          : toInputJsonValue(
+              data.config,
+            ),
     });
   }
 
@@ -231,15 +334,26 @@ class LandingPageService {
       await landingPageRepository.getSeoAnalyses();
 
     return analyses.map((analysis) => ({
-      id: analysis.id,
+      id:
+        analysis.id,
+
       landingPageSettingsId:
         analysis.landingPageSettingsId,
-      score: analysis.score,
-      analysis: analysis.analysis,
+
+      score:
+        analysis.score,
+
+      analysis:
+        analysis.analysis,
+
       recommendations:
         analysis.recommendations,
-      source: analysis.source,
-      createdAt: analysis.createdAt,
+
+      source:
+        analysis.source,
+
+      createdAt:
+        analysis.createdAt,
     }));
   }
 
@@ -256,14 +370,21 @@ class LandingPageService {
     source?: string;
   }) {
     return landingPageRepository.createSeoAnalysis({
-      score: data.score,
-      analysis: toInputJsonValue(
-        data.analysis,
-      ),
-      recommendations: toInputJsonValue(
-        data.recommendations,
-      ),
-      source: data.source,
+      score:
+        data.score,
+
+      analysis:
+        toInputJsonValue(
+          data.analysis,
+        ),
+
+      recommendations:
+        toInputJsonValue(
+          data.recommendations,
+        ),
+
+      source:
+        data.source,
     });
   }
 
@@ -285,7 +406,9 @@ class LandingPageService {
    * ==========================================================
    */
 
-  async getOrCreateAndroidApp(): Promise<LandingPageAndroidAppData> {
+  async getOrCreateAndroidApp(): Promise<
+    LandingPageAndroidAppData
+  > {
     return landingPageRepository.getOrCreateAndroidApp();
   }
 
@@ -297,13 +420,21 @@ class LandingPageService {
 
   async updateAndroidApp(data: {
     enabled?: boolean;
+
     appName?: string;
+
     version?: string;
+
     description?: string | null;
+
     fileName?: string | null;
+
     fileUrl?: string | null;
+
     mimeType?: string | null;
+
     fileSize?: number | null;
+
     sha256?: string | null;
   }) {
     return landingPageRepository.updateAndroidApp(
@@ -318,7 +449,7 @@ class LandingPageService {
    *
    * Mengambil konfigurasi aplikasi iOS.
    *
-   * ============================================================
+   * ==========================================================
    */
 
   async getIosApp(): Promise<
@@ -337,7 +468,7 @@ class LandingPageService {
    * Jika belum ada record, repository akan membuat
    * konfigurasi default.
    *
-   * ============================================================
+   * ==========================================================
    */
 
   async getOrCreateIosApp(): Promise<
@@ -356,33 +487,53 @@ class LandingPageService {
    * Tidak ada upload IPA.
    * iOS menggunakan URL App Store.
    *
-   * ============================================================
+   * ==========================================================
    */
 
   async updateIosApp(data: {
     enabled?: boolean;
+
     appName?: string;
+
     version?: string;
+
     description?: string | null;
+
     appStoreUrl?: string | null;
   }): Promise<LandingPageIosAppData> {
     const appName =
-      data.appName?.trim() || "";
+      data.appName?.trim() ||
+      "";
 
     const version =
-      data.version?.trim() || "";
+      data.version?.trim() ||
+      "";
 
     const description =
-      data.description?.trim() || null;
+      data.description?.trim() ||
+      null;
 
     const appStoreUrl =
-      data.appStoreUrl?.trim() || null;
+      data.appStoreUrl?.trim() ||
+      null;
+
+    /**
+     * ========================================================
+     * VALIDATE APP NAME
+     * ========================================================
+     */
 
     if (!appName) {
       throw new Error(
         "Nama aplikasi iOS wajib diisi.",
       );
     }
+
+    /**
+     * ========================================================
+     * VALIDATE VERSION
+     * ========================================================
+     */
 
     if (!version) {
       throw new Error(
@@ -391,15 +542,24 @@ class LandingPageService {
     }
 
     /**
-     * Jika URL diberikan, pastikan URL valid
-     * dan menggunakan HTTPS.
+     * ========================================================
+     * VALIDATE APP STORE URL
+     * ========================================================
+     *
+     * Jika URL diberikan:
+     *
+     * - harus valid
+     * - harus menggunakan HTTPS
      */
+
     if (appStoreUrl) {
       try {
         const url =
           new URL(appStoreUrl);
 
-        if (url.protocol !== "https:") {
+        if (
+          url.protocol !== "https:"
+        ) {
           throw new Error(
             "URL App Store harus menggunakan HTTPS.",
           );
@@ -410,6 +570,12 @@ class LandingPageService {
         );
       }
     }
+
+    /**
+     * ========================================================
+     * UPDATE IOS
+     * ========================================================
+     */
 
     return landingPageRepository.updateIosApp({
       enabled:
@@ -448,19 +614,28 @@ class LandingPageService {
    * APK baru akan dihapus kembali agar tidak
    * menjadi orphan file.
    *
-   * ============================================================
+   * ==========================================================
    */
 
   async uploadAndroidApk(
     file: File,
   ): Promise<LandingPageAndroidAppData> {
+    /**
+     * ========================================================
+     * GET CURRENT APP
+     * ========================================================
+     */
+
     const currentApp =
       await landingPageRepository.getAndroidApp();
 
     /**
-     * Simpan APK baru terlebih dahulu.
+     * ========================================================
+     * SAVE NEW APK
+     * ========================================================
      *
      * StorageService bertanggung jawab terhadap:
+     *
      * - validasi file
      * - generate filename
      * - penyimpanan file
@@ -475,6 +650,10 @@ class LandingPageService {
 
     try {
       /**
+       * ======================================================
+       * UPDATE DATABASE
+       * ======================================================
+       *
        * Setelah file berhasil disimpan,
        * update metadata database.
        */
@@ -482,23 +661,36 @@ class LandingPageService {
       const updated =
         await landingPageRepository.updateAndroidApp(
           {
-            fileName: uploaded.fileName,
-            fileUrl: uploaded.fileUrl,
-            mimeType: uploaded.mimeType,
-            fileSize: uploaded.fileSize,
-            sha256: uploaded.sha256,
+            fileName:
+              uploaded.fileName,
+
+            fileUrl:
+              uploaded.fileUrl,
+
+            mimeType:
+              uploaded.mimeType,
+
+            fileSize:
+              uploaded.fileSize,
+
+            sha256:
+              uploaded.sha256,
           },
         );
 
       /**
-       * Database sudah menunjuk ke APK baru.
+       * ======================================================
+       * DELETE OLD APK
+       * ======================================================
        *
+       * Database sudah menunjuk ke APK baru.
        * Sekarang APK lama aman untuk dihapus.
        */
 
       if (
         currentApp?.fileUrl &&
-        currentApp.fileUrl !== uploaded.fileUrl
+        currentApp.fileUrl !==
+          uploaded.fileUrl
       ) {
         try {
           await StorageService.deleteLandingAndroidApk(
@@ -523,7 +715,9 @@ class LandingPageService {
       return updated;
     } catch (error) {
       /**
-       * Database gagal.
+       * ======================================================
+       * DATABASE FAILED
+       * ======================================================
        *
        * Hapus APK baru supaya tidak meninggalkan
        * orphan file di filesystem.

@@ -61,10 +61,11 @@ interface SettingsFormProps {
     storeName: string;
     storeDescription: string | null;
     footerDescription: string | null;
+
     landingPageUrl: string | null;
     storefrontUrl: string | null;
 
-        /**
+    /**
      * ==========================================================
      * GLOBAL SEO
      * ==========================================================
@@ -84,12 +85,27 @@ interface SettingsFormProps {
     seoAiEnabled: boolean;
 
     /**
-     * URL/path logo situs.
+     * ==========================================================
+     * SITE LOGO
+     * ==========================================================
      */
+
     siteLogo: string | null;
+
+    /**
+     * ==========================================================
+     * CONTACT
+     * ==========================================================
+     */
 
     email: string | null;
     whatsapp: string | null;
+
+    /**
+     * ==========================================================
+     * STORE ADDRESS
+     * ==========================================================
+     */
 
     address: string | null;
     city: string | null;
@@ -97,14 +113,18 @@ interface SettingsFormProps {
     postalCode: string | null;
 
     /**
+     * ==========================================================
      * STORE LOCATION / SHIPPING ORIGIN
+     * ==========================================================
      */
 
     latitude: number | null;
     longitude: number | null;
 
     /**
+     * ==========================================================
      * INTERNAL SHIPPING CONFIGURATION
+     * ==========================================================
      */
 
     internalShippingEnabled: boolean;
@@ -116,10 +136,12 @@ interface SettingsFormProps {
     internalShippingFreeThreshold: number | null;
     internalShippingFreeMaxDiscount: number;
 
-        /**
+    /**
      * ==========================================================
      * OPERATIONAL
+     * ==========================================================
      */
+
     openingTime: string | null;
     closingTime: string | null;
 
@@ -210,120 +232,127 @@ export default function SettingsForm({
   const [isSuccess, setIsSuccess] =
     useState<boolean | null>(null);
 
-  const notificationRef =
-    useRef<HTMLDivElement | null>(null);
+/**
+ * ==========================================================
+ * NOTIFICATION REF
+ * ==========================================================
+ */
 
-  useEffect(() => {
-    if (
-      isSuccess !== true ||
-      message !== "Pengaturan toko berhasil diperbarui."
-    ) {
-      return;
-    }
+const notificationRef =
+  useRef<HTMLDivElement | null>(null);
 
-    requestAnimationFrame(() => {
-      notificationRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+useEffect(() => {
+  if (
+    isSuccess !== true ||
+    message !==
+      "Pengaturan toko berhasil diperbarui."
+  ) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    notificationRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
     });
-  }, [isSuccess, message]);
+  });
+}, [isSuccess, message]);
 
-  /**
-   * ==========================================================
-   * SITE LOGO STATE
-   * ==========================================================
-   */
 
-  const [siteLogo, setSiteLogo] =
-    useState<string | null>(
-      settings.siteLogo
-    );
+/**
+ * ==========================================================
+ * SITE LOGO STATE
+ * ==========================================================
+ */
 
-  const [
-    isUploadingLogo,
-    setIsUploadingLogo,
-  ] = useState(false);
-
-  const logoInputRef =
-    useRef<HTMLInputElement | null>(
-      null
-    );
-
-  /**
-   * ==========================================================
-   * STORE GPS STATE
-   * ==========================================================
-   */
-
-  const [latitude, setLatitude] =
-    useState<string>(
-      settings.latitude !== null &&
-      settings.latitude !== undefined
-        ? String(settings.latitude)
-        : ""
-    );
-
-  const [longitude, setLongitude] =
-    useState<string>(
-      settings.longitude !== null &&
-      settings.longitude !== undefined
-        ? String(settings.longitude)
-        : ""
-    );
-
-  const [isLocating, setIsLocating] =
-    useState(false);
-
-  /**
-   * ==========================================================
-   * INTERNAL SHIPPING STATE
-   * ==========================================================
-   */
-
-  const [
-    internalShippingEnabled,
-    setInternalShippingEnabled,
-  ] = useState(
-    settings.internalShippingEnabled
+const [siteLogo, setSiteLogo] =
+  useState<string | null>(
+    settings.siteLogo
   );
 
-    /**
-   * ==========================================================
-   * ORDER SETTINGS STATE
-   * ==========================================================
-   */
+const [
+  isUploadingLogo,
+  setIsUploadingLogo,
+] = useState(false);
 
-  const [
-    paymentTimeoutHours,
-    setPaymentTimeoutHours,
-  ] = useState<string>(
-    String(
-      settings.paymentTimeoutHours
-    )
+const logoInputRef =
+  useRef<HTMLInputElement | null>(null);
+
+/**
+ * ==========================================================
+ * STORE GPS STATE
+ * ==========================================================
+ */
+
+const [latitude, setLatitude] =
+  useState<string>(
+    settings.latitude !== null &&
+    settings.latitude !== undefined
+      ? String(settings.latitude)
+      : ""
   );
 
-  /**
-   * ==========================================================
-   * MAP PREVIEW COORDINATES
-   * ==========================================================
-   */
+const [longitude, setLongitude] =
+  useState<string>(
+    settings.longitude !== null &&
+    settings.longitude !== undefined
+      ? String(settings.longitude)
+      : ""
+  );
 
-  const previewLatitude =
-    Number(latitude);
+const [isLocating, setIsLocating] =
+  useState(false);
 
-  const previewLongitude =
-    Number(longitude);
 
-  const hasValidLocation =
-    latitude.trim() !== "" &&
-    longitude.trim() !== "" &&
-    Number.isFinite(previewLatitude) &&
-    Number.isFinite(previewLongitude) &&
-    previewLatitude >= -90 &&
-    previewLatitude <= 90 &&
-    previewLongitude >= -180 &&
-    previewLongitude <= 180;
+/**
+ * ==========================================================
+ * INTERNAL SHIPPING STATE
+ * ==========================================================
+ */
+
+const [
+  internalShippingEnabled,
+  setInternalShippingEnabled,
+] = useState(
+  settings.internalShippingEnabled
+);
+
+
+/**
+ * ==========================================================
+ * ORDER SETTINGS STATE
+ * ==========================================================
+ */
+
+const [
+  paymentTimeoutHours,
+  setPaymentTimeoutHours,
+] = useState<string>(
+  String(settings.paymentTimeoutHours)
+);
+
+
+/**
+ * ==========================================================
+ * MAP PREVIEW COORDINATES
+ * ==========================================================
+ */
+
+const previewLatitude =
+  Number(latitude);
+
+const previewLongitude =
+  Number(longitude);
+
+const hasValidLocation =
+  latitude.trim() !== "" &&
+  longitude.trim() !== "" &&
+  Number.isFinite(previewLatitude) &&
+  Number.isFinite(previewLongitude) &&
+  previewLatitude >= -90 &&
+  previewLatitude <= 90 &&
+  previewLongitude >= -180 &&
+  previewLongitude <= 180;
 
   /**
    * ==========================================================
@@ -711,7 +740,7 @@ export default function SettingsForm({
       ),
       seoAiEnabled: formData.get("seoAiEnabled") === "on",
 
-      /**
+            /**
        * SITE LOGO
        */
 
@@ -1087,7 +1116,7 @@ export default function SettingsForm({
         </div>
       </section>
 
-            {/* ====================================================== */}
+      {/* ====================================================== */}
       {/* DOMAIN & URL */}
       {/* ====================================================== */}
 

@@ -25,7 +25,12 @@ export default async function PisjoLandingPage() {
     redirect(landing.urls.store);
   }
 
-  const { brand, config, urls } = landing;
+  const {
+  brand,
+  config,
+  rewards,
+  urls,
+} = landing;
 
   const storeName = brand.storeName;
   const storeDescription = brand.storeDescription;
@@ -37,6 +42,35 @@ export default async function PisjoLandingPage() {
 
   const benefitsSection =
     config.benefitsSection ?? {};
+
+  const rewardSection =
+    config.rewardSection ?? {};
+
+  const rewardFeaturedLimit =
+  Math.max(
+    1,
+    Math.min(
+      rewardSection.featuredLimit ?? 3,
+      10,
+    ),
+  );
+
+const rewardCompactLimit =
+  Math.max(
+    0,
+    Math.min(
+      rewardSection.compactLimit ?? 10,
+      20,
+    ),
+  );
+
+const featuredRewards =
+  rewards.slice(0, rewardFeaturedLimit);
+
+const compactRewards =
+  rewards
+    .slice(rewardFeaturedLimit)
+    .slice(0, rewardCompactLimit);
 
   const steps = config.steps ?? [];
   const cta = config.cta ?? {};
@@ -140,77 +174,86 @@ export default async function PisjoLandingPage() {
                 "Temukan berbagai kebutuhan seafood dan produk pilihan melalui Pisjo Market. Belanja lebih praktis, pesan dengan mudah, dan pantau pesanan Anda dalam satu tempat."}
             </p>
 
-            {/* ================================================== */}
-            {/* HERO CTA                                            */}
-            {/* ================================================== */}
+        {/* ================================================== */}
+        {/* HERO CTA                                            */}
+        {/* ================================================== */}
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              {/* Store */}
-              <a
-                href={urls.store}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-primary)] px-6 text-sm font-bold text-white shadow-lg shadow-[rgb(7_136_232_/_0.20)] transition hover:-translate-y-0.5 hover:bg-[var(--pisjo-ocean)]"
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          {/* Store */}
+          <a
+            href={urls.store}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-primary)] px-6 text-sm font-bold text-white shadow-lg shadow-[rgb(7_136_232_/_0.20)] transition hover:-translate-y-0.5 hover:bg-[var(--pisjo-ocean)]"
+          >
+            <ShoppingBag className="h-5 w-5" />
+
+            <span>Kunjungi Store</span>
+
+            <ArrowRight className="h-4 w-4" />
+          </a>
+
+          {/* Android */}
+          {androidAvailable && androidUrl ? (
+            <a
+              href={androidUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
+            >
+              <Smartphone className="h-5 w-5 shrink-0 text-[var(--pisjo-primary)]" />
+
+              <span>
+                {hero.secondaryButtonLabel || "Download Android"}
+              </span>
+
+              <ArrowRight className="h-4 w-4 shrink-0" />
+            </a>
+          ) : null}
+
+          {/* iOS */}
+          {iosAvailable && iosUrl ? (
+            <a
+              href={iosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download iOS"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
+            >
+              {/* Apple Logo */}
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-5 w-5 shrink-0 fill-current text-[var(--pisjo-navy)]"
               >
-                <ShoppingBag className="h-5 w-5" />
+                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
+              </svg>
 
-                Kunjungi Store
+              <span>Download iOS</span>
 
-                <ArrowRight className="h-4 w-4" />
-              </a>
+              <ArrowRight className="h-4 w-4 shrink-0" />
+            </a>
+          ) : null}
+        </div>
 
-              {/* Android */}
-              {androidAvailable && androidUrl ? (
-                <a
-                  href={androidUrl}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
-                >
-                  <Smartphone className="h-5 w-5 text-[var(--pisjo-primary)]" />
+        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-500">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-green)]/15 text-[var(--pisjo-green)]">
+              <Check className="h-3 w-3" />
+            </span>
 
-                  {hero.secondaryButtonLabel || "Download Android"}
-
-                  <ArrowRight className="h-4 w-4" />
-                </a>
-              ) : null}
-
-              {/* iOS */}
-              {iosAvailable && iosUrl ? (
-                <a
-                  href={iosUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="text-lg leading-none"
-                  >
-                    
-                  </span>
-
-                  Download iOS
-
-                  <ArrowRight className="h-4 w-4" />
-                </a>
-              ) : null}
-            </div>
-
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-500">
-              <div className="flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--pisjo-green)]/15 text-[var(--pisjo-green)]">
-                  <Check className="h-3 w-3" />
-                </span>
-                Praktis digunakan
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--pisjo-green)]/15 text-[var(--pisjo-green)]">
-                  <Check className="h-3 w-3" />
-                </span>
-                Pesanan mudah dipantau
-              </div>
-            </div>
+            <span>Praktis digunakan</span>
           </div>
 
-          {/* Visual */}
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-green)]/15 text-[var(--pisjo-green)]">
+              <Check className="h-3 w-3" />
+            </span>
+
+            <span>Pesanan mudah dipantau</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual */}
 
           <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
             {heroImage ? (
@@ -365,127 +408,225 @@ export default async function PisjoLandingPage() {
       )}
 
       {/* ====================================================== */}
-      {/* APP SHOWCASE                                            */}
+      {/* REWARD POINTS                                           */}
       {/* ====================================================== */}
 
-      {app.enabled !== false && (
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#e8f8ff] via-[#f5fcff] to-white">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-40 top-1/2 h-[30rem] w-[30rem] -translate-y-1/2 rounded-full bg-[#8cddff]/20 blur-3xl"
-          />
+      {rewardSection.enabled !== false &&
+        rewards.length > 0 && (
+          <section className="relative overflow-hidden bg-white">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-32 top-20 h-72 w-72 rounded-full bg-[#ffe9a8]/30 blur-3xl"
+            />
 
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-40 bottom-0 h-72 w-72 rounded-full bg-[#bdefff]/30 blur-3xl"
-          />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-32 bottom-0 h-80 w-80 rounded-full bg-[#bdefff]/30 blur-3xl"
+            />
 
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-24">
-            <div className="max-w-xl">
-              {/* Platform badges */}
-
-              <div className="flex flex-wrap gap-x-5 gap-y-2">
-                {androidAvailable ? (
-                  <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
-                    <Smartphone className="h-5 w-5" />
-                    Pisjo Market di Android
-                  </span>
+            <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+              <div className="mx-auto max-w-2xl text-center">
+                {rewardSection.eyebrow ? (
+                  <p className="text-sm font-bold text-[var(--pisjo-primary)]">
+                    {rewardSection.eyebrow}
+                  </p>
                 ) : null}
 
-                {iosAvailable ? (
-                  <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
-                    <span
-                      aria-hidden="true"
-                      className="text-lg leading-none"
-                    >
-                      
-                    </span>
-                    Pisjo Market di iOS
-                  </span>
+                {rewardSection.title ? (
+                  <h2 className="mt-3 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
+                    {rewardSection.title}
+                  </h2>
                 ) : null}
 
-                {!androidAvailable && !iosAvailable ? (
-                  <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
-                    <Smartphone className="h-5 w-5" />
-                    Pisjo Market
-                  </span>
+                {rewardSection.description ? (
+                  <p className="mt-4 text-base leading-7 text-[var(--pisjo-text-secondary)]">
+                    {rewardSection.description}
+                  </p>
                 ) : null}
               </div>
 
-              <h2 className="mt-4 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
-                {app.title ||
-                  "Belanja kapan saja, langsung dari smartphone."}
-              </h2>
+              {/* Featured rewards */}
+              {featuredRewards.length > 0 ? (
+                <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {featuredRewards.map((reward) => (
+                    <RewardCard
+                      key={reward.id}
+                      name={reward.name}
+                      description={reward.description}
+                      image={reward.image}
+                      requiredPoints={reward.requiredPoints}
+                    />
+                  ))}
+                </div>
+              ) : null}
 
-              <p className="mt-5 text-base leading-7 text-[var(--pisjo-text-secondary)]">
-                {app.description ||
-                  "Akses Pisjo Market dari perangkat Anda untuk pengalaman belanja yang lebih praktis."}
-              </p>
+              {/* Compact rewards */}
+              {compactRewards.length > 0 ? (
+                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  {compactRewards.map((reward) => (
+                    <CompactRewardCard
+                      key={reward.id}
+                      name={reward.name}
+                      image={reward.image}
+                      requiredPoints={reward.requiredPoints}
+                    />
+                  ))}
+                </div>
+              ) : null}
 
-              {/* ================================================== */}
-              {/* APP DOWNLOAD BUTTONS                              */}
-              {/* ================================================== */}
-
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                {androidAvailable && androidUrl ? (
+              {rewardSection.buttonHref &&
+              rewardSection.buttonLabel ? (
+                <div className="mt-10 flex justify-center">
                   <a
-                    href={androidUrl}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-navy)] px-6 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
+                    href={rewardSection.buttonHref}
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-primary)] px-6 text-sm font-bold text-white shadow-lg shadow-[rgb(7_136_232_/_0.18)] transition hover:-translate-y-0.5 hover:bg-[var(--pisjo-ocean)]"
                   >
-                    <Smartphone className="h-5 w-5" />
-
-                    {app.buttonLabel ||
-                      "Download Aplikasi Android"}
+                    {rewardSection.buttonLabel}
 
                     <ArrowRight className="h-4 w-4" />
                   </a>
-                ) : null}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        )}
 
-                {iosAvailable && iosUrl ? (
-                  <a
-                    href={iosUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="text-lg leading-none"
-                    >
-                      
-                    </span>
+  {/* ====================================================== */}
+  {/* APP SHOWCASE                                            */}
+  {/* ====================================================== */}
 
-                    Download di App Store
+  {app.enabled !== false && (
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#e8f8ff] via-[#f5fcff] to-white">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-40 top-1/2 h-[30rem] w-[30rem] -translate-y-1/2 rounded-full bg-[#8cddff]/20 blur-3xl"
+      />
 
-                    <ArrowRight className="h-4 w-4" />
-                  </a>
-                ) : null}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-40 bottom-0 h-72 w-72 rounded-full bg-[#bdefff]/30 blur-3xl"
+      />
+
+      <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-24">
+        <div className="max-w-xl">
+          {/* Platform badges */}
+
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {androidAvailable ? (
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
+                <Smartphone className="h-5 w-5 shrink-0" />
+
+                <span>Pisjo Market di Android</span>
+              </span>
+            ) : null}
+
+            {iosAvailable ? (
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
+                {/* Apple Logo */}
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 fill-current text-[var(--pisjo-primary)]"
+                >
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
+                </svg>
+
+                <span>Pisjo Market di iOS</span>
+              </span>
+            ) : null}
+
+            {!androidAvailable && !iosAvailable ? (
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
+                <Smartphone className="h-5 w-5 shrink-0" />
+
+                <span>Pisjo Market</span>
+              </span>
+            ) : null}
+          </div>
+
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
+            {app.title ||
+              "Belanja kapan saja, langsung dari smartphone."}
+          </h2>
+
+          <p className="mt-5 text-base leading-7 text-[var(--pisjo-text-secondary)]">
+            {app.description ||
+              "Akses Pisjo Market dari perangkat Anda untuk pengalaman belanja yang lebih praktis."}
+          </p>
+
+          {/* ================================================== */}
+          {/* APP DOWNLOAD BUTTONS                              */}
+          {/* ================================================== */}
+
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            {/* Android */}
+            {androidAvailable && androidUrl ? (
+              <a
+                href={androidUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-navy)] px-6 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
+              >
+                <Smartphone className="h-5 w-5 shrink-0" />
+
+                <span>
+                  {app.buttonLabel ||
+                    "Download Aplikasi Android"}
+                </span>
+
+                <ArrowRight className="h-4 w-4 shrink-0" />
+              </a>
+            ) : null}
+
+            {/* iOS / App Store */}
+            {iosAvailable && iosUrl ? (
+              <a
+                href={iosUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Download Pisjo Market di App Store"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
+              >
+                {/* Apple Logo */}
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 fill-current text-[var(--pisjo-navy)]"
+                >
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
+                </svg>
+
+                <span>Download di App Store</span>
+
+                <ArrowRight className="h-4 w-4 shrink-0" />
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="relative flex justify-center">
+          {appImage ? (
+            /* =========================
+               APP IMAGE FROM ADMIN
+               ========================= */
+            <div className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-white bg-white p-4 shadow-xl sm:p-5">
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[2rem] bg-slate-50">
+                <Image
+                  src={appImage}
+                  alt={
+                    app.title ||
+                    `${storeName} App`
+                  }
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, 384px"
+                />
               </div>
             </div>
-
-            <div className="relative flex justify-center">
-              {appImage ? (
-                /* =========================
-                   APP IMAGE FROM ADMIN
-                   ========================= */
-                <div className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-white bg-white p-4 shadow-xl sm:p-5">
-                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[2rem] bg-slate-50">
-                    <Image
-                      src={appImage}
-                      alt={
-                        app.title ||
-                        `${storeName} App`
-                      }
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 384px"
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* =========================
-                   FALLBACK APP MOCKUP
-                   ========================= */
+          ) : (
+            /* =========================
+               FALLBACK APP MOCKUP
+               ========================= */
                 <>
                   <div
                     aria-hidden="true"
@@ -618,72 +759,170 @@ export default async function PisjoLandingPage() {
                 </p>
               </div>
 
-              {/* ================================================== */}
-              {/* FINAL CTA BUTTONS                                  */}
-              {/* ================================================== */}
+        {/* ================================================== */}
+        {/* FINAL CTA BUTTONS                                  */}
+        {/* ================================================== */}
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:shrink-0">
-                {/* Store */}
-                <a
-                  href={urls.store}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
-                >
-                  {cta.buttonLabel ||
-                    "Kunjungi Store"}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:shrink-0">
+          {/* Store */}
+          <a
+            href={urls.store}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            <span>
+              {cta.buttonLabel || "Kunjungi Store"}
+            </span>
 
-                  <ArrowRight className="h-4 w-4" />
-                </a>
+            <ArrowRight className="h-4 w-4 shrink-0" />
+          </a>
 
-                {/* Android */}
-                {androidAvailable && androidUrl ? (
-                  <a
-                    href={androidUrl}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
-                  >
-                    <Smartphone className="h-4 w-4" />
+          {/* Android */}
+          {androidAvailable && androidUrl ? (
+            <a
+              href={androidUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+            >
+              <Smartphone className="h-4 w-4 shrink-0" />
 
-                    Download Android
-                  </a>
-                ) : null}
+              <span>Download Android</span>
+            </a>
+          ) : null}
 
-                {/* iOS */}
-                {iosAvailable && iosUrl ? (
-                  <a
-                    href={iosUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="text-base leading-none"
-                    >
-                      
-                    </span>
+          {/* iOS */}
+          {iosAvailable && iosUrl ? (
+            <a
+              href={iosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download iOS"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+            >
+              {/* Apple Logo */}
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 fill-current text-white"
+              >
+                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
+              </svg>
 
-                    Download iOS
-                  </a>
-                ) : null}
-              </div>
-            </div>
+              <span>Download iOS</span>
+            </a>
+          ) : null}
           </div>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  {/* ====================================================== */}
+  {/* FOOTER                                                  */}
+  {/* ====================================================== */}
+
+  <LandingFooter
+    storeName={storeName}
+    storeDescription={storeDescription}
+    siteLogo={siteLogo}
+    storeInitial={storeInitial}
+    storeUrl={urls.store}
+    androidUrl={androidUrl}
+    iosUrl={iosUrl}
+  />
+</main>
+);
+}
+
+/* ==========================================================
+ * REWARD CARD
+ * ========================================================== */
+
+function RewardCard({
+  name,
+  description,
+  image,
+  requiredPoints,
+}: {
+  name: string;
+  description: string | null;
+  image: string | null;
+  requiredPoints: number;
+}) {
+  return (
+    <div className="group overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+      <div className="relative aspect-[4/3] overflow-hidden bg-[#f4fbff]">
+        {image ? (
+          <Image
+            src={image}
+            alt={name}
+            fill
+            className="object-contain p-5 transition duration-300 group-hover:scale-105"
+            sizes="(max-width: 768px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-400">
+            Hadiah
+          </div>
+        )}
+      </div>
+
+      <div className="p-5">
+        <h3 className="line-clamp-2 text-base font-black text-[var(--pisjo-navy)]">
+          {name}
+        </h3>
+
+        {description ? (
+          <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--pisjo-text-secondary)]">
+            {description}
+          </p>
+        ) : null}
+
+        <div className="mt-4 inline-flex items-center rounded-full bg-[#fff4d6] px-3 py-1.5 text-sm font-black text-[#b77900]">
+          {requiredPoints.toLocaleString("id-ID")} Poin
         </div>
-      </section>
+      </div>
+    </div>
+  );
+}
 
-      {/* ====================================================== */}
-      {/* FOOTER                                                  */}
-      {/* ====================================================== */}
+function CompactRewardCard({
+  name,
+  image,
+  requiredPoints,
+}: {
+  name: string;
+  image: string | null;
+  requiredPoints: number;
+}) {
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#f4fbff]">
+        {image ? (
+          <Image
+            src={image}
+            alt={name}
+            fill
+            className="object-contain p-2"
+            sizes="80px"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-[10px] font-semibold text-slate-400">
+            Hadiah
+          </div>
+        )}
+      </div>
 
-      <LandingFooter
-        storeName={storeName}
-        storeDescription={storeDescription}
-        siteLogo={siteLogo}
-        storeInitial={storeInitial}
-        storeUrl={urls.store}
-        androidUrl={androidUrl}
-        iosUrl={iosUrl}
-      />
-    </main>
+      <div className="min-w-0">
+        <h3 className="line-clamp-2 text-sm font-bold text-[var(--pisjo-navy)]">
+          {name}
+        </h3>
+
+        <p className="mt-1 text-xs font-black text-[#b77900]">
+          {requiredPoints.toLocaleString("id-ID")} Poin
+        </p>
+      </div>
+    </div>
   );
 }
 

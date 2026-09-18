@@ -51,6 +51,30 @@ export interface LandingPageBenefitsSectionConfig {
   description?: string;
 }
 
+/**
+ * ============================================================
+ * REWARD SECTION
+ * ============================================================
+ *
+ * Konfigurasi section Reward Point pada public Landing Page.
+ *
+ * Data hadiah TIDAK disimpan di LandingPageSettings.
+ * Data hadiah diambil realtime dari RewardCatalog.
+ *
+ * ============================================================
+ */
+
+export interface LandingPageRewardSectionConfig {
+  enabled?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  buttonLabel?: string;
+  buttonHref?: string;
+  featuredLimit?: number;
+  compactLimit?: number;
+}
+
 export interface LandingPageAppConfig {
   enabled?: boolean;
   title?: string;
@@ -84,6 +108,8 @@ export interface LandingPageConfig {
 
   benefitsSection?: LandingPageBenefitsSectionConfig;
   benefits?: LandingPageBenefit[];
+
+  rewardSection?: LandingPageRewardSectionConfig;
 
   app?: LandingPageAppConfig;
   steps?: LandingPageStep[];
@@ -206,6 +232,22 @@ export interface PublicLandingPageUrls {
   ios: string | null;
 }
 
+/**
+ * ============================================================
+ * PUBLIC LANDING PAGE REWARD
+ * ============================================================
+ */
+
+export interface PublicLandingPageReward {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  requiredPoints: number;
+  stock: number;
+  sortOrder: number;
+}
+
 export interface PublicLandingPageData {
   enabled: boolean;
 
@@ -216,6 +258,8 @@ export interface PublicLandingPageData {
   };
 
   config: LandingPageConfig;
+
+  rewards: PublicLandingPageReward[];
 
   androidApp: LandingPageAndroidAppData | null;
 

@@ -39,6 +39,8 @@ import { prisma } from
 import FlashSaleService from
   "@/services/flash-sale/flash-sale.service";
 
+import PromoPopup from "@/components/customer/promo/PromoPopup";
+
 /**
  * ============================================================
  * SHARED HOME PAGE
@@ -1325,10 +1327,38 @@ const serializedRepeatPurchaseProducts =
       )}
 
       {/* ======================================================
+          PROMO POPUP
+      ====================================================== */}
+
+<PromoPopup
+  enabled={
+    storeSettings?.promoPopupEnabled ?? false
+  }
+  image={
+    storeSettings?.promoPopupImage ?? null
+  }
+  alt={
+    storeSettings?.promoPopupAlt ?? null
+  }
+  href={
+    storeSettings?.promoPopupHref ?? null
+  }
+  delay={
+    storeSettings?.promoPopupDelay ?? 1200
+  }
+  version={
+    storeSettings?.promoPopupVersion ?? null
+  }
+  rememberClose={
+    storeSettings?.promoPopupRememberClose ?? true
+  }
+/>
+
+      {/* ======================================================
           HERO
       ====================================================== */}
 
-<HomeHeroCarousel
+      <HomeHeroCarousel
   productsHref={
     productsHref
   }

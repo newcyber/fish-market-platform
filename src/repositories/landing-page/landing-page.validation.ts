@@ -7,6 +7,7 @@ import type {
   LandingPageCtaConfig,
   LandingPageHeroConfig,
   LandingPageImagesConfig,
+  LandingPageRewardSectionConfig,
   LandingPageStep,
 } from "./landing-page.types";
 
@@ -126,6 +127,44 @@ function validateBenefitsSection(
     optionalString(value.eyebrow) &&
     optionalString(value.title) &&
     optionalString(value.description)
+  );
+}
+
+/**
+ * ============================================================
+ * REWARD SECTION
+ * ============================================================
+ */
+
+function validateRewardSection(
+  value: unknown,
+): value is LandingPageRewardSectionConfig {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    (value.enabled === undefined ||
+      typeof value.enabled === "boolean") &&
+    optionalString(value.eyebrow) &&
+    optionalString(value.title) &&
+    optionalString(value.description) &&
+    optionalString(value.buttonLabel) &&
+    optionalString(value.buttonHref) &&
+    (value.featuredLimit === undefined ||
+      (
+        typeof value.featuredLimit === "number" &&
+        Number.isInteger(value.featuredLimit) &&
+        value.featuredLimit >= 1 &&
+        value.featuredLimit <= 10
+      )) &&
+    (value.compactLimit === undefined ||
+      (
+        typeof value.compactLimit === "number" &&
+        Number.isInteger(value.compactLimit) &&
+        value.compactLimit >= 0 &&
+        value.compactLimit <= 20
+      ))
   );
 }
 
@@ -270,6 +309,13 @@ export function isLandingPageConfig(
     return false;
   }
 
+  if (
+  value.rewardSection !== undefined &&
+  !validateRewardSection(value.rewardSection)
+) {
+  return false;
+}
+
   if (value.benefits !== undefined) {
     if (!Array.isArray(value.benefits)) {
       return false;
@@ -325,6 +371,24 @@ const DEFAULT_LANDING_PAGE_BENEFITS_SECTION = {
   title: "Belanja seafood jadi lebih mudah",
   description:
     "Pilihan ikan dan seafood berkualitas untuk kebutuhan rumah maupun usaha, dengan proses belanja yang praktis.",
+};
+
+/**
+ * ============================================================
+ * DEFAULT LANDING PAGE REWARD SECTION
+ * ============================================================
+ */
+
+const DEFAULT_LANDING_PAGE_REWARD_SECTION = {
+  enabled: true,
+  eyebrow: "REWARD POINT",
+  title: "Hadiah Poin Menarik",
+  description:
+    "Belanja, kumpulkan poin, lalu tukarkan dengan berbagai hadiah menarik dari Pisjo Market.",
+  buttonLabel: "Lihat Semua Hadiah",
+  buttonHref: "/rewards",
+  featuredLimit: 3,
+  compactLimit: 10,
 };
 
 /**

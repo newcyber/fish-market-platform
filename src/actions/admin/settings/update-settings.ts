@@ -328,7 +328,7 @@ seoAiEnabled:
 
 siteLogo:
   input.siteLogo,
-
+  
       /**
        * ======================================================
        * HERO SLIDER IMAGES

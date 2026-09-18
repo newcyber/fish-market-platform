@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Eye,
   Fish,
+  Gift,
   Loader2,
   PackageCheck,
   Plus,
@@ -76,6 +77,16 @@ function getString(
   return value ?? fallback;
 }
 
+function getNumber(
+  value: number | null | undefined,
+  fallback: number,
+) {
+  return typeof value === "number" &&
+    Number.isFinite(value)
+    ? value
+    : fallback;
+}
+
 export default function LandingPageContentForm({
   enabled: initialEnabled,
   config: initialConfig,
@@ -86,9 +97,10 @@ export default function LandingPageContentForm({
   const hero = initialConfig.hero ?? {};
   const app = initialConfig.app ?? {};
   const cta = initialConfig.cta ?? {};
-
   const benefitsSection =
-  initialConfig.benefitsSection ?? {};
+    initialConfig.benefitsSection ?? {};
+  const rewardSection =
+    initialConfig.rewardSection ?? {};
 
   const [heroEyebrow, setHeroEyebrow] =
     useState(
@@ -131,34 +143,111 @@ export default function LandingPageContentForm({
   );
 
   const [
-  benefitsEyebrow,
-  setBenefitsEyebrow,
-] = useState(
-  getString(
-    benefitsSection.eyebrow,
-    "KENAPA PISJO MARKET?",
-  ),
-);
+    benefitsEyebrow,
+    setBenefitsEyebrow,
+  ] = useState(
+    getString(
+      benefitsSection.eyebrow,
+      "KENAPA PISJO MARKET?",
+    ),
+  );
 
-const [
-  benefitsTitle,
-  setBenefitsTitle,
-] = useState(
-  getString(
-    benefitsSection.title,
-    "Belanja seafood jadi lebih mudah",
-  ),
-);
+  const [
+    benefitsTitle,
+    setBenefitsTitle,
+  ] = useState(
+    getString(
+      benefitsSection.title,
+      "Belanja seafood jadi lebih mudah",
+    ),
+  );
 
-const [
-  benefitsDescription,
-  setBenefitsDescription,
-] = useState(
-  getString(
-    benefitsSection.description,
-    "Pilihan ikan dan seafood berkualitas untuk kebutuhan rumah maupun usaha, dengan proses belanja yang praktis.",
-  ),
-);
+  const [
+    benefitsDescription,
+    setBenefitsDescription,
+  ] = useState(
+    getString(
+      benefitsSection.description,
+      "Pilihan ikan dan seafood berkualitas untuk kebutuhan rumah maupun usaha, dengan proses belanja yang praktis.",
+    ),
+  );
+
+  const [
+    rewardEnabled,
+    setRewardEnabled,
+  ] = useState(
+    rewardSection.enabled !== false,
+  );
+
+  const [
+    rewardEyebrow,
+    setRewardEyebrow,
+  ] = useState(
+    getString(
+      rewardSection.eyebrow,
+      "REWARD POINT",
+    ),
+  );
+
+  const [
+    rewardTitle,
+    setRewardTitle,
+  ] = useState(
+    getString(
+      rewardSection.title,
+      "Hadiah Poin Menarik",
+    ),
+  );
+
+  const [
+    rewardDescription,
+    setRewardDescription,
+  ] = useState(
+    getString(
+      rewardSection.description,
+      "Belanja, kumpulkan poin, lalu tukarkan dengan berbagai hadiah menarik dari Pisjo Market.",
+    ),
+  );
+
+  const [
+    rewardButtonLabel,
+    setRewardButtonLabel,
+  ] = useState(
+    getString(
+      rewardSection.buttonLabel,
+      "Lihat Semua Hadiah",
+    ),
+  );
+
+  const [
+    rewardButtonHref,
+    setRewardButtonHref,
+  ] = useState(
+    getString(
+      rewardSection.buttonHref,
+      "/rewards",
+    ),
+  );
+
+  const [
+    rewardFeaturedLimit,
+    setRewardFeaturedLimit,
+  ] = useState(
+    getNumber(
+      rewardSection.featuredLimit,
+      3,
+    ),
+  );
+
+  const [
+    rewardCompactLimit,
+    setRewardCompactLimit,
+  ] = useState(
+    getNumber(
+      rewardSection.compactLimit,
+      10,
+    ),
+  );
 
   const [appEnabled, setAppEnabled] =
     useState(
@@ -378,28 +467,63 @@ const [
           config: {
             ...initialConfig,
 
-hero: {
-  ...hero,
-  eyebrow: heroEyebrow,
-  title: heroTitle,
-  highlight: heroHighlight,
-  description: heroDescription,
-  primaryButtonLabel:
-    heroPrimaryButtonLabel,
-  secondaryButtonLabel:
-    heroSecondaryButtonLabel,
-},
+            hero: {
+              ...hero,
+              eyebrow: heroEyebrow,
+              title: heroTitle,
+              highlight: heroHighlight,
+              description:
+                heroDescription,
+              primaryButtonLabel:
+                heroPrimaryButtonLabel,
+              secondaryButtonLabel:
+                heroSecondaryButtonLabel,
+            },
 
-benefitsSection: {
-  ...benefitsSection,
-  eyebrow: benefitsEyebrow,
-  title: benefitsTitle,
-  description: benefitsDescription,
-},
+            benefitsSection: {
+              ...benefitsSection,
+              eyebrow: benefitsEyebrow,
+              title: benefitsTitle,
+              description:
+                benefitsDescription,
+            },
 
-benefits,
+            benefits,
 
-app: {
+            rewardSection: {
+              ...rewardSection,
+              enabled: rewardEnabled,
+              eyebrow: rewardEyebrow,
+              title: rewardTitle,
+              description:
+                rewardDescription,
+              buttonLabel:
+                rewardButtonLabel,
+              buttonHref:
+                rewardButtonHref,
+              featuredLimit:
+                Math.max(
+                  1,
+                  Math.min(
+                    Math.round(
+                      rewardFeaturedLimit,
+                    ),
+                    10,
+                  ),
+                ),
+              compactLimit:
+                Math.max(
+                  0,
+                  Math.min(
+                    Math.round(
+                      rewardCompactLimit,
+                    ),
+                    20,
+                  ),
+                ),
+            },
+
+            app: {
               ...app,
               enabled: appEnabled,
               title: appTitle,
@@ -577,39 +701,42 @@ app: {
         </div>
       </section>
 
-<div className="grid gap-5 border-b p-6">
-  <div>
-    <p className="text-sm font-semibold">
-      Header Section
-    </p>
+      {/* BENEFITS HEADER */}
 
-    <p className="mt-1 text-xs text-muted-foreground">
-      Judul dan pengantar yang tampil sebelum
-      daftar benefit pada Landing Page.
-    </p>
-  </div>
+      <div className="grid gap-5 border-b p-6">
+        <div>
+          <p className="text-sm font-semibold">
+            Header Section
+          </p>
 
-  <Field
-    label="Eyebrow"
-    value={benefitsEyebrow}
-    onChange={setBenefitsEyebrow}
-    placeholder="KENAPA PISJO MARKET?"
-  />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Judul dan pengantar yang tampil
+            sebelum daftar benefit pada
+            Landing Page.
+          </p>
+        </div>
 
-  <Field
-    label="Title"
-    value={benefitsTitle}
-    onChange={setBenefitsTitle}
-    placeholder="Belanja seafood jadi lebih mudah"
-  />
+        <Field
+          label="Eyebrow"
+          value={benefitsEyebrow}
+          onChange={setBenefitsEyebrow}
+          placeholder="KENAPA PISJO MARKET?"
+        />
 
-  <TextareaField
-    label="Description"
-    value={benefitsDescription}
-    onChange={setBenefitsDescription}
-    rows={3}
-  />
-</div>
+        <Field
+          label="Title"
+          value={benefitsTitle}
+          onChange={setBenefitsTitle}
+          placeholder="Belanja seafood jadi lebih mudah"
+        />
+
+        <TextareaField
+          label="Description"
+          value={benefitsDescription}
+          onChange={setBenefitsDescription}
+          rows={3}
+        />
+      </div>
 
       {/* BENEFITS */}
 
@@ -763,6 +890,133 @@ app: {
               </button>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* REWARD POINT */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Gift className="h-5 w-5" />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold">
+                Reward Point
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Atur section hadiah poin yang
+                ditampilkan pada Landing Page.
+                Data hadiah diambil otomatis dari
+                Reward Catalog yang aktif dan masih
+                memiliki stok.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">
+                Tampilkan Reward Point
+              </p>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                Jika dinonaktifkan, section hadiah
+                poin tidak ditampilkan pada Landing
+                Page.
+              </p>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={rewardEnabled}
+              onChange={(event) =>
+                setRewardEnabled(
+                  event.target.checked,
+                )
+              }
+              className="h-5 w-5 rounded border-slate-300"
+            />
+          </label>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Field
+              label="Eyebrow"
+              value={rewardEyebrow}
+              onChange={setRewardEyebrow}
+              placeholder="REWARD POINT"
+            />
+
+            <Field
+              label="Title"
+              value={rewardTitle}
+              onChange={setRewardTitle}
+              placeholder="Hadiah Poin Menarik"
+            />
+          </div>
+
+          <TextareaField
+            label="Description"
+            value={rewardDescription}
+            onChange={setRewardDescription}
+            rows={4}
+          />
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Field
+              label="Button Label"
+              value={rewardButtonLabel}
+              onChange={setRewardButtonLabel}
+              placeholder="Lihat Semua Hadiah"
+            />
+
+            <Field
+              label="Button URL"
+              value={rewardButtonHref}
+              onChange={setRewardButtonHref}
+              placeholder="/rewards"
+            />
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <NumberField
+              label="Featured Rewards"
+              value={rewardFeaturedLimit}
+              min={1}
+              max={10}
+              onChange={setRewardFeaturedLimit}
+              description="Jumlah hadiah besar yang ditampilkan pada bagian featured."
+            />
+
+            <NumberField
+              label="Compact Rewards"
+              value={rewardCompactLimit}
+              min={0}
+              max={20}
+              onChange={setRewardCompactLimit}
+              description="Jumlah hadiah compact tambahan yang ditampilkan setelah featured."
+            />
+          </div>
+
+          <div className="rounded-xl border border-dashed bg-muted/30 p-4">
+            <p className="text-sm font-semibold">
+              Sumber Data Reward
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Landing Page tidak perlu mengatur nama,
+              gambar, harga poin, atau stok hadiah
+              secara manual. Semua data akan mengikuti
+              Reward Catalog di Admin. Hanya reward yang
+              aktif dan memiliki stok yang akan
+              ditampilkan.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -1045,6 +1299,55 @@ function Field({
         placeholder={placeholder}
         className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
       />
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  description,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+  description?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">
+        {label}
+      </label>
+
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        onChange={(event) => {
+          const parsedValue =
+            Number(event.target.value);
+
+          if (
+            Number.isFinite(parsedValue)
+          ) {
+            onChange(parsedValue);
+          }
+        }}
+        className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+      />
+
+      {description && (
+        <p className="text-xs leading-5 text-muted-foreground">
+          {description}
+        </p>
+      )}
     </div>
   );
 }

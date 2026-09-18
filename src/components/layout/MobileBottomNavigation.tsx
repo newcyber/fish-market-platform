@@ -172,7 +172,7 @@ export default function MobileBottomNavigation() {
     status,
   } = useSession();
 
-  /**
+   /**
    * ==========================================================
    * NORMALIZE PATHNAME
    * ==========================================================
@@ -191,17 +191,33 @@ export default function MobileBottomNavigation() {
       .trim()
       .replace(/\/+$/, "") || "/";
 
+  /**
+   * ==========================================================
+   * LANDING PAGE FLAG
+   * ==========================================================
+   *
+   * Landing page publik tidak menggunakan
+   * mobile bottom navigation.
+   *
+   * PENTING:
+   * Jangan melakukan return null di sini.
+   * Semua React Hooks harus tetap dipanggil
+   * pada urutan yang sama di setiap render.
+   */
+
+  const isLandingPage =
+    pathname === "/";
+
+  /**
+   * ==========================================================
+   * CART COUNT STATE
+   * ==========================================================
+   */
+
   const [
     cartCount,
     setCartCount,
   ] = useState(0);
-
-  const [
-  whatsappNumber,
-  setWhatsappNumber,
-] = useState<string | null>(
-  null
-);
 
   /**
    * ==========================================================
@@ -217,11 +233,10 @@ export default function MobileBottomNavigation() {
     setIsNavigationVisible,
   ] = useState(true);
 
-
   const [
-  isScrolled,
-  setIsScrolled,
-] = useState(false);
+    isScrolled,
+    setIsScrolled,
+  ] = useState(false);
 
   const lastScrollYRef =
     useRef(0);
@@ -229,6 +244,18 @@ export default function MobileBottomNavigation() {
   const tickingRef =
     useRef(false);
 
+  /**
+   * ==========================================================
+   * WHATSAPP STATE
+   * ==========================================================
+   */
+
+  const [
+    whatsappNumber,
+    setWhatsappNumber,
+  ] = useState<string | null>(
+    null
+  );
 
   /**
    * ==========================================================
@@ -266,14 +293,37 @@ export default function MobileBottomNavigation() {
       "/verify-email/"
     );
 
+  /**
+   * ==========================================================
+   * HIDE NAVIGATION RULE
+   * ==========================================================
+   *
+   * Landing page:
+   * - /
+   *
+   * Navigation tetap aktif pada:
+   * - /products
+   * - /products/[slug]
+   * - /customer/*
+   *
+   * Navigation disembunyikan pada:
+   * - /
+   * - /admin/*
+   * - /login/*
+   * - /register/*
+   * - /forgot-password/*
+   * - /reset-password/*
+   * - /verify-email/*
+   */
+
   const shouldHideNavigation =
+    isLandingPage ||
     isAdminRoute ||
     isLoginRoute ||
     isRegisterRoute ||
     isForgotPasswordRoute ||
     isResetPasswordRoute ||
     isVerifyEmailRoute;
-
 
 
   /**

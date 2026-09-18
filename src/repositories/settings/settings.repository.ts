@@ -87,33 +87,51 @@ export interface UpdateSettingsPayload {
   heroSlide3Image?: string | null;
 
   loginSlide1Image?: string | null;
+
   loginSlide2Image?: string | null;
+
   loginSlide3Image?: string | null;
+
   loginSlide4Image?: string | null;
 
   flashSaleBannerImage?: string | null;
 
-    heroSlide1Eyebrow?: string | null;
+  heroSlide1Eyebrow?: string | null;
+
   heroSlide1Title?: string | null;
+
   heroSlide1Highlight?: string | null;
+
   heroSlide1Description?: string | null;
+
   heroSlide1Button?: string | null;
 
   heroSlide2Eyebrow?: string | null;
+
   heroSlide2Title?: string | null;
+
   heroSlide2Highlight?: string | null;
+
   heroSlide2Description?: string | null;
+
   heroSlide2Button?: string | null;
 
   heroSlide3Eyebrow?: string | null;
+
   heroSlide3Title?: string | null;
+
   heroSlide3Highlight?: string | null;
+
   heroSlide3Description?: string | null;
+
   heroSlide3Button?: string | null;
 
   flashSaleBannerLabel?: string | null;
+
   flashSaleBannerTitle?: string | null;
+
   flashSaleBannerHighlight?: string | null;
+
   flashSaleBannerDescription?: string | null;
 
   /**
@@ -123,22 +141,35 @@ export interface UpdateSettingsPayload {
    */
 
   promoSectionLabel?: string | null;
+
   promoSectionTitle?: string | null;
+
   promoSectionLinkLabel?: string | null;
+
   promoSectionLinkHref?: string | null;
 
   promoCard1Image?: string | null;
+
   promoCard1Eyebrow?: string | null;
+
   promoCard1Title?: string | null;
+
   promoCard1Description?: string | null;
+
   promoCard1Button?: string | null;
+
   promoCard1Href?: string | null;
 
   promoCard2Image?: string | null;
+
   promoCard2Eyebrow?: string | null;
+
   promoCard2Title?: string | null;
+
   promoCard2Description?: string | null;
+
   promoCard2Button?: string | null;
+
   promoCard2Href?: string | null;
 
   email?: string | null;
@@ -258,73 +289,145 @@ export interface UpdateSettingsPayload {
   paymentTimeoutHours?: number;
 }
 
+/**
+ * ============================================================
+ * UPDATE IMAGE BANNER SETTINGS PAYLOAD
+ * ============================================================
+ */
+
 export interface UpdateImageBannerSettingsPayload {
   heroSlide1Image?: string | null;
+
   heroSlide2Image?: string | null;
+
   heroSlide3Image?: string | null;
 
   loginSlide1Image?: string | null;
+
   loginSlide2Image?: string | null;
+
   loginSlide3Image?: string | null;
+
   loginSlide4Image?: string | null;
 
   flashSaleBannerImage?: string | null;
 
   heroSlide1Eyebrow?: string | null;
+
   heroSlide1Title?: string | null;
+
   heroSlide1Highlight?: string | null;
+
   heroSlide1Description?: string | null;
+
   heroSlide1Button?: string | null;
 
   heroSlide2Eyebrow?: string | null;
+
   heroSlide2Title?: string | null;
+
   heroSlide2Highlight?: string | null;
+
   heroSlide2Description?: string | null;
+
   heroSlide2Button?: string | null;
 
   heroSlide3Eyebrow?: string | null;
+
   heroSlide3Title?: string | null;
+
   heroSlide3Highlight?: string | null;
+
   heroSlide3Description?: string | null;
+
   heroSlide3Button?: string | null;
 
   flashSaleBannerLabel?: string | null;
+
   flashSaleBannerTitle?: string | null;
+
   flashSaleBannerHighlight?: string | null;
+
   flashSaleBannerDescription?: string | null;
 
   promoSectionLabel?: string | null;
+
   promoSectionTitle?: string | null;
+
   promoSectionLinkLabel?: string | null;
+
   promoSectionLinkHref?: string | null;
 
   promoCard1Image?: string | null;
+
   promoCard1Eyebrow?: string | null;
+
   promoCard1Title?: string | null;
+
   promoCard1Description?: string | null;
+
   promoCard1Button?: string | null;
+
   promoCard1Href?: string | null;
 
   promoCard2Image?: string | null;
+
   promoCard2Eyebrow?: string | null;
+
   promoCard2Title?: string | null;
+
   promoCard2Description?: string | null;
+
   promoCard2Button?: string | null;
+
   promoCard2Href?: string | null;
 }
 
+/**
+ * ============================================================
+ * UPDATE IMAGE POPUP SETTINGS PAYLOAD
+ * ============================================================
+ */
+
+export interface UpdateImagePopupSettingsPayload {
+  promoPopupEnabled?: boolean;
+  promoPopupImage?: string | null;
+  promoPopupAlt?: string | null;
+  promoPopupHref?: string | null;
+  promoPopupDelay?: number;
+  promoPopupVersion?: string | null;
+  promoPopupRememberClose?: boolean;
+}
+
+/**
+ * ============================================================
+ * UPDATE SEO SETTINGS PAYLOAD
+ * ============================================================
+ */
+
 export interface UpdateSeoSettingsPayload {
   seoTitle?: string | null;
+
   seoDescription?: string | null;
+
   seoKeywords?: string | null;
+
   seoCanonicalUrl?: string | null;
+
   seoOgTitle?: string | null;
+
   seoOgDescription?: string | null;
+
   seoOgImage?: string | null;
+
   seoTwitterCard?: string;
+
   seoRobotsIndex?: boolean;
+
   seoRobotsFollow?: boolean;
+
   seoGoogleVerification?: string | null;
+
   seoAiEnabled?: boolean;
 }
 
@@ -373,7 +476,7 @@ class SettingsRepository {
 
         footerDescription: null,
 
-                /**
+        /**
          * ------------------------------------------------------
          * GLOBAL SEO
          * ------------------------------------------------------
@@ -426,27 +529,68 @@ class SettingsRepository {
         flashSaleBannerImage: null,
 
         heroSlide1Eyebrow: null,
+
         heroSlide1Title: null,
+
         heroSlide1Highlight: null,
+
         heroSlide1Description: null,
+
         heroSlide1Button: null,
 
         heroSlide2Eyebrow: null,
+
         heroSlide2Title: null,
+
         heroSlide2Highlight: null,
+
         heroSlide2Description: null,
+
         heroSlide2Button: null,
 
         heroSlide3Eyebrow: null,
+
         heroSlide3Title: null,
+
         heroSlide3Highlight: null,
+
         heroSlide3Description: null,
+
         heroSlide3Button: null,
 
         flashSaleBannerLabel: null,
+
         flashSaleBannerTitle: null,
+
         flashSaleBannerHighlight: null,
+
         flashSaleBannerDescription: null,
+
+        /**
+         * ------------------------------------------------------
+         * PROMO POPUP
+         * ------------------------------------------------------
+         */
+
+        promoPopupEnabled: false,
+
+        promoPopupImage: null,
+
+        promoPopupAlt: null,
+
+        promoPopupHref: null,
+
+        promoPopupDelay: 1200,
+
+        promoPopupVersion: null,
+
+        promoPopupRememberClose: true,
+
+        /**
+         * ------------------------------------------------------
+         * CONTACT
+         * ------------------------------------------------------
+         */
 
         email: null,
 
@@ -527,68 +671,76 @@ class SettingsRepository {
     });
   }
 
+  /**
+   * ==========================================================
+   * UPDATE SEO
+   * ==========================================================
+   */
+
   async updateSeo(
-  data: UpdateSeoSettingsPayload,
-) {
-  const settings = await this.getOrCreate();
+    data: UpdateSeoSettingsPayload
+  ) {
+    const settings = await this.getOrCreate();
 
-  const updateData = {
-    ...(data.seoTitle !== undefined && {
-      seoTitle: data.seoTitle,
-    }),
+    const updateData = {
+      ...(data.seoTitle !== undefined && {
+        seoTitle: data.seoTitle,
+      }),
 
-    ...(data.seoDescription !== undefined && {
-      seoDescription: data.seoDescription,
-    }),
+      ...(data.seoDescription !== undefined && {
+        seoDescription: data.seoDescription,
+      }),
 
-    ...(data.seoKeywords !== undefined && {
-      seoKeywords: data.seoKeywords,
-    }),
+      ...(data.seoKeywords !== undefined && {
+        seoKeywords: data.seoKeywords,
+      }),
 
-    ...(data.seoCanonicalUrl !== undefined && {
-      seoCanonicalUrl: data.seoCanonicalUrl,
-    }),
+      ...(data.seoCanonicalUrl !== undefined && {
+        seoCanonicalUrl: data.seoCanonicalUrl,
+      }),
 
-    ...(data.seoOgTitle !== undefined && {
-      seoOgTitle: data.seoOgTitle,
-    }),
+      ...(data.seoOgTitle !== undefined && {
+        seoOgTitle: data.seoOgTitle,
+      }),
 
-    ...(data.seoOgDescription !== undefined && {
-      seoOgDescription: data.seoOgDescription,
-    }),
+      ...(data.seoOgDescription !== undefined && {
+        seoOgDescription: data.seoOgDescription,
+      }),
 
-    ...(data.seoOgImage !== undefined && {
-      seoOgImage: data.seoOgImage,
-    }),
+      ...(data.seoOgImage !== undefined && {
+        seoOgImage: data.seoOgImage,
+      }),
 
-    ...(data.seoTwitterCard !== undefined && {
-      seoTwitterCard: data.seoTwitterCard,
-    }),
+      ...(data.seoTwitterCard !== undefined && {
+        seoTwitterCard: data.seoTwitterCard,
+      }),
 
-    ...(data.seoRobotsIndex !== undefined && {
-      seoRobotsIndex: data.seoRobotsIndex,
-    }),
+      ...(data.seoRobotsIndex !== undefined && {
+        seoRobotsIndex: data.seoRobotsIndex,
+      }),
 
-    ...(data.seoRobotsFollow !== undefined && {
-      seoRobotsFollow: data.seoRobotsFollow,
-    }),
+      ...(data.seoRobotsFollow !== undefined && {
+        seoRobotsFollow: data.seoRobotsFollow,
+      }),
 
-    ...(data.seoGoogleVerification !== undefined && {
-      seoGoogleVerification: data.seoGoogleVerification,
-    }),
+      ...(data.seoGoogleVerification !== undefined && {
+        seoGoogleVerification:
+          data.seoGoogleVerification,
+      }),
 
-    ...(data.seoAiEnabled !== undefined && {
-      seoAiEnabled: data.seoAiEnabled,
-    }),
-  };
+      ...(data.seoAiEnabled !== undefined && {
+        seoAiEnabled: data.seoAiEnabled,
+      }),
+    };
 
-  return prisma.storeSettings.update({
-    where: {
-      id: settings.id,
-    },
-    data: updateData,
-  });
-}
+    return prisma.storeSettings.update({
+      where: {
+        id: settings.id,
+      },
+
+      data: updateData,
+    });
+  }
 
   /**
    * ==========================================================
@@ -603,6 +755,7 @@ class SettingsRepository {
    * Digunakan oleh halaman Admin Image Banner agar perubahan
    * banner tidak mengubah Store Settings lainnya.
    */
+
   async updateImageBanner(
     data: UpdateImageBannerSettingsPayload
   ) {
@@ -612,9 +765,11 @@ class SettingsRepository {
       ...(data.heroSlide1Image !== undefined && {
         heroSlide1Image: data.heroSlide1Image,
       }),
+
       ...(data.heroSlide2Image !== undefined && {
         heroSlide2Image: data.heroSlide2Image,
       }),
+
       ...(data.heroSlide3Image !== undefined && {
         heroSlide3Image: data.heroSlide3Image,
       }),
@@ -622,32 +777,42 @@ class SettingsRepository {
       ...(data.loginSlide1Image !== undefined && {
         loginSlide1Image: data.loginSlide1Image,
       }),
+
       ...(data.loginSlide2Image !== undefined && {
         loginSlide2Image: data.loginSlide2Image,
       }),
+
       ...(data.loginSlide3Image !== undefined && {
         loginSlide3Image: data.loginSlide3Image,
       }),
+
       ...(data.loginSlide4Image !== undefined && {
         loginSlide4Image: data.loginSlide4Image,
       }),
 
       ...(data.flashSaleBannerImage !== undefined && {
-        flashSaleBannerImage: data.flashSaleBannerImage,
+        flashSaleBannerImage:
+          data.flashSaleBannerImage,
       }),
 
       ...(data.heroSlide1Eyebrow !== undefined && {
         heroSlide1Eyebrow: data.heroSlide1Eyebrow,
       }),
+
       ...(data.heroSlide1Title !== undefined && {
         heroSlide1Title: data.heroSlide1Title,
       }),
+
       ...(data.heroSlide1Highlight !== undefined && {
-        heroSlide1Highlight: data.heroSlide1Highlight,
+        heroSlide1Highlight:
+          data.heroSlide1Highlight,
       }),
+
       ...(data.heroSlide1Description !== undefined && {
-        heroSlide1Description: data.heroSlide1Description,
+        heroSlide1Description:
+          data.heroSlide1Description,
       }),
+
       ...(data.heroSlide1Button !== undefined && {
         heroSlide1Button: data.heroSlide1Button,
       }),
@@ -655,15 +820,21 @@ class SettingsRepository {
       ...(data.heroSlide2Eyebrow !== undefined && {
         heroSlide2Eyebrow: data.heroSlide2Eyebrow,
       }),
+
       ...(data.heroSlide2Title !== undefined && {
         heroSlide2Title: data.heroSlide2Title,
       }),
+
       ...(data.heroSlide2Highlight !== undefined && {
-        heroSlide2Highlight: data.heroSlide2Highlight,
+        heroSlide2Highlight:
+          data.heroSlide2Highlight,
       }),
+
       ...(data.heroSlide2Description !== undefined && {
-        heroSlide2Description: data.heroSlide2Description,
+        heroSlide2Description:
+          data.heroSlide2Description,
       }),
+
       ...(data.heroSlide2Button !== undefined && {
         heroSlide2Button: data.heroSlide2Button,
       }),
@@ -671,81 +842,123 @@ class SettingsRepository {
       ...(data.heroSlide3Eyebrow !== undefined && {
         heroSlide3Eyebrow: data.heroSlide3Eyebrow,
       }),
+
       ...(data.heroSlide3Title !== undefined && {
         heroSlide3Title: data.heroSlide3Title,
       }),
+
       ...(data.heroSlide3Highlight !== undefined && {
-        heroSlide3Highlight: data.heroSlide3Highlight,
+        heroSlide3Highlight:
+          data.heroSlide3Highlight,
       }),
+
       ...(data.heroSlide3Description !== undefined && {
-        heroSlide3Description: data.heroSlide3Description,
+        heroSlide3Description:
+          data.heroSlide3Description,
       }),
+
       ...(data.heroSlide3Button !== undefined && {
         heroSlide3Button: data.heroSlide3Button,
       }),
 
       ...(data.flashSaleBannerLabel !== undefined && {
-        flashSaleBannerLabel: data.flashSaleBannerLabel,
+        flashSaleBannerLabel:
+          data.flashSaleBannerLabel,
       }),
+
       ...(data.flashSaleBannerTitle !== undefined && {
-        flashSaleBannerTitle: data.flashSaleBannerTitle,
+        flashSaleBannerTitle:
+          data.flashSaleBannerTitle,
       }),
+
       ...(data.flashSaleBannerHighlight !== undefined && {
-        flashSaleBannerHighlight: data.flashSaleBannerHighlight,
+        flashSaleBannerHighlight:
+          data.flashSaleBannerHighlight,
       }),
+
       ...(data.flashSaleBannerDescription !== undefined && {
-        flashSaleBannerDescription: data.flashSaleBannerDescription,
+        flashSaleBannerDescription:
+          data.flashSaleBannerDescription,
       }),
 
       ...(data.promoSectionLabel !== undefined && {
-        promoSectionLabel: data.promoSectionLabel,
+        promoSectionLabel:
+          data.promoSectionLabel,
       }),
+
       ...(data.promoSectionTitle !== undefined && {
-        promoSectionTitle: data.promoSectionTitle,
+        promoSectionTitle:
+          data.promoSectionTitle,
       }),
+
       ...(data.promoSectionLinkLabel !== undefined && {
-        promoSectionLinkLabel: data.promoSectionLinkLabel,
+        promoSectionLinkLabel:
+          data.promoSectionLinkLabel,
       }),
+
       ...(data.promoSectionLinkHref !== undefined && {
-        promoSectionLinkHref: data.promoSectionLinkHref,
+        promoSectionLinkHref:
+          data.promoSectionLinkHref,
       }),
 
       ...(data.promoCard1Image !== undefined && {
-        promoCard1Image: data.promoCard1Image,
+        promoCard1Image:
+          data.promoCard1Image,
       }),
+
       ...(data.promoCard1Eyebrow !== undefined && {
-        promoCard1Eyebrow: data.promoCard1Eyebrow,
+        promoCard1Eyebrow:
+          data.promoCard1Eyebrow,
       }),
+
       ...(data.promoCard1Title !== undefined && {
-        promoCard1Title: data.promoCard1Title,
+        promoCard1Title:
+          data.promoCard1Title,
       }),
+
       ...(data.promoCard1Description !== undefined && {
-        promoCard1Description: data.promoCard1Description,
+        promoCard1Description:
+          data.promoCard1Description,
       }),
+
       ...(data.promoCard1Button !== undefined && {
-        promoCard1Button: data.promoCard1Button,
+        promoCard1Button:
+          data.promoCard1Button,
       }),
+
       ...(data.promoCard1Href !== undefined && {
-        promoCard1Href: data.promoCard1Href,
+        promoCard1Href:
+          data.promoCard1Href,
       }),
 
       ...(data.promoCard2Image !== undefined && {
-        promoCard2Image: data.promoCard2Image,
+        promoCard2Image:
+          data.promoCard2Image,
       }),
+
       ...(data.promoCard2Eyebrow !== undefined && {
-        promoCard2Eyebrow: data.promoCard2Eyebrow,
+        promoCard2Eyebrow:
+          data.promoCard2Eyebrow,
       }),
+
       ...(data.promoCard2Title !== undefined && {
-        promoCard2Title: data.promoCard2Title,
+        promoCard2Title:
+          data.promoCard2Title,
       }),
+
       ...(data.promoCard2Description !== undefined && {
-        promoCard2Description: data.promoCard2Description,
+        promoCard2Description:
+          data.promoCard2Description,
       }),
+
       ...(data.promoCard2Button !== undefined && {
-        promoCard2Button: data.promoCard2Button,
+        promoCard2Button:
+          data.promoCard2Button,
       }),
+
       ...(data.promoCard2Href !== undefined && {
-        promoCard2Href: data.promoCard2Href,
+        promoCard2Href:
+          data.promoCard2Href,
       }),
     };
 
@@ -753,9 +966,49 @@ class SettingsRepository {
       where: {
         id: settings.id,
       },
+
       data: updateData,
     });
   }
+
+async updateImagePopup(
+  payload: UpdateImagePopupSettingsPayload
+) {
+  const current = await prisma.storeSettings.findFirst();
+
+  const data = {
+    promoPopupEnabled: payload.promoPopupEnabled ?? false,
+    promoPopupImage: payload.promoPopupImage ?? null,
+    promoPopupAlt: payload.promoPopupAlt ?? null,
+    promoPopupHref: payload.promoPopupHref ?? null,
+    promoPopupDelay: Math.min(
+      Math.max(payload.promoPopupDelay ?? 1200, 0),
+      10000
+    ),
+    promoPopupVersion: payload.promoPopupVersion ?? null,
+    promoPopupRememberClose:
+      payload.promoPopupRememberClose ?? true,
+  };
+
+  if (current) {
+    return prisma.storeSettings.update({
+      where: {
+        id: current.id,
+      },
+      data,
+    });
+  }
+
+  return prisma.storeSettings.create({
+    data: {
+      storeName: "Pisjo Market",
+      storeDescription: "",
+      footerDescription: "",
+      siteLogo: null,
+      ...data,
+    },
+  });
+}
 
   /**
    * ==========================================================
@@ -824,7 +1077,8 @@ class SettingsRepository {
           data.seoOgImage ?? null,
 
         seoTwitterCard:
-          data.seoTwitterCard ?? "summary_large_image",
+          data.seoTwitterCard ??
+          "summary_large_image",
 
         seoRobotsIndex:
           data.seoRobotsIndex ?? true,
@@ -846,6 +1100,12 @@ class SettingsRepository {
 
         siteLogo:
           data.siteLogo ?? null,
+
+        /**
+         * ------------------------------------------------------
+         * CONTACT
+         * ------------------------------------------------------
+         */
 
         email:
           data.email ?? null,
@@ -905,6 +1165,7 @@ class SettingsRepository {
         /**
          * Minimum gross shipping fee sebelum subsidi.
          */
+
         internalShippingMinFee:
           data.internalShippingMinFee ?? 0,
 
@@ -914,12 +1175,15 @@ class SettingsRepository {
         /**
          * Minimum subtotal untuk mendapatkan subsidi.
          */
+
         internalShippingFreeThreshold:
-          data.internalShippingFreeThreshold ?? null,
+          data.internalShippingFreeThreshold ??
+          null,
 
         /**
          * Maksimum subsidi ongkir yang ditanggung toko.
          */
+
         internalShippingFreeMaxDiscount:
           data.internalShippingFreeMaxDiscount ?? 0,
 

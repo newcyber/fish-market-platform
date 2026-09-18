@@ -66,6 +66,7 @@ const ICON_MAP: Record<
   "flash-sale": Zap,
   voucher: TicketPercent,
   "image-banner": Image,
+  "image-popup": PanelsTopLeft,
   loyalty: HeartHandshake,
   "reward-voucher": Gift,
   "reward-catalog": Award,
