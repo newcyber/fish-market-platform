@@ -54,67 +54,52 @@ export function ProductToolbar({
   const [categoryValue, setCategoryValue] = useState(category);
   const [stockValue, setStockValue] = useState(stock);
 
-  useEffect(() => {
-    setSearchValue(search);
-  }, [search]);
+useEffect(() => {
+  const timeout = setTimeout(() => {
+    const params = new URLSearchParams(searchParams.toString());
 
-  useEffect(() => {
-    setStatusValue(status);
-  }, [status]);
+    if (searchValue.trim()) {
+      params.set("search", searchValue.trim());
+    } else {
+      params.delete("search");
+    }
 
-  useEffect(() => {
-    setCategoryValue(category);
-  }, [category]);
+    if (categoryValue && categoryValue !== "all") {
+      params.set("category", categoryValue);
+    } else {
+      params.delete("category");
+    }
 
-  useEffect(() => {
-    setStockValue(stock);
-  }, [stock]);
+    if (statusValue && statusValue !== "all") {
+      params.set("status", statusValue);
+    } else {
+      params.delete("status");
+    }
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
+    if (stockValue && stockValue !== "all") {
+      params.set("stock", stockValue);
+    } else {
+      params.delete("stock");
+    }
 
-      if (searchValue.trim()) {
-        params.set("search", searchValue.trim());
-      } else {
-        params.delete("search");
-      }
+    // Filter/search berubah → kembali ke halaman pertama.
+    // Jangan hapus page ketika hanya pagination yang berubah.
+    params.delete("page");
 
-      if (categoryValue && categoryValue !== "all") {
-        params.set("category", categoryValue);
-      } else {
-        params.delete("category");
-      }
+    const query = params.toString();
 
-      if (statusValue && statusValue !== "all") {
-        params.set("status", statusValue);
-      } else {
-        params.delete("status");
-      }
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, 400);
 
-      if (stockValue && stockValue !== "all") {
-        params.set("stock", stockValue);
-      } else {
-        params.delete("stock");
-      }
-
-      params.delete("page");
-
-      const query = params.toString();
-
-      router.replace(query ? `${pathname}?${query}` : pathname);
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [
-    searchValue,
-    statusValue,
-    categoryValue,
-    stockValue,
-    pathname,
-    router,
-    searchParams,
-  ]);
+  return () => clearTimeout(timeout);
+}, [
+  searchValue,
+  categoryValue,
+  statusValue,
+  stockValue,
+  pathname,
+  router,
+]);
 
   const hasFilters =
     Boolean(searchValue.trim()) ||
@@ -140,7 +125,9 @@ export function ProductToolbar({
 
             <Input
               value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
+              onChange={(event) =>
+                setSearchValue(event.target.value)
+              }
               placeholder="Cari nama produk, SKU, atau variant..."
               className="h-10 pl-10"
             />
@@ -158,10 +145,21 @@ export function ProductToolbar({
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="all">Semua Status</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="featured">Featured</SelectItem>
+                <SelectItem value="all">
+                  Semua Status
+                </SelectItem>
+
+                <SelectItem value="published">
+                  Published
+                </SelectItem>
+
+                <SelectItem value="draft">
+                  Draft
+                </SelectItem>
+
+                <SelectItem value="featured">
+                  Featured
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -176,10 +174,15 @@ export function ProductToolbar({
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="all">Semua Kategori</SelectItem>
+                <SelectItem value="all">
+                  Semua Kategori
+                </SelectItem>
 
                 {categories.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
+                  <SelectItem
+                    key={item.id}
+                    value={item.id}
+                  >
                     {item.name}
                   </SelectItem>
                 ))}
@@ -197,10 +200,21 @@ export function ProductToolbar({
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="all">Semua Stok</SelectItem>
-                <SelectItem value="available">Tersedia</SelectItem>
-                <SelectItem value="low">Menipis</SelectItem>
-                <SelectItem value="out">Habis</SelectItem>
+                <SelectItem value="all">
+                  Semua Stok
+                </SelectItem>
+
+                <SelectItem value="available">
+                  Tersedia
+                </SelectItem>
+
+                <SelectItem value="low">
+                  Menipis
+                </SelectItem>
+
+                <SelectItem value="out">
+                  Habis
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -211,6 +225,7 @@ export function ProductToolbar({
             {hasFilters ? (
               <>
                 <Filter className="h-4 w-4" />
+
                 <span>Filter aktif</span>
 
                 <Button
@@ -225,11 +240,16 @@ export function ProductToolbar({
                 </Button>
               </>
             ) : (
-              <span>Cari dan filter katalog produk dengan cepat.</span>
+              <span>
+                Cari dan filter katalog produk dengan cepat.
+              </span>
             )}
           </div>
 
-          <Link href="/admin/products/create" className="w-full sm:w-auto">
+          <Link
+            href="/admin/products/create"
+            className="w-full sm:w-auto"
+          >
             <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Tambah Produk
