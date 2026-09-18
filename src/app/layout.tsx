@@ -2,6 +2,8 @@ import "./globals.css";
 
 import type { Metadata } from "next";
 
+import { headers } from "next/headers";
+
 import { Geist } from "next/font/google";
 
 import { Toaster } from "sonner";
@@ -17,6 +19,8 @@ import OneSignalProvider from "@/components/providers/OneSignalProvider";
 import FloatingCustomerService from "@/components/customer/FloatingCustomerService";
 
 import settingsService from "@/services/settings/settings.service";
+
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 import {
   buildSeoMetadata,
@@ -41,7 +45,8 @@ const geist = Geist({
  */
 
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = await settingsService.getSettings();
+  const settings =
+    await settingsService.getSettings();
 
   const seoSettings: SeoSettings = {
     seoTitle: settings.seoTitle,
@@ -54,15 +59,20 @@ export async function generateMetadata(): Promise<Metadata> {
     seoTwitterCard: settings.seoTwitterCard,
     seoRobotsIndex: settings.seoRobotsIndex,
     seoRobotsFollow: settings.seoRobotsFollow,
-    seoGoogleVerification: settings.seoGoogleVerification,
+    seoGoogleVerification:
+      settings.seoGoogleVerification,
     seoAiEnabled: settings.seoAiEnabled,
     storeName: settings.storeName,
-    storeDescription: settings.storeDescription,
+    storeDescription:
+      settings.storeDescription,
   };
 
-  return buildSeoMetadata(seoSettings, {
-    pathname: "/",
-  });
+  return buildSeoMetadata(
+    seoSettings,
+    {
+      pathname: "/",
+    },
+  );
 }
 
 /**
@@ -76,8 +86,80 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /**
+   * ========================================================
+   * LOAD SETTINGS
+   * ========================================================
+   *
+   * Store settings digunakan oleh:
+   *
+   * - FloatingCustomerService
+   * - Site URL detection
+   * - Mobile Bottom Navigation
+   *
+   * ========================================================
+   */
+
   const settings =
     await settingsService.getSettings();
+
+  /**
+   * ========================================================
+   * DETECT CURRENT HOST
+   * ========================================================
+   *
+   * Pisjo Market memiliki dua konteks utama:
+   *
+   * 1. Landing Page
+   *    https://pusatikansegar.com
+   *
+   * 2. Storefront / aplikasi
+   *    https://app.pusatikansegar.com
+   *
+   * Keduanya dapat menggunakan pathname "/".
+   *
+   * Karena itu pathname saja TIDAK cukup untuk menentukan
+   * apakah bottom navigation harus ditampilkan.
+   *
+   * ========================================================
+   */
+
+  const requestHeaders =
+    await headers();
+
+  const requestHost =
+    requestHeaders
+      .get("host")
+      ?.split(":")[0]
+      .trim()
+      .toLowerCase() || "";
+
+  /**
+   * ========================================================
+   * SITE URL CONFIGURATION
+   * ========================================================
+   */
+
+  const siteUrls =
+    await getSiteUrls();
+
+  /**
+   * ========================================================
+   * LANDING HOST DETECTION
+   * ========================================================
+   *
+   * Hanya homepage pada landing host yang tidak memakai
+   * Mobile Bottom Navigation.
+   *
+   * Homepage storefront tetap memakai navigation.
+   *
+   * ========================================================
+   */
+
+  const isLandingHost =
+    siteUrls.landingHosts.includes(
+      requestHost,
+    );
 
   return (
     <html
@@ -89,21 +171,23 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-      <SessionProvider>
-        <OneSignalProvider />
+        <SessionProvider>
+          <OneSignalProvider />
 
-        {children}
+          {children}
 
-        <FloatingCustomerService
-          whatsapp={settings.whatsapp}
-        />
+          <FloatingCustomerService
+            whatsapp={settings.whatsapp}
+          />
 
-        <MobileBottomNavigation />
+          <MobileBottomNavigation
+            isLandingHost={isLandingHost}
+          />
 
-        <Toaster
-          position="top-right"
-          richColors
-          expand
+          <Toaster
+            position="top-right"
+            richColors
+            expand
             closeButton
             duration={3000}
             visibleToasts={5}

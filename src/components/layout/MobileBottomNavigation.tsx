@@ -158,7 +158,13 @@ function normalizeWhatsAppNumber(
   return number;
 }
 
-export default function MobileBottomNavigation() {
+interface MobileBottomNavigationProps {
+  isLandingHost?: boolean;
+}
+
+export default function MobileBottomNavigation({
+  isLandingHost = false,
+}: MobileBottomNavigationProps) {
   const rawPathname =
     usePathname() ?? "";
 
@@ -206,7 +212,7 @@ export default function MobileBottomNavigation() {
    */
 
   const isLandingPage =
-    pathname === "/";
+  isLandingHost && pathname === "/";
 
   /**
    * ==========================================================
