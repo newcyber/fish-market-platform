@@ -25,7 +25,6 @@ import {
   Truck,
   ImagePlus,
   Trash2,
-  Sparkles,
 } from "lucide-react";
 
 import {
@@ -169,50 +168,6 @@ const ALLOWED_LOGO_TYPES = [
   "image/jpeg",
   "image/webp",
 ];
-
-/**
- * ============================================================
- * HERO IMAGE CONFIGURATION
- * ============================================================
- */
-
-const MAX_HERO_IMAGE_SIZE =
-  5 * 1024 * 1024;
-
-const MAX_LOGIN_IMAGE_SIZE =
-  5 * 1024 * 1024;
-
-const ALLOWED_LOGIN_IMAGE_TYPES = [
-  "image/png",
-  "image/webp",
-  "image/gif",
-] as const;
-
-const MAX_FLASH_SALE_IMAGE_SIZE =
-  5 * 1024 * 1024;
-
-const ALLOWED_HERO_IMAGE_TYPES = [
-  "image/png",
-  "image/webp",
-  "image/gif",
-] as const;
-
-const ALLOWED_FLASH_SALE_IMAGE_TYPES = [
-  "image/png",
-  "image/webp",
-  "image/gif",
-] as const;
-
-type HeroSlideKey =
-  | "slide1"
-  | "slide2"
-  | "slide3";
-
-type LoginSlideKey =
-  | "slide1"
-  | "slide2"
-  | "slide3"
-  | "slide4";
 
 /**
  * ============================================================
