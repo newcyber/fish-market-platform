@@ -712,6 +712,48 @@ const imageFiles =
     /**
      * ==========================================================
      *
+     * SIMPLE PRODUCT WEIGHT
+     *
+     * ==========================================================
+     *
+     * Berat default simple product disimpan dalam gram.
+     *
+     * Nilai berasal dari:
+     * ProductForm -> FormData -> weightGrams
+     *
+     * Produk variant tetap menggunakan weight dari SKU.
+     * ProductService akan memastikan weightGrams hanya
+     * digunakan untuk produk tanpa variant group.
+     *
+     * ==========================================================
+     */
+
+    const rawWeightGrams =
+      formData.get("weightGrams");
+
+    const weightGrams =
+      rawWeightGrams === null ||
+      String(rawWeightGrams).trim() === ""
+        ? null
+        : Number(rawWeightGrams);
+
+    if (
+      weightGrams !== null &&
+      (
+        !Number.isInteger(weightGrams) ||
+        weightGrams <= 0
+      )
+    ) {
+      return {
+        success: false,
+        message:
+          "Berat produk harus berupa angka bulat lebih dari 0 gram.",
+      };
+    }
+
+    /**
+     * ==========================================================
+     *
      * PREPARE RAW DATA
      *
      * ==========================================================
@@ -865,6 +907,43 @@ preOrderMaxDays: (() => {
       "stock"
     ),
 
+  /**
+ * ==========================================================
+ * SIMPLE PRODUCT WEIGHT
+ * ==========================================================
+ *
+ * Berat default untuk produk tanpa variant.
+ *
+ * Produk variant tetap menggunakan berat dari SKU.
+ */
+weightGrams: (() => {
+  const value =
+    formData.get(
+      "weightGrams"
+    );
+
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const parsed =
+    Number(value);
+
+  if (
+    !Number.isInteger(parsed) ||
+    parsed <= 0
+  ) {
+    throw new Error(
+      "Berat produk harus berupa angka bulat lebih dari 0 gram."
+    );
+  }
+
+  return parsed;
+})(),
+
     /**
    * ==========================================================
    * CANONICAL VARIANT / SKU PAYLOAD
@@ -1004,7 +1083,10 @@ preOrderMaxDays: (() => {
 
     await ProductService.updateProduct(
       productId,
-      parsed.data
+      {
+        ...parsed.data,
+        weightGrams,
+      }
     );
 
     /**

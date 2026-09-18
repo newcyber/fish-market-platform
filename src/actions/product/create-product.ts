@@ -61,9 +61,7 @@ function normalizeOptionalDate(
 
 /**
  * ============================================================
- *
  * NORMALIZE PRICE
- *
  * ============================================================
  */
 
@@ -260,7 +258,9 @@ export async function createProductAction(
 
     /**
      * ========================================================
+     *
      * PRODUCT VARIANTS / SKUS
+     *
      * ========================================================
      *
      * ProductForm v3 mengirim
@@ -280,6 +280,54 @@ export async function createProductAction(
           "skus"
         )
       );
+
+    /**
+     * ========================================================
+     *
+     * SIMPLE PRODUCT WEIGHT
+     *
+     * ========================================================
+     *
+     * Berat default simple product dikirim
+     * dari ProductForm melalui field:
+     *
+     * weightGrams
+     *
+     * Nilai kosong akan disimpan sebagai null.
+     *
+     * Untuk produk variant, ProductService nantinya
+     * akan memastikan weightGrams tidak digunakan
+     * sebagai sumber berat SKU.
+     *
+     * ========================================================
+     */
+
+    const rawWeightGrams =
+      formData.get("weightGrams");
+
+    const weightGrams =
+      rawWeightGrams === null ||
+      String(rawWeightGrams).trim() === ""
+        ? null
+        : Number(rawWeightGrams);
+
+    /**
+     * Berat harus berupa bilangan bulat
+     * lebih besar dari 0 jika diisi.
+     */
+    if (
+      weightGrams !== null &&
+      (
+        !Number.isInteger(weightGrams) ||
+        weightGrams <= 0
+      )
+    ) {
+      return {
+        success: false,
+        message:
+          "Berat produk harus berupa angka bulat lebih dari 0 gram.",
+      };
+    }
 
     /**
      * ========================================================
@@ -316,75 +364,75 @@ export async function createProductAction(
      * ========================================================
      */
 
-const parsed =
-  ProductSchema.safeParse({
-    categoryId:
-      formData.get("categoryId"),
+    const parsed =
+      ProductSchema.safeParse({
+        categoryId:
+          formData.get("categoryId"),
 
-    name:
-      formData.get("name"),
+        name:
+          formData.get("name"),
 
-    slug:
-      formData.get("slug"),
+        slug:
+          formData.get("slug"),
 
-    description:
-      formData.get("description"),
+        description:
+          formData.get("description"),
 
-    ingredients:
-      formData.get("ingredients"),
+        ingredients:
+          formData.get("ingredients"),
 
-    nutritionInformation:
-      formData.get("nutritionInformation"),
+        nutritionInformation:
+          formData.get("nutritionInformation"),
 
-    storageInstructions:
-      formData.get("storageInstructions"),
+        storageInstructions:
+          formData.get("storageInstructions"),
 
-    usageInstructions:
-      formData.get("usageInstructions"),
+        usageInstructions:
+          formData.get("usageInstructions"),
 
-    sku:
-      formData.get("sku"),
+        sku:
+          formData.get("sku"),
 
-    price:
-      formData.get("price"),
+        price:
+          formData.get("price"),
 
-      isPreOrder:
-  normalizeBoolean(
-    formData.get("isPreOrder"),
-    false
-  ),
+        isPreOrder:
+          normalizeBoolean(
+            formData.get("isPreOrder"),
+            false
+          ),
 
-preOrderMinDays: (() => {
-  const value =
-    formData.get(
-      "preOrderMinDays"
-    );
+        preOrderMinDays: (() => {
+          const value =
+            formData.get(
+              "preOrderMinDays"
+            );
 
-  if (
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    return null;
-  }
+          if (
+            value === null ||
+            String(value).trim() === ""
+          ) {
+            return null;
+          }
 
-  return Number(value);
-})(),
+          return Number(value);
+        })(),
 
-preOrderMaxDays: (() => {
-  const value =
-    formData.get(
-      "preOrderMaxDays"
-    );
+        preOrderMaxDays: (() => {
+          const value =
+            formData.get(
+              "preOrderMaxDays"
+            );
 
-  if (
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    return null;
-  }
+          if (
+            value === null ||
+            String(value).trim() === ""
+          ) {
+            return null;
+          }
 
-  return Number(value);
-})(),
+          return Number(value);
+        })(),
 
         isDiscountActive:
           normalizeBoolean(
@@ -526,13 +574,17 @@ preOrderMaxDays: (() => {
      * Product harus dibuat terlebih dahulu
      * agar kita mendapatkan product.id.
      *
+     * weightGrams sengaja ditambahkan setelah
+     * ProductSchema berhasil divalidasi.
+     *
      * ========================================================
      */
 
     const product =
-      await ProductService.createProduct(
-        parsed.data
-      );
+      await ProductService.createProduct({
+        ...parsed.data,
+        weightGrams,
+      });
 
     if (!product) {
       throw new Error(

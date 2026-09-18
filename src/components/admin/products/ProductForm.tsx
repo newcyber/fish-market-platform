@@ -144,6 +144,12 @@ export interface ProductFormValues {
 
   stock: number;
 
+  /**
+   * Berat default simple product dalam gram.
+   * Untuk produk variant, berat berasal dari SKU.
+   */
+  weightGrams: number | null;
+
   variantGroups: ProductVariantGroupValue[];
   skus: ProductSkuValue[];
 
@@ -823,6 +829,16 @@ const slugManuallyEditedRef =
           defaultValues?.stock ?? 0
         ),
 
+      weightGrams:
+        defaultValues?.weightGrams !==
+        undefined &&
+        defaultValues?.weightGrams !==
+        null
+          ? Number(
+              defaultValues.weightGrams
+            )
+          : null,
+
       variantGroups:
         normalizeVariantGroups(
           defaultValues?.variantGroups
@@ -1323,6 +1339,24 @@ const totalSkuStock =
       form.variantGroups;
 
     if (groups.length === 0) {
+      if (
+        form.weightGrams !== null &&
+        (
+          !Number.isInteger(
+            form.weightGrams
+          ) ||
+          form.weightGrams <= 0
+        )
+      ) {
+        event.preventDefault();
+
+        window.alert(
+          "Berat produk harus berupa angka bulat lebih dari 0 gram."
+        );
+
+        return;
+      }
+
       return;
     }
 
@@ -2323,6 +2357,51 @@ const totalSkuStock =
       : "Masukkan jumlah stok produk yang tersedia."}
   </p>
 </div>
+        {!hasVariants && (
+          <div className="space-y-2">
+            <Label htmlFor="weightGrams">
+              Berat Produk (gram)
+            </Label>
+
+            <Input
+              id="weightGrams"
+              name="weightGrams"
+              type="number"
+              min="1"
+              step="1"
+              value={
+                form.weightGrams ??
+                ""
+              }
+              onChange={(event) =>
+                setForm(
+                  (previous) => ({
+                    ...previous,
+                    weightGrams:
+                      event.target.value ===
+                      ""
+                        ? null
+                        : Math.max(
+                            0,
+                            Math.trunc(
+                              Number(
+                                event.target.value
+                              ) || 0
+                            )
+                          ),
+                  })
+                )
+              }
+              placeholder="Contoh: 1000"
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Hanya digunakan untuk produk tanpa varian.
+              Contoh: 1000 gram = 1 kg.
+            </p>
+          </div>
+        )}
+
         </div>
       </Card>
 

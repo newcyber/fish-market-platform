@@ -446,10 +446,15 @@ export async function getOrderItemRewardPoints(
  *
  * Menghitung estimasi reward point dari seluruh OrderItem.
  *
- * Reward menggunakan weightSku yang sudah disimpan
- * sebagai snapshot pada OrderItem saat checkout.
+ * Reward menggunakan snapshot berat pada OrderItem.
  *
- * Tidak membaca kembali berat dari ProductSku.
+ * Prioritas:
+ *
+ * 1. weightSku untuk variant product.
+ * 2. weightGrams untuk simple product.
+ *
+ * Tidak membaca kembali berat dari ProductSku atau Product
+ * ketika reward diberikan.
  *
  * Dengan demikian:
  *
@@ -490,6 +495,7 @@ const order =
           select: {
             quantity: true,
             weightSku: true,
+            weightGrams: true,
           },
         },
       },
@@ -524,17 +530,35 @@ const order =
       continue;
     }
 
+    let grams: number | null = null;
+
+    /**
+     * Variant product:
+     * gunakan snapshot weightSku terlebih dahulu.
+     */
     const weightSku =
       item.weightSku?.trim();
 
-    if (!weightSku) {
-      continue;
+    if (weightSku) {
+      grams =
+        parseWeightLabelToGrams(
+          weightSku
+        );
     }
 
-    const grams =
-      parseWeightLabelToGrams(
-        weightSku
-      );
+    /**
+     * Simple product:
+     * jika SKU tidak memiliki group "Berat",
+     * gunakan snapshot weightGrams dari OrderItem.
+     */
+    if (
+      (grams === null || grams <= 0) &&
+      item.weightGrams !== null &&
+      Number.isInteger(item.weightGrams) &&
+      item.weightGrams > 0
+    ) {
+      grams = item.weightGrams;
+    }
 
     if (
       grams === null ||
@@ -547,12 +571,12 @@ const order =
       grams *
       item.quantity;
 
-totalPoints +=
-  calculateRewardPointsFromGrams(
-    grams,
-    pointsPerKg,
-  ) *
-  item.quantity;
+    totalPoints +=
+      calculateRewardPointsFromGrams(
+        grams,
+        pointsPerKg,
+      ) *
+      item.quantity;
   }
 
   return {
@@ -571,10 +595,14 @@ totalPoints +=
  *
  * Menghitung total reward point dari seluruh OrderItem.
  *
- * Reward menggunakan weightSku yang sudah disimpan
- * sebagai snapshot pada OrderItem.
+ * Reward menggunakan snapshot berat pada OrderItem.
  *
- * Tidak membaca kembali berat dari ProductSku.
+ * Prioritas:
+ *
+ * 1. weightSku untuk variant product.
+ * 2. weightGrams untuk simple product.
+ *
+ * Tidak membaca kembali berat dari ProductSku atau Product.
  */
 export async function getOrderRewardPoints(
   orderId: string
@@ -597,6 +625,7 @@ export async function getOrderRewardPoints(
           select: {
             quantity: true,
             weightSku: true,
+            weightGrams: true,
           },
         },
       },
@@ -626,17 +655,34 @@ let totalPoints = 0;
       continue;
     }
 
+    let grams: number | null = null;
+
+    /**
+     * Variant product:
+     * gunakan snapshot weightSku terlebih dahulu.
+     */
     const weightSku =
       item.weightSku?.trim();
 
-    if (!weightSku) {
-      continue;
+    if (weightSku) {
+      grams =
+        parseWeightLabelToGrams(
+          weightSku
+        );
     }
 
-    const grams =
-      parseWeightLabelToGrams(
-        weightSku
-      );
+    /**
+     * Simple product:
+     * fallback ke snapshot weightGrams.
+     */
+    if (
+      (grams === null || grams <= 0) &&
+      item.weightGrams !== null &&
+      Number.isInteger(item.weightGrams) &&
+      item.weightGrams > 0
+    ) {
+      grams = item.weightGrams;
+    }
 
     if (
       grams === null ||
@@ -646,11 +692,11 @@ let totalPoints = 0;
     }
 
     totalPoints +=
-  calculateRewardPointsFromGrams(
-    grams,
-    pointsPerKg,
-  ) *
-  item.quantity;
+      calculateRewardPointsFromGrams(
+        grams,
+        pointsPerKg,
+      ) *
+      item.quantity;
   }
 
   return totalPoints;
@@ -686,6 +732,7 @@ export async function awardOrderRewardPointsTx(
     items: Array<{
       quantity: number;
       weightSku: string | null;
+      weightGrams: number | null;
     }>;
   }
 ) {
@@ -813,17 +860,35 @@ export async function awardOrderRewardPointsTx(
       continue;
     }
 
+    let grams: number | null = null;
+
+    /**
+     * Variant product:
+     * gunakan snapshot weightSku terlebih dahulu.
+     */
     const weightSku =
       item.weightSku?.trim();
 
-    if (!weightSku) {
-      continue;
+    if (weightSku) {
+      grams =
+        parseWeightLabelToGrams(
+          weightSku
+        );
     }
 
-    const grams =
-      parseWeightLabelToGrams(
-        weightSku
-      );
+    /**
+     * Simple product:
+     * jika SKU tidak memiliki berat,
+     * gunakan snapshot weightGrams pada OrderItem.
+     */
+    if (
+      (grams === null || grams <= 0) &&
+      item.weightGrams !== null &&
+      Number.isInteger(item.weightGrams) &&
+      item.weightGrams > 0
+    ) {
+      grams = item.weightGrams;
+    }
 
     if (
       grams === null ||
@@ -980,13 +1045,15 @@ export async function awardOrderRewardPointsTx(
  * Dengan demikian tidak ada duplicate logic perhitungan
  * reward antara wrapper dan transaction service.
  *
- * REWARD MENGGUNAKAN:
+ * REWARD MENGGUNAKAN SNAPSHOT:
  *
- * OrderItem.weightSku
+ * Variant product:
+ *   OrderItem.weightSku
  *
- * sebagai snapshot berat ketika checkout.
+ * Simple product:
+ *   OrderItem.weightGrams
  *
- * Tidak membaca kembali berat dari ProductSku.
+ * Tidak membaca kembali berat dari ProductSku atau Product.
  */
 export async function awardOrderRewardPoints(
   orderId: string
@@ -1033,6 +1100,8 @@ export async function awardOrderRewardPoints(
             quantity: true,
 
             weightSku: true,
+
+          weightGrams: true,
           },
         },
       },

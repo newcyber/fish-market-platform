@@ -91,6 +91,9 @@ export interface CreateProductInput {
   price: number;
   stock: number;
 
+  /** Berat default simple product dalam gram. */
+  weightGrams?: number | null;
+
   isPreOrder?: boolean;
   preOrderMinDays?: number | null;
   preOrderMaxDays?: number | null;
@@ -638,6 +641,11 @@ export class ProductService {
                   groups.length > 0
                     ? 0
                     : input.stock,
+
+                    weightGrams:
+                      groups.length === 0
+                    ? input.weightGrams ?? null
+                    : null,
 
                     isPreOrder:
                       input.isPreOrder ??
@@ -1354,6 +1362,31 @@ if (
                 price:
                   input.price,
               }),
+
+              /**
+ * --------------------------------------------------
+ * SIMPLE PRODUCT WEIGHT
+ * --------------------------------------------------
+ *
+ * Simple product:
+ *   groups = []
+ *   -> simpan weightGrams
+ *
+ * Variant product:
+ *   groups.length > 0
+ *   -> weightGrams harus null karena berat
+ *      berasal dari ProductSku.
+ *
+ * Jika variantGroups tidak dikirim:
+ *   groups === undefined
+ *   -> jangan mengubah weightGrams.
+ */
+...(groups !== undefined && {
+  weightGrams:
+    groups.length === 0
+      ? input.weightGrams ?? null
+      : null,
+}),
 
               /**
                * --------------------------------------------------

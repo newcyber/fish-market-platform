@@ -224,7 +224,7 @@ usageInstructions: z
       value && value.length > 0 ? value : null
     ),
 
-  /**
+    /**
    * Legacy/fallback product-level price.
    * Untuk produk dengan SKU, harga transaksi berasal dari SKU.
    */
@@ -234,7 +234,20 @@ usageInstructions: z
     .finite("Harga produk tidak valid.")
     .min(0, "Harga produk tidak boleh negatif."),
 
-    isPreOrder: z
+  /**
+   * Berat default produk simple dalam gram.
+   *
+   * Produk variant menggunakan berat dari ProductSku.
+   */
+  weightGrams: z
+    .coerce
+    .number()
+    .int("Berat produk harus berupa angka bulat.")
+    .positive("Berat produk harus lebih dari 0 gram.")
+    .nullable()
+    .optional(),
+
+  isPreOrder: z
   .union([
     z.boolean(),
     z.literal("true"),

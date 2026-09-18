@@ -822,6 +822,10 @@ model Product {
   /// LEGACY PRODUCT-LEVEL STOCK. SKU.stock becomes source-of-truth.
   stock Int @default(0)
 
+  /// Berat default produk simple dalam gram.
+  /// Digunakan ketika produk tidak memiliki variant group.
+  weightGrams Int?
+
   isPublished Boolean @default(true)
 
   featured Boolean @default(false)
@@ -1858,6 +1862,11 @@ model OrderItem {
    */
 
   weightSku String?
+
+  /// Berat produk dalam gram sebagai snapshot saat checkout.
+  /// Digunakan terutama untuk simple product yang tidak memiliki
+  /// pilihan berat pada SKU.
+  weightGrams Int?
 
   /**
    * ============================================================
@@ -3103,17 +3112,17 @@ model StoreSettings {
   promoCard2Button      String?
   promoCard2Href        String?
 
-// ============================================================
-// PROMO POPUP
-// ============================================================
-//
-// Popup promo yang ditampilkan pada storefront.
-//
-// Image popup menggunakan satu artwork utuh sehingga desain
-// seperti referensi dapat dibuat oleh admin/designer tanpa
-// membutuhkan perubahan frontend.
-//
-// ============================================================
+  // ============================================================
+  // PROMO POPUP
+  // ============================================================
+  //
+  // Popup promo yang ditampilkan pada storefront.
+  //
+  // Image popup menggunakan satu artwork utuh sehingga desain
+  // seperti referensi dapat dibuat oleh admin/designer tanpa
+  // membutuhkan perubahan frontend.
+  //
+  // ============================================================
 
   promoPopupEnabled Boolean @default(false)
 
@@ -3123,32 +3132,29 @@ model StoreSettings {
 
   promoPopupHref String?
 
-/**
- * Delay popup setelah halaman customer selesai dimuat.
- * Satuan millisecond.
- *
- * Default:
- * 1200 = 1.2 detik
- */
+  /**
+   * Delay popup setelah halaman customer selesai dimuat.
+   * Satuan millisecond.
+   * Default:
+   * 1200 = 1.2 detik
+   */
   promoPopupDelay Int @default(1200)
 
-/**
- * Version/key promo.
- *
- * Digunakan frontend untuk membedakan promo lama dan promo baru
- * pada localStorage.
- *
- * Contoh:
- * bundle-99k-v1
- * ramadhan-2026-v1
- */
+  /**
+   * Version/key promo.
+   * Digunakan frontend untuk membedakan promo lama dan promo baru
+   * pada localStorage.
+   * Contoh:
+   * bundle-99k-v1
+   * ramadhan-2026-v1
+   */
   promoPopupVersion String?
 
-/**
- * Jika true, setelah customer menutup popup,
- * popup tidak ditampilkan kembali pada browser tersebut
- * untuk version promo yang sama.
- */
+  /**
+   * Jika true, setelah customer menutup popup,
+   * popup tidak ditampilkan kembali pada browser tersebut
+   * untuk version promo yang sama.
+   */
   promoPopupRememberClose Boolean @default(true)
 
   email    String?

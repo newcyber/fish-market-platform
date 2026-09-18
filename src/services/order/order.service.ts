@@ -789,6 +789,16 @@ export default class OrderService {
                  * Field legacy di database tetap aman
                  * untuk order lama.
                  */
+                const skuSnapshot =
+                    getSkuOptionSnapshotFromSku(
+                        sku.skuOptions
+                    );
+
+                const weightGrams =
+                    skuSnapshot.weightSku
+                        ? null
+                        : product.weightGrams ?? null;
+
                 orderItems.push({
                     product: {
                         connect: {
@@ -811,6 +821,8 @@ export default class OrderService {
                      */
                     productVariant: null,
                     productWeight: null,
+                    weightSku: skuSnapshot.weightSku,
+                    weightGrams,
                     customerNote: item.customerNote,
                     price,
                     quantity: item.quantity,
@@ -1921,7 +1933,21 @@ if (itemsChanged) {
                 const itemSubtotal = price.mul(quantity);
                 subtotal =
                     subtotal.plus(itemSubtotal);
-                const skuSnapshot = getSkuOptionSnapshotFromSku(sku.skuOptions);
+                const skuSnapshot =
+                    getSkuOptionSnapshotFromSku(
+                        sku.skuOptions
+                    );
+
+                const weightGrams =
+                    skuSnapshot.weightSku
+                        ? null
+                        : (
+                            !itemsChanged &&
+                            existingOrderItem?.weightGrams != null
+                                ? existingOrderItem.weightGrams
+                                : product.weightGrams ?? null
+                        );
+
                 newOrderItems.push({
                     productId: product.id,
                     skuId: sku.id,
@@ -1929,6 +1955,7 @@ if (itemsChanged) {
                     productVariant: skuSnapshot.productVariant,
                     productWeight: skuSnapshot.productWeight,
                     weightSku: skuSnapshot.weightSku,
+                    weightGrams,
                     customerNote: item.customerNote,
                     price,
                     quantity: item.quantity,
@@ -2292,6 +2319,7 @@ if (itemsChanged) {
                         productVariant: null,
                         productWeight: null,
                         weightSku: item.weightSku,
+                        weightGrams: item.weightGrams ?? null,
                         customerNote: item.customerNote,
                         price: item.price,
                         quantity: item.quantity,
@@ -4862,6 +4890,7 @@ await tx.stockLedger.create({
                         id: true,
                         name: true,
                         price: true,
+                        weightGrams: true,
                         /**
                          * ==================================================
                          * PRE-ORDER
@@ -5037,6 +5066,9 @@ await tx.stockLedger.create({
                         productVariant: skuSnapshot.productVariant,
                         productWeight: skuSnapshot.productWeight,
                         weightSku: skuSnapshot.weightSku,
+                        weightGrams: skuSnapshot.weightSku
+                            ? null
+                            : product.weightGrams ?? null,
                         customerNote: item.customerNote,
                         price,
                         quantity: item.quantity,
@@ -5178,6 +5210,7 @@ await tx.stockLedger.create({
                                 productVariant: item.productVariant ?? null,
                                 productWeight: item.productWeight ?? null,
                                 weightSku: item.weightSku ?? null,
+                                weightGrams: item.weightGrams ?? null,
                                 customerNote: item.customerNote ?? null,
                                 price: item.price,
                                 quantity: item.quantity,
