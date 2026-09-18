@@ -75,6 +75,21 @@ export interface LandingPageRewardSectionConfig {
   compactLimit?: number;
 }
 
+export interface LandingPageTutorialStep {
+  title: string;
+  description: string;
+}
+
+export interface LandingPageTutorialSectionConfig {
+  enabled?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  image?: string | null;
+  steps?: LandingPageTutorialStep[];
+  infoText?: string;
+}
+
 export interface LandingPageAppConfig {
   enabled?: boolean;
   title?: string;
@@ -110,6 +125,8 @@ export interface LandingPageConfig {
   benefits?: LandingPageBenefit[];
 
   rewardSection?: LandingPageRewardSectionConfig;
+
+  tutorialSection?: LandingPageTutorialSectionConfig;
 
   app?: LandingPageAppConfig;
   steps?: LandingPageStep[];

@@ -9,6 +9,7 @@ import type {
   LandingPageImagesConfig,
   LandingPageRewardSectionConfig,
   LandingPageStep,
+  LandingPageTutorialSectionConfig,
 } from "./landing-page.types";
 
 /**
@@ -170,6 +171,62 @@ function validateRewardSection(
 
 /**
  * ============================================================
+ * TUTORIAL SECTION
+ * ============================================================
+ */
+
+function validateTutorialStep(
+  value: unknown,
+): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.title === "string" &&
+    typeof value.description === "string"
+  );
+}
+
+function validateTutorialSection(
+  value: unknown,
+): value is LandingPageTutorialSectionConfig {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    value.enabled !== undefined &&
+    typeof value.enabled !== "boolean"
+  ) {
+    return false;
+  }
+
+  if (
+    !optionalString(value.eyebrow) ||
+    !optionalString(value.title) ||
+    !optionalString(value.description) ||
+    !optionalNullableString(value.image) ||
+    !optionalString(value.infoText)
+  ) {
+    return false;
+  }
+
+  if (value.steps !== undefined) {
+    if (
+      !Array.isArray(value.steps) ||
+      value.steps.length > 3 ||
+      !value.steps.every(validateTutorialStep)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * ============================================================
  * BENEFIT
  * ============================================================
  */
@@ -316,6 +373,13 @@ export function isLandingPageConfig(
   return false;
 }
 
+  if (
+    value.tutorialSection !== undefined &&
+    !validateTutorialSection(value.tutorialSection)
+  ) {
+    return false;
+  }
+
   if (value.benefits !== undefined) {
     if (!Array.isArray(value.benefits)) {
       return false;
@@ -396,6 +460,33 @@ const DEFAULT_LANDING_PAGE_REWARD_SECTION = {
  * DEFAULT LANDING PAGE BENEFITS
  * ============================================================
  */
+
+const DEFAULT_LANDING_PAGE_TUTORIAL_SECTION = {
+  enabled: true,
+  eyebrow: "PANDUAN INSTALASI",
+  title: "Cara Pasang PISJO di iPhone",
+  description:
+    "Cukup buka PISJO Market di Safari, lalu simpan ke Home Screen seperti aplikasi.",
+  image: null,
+  steps: [
+    {
+      title: "Buka di Safari",
+      description:
+        "Akses app.pusatikansegar.com melalui Safari di iPhone.",
+    },
+    {
+      title: "Tap Share",
+      description:
+        "Tekan ikon Share pada Safari.",
+    },
+    {
+      title: "Add to Home Screen",
+      description:
+        'Pilih "Add to Home Screen" agar PISJO tampil seperti aplikasi.',
+    },
+  ],
+  infoText: "Tidak perlu App Store",
+};
 
 const DEFAULT_LANDING_PAGE_BENEFITS: LandingPageBenefit[] = [
   {
@@ -480,6 +571,10 @@ export function normalizeLandingPageConfig(
         DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
       benefits:
         DEFAULT_LANDING_PAGE_BENEFITS,
+      rewardSection:
+        DEFAULT_LANDING_PAGE_REWARD_SECTION,
+      tutorialSection:
+        DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,
       steps:
         DEFAULT_LANDING_PAGE_STEPS,
     };
@@ -491,6 +586,10 @@ export function normalizeLandingPageConfig(
     benefitsSection:
       value.benefitsSection ??
       DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
+
+    tutorialSection:
+      value.tutorialSection ??
+      DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,
 
     benefits:
       Array.isArray(value.benefits) &&

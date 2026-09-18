@@ -46,6 +46,13 @@ export default async function PisjoLandingPage() {
   const rewardSection =
     config.rewardSection ?? {};
 
+  const tutorialSection =
+    config.tutorialSection ?? {};
+
+  const tutorialSteps =
+    (tutorialSection.steps ?? [])
+      .slice(0, 3);
+
   const rewardFeaturedLimit =
   Math.max(
     1,
@@ -490,6 +497,135 @@ const compactRewards =
             </div>
           </section>
         )}
+
+  {/* ====================================================== */}
+  {/* TUTORIAL INSTALASI                                     */}
+  {/* ====================================================== */}
+
+  {tutorialSection.enabled !== false ? (
+    <section className="relative overflow-hidden bg-white">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-40 top-1/3 h-80 w-80 rounded-full bg-[#bdefff]/30 blur-3xl"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-40 bottom-0 h-80 w-80 rounded-full bg-[#ffe9a8]/30 blur-3xl"
+      />
+
+      <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-24">
+        <div className="flex justify-center">
+          <div className="relative w-full max-w-sm">
+            <div
+              aria-hidden="true"
+              className="absolute inset-8 rounded-[3rem] bg-[#0788e8]/10 blur-3xl"
+            />
+
+            {tutorialSection.image ? (
+              <div className="relative overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white p-4 shadow-xl">
+                <div className="relative overflow-hidden rounded-[2rem] bg-slate-50">
+                  <Image
+                    src={tutorialSection.image}
+                    alt={
+                      tutorialSection.title ||
+                      "Tutorial instalasi PISJO di iPhone"
+                    }
+                    width={720}
+                    height={960}
+                    className="h-auto max-h-[38rem] w-full object-contain"
+                    sizes="(max-width: 1024px) 90vw, 384px"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="relative mx-auto w-full max-w-[18rem] rounded-[2.8rem] border-[8px] border-slate-900 bg-white p-2 shadow-2xl">
+                <div className="overflow-hidden rounded-[2.1rem] bg-[#f4fbff]">
+                  <div className="flex h-8 items-center justify-center bg-white">
+                    <div className="h-1.5 w-20 rounded-full bg-slate-200" />
+                  </div>
+
+                  <div className="p-5">
+                    <div className="rounded-2xl bg-white p-4 shadow-sm">
+                      <p className="text-[10px] font-semibold text-slate-400">
+                        Safari
+                      </p>
+                      <p className="mt-3 text-sm font-black text-[var(--pisjo-navy)]">
+                        Pisjo Market
+                      </p>
+                      <div className="mt-4 h-24 rounded-xl bg-[var(--pisjo-gradient)]" />
+                      <div className="mt-4 h-2 w-3/4 rounded-full bg-slate-200" />
+                      <div className="mt-2 h-2 w-1/2 rounded-full bg-slate-100" />
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-center">
+                      <p className="text-xs font-bold text-[var(--pisjo-primary)]">
+                        Tambahkan ke Home Screen
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="min-w-0 max-w-2xl">
+          {tutorialSection.eyebrow ? (
+            <p className="text-sm font-bold text-[var(--pisjo-primary)]">
+              {tutorialSection.eyebrow}
+            </p>
+          ) : null}
+
+          {tutorialSection.title ? (
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
+              {tutorialSection.title}
+            </h2>
+          ) : null}
+
+          {tutorialSection.description ? (
+            <p className="mt-4 text-base leading-7 text-[var(--pisjo-text-secondary)]">
+              {tutorialSection.description}
+            </p>
+          ) : null}
+
+          {tutorialSteps.length > 0 ? (
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              {tutorialSteps.map((step, index) => (
+                <div
+                  key={`${step.title}-${index}`}
+                  className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--pisjo-soft-blue)] text-sm font-black text-[var(--pisjo-primary)]">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+
+                  <h3 className="mt-4 break-words text-sm font-black text-[var(--pisjo-navy)]">
+                    {step.title}
+                  </h3>
+
+                  <p className="mt-2 break-words text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {tutorialSection.infoText ? (
+            <div className="mt-6 flex min-w-0 items-start gap-3 rounded-2xl border border-[#0788e8]/10 bg-[#f0faff] p-4 text-sm font-semibold text-[var(--pisjo-navy)]">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-primary)] text-xs font-black text-white">
+                i
+              </div>
+              <span className="min-w-0 break-words">
+                {tutorialSection.infoText}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  ) : null}
 
   {/* ====================================================== */}
   {/* APP SHOWCASE                                            */}

@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import {
   AlertCircle,
   CheckCircle2,
@@ -101,6 +103,8 @@ export default function LandingPageContentForm({
     initialConfig.benefitsSection ?? {};
   const rewardSection =
     initialConfig.rewardSection ?? {};
+  const tutorialSection =
+    initialConfig.tutorialSection ?? {};
 
   const [heroEyebrow, setHeroEyebrow] =
     useState(
@@ -248,6 +252,57 @@ export default function LandingPageContentForm({
       10,
     ),
   );
+
+  const [tutorialEnabled, setTutorialEnabled] =
+    useState(tutorialSection.enabled !== false);
+
+  const [tutorialEyebrow, setTutorialEyebrow] =
+    useState(getString(tutorialSection.eyebrow, "PANDUAN INSTALASI"));
+
+  const [tutorialTitle, setTutorialTitle] =
+    useState(getString(tutorialSection.title, "Cara Pasang PISJO di iPhone"));
+
+  const [tutorialDescription, setTutorialDescription] =
+    useState(
+      getString(
+        tutorialSection.description,
+        "Cukup buka PISJO Market di Safari, lalu simpan ke Home Screen seperti aplikasi.",
+      ),
+    );
+
+  const [tutorialInfoText, setTutorialInfoText] =
+    useState(getString(tutorialSection.infoText, "Tidak perlu App Store"));
+
+  const [tutorialImage, setTutorialImage] =
+    useState<File | null>(null);
+
+  const [tutorialStep1Title, setTutorialStep1Title] =
+    useState(getString(tutorialSection.steps?.[0]?.title, "Buka di Safari"));
+
+  const [tutorialStep1Description, setTutorialStep1Description] =
+    useState(
+      getString(
+        tutorialSection.steps?.[0]?.description,
+        "Akses app.pusatikansegar.com melalui Safari di iPhone.",
+      ),
+    );
+
+  const [tutorialStep2Title, setTutorialStep2Title] =
+    useState(getString(tutorialSection.steps?.[1]?.title, "Tap Share"));
+
+  const [tutorialStep2Description, setTutorialStep2Description] =
+    useState(getString(tutorialSection.steps?.[1]?.description, "Tekan ikon Share pada Safari."));
+
+  const [tutorialStep3Title, setTutorialStep3Title] =
+    useState(getString(tutorialSection.steps?.[2]?.title, "Add to Home Screen"));
+
+  const [tutorialStep3Description, setTutorialStep3Description] =
+    useState(
+      getString(
+        tutorialSection.steps?.[2]?.description,
+        'Pilih "Add to Home Screen" agar PISJO tampil seperti aplikasi.',
+      ),
+    );
 
   const [appEnabled, setAppEnabled] =
     useState(
@@ -464,9 +519,30 @@ export default function LandingPageContentForm({
       const result =
         await updateLandingPageAction({
           enabled,
+
+          /**
+           * ==================================================
+           * TUTORIAL IMAGE UPLOAD
+           * ==================================================
+           *
+           * File dikirim sebagai property action,
+           * bukan dimasukkan ke dalam config JSON.
+           *
+           * Action akan:
+           * 1. Upload file ke StorageService
+           * 2. Mendapatkan URL/path gambar
+           * 3. Menyimpan URL tersebut ke tutorialSection.image
+           */
+          tutorialImage,
+
           config: {
             ...initialConfig,
 
+            /**
+             * ==================================================
+             * HERO
+             * ==================================================
+             */
             hero: {
               ...hero,
               eyebrow: heroEyebrow,
@@ -480,6 +556,11 @@ export default function LandingPageContentForm({
                 heroSecondaryButtonLabel,
             },
 
+            /**
+             * ==================================================
+             * BENEFITS SECTION
+             * ==================================================
+             */
             benefitsSection: {
               ...benefitsSection,
               eyebrow: benefitsEyebrow,
@@ -490,6 +571,11 @@ export default function LandingPageContentForm({
 
             benefits,
 
+            /**
+             * ==================================================
+             * REWARD POINT SECTION
+             * ==================================================
+             */
             rewardSection: {
               ...rewardSection,
               enabled: rewardEnabled,
@@ -501,6 +587,7 @@ export default function LandingPageContentForm({
                 rewardButtonLabel,
               buttonHref:
                 rewardButtonHref,
+
               featuredLimit:
                 Math.max(
                   1,
@@ -511,6 +598,7 @@ export default function LandingPageContentForm({
                     10,
                   ),
                 ),
+
               compactLimit:
                 Math.max(
                   0,
@@ -523,22 +611,100 @@ export default function LandingPageContentForm({
                 ),
             },
 
+            /**
+             * ==================================================
+             * TUTORIAL INSTALASI
+             * ==================================================
+             */
+            tutorialSection: {
+              ...tutorialSection,
+
+              enabled:
+                tutorialEnabled,
+
+              eyebrow:
+                tutorialEyebrow,
+
+              title:
+                tutorialTitle,
+
+              description:
+                tutorialDescription,
+
+              /**
+               * Jika tidak ada upload baru,
+               * pertahankan gambar lama.
+               *
+               * Jika ada upload baru,
+               * update-landing-page.ts akan mengganti
+               * value ini dengan hasil StorageService.
+               */
+              image:
+                tutorialSection.image ??
+                null,
+
+              steps: [
+                {
+                  title:
+                    tutorialStep1Title,
+                  description:
+                    tutorialStep1Description,
+                },
+
+                {
+                  title:
+                    tutorialStep2Title,
+                  description:
+                    tutorialStep2Description,
+                },
+
+                {
+                  title:
+                    tutorialStep3Title,
+                  description:
+                    tutorialStep3Description,
+                },
+              ],
+
+              infoText:
+                tutorialInfoText,
+            },
+
+            /**
+             * ==================================================
+             * APP SHOWCASE
+             * ==================================================
+             */
             app: {
               ...app,
-              enabled: appEnabled,
-              title: appTitle,
+              enabled:
+                appEnabled,
+              title:
+                appTitle,
               description:
                 appDescription,
               buttonLabel:
                 appButtonLabel,
             },
 
+            /**
+             * ==================================================
+             * HOW IT WORKS / STEPS
+             * ==================================================
+             */
             steps,
 
+            /**
+             * ==================================================
+             * FINAL CTA
+             * ==================================================
+             */
             cta: {
               ...cta,
-              eyebrow: ctaEyebrow,
-              title: ctaTitle,
+              eyebrow:
+                ctaEyebrow,
+              title:
+                ctaTitle,
               description:
                 ctaDescription,
               buttonLabel:
@@ -547,8 +713,19 @@ export default function LandingPageContentForm({
           },
         });
 
+      /**
+       * ======================================================
+       * RESULT
+       * ======================================================
+       */
       if (result.success) {
         setMessage(result.message);
+
+        /**
+         * Reset file input state setelah upload berhasil.
+         */
+        setTutorialImage(null);
+
         return;
       }
 
@@ -1017,6 +1194,169 @@ export default function LandingPageContentForm({
               ditampilkan.
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* TUTORIAL INSTALASI */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Smartphone className="h-5 w-5" />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold">
+                Tutorial Instalasi iPhone
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Atur panduan pemasangan PISJO ke Home Screen iPhone.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">
+                Tampilkan Tutorial Instalasi
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Jika dinonaktifkan, section tutorial tidak ditampilkan.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={tutorialEnabled}
+              onChange={(event) =>
+                setTutorialEnabled(event.target.checked)
+              }
+              className="h-5 w-5 rounded border-slate-300"
+            />
+          </label>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Field
+              label="Eyebrow"
+              value={tutorialEyebrow}
+              onChange={setTutorialEyebrow}
+              placeholder="PANDUAN INSTALASI"
+            />
+            <Field
+              label="Title"
+              value={tutorialTitle}
+              onChange={setTutorialTitle}
+              placeholder="Cara Pasang PISJO di iPhone"
+            />
+          </div>
+
+          <TextareaField
+            label="Description"
+            value={tutorialDescription}
+            onChange={setTutorialDescription}
+            rows={3}
+          />
+
+          <div className="space-y-3 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">Gambar Tutorial</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Upload screenshot atau mockup iPhone. File disimpan melalui
+                Storage Service Landing Page.
+              </p>
+            </div>
+
+            {tutorialSection.image ? (
+              <div className="overflow-hidden rounded-xl border bg-muted/30 p-2">
+<div className="relative h-64 w-full">
+  <Image
+    src={tutorialSection.image}
+    alt="Gambar tutorial saat ini"
+    fill
+    sizes="(max-width: 768px) 100vw, 768px"
+    className="rounded-lg object-contain"
+    unoptimized
+  />
+</div>
+              </div>
+            ) : null}
+
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+              onChange={(event) =>
+                setTutorialImage(event.target.files?.[0] ?? null)
+              }
+              className="block w-full rounded-xl border bg-background p-2 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground"
+            />
+
+            {tutorialImage ? (
+              <p className="text-xs font-medium text-primary">
+                File baru: {tutorialImage.name}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-5">
+            {[
+              {
+                number: 1,
+                title: tutorialStep1Title,
+                description: tutorialStep1Description,
+                setTitle: setTutorialStep1Title,
+                setDescription: setTutorialStep1Description,
+                titlePlaceholder: "Buka di Safari",
+              },
+              {
+                number: 2,
+                title: tutorialStep2Title,
+                description: tutorialStep2Description,
+                setTitle: setTutorialStep2Title,
+                setDescription: setTutorialStep2Description,
+                titlePlaceholder: "Tap Share",
+              },
+              {
+                number: 3,
+                title: tutorialStep3Title,
+                description: tutorialStep3Description,
+                setTitle: setTutorialStep3Title,
+                setDescription: setTutorialStep3Description,
+                titlePlaceholder: "Add to Home Screen",
+              },
+            ].map((step) => (
+              <div
+                key={step.number}
+                className="rounded-xl border p-5"
+              >
+                <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Step {step.number}
+                </p>
+                <div className="grid gap-5">
+                  <Field
+                    label="Title"
+                    value={step.title}
+                    onChange={step.setTitle}
+                    placeholder={step.titlePlaceholder}
+                  />
+                  <TextareaField
+                    label="Description"
+                    value={step.description}
+                    onChange={step.setDescription}
+                    rows={3}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Field
+            label="Info Text"
+            value={tutorialInfoText}
+            onChange={setTutorialInfoText}
+            placeholder="Tidak perlu App Store"
+          />
         </div>
       </section>
 
