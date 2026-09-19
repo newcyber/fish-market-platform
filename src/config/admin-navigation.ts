@@ -346,6 +346,16 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
   roles: SUPER_ADMIN_ONLY,
   order: 6,
 },
+
+{
+  id: "wapi-setting",
+  title: "WAPI Setting",
+  href: "/admin/settings/wapi",
+  icon: "whatsapp",
+  roles: SUPER_ADMIN_ONLY,
+  order: 7,
+},
+
 ],
 },
 

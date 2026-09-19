@@ -18,7 +18,7 @@ export interface WhatsAppStatusResponse {
     state: string;
     connected: boolean;
     hasQR: boolean;
-    sessionDirectory?: string;
+    phone?: string | null;
   };
   error?: string;
 }
@@ -40,4 +40,5 @@ export interface WhatsAppStatus {
   state: string;
   connected: boolean;
   hasQR: boolean;
+  phone?: string | null;
 }

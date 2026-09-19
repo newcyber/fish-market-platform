@@ -31,6 +31,7 @@ import {
   Calculator,
   Image,
   PanelsTopLeft,
+  MessageCircle,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -104,6 +105,8 @@ const ICON_MAP: Record<
   "reward-points": Calculator,
 
   "landing-page": PanelsTopLeft,
+
+  whatsapp: MessageCircle,
 };
 
 /**

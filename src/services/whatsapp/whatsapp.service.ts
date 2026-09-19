@@ -132,6 +132,42 @@ class WhatsAppService {
     return response.data;
   }
 
+  async getQRCode(): Promise<string | null> {
+    const response = await this.request<{
+      success: boolean;
+      data?: {
+        qr?: string | null;
+      };
+      error?: string;
+    }>("/api/v1/qr");
+
+    if (!response.success) {
+      throw new Error(
+        response.error ||
+          "Unable to retrieve WhatsApp QR code.",
+      );
+    }
+
+    return response.data?.qr ?? null;
+  }
+
+  async logout(): Promise<void> {
+    const response = await this.request<{
+      success: boolean;
+      error?: string;
+    }>("/api/v1/session/logout", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.error ||
+          "Unable to logout WhatsApp session.",
+      );
+    }
+  }
+
   async sendText(
     input: WhatsAppSendTextInput,
   ): Promise<WhatsAppSendTextResult> {
