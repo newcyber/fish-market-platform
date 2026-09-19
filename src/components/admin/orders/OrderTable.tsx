@@ -261,6 +261,8 @@ export default function OrderTable({
 
       <div className="hidden min-w-0 lg:block">
         <AdminDataTable
+          tableClassName="table-fixed"
+          wrapperClassName="overflow-x-hidden"
           headers={[
             "Order",
             "Customer",
@@ -281,11 +283,15 @@ export default function OrderTable({
               {/* ORDER                                      */}
               {/* ========================================== */}
 
-              <td className="whitespace-nowrap px-4 py-4 align-middle">
-                <div>
-                  <p className="font-semibold text-[var(--pisjo-navy)]">
+              <td className="w-[22%] min-w-0 overflow-hidden px-3 py-4 align-middle">
+                <div className="min-w-0">
+                  <Link
+                    href={`/admin/orders/${order.id}`}
+                    title={order.orderNumber}
+                    className="block min-w-0 max-w-full line-clamp-2 break-words text-[12px] font-semibold leading-5 text-[var(--pisjo-ocean)] underline decoration-[var(--pisjo-primary)]/40 underline-offset-2 transition hover:text-[var(--pisjo-primary)]"
+                  >
                     {order.orderNumber}
-                  </p>
+                  </Link>
 
                   <p className="mt-1 text-xs text-[var(--pisjo-text-secondary)]">
                     {order.items.length}{" "}
@@ -301,9 +307,9 @@ export default function OrderTable({
               {/* CUSTOMER                                   */}
               {/* ========================================== */}
 
-              <td className="min-w-[180px] px-4 py-4 align-middle">
-                <div>
-                  <p className="font-medium text-slate-800">
+              <td className="w-[13%] min-w-0 px-3 py-4 align-middle">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-800">
                     {order.user.name}
                   </p>
 
@@ -317,13 +323,13 @@ export default function OrderTable({
               {/* PRODUCT                                    */}
               {/* ========================================== */}
 
-              <td className="min-w-[220px] max-w-[280px] px-4 py-4 align-middle">
+              <td className="w-[17%] min-w-0 px-3 py-4 align-middle">
                 <div className="flex items-start gap-2">
                   <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-primary)]">
                     <Package className="h-4 w-4" />
                   </div>
 
-                  <p className="line-clamp-2 text-sm text-slate-700">
+                  <p className="min-w-0 line-clamp-2 break-words text-sm text-slate-700">
                     {getProductSummary(order)}
                   </p>
                 </div>
@@ -333,7 +339,7 @@ export default function OrderTable({
               {/* TOTAL                                      */}
               {/* ========================================== */}
 
-              <td className="whitespace-nowrap px-4 py-4 align-middle">
+              <td className="w-[9%] px-3 py-4 align-middle">
                 <p className="font-semibold text-[var(--pisjo-navy)]">
                   {formatCurrency(order.total)}
                 </p>
@@ -343,7 +349,7 @@ export default function OrderTable({
               {/* PAYMENT                                    */}
               {/* ========================================== */}
 
-              <td className="whitespace-nowrap px-4 py-4 align-middle">
+              <td className="w-[11%] px-3 py-4 align-middle">
                 <span
                   className={[
                     "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -362,7 +368,7 @@ export default function OrderTable({
               {/* ORDER STATUS                               */}
               {/* ========================================== */}
 
-              <td className="whitespace-nowrap px-4 py-4 align-middle">
+              <td className="w-[10%] px-3 py-4 align-middle">
                 <span
                   className={[
                     "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -381,8 +387,8 @@ export default function OrderTable({
               {/* DATE                                       */}
               {/* ========================================== */}
 
-              <td className="whitespace-nowrap px-4 py-4 align-middle">
-                <p className="text-sm text-slate-600">
+              <td className="w-[9%] px-3 py-4 align-middle">
+                <p className="break-words text-xs leading-5 text-slate-600">
                   {formatDate(
                     order.createdAt
                   )}
@@ -393,7 +399,7 @@ export default function OrderTable({
               {/* ACTION                                     */}
               {/* ========================================== */}
 
-              <td className="whitespace-nowrap px-4 py-4 text-right align-middle">
+              <td className="w-[9%] whitespace-nowrap px-3 py-4 text-right align-middle">
                 <Link
                   href={`/admin/orders/${order.id}`}
                 >
@@ -401,7 +407,7 @@ export default function OrderTable({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-1.5 rounded-lg border-slate-200 text-[var(--pisjo-ocean)] hover:border-[var(--pisjo-primary)] hover:bg-[var(--pisjo-soft-blue)]"
+                    className="h-9 gap-1 rounded-lg border-slate-200 px-2.5 text-xs text-[var(--pisjo-ocean)] hover:border-[var(--pisjo-primary)] hover:bg-[var(--pisjo-soft-blue)]"
                   >
                     Detail
 

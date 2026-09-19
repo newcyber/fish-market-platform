@@ -4,16 +4,34 @@ interface AdminDataTableProps {
   headers: ReactNode[];
 
   children: ReactNode;
+
+  tableClassName?: string;
+
+  wrapperClassName?: string;
 }
 
 export default function AdminDataTable({
   headers,
   children,
+  tableClassName,
+  wrapperClassName,
 }: AdminDataTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div
+        className={
+          wrapperClassName ??
+          "overflow-x-auto"
+        }
+      >
+        <table
+          className={[
+            "w-full",
+            tableClassName,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           <thead className="border-b bg-muted/50">
             <tr>
               {headers.map((header, index) => (
