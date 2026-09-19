@@ -404,23 +404,14 @@ export default class CustomerService {
   /**
    * Update customer.
    */
-  static async updateCustomer(
-    id: string,
-    input: UpdateCustomerInput
-  ) {
-    if (
-      input.role !== undefined &&
-      input.role !== "CUSTOMER"
-    ) {
-      throw new Error(
-        "Role customer hanya dapat berupa CUSTOMER."
-      );
-    }
-
-    const customer =
-      await CustomerRepository.findById(
-        id
-      );
+static async updateCustomer(
+  id: string,
+  input: UpdateCustomerInput
+) {
+  const customer =
+    await CustomerRepository.findById(
+      id
+    );
 
     if (!customer) {
       throw new Error(
@@ -481,10 +472,8 @@ export default class CustomerService {
       data.email = input.email;
     }
 
-    if (
-      input.phone !== undefined
-    ) {
-      data.phone = input.phone;
+    if (input.phone !== undefined) {
+      data.phone = input.phone || null;
     }
 
     if (

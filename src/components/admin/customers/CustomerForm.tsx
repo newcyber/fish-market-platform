@@ -23,25 +23,17 @@ import { Switch } from "@/components/ui/switch";
 
 export interface CustomerFormValues {
   name: string;
-
   email: string;
-
   phone: string;
-
   password: string;
-
   role: Role;
-
   isActive: boolean;
 }
 
 interface CustomerFormProps {
   defaultValues?: Partial<CustomerFormValues>;
-
   submitLabel?: string;
-
   cancelHref?: string;
-
   action: (
     formData: FormData
   ) => void | Promise<void>;
@@ -55,24 +47,12 @@ export default function CustomerForm({
 }: CustomerFormProps) {
   const [form, setForm] =
     useState<CustomerFormValues>({
-      name:
-        defaultValues?.name ?? "",
-
-      email:
-        defaultValues?.email ?? "",
-
-      phone:
-        defaultValues?.phone ?? "",
-
+      name: defaultValues?.name ?? "",
+      email: defaultValues?.email ?? "",
+      phone: defaultValues?.phone ?? "",
       password: "",
-
-      role:
-         defaultValues?.role ??
-         "CUSTOMER",
-
-      isActive:
-        defaultValues?.isActive ??
-        true,
+      role: defaultValues?.role ?? "CUSTOMER",
+      isActive: defaultValues?.isActive ?? true,
     });
 
   return (
@@ -80,12 +60,12 @@ export default function CustomerForm({
       action={action}
       className="space-y-6"
     >
-
-              <FormSection
+      <FormSection
         title="Informasi Customer"
         description="Lengkapi informasi customer."
       >
         <FormGrid columns={2}>
+          {/* Nama */}
           <div className="space-y-2">
             <Label htmlFor="name">
               Nama
@@ -104,6 +84,7 @@ export default function CustomerForm({
             />
           </div>
 
+          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email">
               Email
@@ -123,6 +104,7 @@ export default function CustomerForm({
             />
           </div>
 
+          {/* Nomor Telepon */}
           <div className="space-y-2">
             <Label htmlFor="phone">
               Nomor Telepon
@@ -141,6 +123,7 @@ export default function CustomerForm({
             />
           </div>
 
+          {/* Password */}
           <div className="space-y-2">
             <Label htmlFor="password">
               Password
@@ -154,18 +137,20 @@ export default function CustomerForm({
               onChange={(e) =>
                 setForm((prev) => ({
                   ...prev,
-                  password:
-                    e.target.value,
+                  password: e.target.value,
                 }))
               }
+              placeholder="Kosongkan jika tidak ingin mengubah password"
             />
           </div>
 
+          {/* Role */}
           <div className="space-y-2">
-            <Label>
+            <Label htmlFor="role">
               Role
             </Label>
 
+            {/* Nilai role yang benar-benar dikirim ke Server Action */}
             <input
               type="hidden"
               name="role"
@@ -181,23 +166,27 @@ export default function CustomerForm({
                 }))
               }
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger
+                id="role"
+                className="w-full"
+              >
                 <SelectValue />
               </SelectTrigger>
 
               <SelectContent>
-  <SelectItem value="CUSTOMER">
-    Customer
-  </SelectItem>
+                <SelectItem value="CUSTOMER">
+                  Customer
+                </SelectItem>
 
-  <SelectItem value="ADMIN">
-    Admin
-  </SelectItem>
-</SelectContent>
+                <SelectItem value="ADMIN">
+                  Admin
+                </SelectItem>
+              </SelectContent>
             </Select>
           </div>
         </FormGrid>
 
+        {/* Status */}
         <div className="mt-6 flex items-center justify-between rounded-lg border p-4">
           <div>
             <Label>
@@ -205,12 +194,12 @@ export default function CustomerForm({
             </Label>
 
             <p className="text-sm text-muted-foreground">
-              Aktifkan customer
-              agar dapat login ke
-              sistem.
+              Aktifkan customer agar dapat
+              login ke sistem.
             </p>
           </div>
 
+          {/* FormData mengirim string "true" / "false" */}
           <input
             type="hidden"
             name="isActive"
@@ -223,9 +212,7 @@ export default function CustomerForm({
 
           <Switch
             checked={form.isActive}
-            onCheckedChange={(
-              checked
-            ) =>
+            onCheckedChange={(checked) =>
               setForm((prev) => ({
                 ...prev,
                 isActive: checked,
@@ -235,7 +222,8 @@ export default function CustomerForm({
         </div>
       </FormSection>
 
-            <FormActions
+      {/* Actions */}
+      <FormActions
         cancelHref={cancelHref}
       >
         <SubmitButton

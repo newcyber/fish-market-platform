@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import notificationRepository from "@/repositories/notification/notification.repository";
 
 import pushDeliveryService from "@/services/notification/push/push-delivery.service";
+import { whatsappService } from "@/services/whatsapp/whatsapp.service";
 
 /**
  * ============================================================
@@ -174,6 +175,7 @@ class NotificationService {
 
         select: {
           id: true,
+          phone: true,
         },
       });
 
@@ -290,6 +292,59 @@ class NotificationService {
 
     /**
      * ========================================================
+     * WHATSAPP DELIVERY
+     * ========================================================
+     *
+     * WhatsApp bersifat best-effort.
+     *
+     * Jika nomor tidak tersedia:
+     * - dilewati
+     *
+     * Jika gateway gagal:
+     * - tidak menggagalkan order
+     * - tidak menggagalkan notification database
+     * - error hanya dicatat ke log
+     */
+
+    const whatsappResult = {
+      recipients: 0,
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+    };
+
+    for (const recipient of recipients) {
+      const phone = recipient.phone?.trim();
+
+      if (!phone) {
+        whatsappResult.skipped += 1;
+        continue;
+      }
+
+      whatsappResult.recipients += 1;
+
+      try {
+        await whatsappService.sendText({
+          phone,
+          message,
+        });
+
+        whatsappResult.sent += 1;
+      } catch (error) {
+        whatsappResult.failed += 1;
+
+        console.error(
+          "[WHATSAPP_ORDER_NOTIFICATION_ERROR]",
+          {
+            userId: recipient.id,
+            error,
+          }
+        );
+      }
+    }
+
+    /**
+     * ========================================================
      * RESULT
      * ========================================================
      */
@@ -300,6 +355,9 @@ class NotificationService {
 
       push:
         pushResult,
+
+      whatsapp:
+        whatsappResult,
     };
   }
 
