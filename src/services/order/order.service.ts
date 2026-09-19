@@ -4512,10 +4512,11 @@ await tx.stockLedger.create({
                  * transaction agar tidak memperpanjang database lock.
                  * ====================================================
                  */
-                return {
-                    proof,
-                    oldImagePath,
-                };
+return {
+  proof,
+  oldImagePath,
+  orderNumber: order.orderNumber,
+};
             });
             /**
              * ========================================================
@@ -4541,6 +4542,19 @@ await tx.stockLedger.create({
                     console.error("[PAYMENT_PROOF_OLD_IMAGE_DELETE_ERROR]", storageError);
                 }
             }
+
+            try {
+  await notificationService.createPaymentProofNotification({
+    orderId: input.orderId,
+    orderNumber: paymentProof.orderNumber,
+  });
+} catch (notificationError) {
+  console.error(
+    "[PAYMENT_PROOF_NOTIFICATION_ERROR]",
+    notificationError
+  );
+}
+
             /**
              * ========================================================
              * SUCCESS

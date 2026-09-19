@@ -49,6 +49,12 @@ export interface NotificationListOptions {
   unreadOnly?: boolean;
 }
 
+export interface CreatePaymentProofNotificationInput {
+  orderId: string;
+
+  orderNumber: string;
+}
+
 class NotificationService {
   /**
    * ==========================================================
@@ -199,28 +205,28 @@ class NotificationService {
      * ID notification untuk payload Web Push.
      */
 
-const notifications =
-  await notificationRepository.createManyAndReturn(
-    recipients.map(
-      (recipient) => ({
-        userId:
-          recipient.id,
+    const notifications =
+      await notificationRepository.createManyAndReturn(
+        recipients.map(
+          (recipient) => ({
+            userId:
+              recipient.id,
 
-        title:
-          "Pesanan Baru",
+            title:
+              "Pesanan Baru",
 
-        message,
+            message,
 
-        type:
-          NotificationType.NEW_ORDER,
+            type:
+              NotificationType.NEW_ORDER,
 
-        href:
-          `/admin/orders/${orderId}`,
+            href:
+              `/admin/orders/${orderId}`,
 
-        orderId,
-      })
-    )
-  );
+            orderId,
+          })
+        )
+      );
 
     /**
      * ========================================================
@@ -239,48 +245,237 @@ const notifications =
      */
 
     let pushResult = {
-  totalNotifications: 0,
-  totalSubscriptions: 0,
-  sent: 0,
-  failed: 0,
-  removed: 0,
-};
+      totalNotifications: 0,
+      totalSubscriptions: 0,
+      sent: 0,
+      failed: 0,
+      removed: 0,
+    };
 
-try {
-  pushResult =
-    await pushDeliveryService.deliver({
-      notifications:
-        notifications.map(
-          (notification) => ({
+    try {
+      pushResult =
+        await pushDeliveryService.deliver({
+          notifications:
+            notifications.map(
+              (notification) => ({
+                userId:
+                  notification.userId,
+
+                notificationId:
+                  notification.id,
+
+                title:
+                  notification.title,
+
+                message:
+                  notification.message,
+
+                href:
+                  notification.href,
+
+                type:
+                  notification.type,
+
+                createdAt:
+                  notification.createdAt,
+              })
+            ),
+        });
+    } catch (error) {
+      console.error(
+        "[WEB_PUSH_DELIVERY_FATAL_ERROR]",
+        error
+      );
+    }
+
+    /**
+     * ========================================================
+     * RESULT
+     * ========================================================
+     */
+
+    return {
+      count:
+        notifications.length,
+
+      push:
+        pushResult,
+    };
+  }
+
+  /**
+   * ==========================================================
+   * CREATE PAYMENT PROOF NOTIFICATION
+   * ==========================================================
+   *
+   * Bukti pembayaran baru harus diberitahukan kepada seluruh
+   * ADMIN dan SUPER_ADMIN aktif.
+   *
+   * Customer yang upload bukti BUKAN recipient notification
+   * admin ini.
+   *
+   * Push bersifat best-effort.
+   */
+
+  async createPaymentProofNotification(
+    input: CreatePaymentProofNotificationInput
+  ) {
+    /**
+     * --------------------------------------------------------
+     * VALIDATE ORDER ID
+     * --------------------------------------------------------
+     */
+
+    const orderId =
+      input.orderId?.trim();
+
+    if (!orderId) {
+      throw new Error(
+        "Order ID tidak valid."
+      );
+    }
+
+    /**
+     * --------------------------------------------------------
+     * NORMALIZE MESSAGE DATA
+     * --------------------------------------------------------
+     */
+
+    const orderNumber =
+      input.orderNumber?.trim() ||
+      "Pesanan";
+
+    const message =
+      `Bukti pembayaran baru untuk pesanan ${orderNumber}.`;
+
+    /**
+     * ========================================================
+     * GET ACTIVE ADMIN RECIPIENTS
+     * ========================================================
+     */
+
+    const recipients =
+      await prisma.user.findMany({
+        where: {
+          role: {
+            in: [
+              "ADMIN",
+              "SUPER_ADMIN",
+            ],
+          },
+
+          isActive:
+            true,
+
+          deletedAt:
+            null,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    /**
+     * --------------------------------------------------------
+     * NO ACTIVE RECIPIENT
+     * --------------------------------------------------------
+     */
+
+    if (recipients.length === 0) {
+      return {
+        count: 0,
+
+        push: {
+          totalSubscriptions: 0,
+          sent: 0,
+          failed: 0,
+          removed: 0,
+        },
+      };
+    }
+
+    /**
+     * ========================================================
+     * CREATE NOTIFICATIONS
+     * ========================================================
+     */
+
+    const notifications =
+      await notificationRepository.createManyAndReturn(
+        recipients.map(
+          (recipient) => ({
             userId:
-              notification.userId,
-
-            notificationId:
-              notification.id,
+              recipient.id,
 
             title:
-              notification.title,
+              "Bukti Pembayaran Baru",
 
-            message:
-              notification.message,
-
-            href:
-              notification.href,
+            message,
 
             type:
-              notification.type,
+              NotificationType.PAYMENT_PROOF,
 
-            createdAt:
-              notification.createdAt,
+            href:
+              `/admin/payments`,
+
+            orderId,
           })
-        ),
-    });
-} catch (error) {
-  console.error(
-    "[WEB_PUSH_DELIVERY_FATAL_ERROR]",
-    error
-  );
-}
+        )
+      );
+
+    /**
+     * ========================================================
+     * WEB PUSH DELIVERY
+     * ========================================================
+     *
+     * Push bersifat best-effort dan tidak boleh menggagalkan
+     * proses upload bukti pembayaran.
+     */
+
+    let pushResult = {
+      totalNotifications: 0,
+      totalSubscriptions: 0,
+      sent: 0,
+      failed: 0,
+      removed: 0,
+    };
+
+    try {
+      pushResult =
+        await pushDeliveryService.deliver({
+          notifications:
+            notifications.map(
+              (notification) => ({
+                userId:
+                  notification.userId,
+
+                notificationId:
+                  notification.id,
+
+                title:
+                  notification.title,
+
+                message:
+                  notification.message,
+
+                href:
+                  notification.href,
+
+                type:
+                  notification.type,
+
+                createdAt:
+                  notification.createdAt,
+              })
+            ),
+        });
+    } catch (error) {
+      console.error(
+        "[WEB_PUSH_PAYMENT_PROOF_FATAL_ERROR]",
+        error
+      );
+    }
 
     /**
      * ========================================================
@@ -355,6 +550,31 @@ try {
 
   /**
    * ==========================================================
+   * GET UNREAD COUNT BY TYPE
+   * ==========================================================
+   */
+
+  async getUnreadCountByType(
+    userId: string,
+    type: NotificationType
+  ) {
+    const normalizedUserId =
+      userId?.trim();
+
+    if (!normalizedUserId) {
+      throw new Error(
+        "User ID tidak valid."
+      );
+    }
+
+    return notificationRepository.countUnreadByType(
+      normalizedUserId,
+      type
+    );
+  }
+
+  /**
+   * ==========================================================
    * MARK AS READ
    * ==========================================================
    */
@@ -383,7 +603,6 @@ try {
 
     return notificationRepository.markAsRead(
       normalizedUserId,
-
       normalizedNotificationId
     );
   }
@@ -441,7 +660,6 @@ try {
 
     return notificationRepository.delete(
       normalizedUserId,
-
       normalizedNotificationId
     );
   }

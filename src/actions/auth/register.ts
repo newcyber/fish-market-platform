@@ -59,6 +59,7 @@ export async function registerCustomerAction(
     const {
       name,
       email,
+      phone,
       password,
     } = parsed.data;
 
@@ -76,6 +77,7 @@ export async function registerCustomerAction(
       await CustomerService.createCustomer({
         name,
         email,
+        phone,
         password,
 
         role: Role.CUSTOMER,

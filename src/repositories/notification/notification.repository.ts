@@ -283,6 +283,28 @@ return prisma.notification.createMany({
 
   /**
    * ==========================================================
+   * COUNT UNREAD BY TYPE
+   * ==========================================================
+   *
+   * Digunakan oleh UI yang membutuhkan counter spesifik
+   * berdasarkan jenis notification, misalnya badge Orders.
+   */
+
+  async countUnreadByType(
+    userId: string,
+    type: NotificationType
+  ) {
+    return prisma.notification.count({
+      where: {
+        userId,
+        isRead: false,
+        type,
+      },
+    });
+  }
+
+  /**
+   * ==========================================================
    * MARK AS READ
    * ==========================================================
    *

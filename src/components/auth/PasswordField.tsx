@@ -55,15 +55,18 @@ export const PasswordField = forwardRef<
   return (
     <div className="space-y-2">
       <Label
-        htmlFor={inputId}
-        className="
-          text-sm
-          font-medium
-          text-[var(--pisjo-navy)]
-        "
-      >
-        {label}
-      </Label>
+  htmlFor={inputId}
+  className="
+    text-sm
+    font-medium
+    text-[var(--pisjo-navy)]
+  "
+>
+  {label}
+  {inputProps.required ? (
+    <span className="ml-1 text-red-500">*</span>
+  ) : null}
+</Label>
 
       <div className="relative">
         <Input

@@ -53,7 +53,8 @@ export interface GetNotificationsResult {
 
 export async function getNotificationsAction(): Promise<GetNotificationsResult> {
   try {
-    const session = await auth();
+    const session =
+      await auth();
 
     const userId =
       session?.user?.id?.trim();
@@ -132,6 +133,106 @@ export async function getNotificationsAction(): Promise<GetNotificationsResult> 
 
 /**
  * ============================================================
+ * GET UNREAD ORDER NOTIFICATION COUNT
+ * ============================================================
+ *
+ * Counter sidebar hanya menghitung notification NEW_ORDER yang
+ * belum dibaca oleh admin yang sedang login.
+ */
+
+export async function getOrderNotificationCountAction() {
+  try {
+    const session =
+      await auth();
+
+    const userId =
+      session?.user?.id?.trim();
+
+    if (!userId) {
+      return {
+        success: false,
+
+        count: 0,
+      };
+    }
+
+    const count =
+      await notificationService.getUnreadCountByType(
+        userId,
+        "NEW_ORDER"
+      );
+
+    return {
+      success: true,
+
+      count,
+    };
+  } catch (error) {
+    console.error(
+      "[GET_ORDER_NOTIFICATION_COUNT_ACTION]",
+      error
+    );
+
+    return {
+      success: false,
+
+      count: 0,
+    };
+  }
+}
+
+/**
+ * ============================================================
+ * GET UNREAD PAYMENT PROOF NOTIFICATION COUNT
+ * ============================================================
+ *
+ * Counter sidebar Payments hanya menghitung notification
+ * PAYMENT_PROOF yang belum dibaca oleh admin yang sedang login.
+ */
+
+export async function getPaymentNotificationCountAction() {
+  try {
+    const session =
+      await auth();
+
+    const userId =
+      session?.user?.id?.trim();
+
+    if (!userId) {
+      return {
+        success: false,
+
+        count: 0,
+      };
+    }
+
+    const count =
+      await notificationService.getUnreadCountByType(
+        userId,
+        "PAYMENT_PROOF"
+      );
+
+    return {
+      success: true,
+
+      count,
+    };
+  } catch (error) {
+    console.error(
+      "[GET_PAYMENT_NOTIFICATION_COUNT_ACTION]",
+      error
+    );
+
+    return {
+      success: false,
+
+      count: 0,
+    };
+  }
+}
+
+/**
+ * ============================================================
  * MARK NOTIFICATION AS READ
  * ============================================================
  */
@@ -140,7 +241,8 @@ export async function markNotificationAsReadAction(
   notificationId: string
 ) {
   try {
-    const session = await auth();
+    const session =
+      await auth();
 
     const userId =
       session?.user?.id?.trim();
@@ -193,7 +295,8 @@ export async function markNotificationAsReadAction(
 
 export async function markAllNotificationsAsReadAction() {
   try {
-    const session = await auth();
+    const session =
+      await auth();
 
     const userId =
       session?.user?.id?.trim();

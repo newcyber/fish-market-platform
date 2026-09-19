@@ -65,12 +65,13 @@ export default function RegisterForm() {
           RegisterSchema
         ),
 
-      defaultValues: {
-        name: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-      },
+defaultValues: {
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
+},
 
       mode: "onSubmit",
     });
@@ -225,15 +226,16 @@ export default function RegisterForm() {
 
         <div className="space-y-2">
           <label
-            htmlFor="name"
-            className="
-              text-sm
-              font-medium
-              text-[var(--pisjo-navy)]
-            "
-          >
-            Nama Lengkap
-          </label>
+  htmlFor="name"
+  className="
+    text-sm
+    font-medium
+    text-[var(--pisjo-navy)]
+  "
+>
+  Nama Lengkap
+  <span className="ml-1 text-red-500">*</span>
+</label>
 
           <input
             id="name"
@@ -319,15 +321,16 @@ export default function RegisterForm() {
 
         <div className="space-y-2">
           <label
-            htmlFor="email"
-            className="
-              text-sm
-              font-medium
-              text-[var(--pisjo-navy)]
-            "
-          >
-            Email
-          </label>
+  htmlFor="email"
+  className="
+    text-sm
+    font-medium
+    text-[var(--pisjo-navy)]
+  "
+>
+  Email
+  <span className="ml-1 text-red-500">*</span>
+</label>
 
           <input
             id="email"
@@ -407,6 +410,104 @@ export default function RegisterForm() {
             </p>
           )}
         </div>
+
+        {/* ====================================================
+    PHONE
+==================================================== */}
+
+<div className="space-y-2">
+  <label
+    htmlFor="phone"
+    className="
+      text-sm
+      font-medium
+      text-[var(--pisjo-navy)]
+    "
+  >
+    Nomor HP
+    <span className="ml-1 text-red-500">*</span>
+  </label>
+
+  <input
+    id="phone"
+    type="tel"
+    autoComplete="tel"
+    inputMode="tel"
+    placeholder="08xxxxxxxxxx"
+    disabled={isSubmitting}
+    aria-invalid={!!errors.phone}
+    aria-describedby={
+      errors.phone
+        ? "register-phone-error"
+        : undefined
+    }
+    {...form.register("phone")}
+    className="
+      h-12
+      w-full
+      rounded-xl
+      border
+      border-slate-200
+      bg-white
+      px-4
+      text-base
+      text-slate-900
+      shadow-sm
+      outline-none
+      transition-all
+      duration-200
+
+      placeholder:text-slate-400
+
+      hover:border-slate-300
+
+      focus:border-[var(--pisjo-primary)]
+      focus:bg-white
+      focus:ring-4
+      focus:ring-[var(--pisjo-primary)]/10
+      focus:shadow-[0_0_0_1px_rgba(7,136,232,0.12)]
+
+      disabled:cursor-not-allowed
+      disabled:bg-slate-50
+      disabled:opacity-60
+
+      sm:text-sm
+    "
+  />
+
+  <p className="text-xs text-slate-500">
+    Gunakan nomor HP aktif yang dapat menerima SMS atau WhatsApp.
+  </p>
+
+  {errors.phone && (
+    <p
+      id="register-phone-error"
+      role="alert"
+      className="
+        flex
+        items-start
+        gap-1.5
+        text-sm
+        leading-5
+        text-destructive
+      "
+    >
+      <AlertCircle
+        className="
+          mt-0.5
+          h-4
+          w-4
+          shrink-0
+        "
+        aria-hidden="true"
+      />
+
+      <span>
+        {errors.phone.message}
+      </span>
+    </p>
+  )}
+</div>
 
         {/* ====================================================
             PASSWORD
