@@ -5,6 +5,7 @@ import { AuthError } from "next-auth";
 
 import { signIn } from "@/auth";
 import { UserRepository } from "@/repositories/user.repository";
+import AddressService from "@/services/address/address.service";
 import {
   LoginSchema,
   type LoginInput,
@@ -23,17 +24,17 @@ export interface LoginResult {
 
   /**
    * Role user setelah login berhasil.
-   *
-   * Digunakan oleh LoginForm untuk menentukan
-   * default redirect berdasarkan role.
    */
   role?: Role;
 
   /**
+   * Menandakan customer memiliki minimal
+   * satu alamat aktif.
+   */
+  hasAddress?: boolean;
+
+  /**
    * Error code untuk ditangani oleh frontend.
-   *
-   * Contoh:
-   * - EMAIL_NOT_VERIFIED
    */
   code?: string;
 
@@ -148,6 +149,25 @@ export async function login(
       };
     }
 
+    /**
+     * ========================================================
+     * CHECK CUSTOMER ADDRESS
+     * ========================================================
+     *
+     * Hanya CUSTOMER yang membutuhkan pengecekan alamat.
+     *
+     * Admin dan Super Admin tidak perlu memiliki alamat
+     * customer untuk masuk ke dashboard admin.
+     */
+    let hasAddress: boolean | undefined;
+
+    if (authenticatedUser.role === Role.CUSTOMER) {
+      hasAddress =
+        await AddressService.hasActiveAddress(
+          authenticatedUser.id
+        );
+    }
+
     return {
       success: true,
 
@@ -156,7 +176,10 @@ export async function login(
 
       role:
         authenticatedUser.role,
+
+      hasAddress,
     };
+
   } catch (error) {
     /**
      * ========================================================

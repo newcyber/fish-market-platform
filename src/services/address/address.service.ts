@@ -3,6 +3,25 @@ import AddressRepository from "@/repositories/address/address.repository";
 export class AddressService {
   /**
    * ============================================================
+   * CHECK CUSTOMER ADDRESS
+   * ============================================================
+   *
+   * Mengecek apakah user memiliki minimal satu alamat aktif.
+   *
+   * Address dengan deletedAt != null tidak dihitung.
+   */
+  static async hasActiveAddress(
+    userId: string
+  ): Promise<boolean> {
+    const count =
+      await AddressRepository.countActiveByUserId(
+        userId
+      );
+
+    return count > 0;
+  }
+  /**
+   * ============================================================
    * GET ALL ADDRESSES
    * ============================================================
    */

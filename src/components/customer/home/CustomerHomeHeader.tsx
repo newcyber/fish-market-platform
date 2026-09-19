@@ -179,7 +179,7 @@ export default function CustomerHomeHeader({
 
         {/* Delivery address */}
         <Link
-          href="/customer/account"
+          href="/customer/addresses"
           className="
             mb-3
             flex

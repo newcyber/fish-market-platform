@@ -303,17 +303,43 @@ export function LoginForm() {
            * -> /
            */
 
-          const defaultRedirect =
-            result.role === "CUSTOMER"
-              ? "/customer"
-              : result.role === "ADMIN" ||
-                  result.role === "SUPER_ADMIN"
-                ? "/admin"
-                : "/";
+/**
+ * ==================================================
+ * DEFAULT REDIRECT BERDASARKAN ROLE + ADDRESS
+ * ==================================================
+ *
+ * CUSTOMER tanpa alamat wajib melengkapi alamat
+ * terlebih dahulu.
+ *
+ * CUSTOMER dengan alamat:
+ * -> /customer
+ *
+ * ADMIN:
+ * -> /admin
+ *
+ * SUPER_ADMIN:
+ * -> /admin
+ */
+const defaultRedirect =
+  result.role === "CUSTOMER"
+    ? result.hasAddress
+      ? "/customer"
+      : "/customer/addresses/create"
+    : result.role === "ADMIN" ||
+        result.role === "SUPER_ADMIN"
+      ? "/admin"
+      : "/";
 
-          const destination =
-            callbackUrl ??
-            defaultRedirect;
+/**
+ * Customer tanpa alamat tidak boleh melewati
+ * proses onboarding melalui callbackUrl.
+ */
+const destination =
+  result.role === "CUSTOMER" &&
+  result.hasAddress === false
+    ? "/customer/addresses/create"
+    : callbackUrl ??
+      defaultRedirect;
 
           /**
            * ==================================================
