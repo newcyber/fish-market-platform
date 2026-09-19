@@ -623,7 +623,7 @@ const loginSlide4Image =
             ================================================== */}
 
             <Link
-              href="https://wa.me/6287776414666"
+              href="/help"
               className="
                 hidden
                 min-h-11
