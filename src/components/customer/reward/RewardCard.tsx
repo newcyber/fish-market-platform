@@ -328,7 +328,7 @@ export default function RewardCard({
           }
         >
           <p className="text-[8px] font-medium text-slate-500 sm:text-[10px]">
-            Saldo Anda
+            Poin Anda
           </p>
 
           <p

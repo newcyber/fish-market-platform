@@ -252,7 +252,7 @@ export default async function CustomerRewardsPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-300 sm:text-xs sm:tracking-[0.14em]">
-                      Saldo Anda
+                      Poin Anda
                     </p>
 
                     <div className="mt-1 flex items-end gap-1.5 sm:mt-2 sm:gap-2">

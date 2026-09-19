@@ -312,7 +312,7 @@ export async function redeemRewardVoucher(
         setting.requiredPoints
       ) {
         throw new Error(
-          `Point tidak mencukupi. Dibutuhkan ${setting.requiredPoints} point, saldo Anda ${user.rewardPointsBalance} point.`
+          `Point tidak mencukupi. Dibutuhkan ${setting.requiredPoints} point, saat ini Anda memiliki ${user.rewardPointsBalance} point.`
         );
       }
 

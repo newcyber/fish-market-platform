@@ -83,6 +83,9 @@ import {
  * - Callback URL tetap divalidasi sebelum redirect.
  * - EMAIL_NOT_VERIFIED tetap diarahkan ke /verify-email.
  * - Field errors dari server tetap dipasang ke react-hook-form.
+ * - Customer tanpa callbackUrl diarahkan ke /customer.
+ * - Admin / Super Admin tanpa callbackUrl diarahkan ke /admin.
+ * - Callback URL tetap diprioritaskan jika tersedia.
  * - Perubahan pada file ini fokus pada UX mobile + Pisjo theme.
  */
 
@@ -108,7 +111,7 @@ export function LoginForm() {
     rawCallbackUrl.startsWith("/") &&
     !rawCallbackUrl.startsWith("//")
       ? rawCallbackUrl
-      : "/";
+      : null;
 
   /**
    * ==========================================================
@@ -279,12 +282,47 @@ export function LoginForm() {
 
           /**
            * ==================================================
+           * DEFAULT REDIRECT BERDASARKAN ROLE
+           * ==================================================
+           *
+           * Jika callbackUrl tersedia dan valid,
+           * callbackUrl tetap diprioritaskan.
+           *
+           * Jika tidak ada callbackUrl:
+           *
+           * CUSTOMER
+           * -> /customer
+           *
+           * ADMIN
+           * -> /admin
+           *
+           * SUPER_ADMIN
+           * -> /admin
+           *
+           * Role lain / tidak dikenal
+           * -> /
+           */
+
+          const defaultRedirect =
+            result.role === "CUSTOMER"
+              ? "/customer"
+              : result.role === "ADMIN" ||
+                  result.role === "SUPER_ADMIN"
+                ? "/admin"
+                : "/";
+
+          const destination =
+            callbackUrl ??
+            defaultRedirect;
+
+          /**
+           * ==================================================
            * REDIRECT
            * ==================================================
            */
 
           router.replace(
-            callbackUrl
+            destination
           );
 
           router.refresh();

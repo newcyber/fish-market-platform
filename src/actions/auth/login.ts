@@ -1,9 +1,10 @@
 "use server";
 
+import { Role } from "@prisma/client";
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/auth";
-
+import { UserRepository } from "@/repositories/user.repository";
 import {
   LoginSchema,
   type LoginInput,
@@ -19,6 +20,14 @@ export interface LoginResult {
   success: boolean;
 
   message?: string;
+
+  /**
+   * Role user setelah login berhasil.
+   *
+   * Digunakan oleh LoginForm untuk menentukan
+   * default redirect berdasarkan role.
+   */
+  role?: Role;
 
   /**
    * Error code untuk ditangani oleh frontend.
@@ -48,38 +57,29 @@ export async function login(
    * ==========================================================
    */
 
-  const parsed =
-    LoginSchema.safeParse({
-      email:
-        values.email
-          .trim()
-          .toLowerCase(),
+  const parsed = LoginSchema.safeParse({
+    email: values.email
+      .trim()
+      .toLowerCase(),
 
-      password:
-        values.password,
-    });
+    password: values.password,
+  });
 
   if (!parsed.success) {
     const fieldErrors: Partial<
       Record<keyof LoginInput, string>
     > = {};
 
-    for (
-      const issue of
-      parsed.error.issues
-    ) {
-      const field =
-        issue.path[0];
+    for (const issue of parsed.error.issues) {
+      const field = issue.path[0];
 
       if (
-        typeof field ===
-          "string" &&
+        typeof field === "string" &&
         !(field in fieldErrors)
       ) {
         fieldErrors[
           field as keyof LoginInput
-        ] =
-          issue.message;
+        ] = issue.message;
       }
     }
 
@@ -113,11 +113,49 @@ export async function login(
       }
     );
 
+    /**
+     * ========================================================
+     * GET AUTHENTICATED USER ROLE
+     * ========================================================
+     *
+     * signIn() di atas sudah melakukan:
+     *
+     * - validasi credentials
+     * - pengecekan user aktif
+     * - pengecekan email verification
+     * - validasi password
+     *
+     * Kita mengambil user kembali hanya untuk mendapatkan
+     * role yang akan dikirim ke LoginForm sebagai dasar
+     * penentuan redirect.
+     */
+
+    const authenticatedUser =
+      await UserRepository.findForAuth(
+        parsed.data.email
+      );
+
+    if (!authenticatedUser) {
+      console.error(
+        "[LOGIN_ACTION] Authenticated user tidak ditemukan setelah signIn."
+      );
+
+      return {
+        success: false,
+
+        message:
+          "User tidak ditemukan setelah autentikasi.",
+      };
+    }
+
     return {
       success: true,
 
       message:
         "Login berhasil.",
+
+      role:
+        authenticatedUser.role,
     };
   } catch (error) {
     /**
@@ -157,9 +195,7 @@ export async function login(
        * ======================================================
        */
 
-      switch (
-        error.type
-      ) {
+      switch (error.type) {
         case "CredentialsSignin":
           return {
             success: false,

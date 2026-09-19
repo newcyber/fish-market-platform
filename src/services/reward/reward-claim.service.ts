@@ -243,7 +243,7 @@ if (!address) {
       reward.requiredPoints
     ) {
       throw new Error(
-        `Point tidak mencukupi. Dibutuhkan ${reward.requiredPoints} point, saldo Anda ${user.rewardPointsBalance} point.`
+        `Point tidak mencukupi. Dibutuhkan ${reward.requiredPoints} point, saat ini Anda memiliki ${user.rewardPointsBalance} point.`
       );
     }
 
