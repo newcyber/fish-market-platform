@@ -15,6 +15,7 @@ import {
 import ProductService from "@/services/product/product.service";
 import CategoryService from "@/services/category/category.service";
 import CustomerProductQuickAdd from "@/components/customer/products/CustomerProductQuickAdd";
+import { CategoryRepository } from "@/repositories/CategoryRepository";
 
 import {
   prisma,
@@ -125,6 +126,23 @@ const homeCategorySlug =
       )
     : undefined;
 
+    /**
+ * Database category ID resolver.
+ *
+ * URL menggunakan category slug, sedangkan
+ * Product.categoryId menggunakan ID database.
+ */
+let databaseCategoryId: string | undefined;
+
+if (!isHomeCategory && categorySlug) {
+  const category =
+    (await CategoryRepository.findBySlug(categorySlug)) ??
+    (await CategoryRepository.findById(categorySlug));
+
+  databaseCategoryId =
+    category?.id ?? "__category_not_found__";
+}
+
 const categoryIds =
   homeCategorySlug &&
   homeCategorySlug !==
@@ -147,37 +165,27 @@ const categoryIds =
     categories,
     storeSettings,
   ] = await Promise.all([
-    ProductService.getProducts({
+ProductService.getProducts({
   search,
 
   /**
-   * Category database lama.
+   * Database category filter.
    *
-   * Hanya digunakan jika parameter bukan
-   * logical homepage category.
+   * categorySlug sudah dikonversi menjadi category ID
+   * melalui CategoryRepository.
    */
-  categoryId:
-    !isHomeCategory
-      ? categorySlug
-      : undefined,
+  categoryId: databaseCategoryId,
 
   /**
    * Logical homepage category.
-   *
-   * Contoh:
-   *
-   * ikan-segar
-   * -> [ikan-laut-id, ikan-air-tawar-id]
    */
   categoryIds,
 
   /**
    * PROMO
    */
-
   discounted:
-    homeCategorySlug ===
-    "promo",
+    homeCategorySlug === "promo",
 
   published: true,
 }),
@@ -188,6 +196,33 @@ const categoryIds =
 
     prisma.storeSettings.findFirst(),
   ]);
+
+  /**
+ * ==========================================================
+ * DATABASE CATEGORY RESOLVER
+ * ==========================================================
+ *
+ * URL menggunakan category slug, sedangkan Product.categoryId
+ * menggunakan ID kategori database.
+ *
+ * Contoh:
+ * aneka-ikan-laut -> UUID kategori database
+ */
+if (!isHomeCategory && categorySlug) {
+  const category =
+    (await CategoryRepository.findBySlug(categorySlug)) ??
+    (await CategoryRepository.findById(categorySlug));
+
+  /**
+   * Jika categorySlug valid sebagai slug atau UUID,
+   * gunakan ID database hasil resolver.
+   *
+   * Jika kategori tidak ditemukan, gunakan nilai sentinel
+   * agar tidak mengembalikan seluruh produk secara tidak sengaja.
+   */
+  databaseCategoryId =
+    category?.id ?? "__category_not_found__";
+}
 
   /**
    * ==========================================================

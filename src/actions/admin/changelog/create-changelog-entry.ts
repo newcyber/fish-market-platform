@@ -7,8 +7,7 @@ import changelogService, {
   type CreateChangelogEntryInput,
 } from "@/services/changelog/changelog.service";
 
-export interface CreateChangelogEntryActionInput
-  extends CreateChangelogEntryInput {}
+export type CreateChangelogEntryActionInput = CreateChangelogEntryInput;
 
 export interface CreateChangelogEntryActionResult {
   success: boolean;

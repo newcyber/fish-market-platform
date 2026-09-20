@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   useEffect,
   useMemo,
@@ -122,12 +124,12 @@ function CategoryThumbnail({
   return (
     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
       {image ? (
-        <img
-          src={image}
-          alt={name}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
+<img
+  src={image}
+  alt={name}
+  className="h-full w-full object-cover"
+  loading="lazy"
+/>
       ) : (
         <div className="flex h-full w-full items-center justify-center px-1 text-center text-[9px] font-semibold leading-tight text-slate-400">
           No Image
@@ -366,28 +368,39 @@ export function CategoryTable({
         : "normal"
     }`;
 
-  useEffect(() => {
-    setSelectionMode("none");
-    setSelectedIds(new Set());
-    setExcludedIds(new Set());
-  }, [selectionKey]);
+// Intentional state reset when the active category filter changes.
+useEffect(() => {
+  // The selection state must be cleared when search/status/recycle-bin
+  // filters change to prevent selections from leaking across datasets.
 
-  useEffect(() => {
-    setSortValues((current) => {
-      const next = {
-        ...current,
-      };
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  setSelectionMode("none");
 
-      categories.forEach(
-        (category) => {
-          next[category.id] =
-            String(category.sortOrder);
-        },
-      );
 
-      return next;
+  setSelectedIds(new Set());
+
+
+  setExcludedIds(new Set());
+}, [selectionKey]);
+
+// Intentional synchronization of editable sort values with server data.
+useEffect(() => {
+  // Preserve locally edited values for categories not included in the
+  // incoming response while refreshing values from the server response.
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  setSortValues((current) => {
+    const next = {
+      ...current,
+    };
+
+    categories.forEach((category) => {
+      next[category.id] = String(category.sortOrder);
     });
-  }, [categories]);
+
+    return next;
+  });
+}, [categories]);
 
   const visibleIds = useMemo(
     () =>
@@ -541,15 +554,6 @@ export function CategoryTable({
 
       return next;
     });
-  }
-
-  function selectAllFiltered() {
-    setSelectionMode(
-      "all-filtered",
-    );
-
-    setSelectedIds(new Set());
-    setExcludedIds(new Set());
   }
 
   function clearSelection() {
