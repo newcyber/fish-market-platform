@@ -198,33 +198,6 @@ ProductService.getProducts({
   ]);
 
   /**
- * ==========================================================
- * DATABASE CATEGORY RESOLVER
- * ==========================================================
- *
- * URL menggunakan category slug, sedangkan Product.categoryId
- * menggunakan ID kategori database.
- *
- * Contoh:
- * aneka-ikan-laut -> UUID kategori database
- */
-if (!isHomeCategory && categorySlug) {
-  const category =
-    (await CategoryRepository.findBySlug(categorySlug)) ??
-    (await CategoryRepository.findById(categorySlug));
-
-  /**
-   * Jika categorySlug valid sebagai slug atau UUID,
-   * gunakan ID database hasil resolver.
-   *
-   * Jika kategori tidak ditemukan, gunakan nilai sentinel
-   * agar tidak mengembalikan seluruh produk secara tidak sengaja.
-   */
-  databaseCategoryId =
-    category?.id ?? "__category_not_found__";
-}
-
-  /**
    * ==========================================================
    * HERO IMAGE
    * ==========================================================
