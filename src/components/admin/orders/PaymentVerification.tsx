@@ -23,9 +23,9 @@ import {
 } from "@/components/ui/button";
 
 import {
-  verifyOrderPaymentAction,
-  rejectOrderPaymentAction,
-} from "@/actions/order/verify-payment";
+  verifyPaymentAction,
+  rejectPaymentAction,
+} from "@/actions/payment/payment-verification.actions";
 
 interface PaymentVerificationProps {
   orderId: string;
@@ -59,6 +59,11 @@ export default function PaymentVerification({
     setSuccess,
   ] = useState("");
 
+  const [
+    rejectionReason,
+    setRejectionReason,
+  ] = useState("");
+
   const isVerified =
     paymentStatus === PaymentStatus.VERIFIED;
 
@@ -88,19 +93,18 @@ export default function PaymentVerification({
       return;
     }
 
-    if (!hasPaymentProof) {
+    if (!paymentProofId) {
       setError(
-        "Belum ada bukti pembayaran yang dapat diverifikasi."
+        "Bukti pembayaran tidak tersedia."
       );
 
       return;
     }
 
     startTransition(async () => {
-      const result =
-        await verifyOrderPaymentAction(
-          orderId
-        );
+      const result = await verifyPaymentAction(
+        paymentProofId
+      );
 
       if (!result.success) {
         setError(
@@ -140,19 +144,30 @@ export default function PaymentVerification({
       return;
     }
 
-    if (!hasPaymentProof) {
+    if (!paymentProofId) {
       setError(
-        "Belum ada bukti pembayaran yang dapat ditolak."
+        "Bukti pembayaran tidak tersedia."
+      );
+
+      return;
+    }
+
+    const normalizedReason =
+      rejectionReason.trim();
+
+    if (!normalizedReason) {
+      setError(
+        "Alasan penolakan wajib diisi."
       );
 
       return;
     }
 
     startTransition(async () => {
-      const result =
-        await rejectOrderPaymentAction(
-          orderId
-        );
+      const result = await rejectPaymentAction(
+        paymentProofId,
+        normalizedReason
+      );
 
       if (!result.success) {
         setError(
@@ -167,6 +182,8 @@ export default function PaymentVerification({
         result.message ??
           "Pembayaran berhasil ditolak."
       );
+
+      setRejectionReason("");
 
       router.refresh();
     });
@@ -262,85 +279,104 @@ export default function PaymentVerification({
         </div>
       )}
 
-    {/* =====================================================
-        ACTIONS
-    ===================================================== */}
+      {/* =====================================================
+          VIEW PAYMENT PROOF
+          ===================================================== */}
 
-    {/* VIEW PAYMENT PROOF */}
-
-    <div className="flex flex-col gap-3">
-      <Button
-        type="button"
-        variant="outline"
-        disabled={
-          !hasPaymentProof ||
-          !paymentProofId ||
-          isPending
-        }
-        onClick={() => {
-          if (!paymentProofId) {
-            return;
-          }
-
-          router.push(
-            `/admin/payments/${paymentProofId}`
-          );
-        }}
-        className="min-h-11 w-full border-[var(--pisjo-primary)] text-[var(--pisjo-primary)] hover:bg-[var(--pisjo-bg)]"
-      >
-        <CreditCard className="mr-2 h-4 w-4" />
-
-        {hasPaymentProof
-          ? "Lihat Bukti Pembayaran"
-          : "Bukti Pembayaran Belum Tersedia"}
-      </Button>
-
-      {!hasPaymentProof && (
-        <p className="text-xs leading-5 text-[var(--pisjo-text-secondary)]">
-          Customer belum mengunggah bukti pembayaran.
-          Tombol akan aktif setelah bukti tersedia.
-        </p>
-      )}
-    </div>
-
-    {/* VERIFY & REJECT PAYMENT */}
-
-    {!isVerified && !isCancelled && (
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3">
         <Button
           type="button"
-          onClick={verifyPayment}
+          variant="outline"
           disabled={
-            isPending ||
-            !hasPaymentProof
+            !hasPaymentProof ||
+            !paymentProofId ||
+            isPending
           }
-          className="min-h-11 w-full flex-1 bg-[var(--pisjo-primary)] text-white hover:bg-[var(--pisjo-ocean)]"
+          onClick={() => {
+            if (!paymentProofId) {
+              return;
+            }
+
+            router.push(
+              `/admin/payments/${paymentProofId}`
+            );
+          }}
+          className="min-h-11 w-full border-[var(--pisjo-primary)] text-[var(--pisjo-primary)] hover:bg-[var(--pisjo-bg)]"
         >
-          {isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Memproses...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              {isRejected
-                ? "Verifikasi Bukti Baru"
-                : "Verifikasi Pembayaran"}
-            </>
-          )}
+          <CreditCard className="mr-2 h-4 w-4" />
+
+          {hasPaymentProof
+            ? "Lihat Bukti Pembayaran"
+            : "Bukti Pembayaran Belum Tersedia"}
         </Button>
 
-        {!isRejected && (
+        {!hasPaymentProof && (
+          <p className="text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+            Customer belum mengunggah bukti pembayaran.
+            Tombol akan aktif setelah bukti tersedia.
+          </p>
+        )}
+      </div>
+
+      {/* =====================================================
+          REJECTION REASON
+          ===================================================== */}
+
+      {!isVerified &&
+        !isCancelled &&
+        hasPaymentProof && (
+          <div className="space-y-2">
+            <label
+              htmlFor="payment-rejection-reason"
+              className="text-sm font-medium text-[var(--pisjo-navy)]"
+            >
+              Alasan Penolakan Pembayaran
+            </label>
+
+            <textarea
+              id="payment-rejection-reason"
+              value={rejectionReason}
+              onChange={(event) => {
+                setRejectionReason(
+                  event.target.value
+                );
+              }}
+              placeholder="Contoh: Nominal transfer tidak sesuai dengan total pembayaran."
+              rows={4}
+              maxLength={500}
+              disabled={isPending}
+              className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-[var(--pisjo-primary)] focus:ring-2 focus:ring-[var(--pisjo-primary)]/20 disabled:cursor-not-allowed disabled:bg-slate-100"
+            />
+
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                Alasan akan disimpan pada data bukti pembayaran.
+              </p>
+
+              <span className="shrink-0 text-xs text-[var(--pisjo-text-secondary)]">
+                {rejectionReason.length}/500
+              </span>
+            </div>
+          </div>
+        )}
+
+      {/* =====================================================
+          VERIFY & REJECT PAYMENT
+          ===================================================== */}
+
+      {!isVerified && !isCancelled && (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {/* VERIFY BUTTON */}
+
           <Button
             type="button"
-            variant="outline"
-            onClick={rejectPayment}
+            onClick={verifyPayment}
             disabled={
               isPending ||
-              !hasPaymentProof
+              !hasPaymentProof ||
+              !paymentProofId
             }
-            className="min-h-11 w-full flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+            className="min-h-11 w-full flex-1 bg-[var(--pisjo-primary)] text-white hover:bg-[var(--pisjo-ocean)]"
           >
             {isPending ? (
               <>
@@ -349,15 +385,44 @@ export default function PaymentVerification({
               </>
             ) : (
               <>
-                <XCircle className="mr-2 h-4 w-4" />
-                Tolak Pembayaran
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                {isRejected
+                  ? "Verifikasi Bukti Baru"
+                  : "Verifikasi Pembayaran"}
               </>
             )}
           </Button>
-        )}
-      </div>
-    )}
 
+          {/* REJECT BUTTON */}
+
+          {!isRejected && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={rejectPayment}
+              disabled={
+                isPending ||
+                !hasPaymentProof ||
+                !paymentProofId ||
+                !rejectionReason.trim()
+              }
+              className="min-h-11 w-full flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Memproses...
+                </>
+              ) : (
+                <>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Tolak Pembayaran
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* =====================================================
           VERIFIED INFO
