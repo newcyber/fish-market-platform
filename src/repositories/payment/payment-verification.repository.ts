@@ -1,10 +1,6 @@
-import {
-  PaymentStatus,
-} from "@prisma/client";
+import { PaymentStatus } from "@prisma/client";
 
-import {
-  prisma,
-} from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 interface AdminPaymentFilters {
   search?: string;
@@ -122,204 +118,194 @@ export class PaymentVerificationRepository {
   }
 
   static async findAdminPayments(options?: {
-  search?: string;
-  status?: PaymentStatus;
-  skip?: number;
-  take?: number;
-}) {
-  const search = options?.search?.trim() || undefined;
-  const skip = Math.max(options?.skip ?? 0, 0);
-  const take = Math.min(
-    Math.max(options?.take ?? 20, 1),
-    100
-  );
+    search?: string;
+    status?: PaymentStatus;
+    skip?: number;
+    take?: number;
+  }) {
+    const search = options?.search?.trim() || undefined;
+    const skip = Math.max(options?.skip ?? 0, 0);
+    const take = Math.min(Math.max(options?.take ?? 20, 1), 100);
 
-  return prisma.paymentProof.findMany({
-    where: {
-      deletedAt: null,
+    return prisma.paymentProof.findMany({
+      where: {
+        deletedAt: null,
 
-      ...(options?.status
-        ? {
-            status: options.status,
-          }
-        : {}),
+        ...(options?.status
+          ? {
+              status: options.status,
+            }
+          : {}),
 
-      ...(search
-        ? {
-            OR: [
-              {
-                order: {
-                  orderNumber: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-              {
-                order: {
-                  user: {
-                    name: {
+        ...(search
+          ? {
+              OR: [
+                {
+                  order: {
+                    orderNumber: {
                       contains: search,
                       mode: "insensitive",
                     },
                   },
                 },
-              },
-              {
-                order: {
-                  user: {
-                    email: {
-                      contains: search,
-                      mode: "insensitive",
+                {
+                  order: {
+                    user: {
+                      name: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
                     },
                   },
                 },
+                {
+                  order: {
+                    user: {
+                      email: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+
+      skip,
+      take,
+
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            total: true,
+            status: true,
+
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
               },
-            ],
-          }
-        : {}),
-    },
-
-    skip,
-    take,
-
-    include: {
-      order: {
-        select: {
-          id: true,
-          orderNumber: true,
-          total: true,
-          status: true,
-
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
             },
-          },
 
-          paymentChannel: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              bankName: true,
-              accountNumber: true,
-              accountHolder: true,
+            paymentChannel: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                bankName: true,
+                accountNumber: true,
+                accountHolder: true,
+              },
             },
           },
         },
       },
-    },
 
-    orderBy: [
-      {
-        status: "asc",
-      },
-      {
-        createdAt: "desc",
-      },
-    ],
-  });
-}
+      orderBy: [
+        {
+          status: "asc",
+        },
+        {
+          createdAt: "desc",
+        },
+      ],
+    });
+  }
 
-static async countAdminPayments(
-  filters?: AdminPaymentFilters
-) {
-  const search = filters?.search?.trim() || undefined;
+  static async countAdminPayments(filters?: AdminPaymentFilters) {
+    const search = filters?.search?.trim() || undefined;
 
-  return prisma.paymentProof.count({
-    where: {
-      deletedAt: null,
+    return prisma.paymentProof.count({
+      where: {
+        deletedAt: null,
 
-      ...(filters?.status
-        ? {
-            status: filters.status,
-          }
-        : {}),
+        ...(filters?.status
+          ? {
+              status: filters.status,
+            }
+          : {}),
 
-      ...(search
-        ? {
-            OR: [
-              {
-                order: {
-                  orderNumber: {
-                    contains: search,
-                    mode: "insensitive",
-                  },
-                },
-              },
-              {
-                order: {
-                  user: {
-                    name: {
+        ...(search
+          ? {
+              OR: [
+                {
+                  order: {
+                    orderNumber: {
                       contains: search,
                       mode: "insensitive",
                     },
                   },
                 },
-              },
-              {
-                order: {
-                  user: {
-                    email: {
-                      contains: search,
-                      mode: "insensitive",
+                {
+                  order: {
+                    user: {
+                      name: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
                     },
                   },
                 },
-              },
-            ],
-          }
-        : {}),
-    },
-  });
-}
-
-static async getAdminPaymentStats() {
-  const [
-    total,
-    pending,
-    verified,
-    rejected,
-  ] = await Promise.all([
-    prisma.paymentProof.count({
-      where: {
-        deletedAt: null,
+                {
+                  order: {
+                    user: {
+                      email: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
       },
-    }),
+    });
+  }
 
-    prisma.paymentProof.count({
-      where: {
-        deletedAt: null,
-        status: PaymentStatus.PENDING,
-      },
-    }),
+  static async getAdminPaymentStats() {
+    const [total, pending, verified, rejected] = await Promise.all([
+      prisma.paymentProof.count({
+        where: {
+          deletedAt: null,
+        },
+      }),
 
-    prisma.paymentProof.count({
-      where: {
-        deletedAt: null,
-        status: PaymentStatus.VERIFIED,
-      },
-    }),
+      prisma.paymentProof.count({
+        where: {
+          deletedAt: null,
+          status: PaymentStatus.PENDING,
+        },
+      }),
 
-    prisma.paymentProof.count({
-      where: {
-        deletedAt: null,
-        status: PaymentStatus.REJECTED,
-      },
-    }),
-  ]);
+      prisma.paymentProof.count({
+        where: {
+          deletedAt: null,
+          status: PaymentStatus.VERIFIED,
+        },
+      }),
 
-  return {
-    total,
-    pending,
-    verified,
-    rejected,
-  };
-}
+      prisma.paymentProof.count({
+        where: {
+          deletedAt: null,
+          status: PaymentStatus.REJECTED,
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      pending,
+      verified,
+      rejected,
+    };
+  }
 
   /**
    * ==========================================================
@@ -327,9 +313,7 @@ static async getAdminPaymentStats() {
    * ==========================================================
    */
 
-  static async findById(
-    id: string
-  ) {
+  static async findById(id: string) {
     return prisma.paymentProof.findFirst({
       where: {
         id,
@@ -425,12 +409,8 @@ static async getAdminPaymentStats() {
    * ==========================================================
    */
 
-static async verify(
-  id: string,
-  verifiedById: string
-) {
-  return prisma.$transaction(
-    async (tx) => {
+  static async verify(id: string, verifiedById: string) {
+    return prisma.$transaction(async (tx) => {
       /**
        * ========================================================
        * 1. LOCK PAYMENT'S ORDER
@@ -445,27 +425,21 @@ static async verify(
        * sehingga dua proses tidak dapat memproses Order yang
        * sama secara bersamaan.
        */
-      const paymentProofOwner =
-        await tx.paymentProof.findFirst({
-          where: {
-            id,
-            deletedAt: null,
-          },
-          select: {
-            orderId: true,
-          },
-        });
+      const paymentProofOwner = await tx.paymentProof.findFirst({
+        where: {
+          id,
+          deletedAt: null,
+        },
+        select: {
+          orderId: true,
+        },
+      });
 
       if (!paymentProofOwner) {
-        throw new Error(
-          "Bukti pembayaran tidak ditemukan."
-        );
+        throw new Error("Bukti pembayaran tidak ditemukan.");
       }
 
-      const lockedOrder =
-        await tx.$queryRaw<
-          Array<{ id: string }>
-        >`
+      const lockedOrder = await tx.$queryRaw<Array<{ id: string }>>`
           SELECT "id"
           FROM "Order"
           WHERE "id" = ${paymentProofOwner.orderId}
@@ -473,9 +447,7 @@ static async verify(
         `;
 
       if (lockedOrder.length === 0) {
-        throw new Error(
-          "Order tidak ditemukan."
-        );
+        throw new Error("Order tidak ditemukan.");
       }
 
       /**
@@ -485,18 +457,15 @@ static async verify(
        *
        * Dibaca setelah Order terkunci.
        */
-      const paymentProof =
-        await tx.paymentProof.findFirst({
-          where: {
-            id,
-            deletedAt: null,
-          },
-        });
+      const paymentProof = await tx.paymentProof.findFirst({
+        where: {
+          id,
+          deletedAt: null,
+        },
+      });
 
       if (!paymentProof) {
-        throw new Error(
-          "Bukti pembayaran tidak ditemukan."
-        );
+        throw new Error("Bukti pembayaran tidak ditemukan.");
       }
 
       /**
@@ -504,23 +473,22 @@ static async verify(
        * 3. READ CURRENT ORDER
        * ========================================================
        */
-      const order =
-        await tx.order.findUnique({
-          where: {
-            id: paymentProof.orderId,
-          },
-          select: {
-            id: true,
-            status: true,
-            paymentStatus: true,
-            deletedAt: true,
-          },
-        });
+      const order = await tx.order.findUnique({
+        where: {
+          id: paymentProof.orderId,
+        },
+        select: {
+          id: true,
+          userId: true,
+          orderNumber: true,
+          status: true,
+          paymentStatus: true,
+          deletedAt: true,
+        },
+      });
 
       if (!order) {
-        throw new Error(
-          "Order tidak ditemukan."
-        );
+        throw new Error("Order tidak ditemukan.");
       }
 
       /**
@@ -529,24 +497,18 @@ static async verify(
        * ========================================================
        */
       if (order.deletedAt) {
+        throw new Error("Order yang sudah dihapus tidak dapat diubah.");
+      }
+
+      if (order.status === "CANCELLED") {
         throw new Error(
-          "Order yang sudah dihapus tidak dapat diubah."
+          "Pembayaran order yang sudah dibatalkan tidak dapat diubah.",
         );
       }
 
-      if (
-        order.status === "CANCELLED"
-      ) {
+      if (order.status === "COMPLETED") {
         throw new Error(
-          "Pembayaran order yang sudah dibatalkan tidak dapat diubah."
-        );
-      }
-
-      if (
-        order.status === "COMPLETED"
-      ) {
-        throw new Error(
-          "Pembayaran order yang sudah selesai tidak dapat diubah."
+          "Pembayaran order yang sudah selesai tidak dapat diubah.",
         );
       }
 
@@ -555,13 +517,8 @@ static async verify(
        * 5. PAYMENT PROOF GUARD
        * ========================================================
        */
-      if (
-        paymentProof.status !==
-        PaymentStatus.PENDING
-      ) {
-        throw new Error(
-          "Pembayaran ini sudah diproses sebelumnya."
-        );
+      if (paymentProof.status !== PaymentStatus.PENDING) {
+        throw new Error("Pembayaran ini sudah diproses sebelumnya.");
       }
 
       /**
@@ -572,13 +529,8 @@ static async verify(
        * PaymentProof PENDING harus tetap konsisten dengan
        * Order yang belum VERIFIED.
        */
-      if (
-        order.paymentStatus ===
-        PaymentStatus.VERIFIED
-      ) {
-        throw new Error(
-          "Order ini sudah memiliki pembayaran VERIFIED."
-        );
+      if (order.paymentStatus === PaymentStatus.VERIFIED) {
+        throw new Error("Order ini sudah memiliki pembayaran VERIFIED.");
       }
 
       /**
@@ -598,16 +550,14 @@ static async verify(
        *
        * Jangan menurunkan order yang sudah lebih maju.
        */
-      let nextOrderStatus =
-        order.status;
+      let nextOrderStatus = order.status;
 
       if (
         order.status === "PENDING" ||
         order.status === "WAITING_PAYMENT" ||
         order.status === "WAITING_VERIFICATION"
       ) {
-        nextOrderStatus =
-          "PROCESSING";
+        nextOrderStatus = "PROCESSING";
       }
 
       const now = new Date();
@@ -617,26 +567,24 @@ static async verify(
        * 8. UPDATE PAYMENT PROOF
        * ========================================================
        */
-      const updatedProof =
-        await tx.paymentProof.update({
-          where: {
-            id,
-          },
-          data: {
-            status:
-              PaymentStatus.VERIFIED,
+      const updatedProof = await tx.paymentProof.update({
+        where: {
+          id,
+        },
+        data: {
+          status: PaymentStatus.VERIFIED,
 
-            verifiedAt: now,
+          verifiedAt: now,
 
-            verifiedById,
+          verifiedById,
 
-            /**
-             * Jika sebelumnya pernah REJECTED, data rejection
-             * tidak boleh ikut terbawa ke verification baru.
-             */
-            rejectionReason: null,
-          },
-        });
+          /**
+           * Jika sebelumnya pernah REJECTED, data rejection
+           * tidak boleh ikut terbawa ke verification baru.
+           */
+          rejectionReason: null,
+        },
+      });
 
       /**
        * ========================================================
@@ -648,20 +596,24 @@ static async verify(
           id: order.id,
         },
         data: {
-          paymentStatus:
-            PaymentStatus.VERIFIED,
+          paymentStatus: PaymentStatus.VERIFIED,
 
-          status:
-            nextOrderStatus,
+          status: nextOrderStatus,
 
           paidAt: now,
         },
       });
 
-      return updatedProof;
-    }
-  );
-}
+      return {
+        updatedProof,
+        notificationContext: {
+          orderId: order.id,
+          userId: order.userId,
+          orderNumber: order.orderNumber,
+        },
+      };
+    });
+  }
 
   /**
    * ==========================================================
@@ -688,33 +640,29 @@ static async verify(
    * ==========================================================
    */
 
-static async reject(
-  id: string,
-  rejectionReason: string,
-  verifiedById: string
-) {
-  return prisma.$transaction(
-    async (tx) => {
+  static async reject(
+    id: string,
+    rejectionReason: string,
+    verifiedById: string,
+  ) {
+    return prisma.$transaction(async (tx) => {
       /**
        * ========================================================
        * 1. VALIDATE PAYMENT PROOF + GET ORDER ID
        * ========================================================
        */
-      const paymentProofOwner =
-        await tx.paymentProof.findFirst({
-          where: {
-            id,
-            deletedAt: null,
-          },
-          select: {
-            orderId: true,
-          },
-        });
+      const paymentProofOwner = await tx.paymentProof.findFirst({
+        where: {
+          id,
+          deletedAt: null,
+        },
+        select: {
+          orderId: true,
+        },
+      });
 
       if (!paymentProofOwner) {
-        throw new Error(
-          "Bukti pembayaran tidak ditemukan."
-        );
+        throw new Error("Bukti pembayaran tidak ditemukan.");
       }
 
       /**
@@ -722,10 +670,7 @@ static async reject(
        * 2. LOCK ORDER
        * ========================================================
        */
-      const lockedOrder =
-        await tx.$queryRaw<
-          Array<{ id: string }>
-        >`
+      const lockedOrder = await tx.$queryRaw<Array<{ id: string }>>`
           SELECT "id"
           FROM "Order"
           WHERE "id" = ${paymentProofOwner.orderId}
@@ -733,9 +678,7 @@ static async reject(
         `;
 
       if (lockedOrder.length === 0) {
-        throw new Error(
-          "Order tidak ditemukan."
-        );
+        throw new Error("Order tidak ditemukan.");
       }
 
       /**
@@ -743,18 +686,15 @@ static async reject(
        * 3. READ CURRENT PAYMENT PROOF
        * ========================================================
        */
-      const paymentProof =
-        await tx.paymentProof.findFirst({
-          where: {
-            id,
-            deletedAt: null,
-          },
-        });
+      const paymentProof = await tx.paymentProof.findFirst({
+        where: {
+          id,
+          deletedAt: null,
+        },
+      });
 
       if (!paymentProof) {
-        throw new Error(
-          "Bukti pembayaran tidak ditemukan."
-        );
+        throw new Error("Bukti pembayaran tidak ditemukan.");
       }
 
       /**
@@ -762,23 +702,22 @@ static async reject(
        * 4. READ CURRENT ORDER
        * ========================================================
        */
-      const order =
-        await tx.order.findUnique({
-          where: {
-            id: paymentProof.orderId,
-          },
-          select: {
-            id: true,
-            status: true,
-            paymentStatus: true,
-            deletedAt: true,
-          },
-        });
+      const order = await tx.order.findUnique({
+        where: {
+          id: paymentProof.orderId,
+        },
+        select: {
+          id: true,
+          userId: true,
+          orderNumber: true,
+          status: true,
+          paymentStatus: true,
+          deletedAt: true,
+        },
+      });
 
       if (!order) {
-        throw new Error(
-          "Order tidak ditemukan."
-        );
+        throw new Error("Order tidak ditemukan.");
       }
 
       /**
@@ -787,24 +726,18 @@ static async reject(
        * ========================================================
        */
       if (order.deletedAt) {
+        throw new Error("Order yang sudah dihapus tidak dapat diubah.");
+      }
+
+      if (order.status === "CANCELLED") {
         throw new Error(
-          "Order yang sudah dihapus tidak dapat diubah."
+          "Pembayaran order yang sudah dibatalkan tidak dapat diubah.",
         );
       }
 
-      if (
-        order.status === "CANCELLED"
-      ) {
+      if (order.status === "COMPLETED") {
         throw new Error(
-          "Pembayaran order yang sudah dibatalkan tidak dapat diubah."
-        );
-      }
-
-      if (
-        order.status === "COMPLETED"
-      ) {
-        throw new Error(
-          "Pembayaran order yang sudah selesai tidak dapat diubah."
+          "Pembayaran order yang sudah selesai tidak dapat diubah.",
         );
       }
 
@@ -813,13 +746,8 @@ static async reject(
        * 6. PAYMENT PROOF GUARD
        * ========================================================
        */
-      if (
-        paymentProof.status !==
-        PaymentStatus.PENDING
-      ) {
-        throw new Error(
-          "Pembayaran ini sudah diproses sebelumnya."
-        );
+      if (paymentProof.status !== PaymentStatus.PENDING) {
+        throw new Error("Pembayaran ini sudah diproses sebelumnya.");
       }
 
       /**
@@ -827,13 +755,8 @@ static async reject(
        * 7. ORDER PAYMENT GUARD
        * ========================================================
        */
-      if (
-        order.paymentStatus ===
-        PaymentStatus.VERIFIED
-      ) {
-        throw new Error(
-          "Order ini sudah memiliki pembayaran VERIFIED."
-        );
+      if (order.paymentStatus === PaymentStatus.VERIFIED) {
+        throw new Error("Order ini sudah memiliki pembayaran VERIFIED.");
       }
 
       const now = new Date();
@@ -843,23 +766,19 @@ static async reject(
        * 8. UPDATE PAYMENT PROOF
        * ========================================================
        */
-      const updatedProof =
-        await tx.paymentProof.update({
-          where: {
-            id,
-          },
-          data: {
-            status:
-              PaymentStatus.REJECTED,
+      const updatedProof = await tx.paymentProof.update({
+        where: {
+          id,
+        },
+        data: {
+          status: PaymentStatus.REJECTED,
 
-            rejectionReason:
-              rejectionReason.trim(),
+          rejectionReason: rejectionReason.trim(),
 
-            verifiedAt: null,
-            verifiedById,
-
-          },
-        });
+          verifiedAt: null,
+          verifiedById,
+        },
+      });
 
       /**
        * ========================================================
@@ -873,15 +792,13 @@ static async reject(
        * Hanya order yang masih berada dalam fase pembayaran
        * yang boleh diturunkan ke WAITING_PAYMENT.
        */
-      let nextOrderStatus =
-        order.status;
+      let nextOrderStatus = order.status;
 
       if (
         order.status === "PENDING" ||
         order.status === "WAITING_VERIFICATION"
       ) {
-        nextOrderStatus =
-          "WAITING_PAYMENT";
+        nextOrderStatus = "WAITING_PAYMENT";
       }
 
       await tx.order.update({
@@ -889,16 +806,20 @@ static async reject(
           id: order.id,
         },
         data: {
-          paymentStatus:
-            PaymentStatus.REJECTED,
+          paymentStatus: PaymentStatus.REJECTED,
 
-          status:
-            nextOrderStatus,
+          status: nextOrderStatus,
         },
       });
 
-      return updatedProof;
-    }
-  );
-}
+      return {
+        updatedProof,
+        notificationContext: {
+          orderId: order.id,
+          userId: order.userId,
+          orderNumber: order.orderNumber,
+        },
+      };
+    });
+  }
 }

@@ -56,6 +56,15 @@ export interface CreatePaymentProofNotificationInput {
   orderNumber: string;
 }
 
+export interface CreateCustomerPaymentNotificationInput {
+  userId: string;
+  orderId: string;
+  orderNumber: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+}
+
 class NotificationService {
   /**
    * ==========================================================
@@ -83,22 +92,17 @@ class NotificationService {
    * Push bersifat best-effort.
    */
 
-  async createOrderNotification(
-    input: CreateOrderNotificationInput
-  ) {
+  async createOrderNotification(input: CreateOrderNotificationInput) {
     /**
      * --------------------------------------------------------
      * VALIDATE ORDER ID
      * --------------------------------------------------------
      */
 
-    const orderId =
-      input.orderId?.trim();
+    const orderId = input.orderId?.trim();
 
     if (!orderId) {
-      throw new Error(
-        "Order ID tidak valid."
-      );
+      throw new Error("Order ID tidak valid.");
     }
 
     /**
@@ -107,46 +111,28 @@ class NotificationService {
      * --------------------------------------------------------
      */
 
-    const orderNumber =
-      input.orderNumber?.trim() ||
-      "Pesanan Baru";
+    const orderNumber = input.orderNumber?.trim() || "Pesanan Baru";
 
-    const customerName =
-      input.customerName?.trim() ||
-      "Customer";
+    const customerName = input.customerName?.trim() || "Customer";
 
     const formattedTotal =
-      typeof input.totalAmount ===
-      "number"
-        ? new Intl.NumberFormat(
-            "id-ID",
-            {
-              style:
-                "currency",
+      typeof input.totalAmount === "number"
+        ? new Intl.NumberFormat("id-ID", {
+            style: "currency",
 
-              currency:
-                "IDR",
+            currency: "IDR",
 
-              minimumFractionDigits:
-                0,
-            }
-          ).format(
-            input.totalAmount
-          )
+            minimumFractionDigits: 0,
+          }).format(input.totalAmount)
         : null;
 
-    const messageParts = [
-      `Pesanan baru ${orderNumber} dari ${customerName}.`,
-    ];
+    const messageParts = [`Pesanan baru ${orderNumber} dari ${customerName}.`];
 
     if (formattedTotal) {
-      messageParts.push(
-        `Total pesanan: ${formattedTotal}.`
-      );
+      messageParts.push(`Total pesanan: ${formattedTotal}.`);
     }
 
-    const message =
-      messageParts.join(" ");
+    const message = messageParts.join(" ");
 
     /**
      * ========================================================
@@ -156,28 +142,22 @@ class NotificationService {
      * Recipient ditentukan sepenuhnya oleh server.
      */
 
-    const recipients =
-      await prisma.user.findMany({
-        where: {
-          role: {
-            in: [
-              "ADMIN",
-              "SUPER_ADMIN",
-            ],
-          },
-
-          isActive:
-            true,
-
-          deletedAt:
-            null,
+    const recipients = await prisma.user.findMany({
+      where: {
+        role: {
+          in: ["ADMIN", "SUPER_ADMIN"],
         },
 
-        select: {
-          id: true,
-          phone: true,
-        },
-      });
+        isActive: true,
+
+        deletedAt: null,
+      },
+
+      select: {
+        id: true,
+        phone: true,
+      },
+    });
 
     /**
      * --------------------------------------------------------
@@ -207,28 +187,21 @@ class NotificationService {
      * ID notification untuk payload Web Push.
      */
 
-    const notifications =
-      await notificationRepository.createManyAndReturn(
-        recipients.map(
-          (recipient) => ({
-            userId:
-              recipient.id,
+    const notifications = await notificationRepository.createManyAndReturn(
+      recipients.map((recipient) => ({
+        userId: recipient.id,
 
-            title:
-              "Pesanan Baru",
+        title: "Pesanan Baru",
 
-            message,
+        message,
 
-            type:
-              NotificationType.NEW_ORDER,
+        type: NotificationType.NEW_ORDER,
 
-            href:
-              `/admin/orders/${orderId}`,
+        href: `/admin/orders/${orderId}`,
 
-            orderId,
-          })
-        )
-      );
+        orderId,
+      })),
+    );
 
     /**
      * ========================================================
@@ -255,39 +228,25 @@ class NotificationService {
     };
 
     try {
-      pushResult =
-        await pushDeliveryService.deliver({
-          notifications:
-            notifications.map(
-              (notification) => ({
-                userId:
-                  notification.userId,
+      pushResult = await pushDeliveryService.deliver({
+        notifications: notifications.map((notification) => ({
+          userId: notification.userId,
 
-                notificationId:
-                  notification.id,
+          notificationId: notification.id,
 
-                title:
-                  notification.title,
+          title: notification.title,
 
-                message:
-                  notification.message,
+          message: notification.message,
 
-                href:
-                  notification.href,
+          href: notification.href,
 
-                type:
-                  notification.type,
+          type: notification.type,
 
-                createdAt:
-                  notification.createdAt,
-              })
-            ),
-        });
+          createdAt: notification.createdAt,
+        })),
+      });
     } catch (error) {
-      console.error(
-        "[WEB_PUSH_DELIVERY_FATAL_ERROR]",
-        error
-      );
+      console.error("[WEB_PUSH_DELIVERY_FATAL_ERROR]", error);
     }
 
     /**
@@ -333,13 +292,10 @@ class NotificationService {
       } catch (error) {
         whatsappResult.failed += 1;
 
-        console.error(
-          "[WHATSAPP_ORDER_NOTIFICATION_ERROR]",
-          {
-            userId: recipient.id,
-            error,
-          }
-        );
+        console.error("[WHATSAPP_ORDER_NOTIFICATION_ERROR]", {
+          userId: recipient.id,
+          error,
+        });
       }
     }
 
@@ -350,14 +306,11 @@ class NotificationService {
      */
 
     return {
-      count:
-        notifications.length,
+      count: notifications.length,
 
-      push:
-        pushResult,
+      push: pushResult,
 
-      whatsapp:
-        whatsappResult,
+      whatsapp: whatsappResult,
     };
   }
 
@@ -376,7 +329,7 @@ class NotificationService {
    */
 
   async createPaymentProofNotification(
-    input: CreatePaymentProofNotificationInput
+    input: CreatePaymentProofNotificationInput,
   ) {
     /**
      * --------------------------------------------------------
@@ -384,13 +337,10 @@ class NotificationService {
      * --------------------------------------------------------
      */
 
-    const orderId =
-      input.orderId?.trim();
+    const orderId = input.orderId?.trim();
 
     if (!orderId) {
-      throw new Error(
-        "Order ID tidak valid."
-      );
+      throw new Error("Order ID tidak valid.");
     }
 
     /**
@@ -399,12 +349,9 @@ class NotificationService {
      * --------------------------------------------------------
      */
 
-    const orderNumber =
-      input.orderNumber?.trim() ||
-      "Pesanan";
+    const orderNumber = input.orderNumber?.trim() || "Pesanan";
 
-    const message =
-      `Bukti pembayaran baru untuk pesanan ${orderNumber}.`;
+    const message = `Bukti pembayaran baru untuk pesanan ${orderNumber}.`;
 
     /**
      * ========================================================
@@ -412,27 +359,21 @@ class NotificationService {
      * ========================================================
      */
 
-    const recipients =
-      await prisma.user.findMany({
-        where: {
-          role: {
-            in: [
-              "ADMIN",
-              "SUPER_ADMIN",
-            ],
-          },
-
-          isActive:
-            true,
-
-          deletedAt:
-            null,
+    const recipients = await prisma.user.findMany({
+      where: {
+        role: {
+          in: ["ADMIN", "SUPER_ADMIN"],
         },
 
-        select: {
-          id: true,
-        },
-      });
+        isActive: true,
+
+        deletedAt: null,
+      },
+
+      select: {
+        id: true,
+      },
+    });
 
     /**
      * --------------------------------------------------------
@@ -459,28 +400,21 @@ class NotificationService {
      * ========================================================
      */
 
-    const notifications =
-      await notificationRepository.createManyAndReturn(
-        recipients.map(
-          (recipient) => ({
-            userId:
-              recipient.id,
+    const notifications = await notificationRepository.createManyAndReturn(
+      recipients.map((recipient) => ({
+        userId: recipient.id,
 
-            title:
-              "Bukti Pembayaran Baru",
+        title: "Bukti Pembayaran Baru",
 
-            message,
+        message,
 
-            type:
-              NotificationType.PAYMENT_PROOF,
+        type: NotificationType.PAYMENT_PROOF,
 
-            href:
-              `/admin/payments`,
+        href: `/admin/payments`,
 
-            orderId,
-          })
-        )
-      );
+        orderId,
+      })),
+    );
 
     /**
      * ========================================================
@@ -500,39 +434,25 @@ class NotificationService {
     };
 
     try {
-      pushResult =
-        await pushDeliveryService.deliver({
-          notifications:
-            notifications.map(
-              (notification) => ({
-                userId:
-                  notification.userId,
+      pushResult = await pushDeliveryService.deliver({
+        notifications: notifications.map((notification) => ({
+          userId: notification.userId,
 
-                notificationId:
-                  notification.id,
+          notificationId: notification.id,
 
-                title:
-                  notification.title,
+          title: notification.title,
 
-                message:
-                  notification.message,
+          message: notification.message,
 
-                href:
-                  notification.href,
+          href: notification.href,
 
-                type:
-                  notification.type,
+          type: notification.type,
 
-                createdAt:
-                  notification.createdAt,
-              })
-            ),
-        });
+          createdAt: notification.createdAt,
+        })),
+      });
     } catch (error) {
-      console.error(
-        "[WEB_PUSH_PAYMENT_PROOF_FATAL_ERROR]",
-        error
-      );
+      console.error("[WEB_PUSH_PAYMENT_PROOF_FATAL_ERROR]", error);
     }
 
     /**
@@ -542,11 +462,86 @@ class NotificationService {
      */
 
     return {
-      count:
-        notifications.length,
+      count: notifications.length,
 
-      push:
-        pushResult,
+      push: pushResult,
+    };
+  }
+
+  /**
+   * ========================================================
+   * CREATE CUSTOMER PAYMENT NOTIFICATION
+   * ========================================================
+   *
+   * Notification untuk pemilik pesanan.
+   *
+   * Database notification wajib berhasil dibuat.
+   * Web Push bersifat best-effort.
+   */
+  async createCustomerPaymentNotification(
+    input: CreateCustomerPaymentNotificationInput,
+  ) {
+    const userId = input.userId?.trim();
+    const orderId = input.orderId?.trim();
+    const orderNumber = input.orderNumber?.trim() || "Pesanan";
+    const title = input.title?.trim();
+    const message = input.message?.trim();
+
+    if (!userId) {
+      throw new Error("User ID customer tidak valid.");
+    }
+
+    if (!orderId) {
+      throw new Error("Order ID tidak valid.");
+    }
+
+    if (!title) {
+      throw new Error("Judul notifikasi tidak valid.");
+    }
+
+    if (!message) {
+      throw new Error("Pesan notifikasi tidak valid.");
+    }
+
+    const notification = await notificationRepository.create({
+      userId,
+      title,
+      message,
+      type: input.type,
+      href: `/customer/orders/${orderId}`,
+      orderId,
+    });
+
+    let pushResult = {
+      totalNotifications: 0,
+      totalSubscriptions: 0,
+      sent: 0,
+      failed: 0,
+      removed: 0,
+    };
+
+    try {
+      pushResult = await pushDeliveryService.deliver({
+        notifications: [
+          {
+            userId: notification.userId,
+            notificationId: notification.id,
+            title: notification.title,
+            message: notification.message,
+            href: notification.href,
+            type: notification.type,
+            createdAt: notification.createdAt,
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("[WEB_PUSH_CUSTOMER_PAYMENT_FATAL_ERROR]", error);
+    }
+
+    return {
+      count: 1,
+      notification,
+      push: pushResult,
     };
   }
 
@@ -556,30 +551,21 @@ class NotificationService {
    * ==========================================================
    */
 
-  async getLatestNotifications(
-    options: NotificationListOptions
-  ) {
-    const userId =
-      options.userId?.trim();
+  async getLatestNotifications(options: NotificationListOptions) {
+    const userId = options.userId?.trim();
 
     if (!userId) {
-      throw new Error(
-        "User ID tidak valid."
-      );
+      throw new Error("User ID tidak valid.");
     }
 
     return notificationRepository.findMany({
       userId,
 
-      take:
-        options.take ?? 20,
+      take: options.take ?? 20,
 
-      skip:
-        options.skip ?? 0,
+      skip: options.skip ?? 0,
 
-      unreadOnly:
-        options.unreadOnly ??
-        false,
+      unreadOnly: options.unreadOnly ?? false,
     });
   }
 
@@ -589,21 +575,14 @@ class NotificationService {
    * ==========================================================
    */
 
-  async getUnreadCount(
-    userId: string
-  ) {
-    const normalizedUserId =
-      userId?.trim();
+  async getUnreadCount(userId: string) {
+    const normalizedUserId = userId?.trim();
 
     if (!normalizedUserId) {
-      throw new Error(
-        "User ID tidak valid."
-      );
+      throw new Error("User ID tidak valid.");
     }
 
-    return notificationRepository.countUnread(
-      normalizedUserId
-    );
+    return notificationRepository.countUnread(normalizedUserId);
   }
 
   /**
@@ -612,23 +591,14 @@ class NotificationService {
    * ==========================================================
    */
 
-  async getUnreadCountByType(
-    userId: string,
-    type: NotificationType
-  ) {
-    const normalizedUserId =
-      userId?.trim();
+  async getUnreadCountByType(userId: string, type: NotificationType) {
+    const normalizedUserId = userId?.trim();
 
     if (!normalizedUserId) {
-      throw new Error(
-        "User ID tidak valid."
-      );
+      throw new Error("User ID tidak valid.");
     }
 
-    return notificationRepository.countUnreadByType(
-      normalizedUserId,
-      type
-    );
+    return notificationRepository.countUnreadByType(normalizedUserId, type);
   }
 
   /**
@@ -637,31 +607,22 @@ class NotificationService {
    * ==========================================================
    */
 
-  async markAsRead(
-    userId: string,
-    notificationId: string
-  ) {
-    const normalizedUserId =
-      userId?.trim();
+  async markAsRead(userId: string, notificationId: string) {
+    const normalizedUserId = userId?.trim();
 
     if (!normalizedUserId) {
-      throw new Error(
-        "User ID tidak valid."
-      );
+      throw new Error("User ID tidak valid.");
     }
 
-    const normalizedNotificationId =
-      notificationId?.trim();
+    const normalizedNotificationId = notificationId?.trim();
 
     if (!normalizedNotificationId) {
-      throw new Error(
-        "ID notifikasi tidak valid."
-      );
+      throw new Error("ID notifikasi tidak valid.");
     }
 
     return notificationRepository.markAsRead(
       normalizedUserId,
-      normalizedNotificationId
+      normalizedNotificationId,
     );
   }
 
@@ -671,21 +632,14 @@ class NotificationService {
    * ==========================================================
    */
 
-  async markAllAsRead(
-    userId: string
-  ) {
-    const normalizedUserId =
-      userId?.trim();
+  async markAllAsRead(userId: string) {
+    const normalizedUserId = userId?.trim();
 
     if (!normalizedUserId) {
-      throw new Error(
-        "User ID tidak valid."
-      );
+      throw new Error("User ID tidak valid.");
     }
 
-    return notificationRepository.markAllAsRead(
-      normalizedUserId
-    );
+    return notificationRepository.markAllAsRead(normalizedUserId);
   }
 
   /**
@@ -694,36 +648,26 @@ class NotificationService {
    * ==========================================================
    */
 
-  async deleteNotification(
-    userId: string,
-    notificationId: string
-  ) {
-    const normalizedUserId =
-      userId?.trim();
+  async deleteNotification(userId: string, notificationId: string) {
+    const normalizedUserId = userId?.trim();
 
     if (!normalizedUserId) {
-      throw new Error(
-        "User ID tidak valid."
-      );
+      throw new Error("User ID tidak valid.");
     }
 
-    const normalizedNotificationId =
-      notificationId?.trim();
+    const normalizedNotificationId = notificationId?.trim();
 
     if (!normalizedNotificationId) {
-      throw new Error(
-        "ID notifikasi tidak valid."
-      );
+      throw new Error("ID notifikasi tidak valid.");
     }
 
     return notificationRepository.delete(
       normalizedUserId,
-      normalizedNotificationId
+      normalizedNotificationId,
     );
   }
 }
 
-const notificationService =
-  new NotificationService();
+const notificationService = new NotificationService();
 
 export default notificationService;

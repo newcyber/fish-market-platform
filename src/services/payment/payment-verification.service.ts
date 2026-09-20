@@ -1,8 +1,8 @@
-import { PaymentStatus } from "@prisma/client";
+import { NotificationType, PaymentStatus } from "@prisma/client";
 
-import {
-  PaymentVerificationRepository,
-} from "@/repositories/payment/payment-verification.repository";
+import { PaymentVerificationRepository } from "@/repositories/payment/payment-verification.repository";
+
+import notificationService from "@/services/notification/notification.service";
 
 /**
  * ============================================================
@@ -108,27 +108,20 @@ export class PaymentVerificationService {
    * atau komponen lain yang masih menggunakan getAll().
    */
 
-  static async getAll(): Promise<
-    PaymentVerificationResult
-  > {
+  static async getAll(): Promise<PaymentVerificationResult> {
     try {
-      const paymentProofs =
-        await PaymentVerificationRepository.findAll();
+      const paymentProofs = await PaymentVerificationRepository.findAll();
 
       return {
         success: true,
         data: paymentProofs,
       };
     } catch (error) {
-      console.error(
-        "[PAYMENT_VERIFICATION_GET_ALL_ERROR]",
-        error
-      );
+      console.error("[PAYMENT_VERIFICATION_GET_ALL_ERROR]", error);
 
       return {
         success: false,
-        message:
-          "Gagal mengambil data pembayaran.",
+        message: "Gagal mengambil data pembayaran.",
       };
     }
   }
@@ -139,31 +132,24 @@ export class PaymentVerificationService {
    * ==========================================================
    */
 
-  static async getById(
-    id: string
-  ): Promise<PaymentVerificationResult> {
+  static async getById(id: string): Promise<PaymentVerificationResult> {
     try {
-      const normalizedId =
-        String(id ?? "").trim();
+      const normalizedId = String(id ?? "").trim();
 
       if (!normalizedId) {
         return {
           success: false,
-          message:
-            "ID pembayaran tidak valid.",
+          message: "ID pembayaran tidak valid.",
         };
       }
 
       const paymentProof =
-        await PaymentVerificationRepository.findById(
-          normalizedId
-        );
+        await PaymentVerificationRepository.findById(normalizedId);
 
       if (!paymentProof) {
         return {
           success: false,
-          message:
-            "Bukti pembayaran tidak ditemukan.",
+          message: "Bukti pembayaran tidak ditemukan.",
         };
       }
 
@@ -172,15 +158,11 @@ export class PaymentVerificationService {
         data: paymentProof,
       };
     } catch (error) {
-      console.error(
-        "[PAYMENT_VERIFICATION_GET_BY_ID_ERROR]",
-        error
-      );
+      console.error("[PAYMENT_VERIFICATION_GET_BY_ID_ERROR]", error);
 
       return {
         success: false,
-        message:
-          "Gagal mengambil detail pembayaran.",
+        message: "Gagal mengambil detail pembayaran.",
       };
     }
   }
@@ -207,55 +189,34 @@ export class PaymentVerificationService {
    */
 
   static async getAdminPayments(
-    options: AdminPaymentListOptions = {}
-  ): Promise<
-    PaymentVerificationResult<AdminPaymentListData>
-  > {
+    options: AdminPaymentListOptions = {},
+  ): Promise<PaymentVerificationResult<AdminPaymentListData>> {
     try {
-      const page =
-        options.page ?? 1;
+      const page = options.page ?? 1;
 
-      const limit =
-        options.limit ?? 20;
+      const limit = options.limit ?? 20;
 
-      if (
-        !Number.isInteger(page) ||
-        page < 1
-      ) {
+      if (!Number.isInteger(page) || page < 1) {
         return {
           success: false,
-          message:
-            "Page harus berupa bilangan bulat positif.",
+          message: "Page harus berupa bilangan bulat positif.",
         };
       }
 
-      if (
-        !Number.isInteger(limit) ||
-        limit < 1 ||
-        limit > 100
-      ) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
         return {
           success: false,
-          message:
-            "Limit harus berada di antara 1 dan 100.",
+          message: "Limit harus berada di antara 1 dan 100.",
         };
       }
 
-      const search =
-        String(
-          options.search ?? ""
-        ).trim() || undefined;
+      const search = String(options.search ?? "").trim() || undefined;
 
-      const status =
-        options.status;
+      const status = options.status;
 
-      const skip =
-        (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-      const [
-        payments,
-        total,
-      ] = await Promise.all([
+      const [payments, total] = await Promise.all([
         PaymentVerificationRepository.findAdminPayments({
           search,
           status,
@@ -269,103 +230,63 @@ export class PaymentVerificationService {
         }),
       ]);
 
-      const totalPages =
-        total > 0
-          ? Math.ceil(total / limit)
-          : 1;
+      const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
 
-      const normalizedPayments: AdminPaymentListItem[] =
-        payments.map((payment) => ({
+      const normalizedPayments: AdminPaymentListItem[] = payments.map(
+        (payment) => ({
           id: payment.id,
           status: payment.status,
           image: payment.image,
           bankName: payment.bankName,
           accountName: payment.accountName,
-          accountNumber:
-            payment.accountNumber,
-          createdAt:
-            payment.createdAt,
-          verifiedAt:
-            payment.verifiedAt,
-          rejectionReason:
-            payment.rejectionReason,
+          accountNumber: payment.accountNumber,
+          createdAt: payment.createdAt,
+          verifiedAt: payment.verifiedAt,
+          rejectionReason: payment.rejectionReason,
 
           order: {
-            id:
-              payment.order.id,
+            id: payment.order.id,
 
-            orderNumber:
-              payment.order.orderNumber,
+            orderNumber: payment.order.orderNumber,
 
-            total:
-              Number(
-                payment.order.total
-              ),
+            total: Number(payment.order.total),
 
-            status:
-              String(
-                payment.order.status
-              ),
+            status: String(payment.order.status),
 
             user: {
-              id:
-                payment.order.user.id,
+              id: payment.order.user.id,
 
-              name:
-                payment.order.user.name,
+              name: payment.order.user.name,
 
-              email:
-                payment.order.user.email,
+              email: payment.order.user.email,
 
-              phone:
-                payment.order.user.phone,
+              phone: payment.order.user.phone,
             },
 
-            paymentChannel:
-              payment.order.paymentChannel
-                ? {
-                    id:
-                      payment.order
-                        .paymentChannel
-                        .id,
+            paymentChannel: payment.order.paymentChannel
+              ? {
+                  id: payment.order.paymentChannel.id,
 
-                    name:
-                      payment.order
-                        .paymentChannel
-                        .name,
+                  name: payment.order.paymentChannel.name,
 
-                    type:
-                      String(
-                        payment.order
-                          .paymentChannel
-                          .type
-                      ),
+                  type: String(payment.order.paymentChannel.type),
 
-                    bankName:
-                      payment.order
-                        .paymentChannel
-                        .bankName,
+                  bankName: payment.order.paymentChannel.bankName,
 
-                    accountNumber:
-                      payment.order
-                        .paymentChannel
-                        .accountNumber,
+                  accountNumber: payment.order.paymentChannel.accountNumber,
 
-                    accountHolder:
-                      payment.order
-                        .paymentChannel
-                        .accountHolder,
-                  }
-                : null,
+                  accountHolder: payment.order.paymentChannel.accountHolder,
+                }
+              : null,
           },
-        }));
+        }),
+      );
 
       return {
         success: true,
 
         data: {
-          payments:
-            normalizedPayments,
+          payments: normalizedPayments,
 
           pagination: {
             page,
@@ -373,24 +294,18 @@ export class PaymentVerificationService {
             total,
             totalPages,
 
-            hasNextPage:
-              page < totalPages,
+            hasNextPage: page < totalPages,
 
-            hasPreviousPage:
-              page > 1,
+            hasPreviousPage: page > 1,
           },
         },
       };
     } catch (error) {
-      console.error(
-        "[PAYMENT_VERIFICATION_GET_ADMIN_PAYMENTS_ERROR]",
-        error
-      );
+      console.error("[PAYMENT_VERIFICATION_GET_ADMIN_PAYMENTS_ERROR]", error);
 
       return {
         success: false,
-        message:
-          "Gagal mengambil daftar pembayaran admin.",
+        message: "Gagal mengambil daftar pembayaran admin.",
       };
     }
   }
@@ -412,23 +327,18 @@ export class PaymentVerificationService {
     PaymentVerificationResult<AdminPaymentStats>
   > {
     try {
-      const stats =
-        await PaymentVerificationRepository.getAdminPaymentStats();
+      const stats = await PaymentVerificationRepository.getAdminPaymentStats();
 
       return {
         success: true,
         data: stats,
       };
     } catch (error) {
-      console.error(
-        "[PAYMENT_VERIFICATION_GET_ADMIN_STATS_ERROR]",
-        error
-      );
+      console.error("[PAYMENT_VERIFICATION_GET_ADMIN_STATS_ERROR]", error);
 
       return {
         success: false,
-        message:
-          "Gagal mengambil statistik pembayaran.",
+        message: "Gagal mengambil statistik pembayaran.",
       };
     }
   }
@@ -456,28 +366,24 @@ export class PaymentVerificationService {
 
   static async verify(
     id: string,
-    verifiedById: string
+    verifiedById: string,
   ): Promise<PaymentVerificationResult> {
     try {
-      const normalizedId =
-        String(id ?? "").trim();
+      const normalizedId = String(id ?? "").trim();
 
-      const normalizedVerifierId =
-        String(verifiedById ?? "").trim();
+      const normalizedVerifierId = String(verifiedById ?? "").trim();
 
       if (!normalizedId) {
         return {
           success: false,
-          message:
-            "ID pembayaran tidak valid.",
+          message: "ID pembayaran tidak valid.",
         };
       }
 
       if (!normalizedVerifierId) {
         return {
           success: false,
-          message:
-            "Admin verifier tidak valid.",
+          message: "Admin verifier tidak valid.",
         };
       }
 
@@ -493,11 +399,33 @@ export class PaymentVerificationService {
        * yang sama.
        */
 
-      const updatedPayment =
-        await PaymentVerificationRepository.verify(
-          normalizedId,
-          normalizedVerifierId
+      const verificationResult = await PaymentVerificationRepository.verify(
+        normalizedId,
+        normalizedVerifierId,
+      );
+
+      const updatedPayment = verificationResult.updatedProof;
+
+      try {
+        await notificationService.createCustomerPaymentNotification({
+          userId: verificationResult.notificationContext.userId,
+
+          orderId: verificationResult.notificationContext.orderId,
+
+          orderNumber: verificationResult.notificationContext.orderNumber,
+
+          type: NotificationType.PAYMENT_VERIFIED,
+
+          title: "Pembayaran Berhasil Diverifikasi",
+
+          message: `Pembayaran untuk pesanan ${verificationResult.notificationContext.orderNumber} telah diverifikasi. Pesanan sedang diproses.`,
+        });
+      } catch (notificationError) {
+        console.error(
+          "[CUSTOMER_PAYMENT_VERIFIED_NOTIFICATION_ERROR]",
+          notificationError,
         );
+      }
 
       return {
         success: true,
@@ -506,10 +434,7 @@ export class PaymentVerificationService {
         data: updatedPayment,
       };
     } catch (error) {
-      console.error(
-        "[PAYMENT_VERIFICATION_VERIFY_ERROR]",
-        error
-      );
+      console.error("[PAYMENT_VERIFICATION_VERIFY_ERROR]", error);
 
       return {
         success: false,
@@ -528,72 +453,86 @@ export class PaymentVerificationService {
    *
    * Alasan penolakan wajib diisi.
    *
-   * Customer nantinya dapat mengirim ulang
-   * bukti pembayaran.
+   * Customer dapat mengirim ulang bukti pembayaran.
    */
-
   static async reject(
     id: string,
     rejectionReason: string,
-    verifiedById: string
+    verifiedById: string,
   ): Promise<PaymentVerificationResult> {
     try {
-      const normalizedId =
-        String(id ?? "").trim();
+      const normalizedId = String(id ?? "").trim();
 
-      const normalizedReason =
-        String(
-          rejectionReason ?? ""
-        ).trim();
+      const normalizedReason = String(rejectionReason ?? "").trim();
 
-      const normalizedVerifierId =
-        String(
-          verifiedById ?? ""
-        ).trim();
+      const normalizedVerifierId = String(verifiedById ?? "").trim();
 
       if (!normalizedId) {
         return {
           success: false,
-          message:
-            "ID pembayaran tidak valid.",
+          message: "ID pembayaran tidak valid.",
         };
       }
 
       if (!normalizedVerifierId) {
         return {
           success: false,
-          message:
-            "Admin verifier tidak valid.",
+          message: "Admin verifier tidak valid.",
         };
       }
 
       if (!normalizedReason) {
         return {
           success: false,
-          message:
-            "Alasan penolakan wajib diisi.",
+          message: "Alasan penolakan wajib diisi.",
         };
       }
 
       /**
-       * ========================================================
+       * ======================================================
        * SINGLE TRANSACTION BOUNDARY
-       * ========================================================
-       *
-       * Repository menangani:
-       *
-       *   PaymentProof
-       *   Order
-       *
-       * dalam satu transaction.
+       * ======================================================
        */
 
-      const updatedPayment =
-        await PaymentVerificationRepository.reject(
-          normalizedId,
-          normalizedReason,
-          normalizedVerifierId
+      const rejectionResult = await PaymentVerificationRepository.reject(
+        normalizedId,
+        normalizedReason,
+        normalizedVerifierId,
+      );
+
+      const updatedPayment = rejectionResult.updatedProof;
+
+      /**
+       * ======================================================
+       * CUSTOMER NOTIFICATION
+       * ======================================================
+       *
+       * Notifikasi dibuat setelah transaksi penolakan
+       * berhasil diselesaikan.
+       *
+       * Kegagalan notifikasi tidak menggagalkan penolakan.
+       */
+
+      try {
+        await notificationService.createCustomerPaymentNotification({
+          userId: rejectionResult.notificationContext.userId,
+
+          orderId: rejectionResult.notificationContext.orderId,
+
+          orderNumber: rejectionResult.notificationContext.orderNumber,
+
+          type: NotificationType.SYSTEM,
+
+          title: "Pembayaran Ditolak",
+
+          message: `Pembayaran untuk pesanan ${rejectionResult.notificationContext.orderNumber} ditolak. Alasan: ${normalizedReason}. Silakan periksa pesanan dan kirim ulang bukti pembayaran.`,
+        });
+      } catch (notificationError) {
+        console.error(
+          "[CUSTOMER_PAYMENT_REJECTED_NOTIFICATION_ERROR]",
+          notificationError,
         );
+      }
 
       return {
         success: true,
@@ -602,17 +541,12 @@ export class PaymentVerificationService {
         data: updatedPayment,
       };
     } catch (error) {
-      console.error(
-        "[PAYMENT_VERIFICATION_REJECT_ERROR]",
-        error
-      );
+      console.error("[PAYMENT_VERIFICATION_REJECT_ERROR]", error);
 
       return {
         success: false,
         message:
-          error instanceof Error
-            ? error.message
-            : "Gagal menolak pembayaran.",
+          error instanceof Error ? error.message : "Gagal menolak pembayaran.",
       };
     }
   }
