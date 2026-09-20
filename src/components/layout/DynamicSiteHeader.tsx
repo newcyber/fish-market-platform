@@ -14,6 +14,7 @@ import HomeUserMenu from "@/components/home/home-user-menu";
 import SiteCartButton from "@/components/layout/SiteCartButton";
 import SiteSearch from "@/components/layout/SiteSearch";
 import { CustomerAccountMenu } from "@/components/customer/CustomerAccountMenu";
+import CustomerNotificationBell from "@/components/customer/notification/CustomerNotificationBell";
 
 import settingsService from "@/services/settings/settings.service";
 
@@ -507,14 +508,18 @@ export default async function DynamicSiteHeader({
                 )}
               </Link>
 
-              {/* CUSTOMER ACCOUNT */}
+            {/* CUSTOMER NOTIFICATIONS */}
 
-              {customerName && customerInitial ? (
-                <CustomerAccountMenu
-                  customerName={customerName}
-                  customerInitial={customerInitial}
-                />
-              ) : null}
+            <CustomerNotificationBell />
+
+            {/* CUSTOMER ACCOUNT */}
+
+            {customerName && customerInitial ? (
+              <CustomerAccountMenu
+                customerName={customerName}
+                customerInitial={customerInitial}
+              />
+            ) : null}
             </>
           ) : (
             /* ================================================== */
@@ -655,6 +660,10 @@ export default async function DynamicSiteHeader({
                   </span>
                 )}
               </Link>
+
+              {/* CUSTOMER NOTIFICATIONS */}
+
+<CustomerNotificationBell />
 
               {/* ACCOUNT */}
 
