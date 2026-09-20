@@ -21,6 +21,7 @@ import OrderService from "@/services/order/order.service";
 
 import OrderTimeline from "@/components/admin/orders/OrderTimeline";
 import PaymentVerification from "@/components/admin/orders/PaymentVerification";
+import CourierFriendlyAddress from "@/components/admin/orders/CourierFriendlyAddress";
 import OrderStatusControl from "@/components/admin/orders/OrderStatusControl";
 import DeleteOrderButton from "@/components/admin/orders/DeleteOrderButton";
 import CreateInternalShipmentButton from "@/components/admin/orders/CreateInternalShipmentButton";
@@ -318,6 +319,35 @@ export default async function OrderDetailPage({
     notFound();
   }
 
+  /**
+   * Serialize Prisma Decimal values before passing
+   * address data to the Client Component.
+   */
+  const courierAddress = order.address
+    ? {
+        receiverName: order.address.receiverName ?? "",
+        receiverPhone: order.address.receiverPhone ?? "",
+        province: order.address.province ?? "",
+        city: order.address.city ?? "",
+        district: order.address.district ?? "",
+        village: order.address.village ?? "",
+        postalCode: order.address.postalCode ?? "",
+        fullAddress: order.address.fullAddress ?? "",
+        latitude:
+          order.address.latitude !== null &&
+          order.address.latitude !== undefined
+            ? order.address.latitude.toString()
+            : null,
+        longitude:
+          order.address.longitude !== null &&
+          order.address.longitude !== undefined
+            ? order.address.longitude.toString()
+            : null,
+        notes: order.address.notes ?? null,
+        label: order.address.label ?? null,
+      }
+    : null;
+
   const addressEntries = getAddressEntries(order.address);
   const shippingStatus = getShippingStatus(order.status);
 
@@ -595,12 +625,13 @@ export default async function OrderDetailPage({
             </div>
 
             <div className="mt-4 border-t border-slate-100 pt-4">
-              <PaymentVerification
-                orderId={order.id}
-                paymentStatus={order.paymentStatus}
-                orderStatus={order.status}
-                hasPaymentProof={Boolean(order.paymentProof)}
-              />
+<PaymentVerification
+  orderId={order.id}
+  paymentStatus={order.paymentStatus}
+  orderStatus={order.status}
+  hasPaymentProof={Boolean(order.paymentProof)}
+  paymentProofId={order.paymentProof?.id ?? null}
+/>
             </div>
 
             {order.paymentProof ? (
@@ -838,62 +869,38 @@ export default async function OrderDetailPage({
           ADDRESS + SHIPPING
       ============================================================ */}
 
-      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        {/* ADDRESS */}
+      {/* ============================================================
+    ADDRESS + SHIPPING
+============================================================ */}
 
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <SectionHeader
-            icon={MapPin}
-            title="Alamat Pengiriman"
-            description="Alamat yang digunakan untuk order ini"
-          />
+<section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+  {/* ADDRESS */}
 
-          <div className="p-4 sm:p-5">
-            {addressEntries.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {addressEntries.map(([key, value]) => (
-                  <div
-                    key={key}
-                    className={
-                      key === "address" ||
-                      key === "notes"
-                        ? "sm:col-span-2"
-                        : ""
-                    }
-                  >
-                    <p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">
-                      {formatAddressKey(key)}
-                    </p>
+  <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <SectionHeader
+      icon={MapPin}
+      title="Alamat Pengiriman"
+      description="Format alamat khusus kurir untuk order ini"
+    />
 
-                    <div className="mt-1 break-words whitespace-pre-line text-sm font-medium leading-6 text-[var(--pisjo-navy)]">
-                      {typeof value === "boolean" ? (
-                        value ? (
-                          <span className="inline-flex items-center rounded-full border border-[var(--pisjo-green)]/20 bg-[var(--pisjo-green)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--pisjo-green)]">
-                            Alamat Utama
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">
-                            Bukan Alamat Utama
-                          </span>
-                        )
-                      ) : (
-                        String(value)
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
-                <MapPin className="mx-auto h-6 w-6 text-slate-400" />
+<div className="p-4 sm:p-5">
+  {courierAddress ? (
+    <CourierFriendlyAddress address={courierAddress} />
+  ) : (
+    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
+      <MapPin className="mx-auto h-6 w-6 text-slate-400" />
 
-                <p className="mt-2 text-sm font-medium text-slate-600">
-                  Informasi alamat tidak tersedia.
-                </p>
-              </div>
-            )}
-          </div>
-        </section>
+      <p className="mt-2 text-sm font-medium text-slate-600">
+        Informasi alamat tidak tersedia.
+      </p>
+
+      <p className="mt-1 text-xs text-slate-400">
+        Data alamat pengiriman tidak ditemukan pada order ini.
+      </p>
+    </div>
+  )}
+</div>
+  </section>
 
         {/* SHIPPING */}
 

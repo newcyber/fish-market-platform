@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 
 import {
@@ -446,18 +447,34 @@ function handlePaymentStatusChange(
           {/* CREATE ORDER                                       */}
           {/* ================================================== */}
 
-          <Link
-            href="/admin/orders/create"
-            className="w-full lg:w-auto"
-          >
-            <Button
-              type="button"
-              className="h-11 w-full gap-2 rounded-xl bg-[var(--pisjo-primary)] px-5 text-white shadow-sm hover:bg-[var(--pisjo-ocean)] lg:w-auto"
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <Link
+              href="/admin/orders/trash"
+              className="w-full sm:w-auto"
             >
-              <Plus className="h-4 w-4" />
-              Buat Order
-            </Button>
-          </Link>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full gap-2 rounded-xl border-slate-200 px-5 text-slate-600 hover:border-[var(--pisjo-primary)] hover:bg-[var(--pisjo-soft-blue)] hover:text-[var(--pisjo-ocean)] sm:w-auto"
+              >
+                <Trash2 className="h-4 w-4" />
+                Trash
+              </Button>
+            </Link>
+
+            <Link
+              href="/admin/orders/create"
+              className="w-full sm:w-auto"
+            >
+              <Button
+                type="button"
+                className="h-11 w-full gap-2 rounded-xl bg-[var(--pisjo-primary)] px-5 text-white shadow-sm hover:bg-[var(--pisjo-ocean)] sm:w-auto"
+              >
+                <Plus className="h-4 w-4" />
+                Buat Order
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </section>

@@ -32,6 +32,7 @@ interface PaymentVerificationProps {
   paymentStatus: PaymentStatus;
   orderStatus: string;
   hasPaymentProof: boolean;
+  paymentProofId: string | null;
 }
 
 export default function PaymentVerification({
@@ -39,6 +40,7 @@ export default function PaymentVerification({
   paymentStatus,
   orderStatus,
   hasPaymentProof,
+  paymentProofId,
 }: PaymentVerificationProps) {
   const router = useRouter();
 
@@ -260,20 +262,85 @@ export default function PaymentVerification({
         </div>
       )}
 
-      {/* =====================================================
-          ACTIONS
-          ===================================================== */}
+    {/* =====================================================
+        ACTIONS
+    ===================================================== */}
 
-      {!isVerified && !isCancelled && (
-        <div className="flex flex-col gap-3 sm:flex-row">
+    {/* VIEW PAYMENT PROOF */}
+
+    <div className="flex flex-col gap-3">
+      <Button
+        type="button"
+        variant="outline"
+        disabled={
+          !hasPaymentProof ||
+          !paymentProofId ||
+          isPending
+        }
+        onClick={() => {
+          if (!paymentProofId) {
+            return;
+          }
+
+          router.push(
+            `/admin/payments/${paymentProofId}`
+          );
+        }}
+        className="min-h-11 w-full border-[var(--pisjo-primary)] text-[var(--pisjo-primary)] hover:bg-[var(--pisjo-bg)]"
+      >
+        <CreditCard className="mr-2 h-4 w-4" />
+
+        {hasPaymentProof
+          ? "Lihat Bukti Pembayaran"
+          : "Bukti Pembayaran Belum Tersedia"}
+      </Button>
+
+      {!hasPaymentProof && (
+        <p className="text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+          Customer belum mengunggah bukti pembayaran.
+          Tombol akan aktif setelah bukti tersedia.
+        </p>
+      )}
+    </div>
+
+    {/* VERIFY & REJECT PAYMENT */}
+
+    {!isVerified && !isCancelled && (
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button
+          type="button"
+          onClick={verifyPayment}
+          disabled={
+            isPending ||
+            !hasPaymentProof
+          }
+          className="min-h-11 w-full flex-1 bg-[var(--pisjo-primary)] text-white hover:bg-[var(--pisjo-ocean)]"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Memproses...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              {isRejected
+                ? "Verifikasi Bukti Baru"
+                : "Verifikasi Pembayaran"}
+            </>
+          )}
+        </Button>
+
+        {!isRejected && (
           <Button
             type="button"
-            onClick={verifyPayment}
+            variant="outline"
+            onClick={rejectPayment}
             disabled={
               isPending ||
               !hasPaymentProof
             }
-            className="min-h-11 w-full flex-1 bg-[var(--pisjo-primary)] text-white hover:bg-[var(--pisjo-ocean)]"
+            className="min-h-11 w-full flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
           >
             {isPending ? (
               <>
@@ -282,40 +349,15 @@ export default function PaymentVerification({
               </>
             ) : (
               <>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                {isRejected
-                  ? "Verifikasi Bukti Baru"
-                  : "Verifikasi Pembayaran"}
+                <XCircle className="mr-2 h-4 w-4" />
+                Tolak Pembayaran
               </>
             )}
           </Button>
+        )}
+      </div>
+    )}
 
-          {!isRejected && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={rejectPayment}
-              disabled={
-                isPending ||
-                !hasPaymentProof
-              }
-              className="min-h-11 w-full flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Memproses...
-                </>
-              ) : (
-                <>
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Tolak Pembayaran
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      )}
 
       {/* =====================================================
           VERIFIED INFO
