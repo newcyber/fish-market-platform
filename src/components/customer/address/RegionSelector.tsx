@@ -1,17 +1,13 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChevronDown, Loader2 } from "lucide-react";
 
 export interface RegionOption {
   code: string;
   name: string;
+  postalCode?: string | null;
 }
 
 interface RegionSelectorProps {
@@ -23,9 +19,7 @@ interface RegionSelectorProps {
   loading?: boolean;
   required?: boolean;
   placeholder?: string;
-  onChange: (
-    option: RegionOption | null,
-  ) => void;
+  onChange: (option: RegionOption | null) => void;
 }
 
 export default function RegionSelector({
@@ -39,79 +33,51 @@ export default function RegionSelector({
   placeholder = "Pilih wilayah",
   onChange,
 }: RegionSelectorProps) {
-  const containerRef =
-    useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const [open, setOpen] =
-    useState(false);
+  const [open, setOpen] = useState(false);
 
-  const [query, setQuery] =
-    useState("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
-    setQuery(value?.name ?? "");
-  }, [value]);
-
-  useEffect(() => {
-    function handleOutsideClick(
-      event: MouseEvent,
-    ) {
+    function handleOutsideClick(event: MouseEvent) {
       if (
         containerRef.current &&
-        !containerRef.current.contains(
-          event.target as Node,
-        )
+        !containerRef.current.contains(event.target as Node)
       ) {
         setOpen(false);
       }
     }
 
-    document.addEventListener(
-      "mousedown",
-      handleOutsideClick,
-    );
+    document.addEventListener("mousedown", handleOutsideClick);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutsideClick,
-      );
+      document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, []);
 
-  const filteredOptions =
-    useMemo(() => {
-      const normalizedQuery =
-        query.trim().toLowerCase();
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
 
-      if (!normalizedQuery) {
-        return options;
-      }
+    if (!normalizedQuery) {
+      return options;
+    }
 
-      return options.filter((option) =>
-        option.name
-          .toLowerCase()
-          .includes(normalizedQuery),
-      );
-    }, [options, query]);
+    return options.filter((option) =>
+      option.name.toLowerCase().includes(normalizedQuery),
+    );
+  }, [options, query]);
 
-  function handleInputChange(
-    nextValue: string,
-  ) {
+  function handleInputChange(nextValue: string) {
     setQuery(nextValue);
     setOpen(true);
 
-    if (
-      value &&
-      nextValue !== value.name
-    ) {
+    if (value && nextValue !== value.name) {
       onChange(null);
     }
   }
 
-  function handleSelect(
-    option: RegionOption,
-  ) {
+  function handleSelect(option: RegionOption) {
     onChange(option);
     setQuery(option.name);
     setOpen(false);
@@ -123,18 +89,11 @@ export default function RegionSelector({
     setOpen(false);
   }
 
-  const isDisabled =
-    disabled || loading;
+  const isDisabled = disabled || loading;
 
   return (
-    <div
-      ref={containerRef}
-      className="relative"
-    >
-      <label
-        htmlFor={id}
-        className="mb-2 block text-sm font-medium"
-      >
+    <div ref={containerRef} className="relative">
+      <label htmlFor={id} className="mb-2 block text-sm font-medium">
         {label}
       </label>
 
@@ -145,18 +104,14 @@ export default function RegionSelector({
           required={required}
           disabled={isDisabled}
           autoComplete="off"
-          value={query}
+          value={value ? value.name : query}
           placeholder={placeholder}
           onFocus={() => {
             if (!isDisabled) {
               setOpen(true);
             }
           }}
-          onChange={(event) =>
-            handleInputChange(
-              event.target.value,
-            )
-          }
+          onChange={(event) => handleInputChange(event.target.value)}
           className="w-full rounded-lg border bg-background px-3 py-2.5 pr-10 text-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
@@ -178,36 +133,25 @@ export default function RegionSelector({
                 : "Tidak ada data wilayah."}
             </div>
           ) : (
-            filteredOptions.map(
-              (option) => (
-                <button
-                  key={option.code}
-                  type="button"
-                  onMouseDown={(event) =>
-                    event.preventDefault()
-                  }
-                  onClick={() =>
-                    handleSelect(option)
-                  }
-                  className={`block w-full px-3 py-2.5 text-left text-sm transition hover:bg-muted ${
-                    value?.code ===
-                    option.code
-                      ? "bg-muted font-medium"
-                      : ""
-                  }`}
-                >
-                  {option.name}
-                </button>
-              ),
-            )
+            filteredOptions.map((option) => (
+              <button
+                key={option.code}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handleSelect(option)}
+                className={`block w-full px-3 py-2.5 text-left text-sm transition hover:bg-muted ${
+                  value?.code === option.code ? "bg-muted font-medium" : ""
+                }`}
+              >
+                {option.name}
+              </button>
+            ))
           )}
 
           {value && (
             <button
               type="button"
-              onMouseDown={(event) =>
-                event.preventDefault()
-              }
+              onMouseDown={(event) => event.preventDefault()}
               onClick={handleClear}
               className="sticky bottom-0 w-full border-t bg-background px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted"
             >

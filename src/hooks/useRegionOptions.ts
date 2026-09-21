@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -43,7 +44,13 @@ interface UseRegionOptionsReturn {
 async function fetchRegions(
   url: string,
 ): Promise<RegionOption[]> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
 
   let result: RegionsResponse;
 

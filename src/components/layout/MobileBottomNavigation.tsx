@@ -299,6 +299,9 @@ export default function MobileBottomNavigation({
       "/verify-email/"
     );
 
+  const isCartRoute =
+    pathname === "/cart";
+
   /**
    * ==========================================================
    * HIDE NAVIGATION RULE
@@ -322,14 +325,15 @@ export default function MobileBottomNavigation({
    * - /verify-email/*
    */
 
-  const shouldHideNavigation =
-    isLandingPage ||
-    isAdminRoute ||
-    isLoginRoute ||
-    isRegisterRoute ||
-    isForgotPasswordRoute ||
-    isResetPasswordRoute ||
-    isVerifyEmailRoute;
+const shouldHideNavigation =
+  isLandingPage ||
+  isAdminRoute ||
+  isLoginRoute ||
+  isRegisterRoute ||
+  isForgotPasswordRoute ||
+  isResetPasswordRoute ||
+  isVerifyEmailRoute ||
+  isCartRoute;
 
 
   /**

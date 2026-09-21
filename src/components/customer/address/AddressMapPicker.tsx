@@ -1,3 +1,4 @@
+
 "use client";
 
 import "leaflet/dist/leaflet.css";
@@ -20,12 +21,6 @@ import {
 
 import L from "leaflet";
 
-import {
-  Crosshair,
-  Loader2,
-  MapPin,
-} from "lucide-react";
-
 /**
  * ============================================================
  * TYPES
@@ -42,12 +37,30 @@ interface AddressMapPickerProps {
   ) => void;
 }
 
+interface MapClickHandlerProps {
+  onLocationChange: (
+    latitude: number,
+    longitude: number
+  ) => void;
+}
+
+interface MapCenterControllerProps {
+  latitude: number;
+  longitude: number;
+}
+
+interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type?: string;
+  category?: string;
+}
+
 /**
  * ============================================================
- * DEFAULT LOCATION
- *
- * Indonesia - Jakarta
- * Digunakan jika customer belum memilih lokasi.
+ * CONSTANTS
  * ============================================================
  */
 
@@ -56,9 +69,11 @@ const DEFAULT_POSITION: [number, number] = [
   106.8456,
 ];
 
+const SEARCH_DEBOUNCE_MS = 500;
+
 /**
  * ============================================================
- * FIX LEAFLET DEFAULT MARKER
+ * LEAFLET DEFAULT MARKER
  * ============================================================
  */
 
@@ -73,29 +88,18 @@ const defaultIcon = L.icon({
     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 
   iconSize: [25, 41],
-
   iconAnchor: [12, 41],
-
   popupAnchor: [1, -34],
-
   shadowSize: [41, 41],
 });
 
-L.Marker.prototype.options.icon =
-  defaultIcon;
+L.Marker.prototype.options.icon = defaultIcon;
 
 /**
  * ============================================================
  * MAP CLICK HANDLER
  * ============================================================
  */
-
-interface MapClickHandlerProps {
-  onLocationChange: (
-    latitude: number,
-    longitude: number
-  ) => void;
-}
 
 function MapClickHandler({
   onLocationChange,
@@ -115,15 +119,8 @@ function MapClickHandler({
 /**
  * ============================================================
  * MAP CENTER CONTROLLER
- *
- * Bertugas memindahkan center peta ketika position berubah.
  * ============================================================
  */
-
-interface MapCenterControllerProps {
-  latitude: number;
-  longitude: number;
-}
 
 function MapCenterController({
   latitude,
@@ -132,8 +129,7 @@ function MapCenterController({
   const map = useMap();
 
   useEffect(() => {
-    const currentCenter =
-      map.getCenter();
+    const currentCenter = map.getCenter();
 
     const latitudeChanged =
       Math.abs(
@@ -154,19 +150,12 @@ function MapCenterController({
 
     map.setView(
       [latitude, longitude],
-      Math.max(
-        map.getZoom(),
-        16
-      ),
+      Math.max(map.getZoom(), 16),
       {
         animate: true,
       }
     );
-  }, [
-    map,
-    latitude,
-    longitude,
-  ]);
+  }, [map, latitude, longitude]);
 
   return null;
 }
@@ -184,10 +173,7 @@ export default function AddressMapPicker({
 }: AddressMapPickerProps) {
   /**
    * ==========================================================
-   * INITIAL POSITION
-   *
-   * useMemo digunakan agar posisi dari props tidak dibuat ulang
-   * secara tidak perlu.
+   * EXTERNAL POSITION
    * ==========================================================
    */
 
@@ -195,23 +181,19 @@ export default function AddressMapPicker({
     useMemo<[number, number] | null>(() => {
       if (
         typeof latitude === "number" &&
-        typeof longitude === "number"
+        typeof longitude === "number" &&
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude)
       ) {
-        return [
-          latitude,
-          longitude,
-        ];
+        return [latitude, longitude];
       }
 
       return null;
-    }, [
-      latitude,
-      longitude,
-    ]);
+    }, [latitude, longitude]);
 
   /**
    * ==========================================================
-   * STATE POSITION
+   * POSITION STATE
    * ==========================================================
    */
 
@@ -223,25 +205,6 @@ export default function AddressMapPicker({
       );
     });
 
-  /**
-   * ==========================================================
-   * GETTING LOCATION STATE
-   * ==========================================================
-   */
-
-  const [
-    isGettingLocation,
-    setIsGettingLocation,
-  ] = useState(false);
-
-  /**
-   * ==========================================================
-   * TRACK EXTERNAL POSITION
-   *
-   * Ref digunakan untuk menyimpan posisi props sebelumnya.
-   * ==========================================================
-   */
-
   const previousExternalPosition =
     useRef<[number, number] | null>(
       externalPosition
@@ -249,12 +212,56 @@ export default function AddressMapPicker({
 
   /**
    * ==========================================================
-   * SYNC EXTERNAL VALUE
-   *
-   * Penting untuk halaman Edit Address.
-   *
-   * State hanya diubah jika koordinat dari luar benar-benar
-   * berubah.
+   * SEARCH STATE
+   * ==========================================================
+   */
+
+  const [searchQuery, setSearchQuery] =
+    useState("");
+
+  const [searchResults, setSearchResults] =
+    useState<NominatimResult[]>([]);
+
+  const [isSearching, setIsSearching] =
+    useState(false);
+
+  const [searchError, setSearchError] =
+    useState<string | null>(null);
+
+  const [showResults, setShowResults] =
+    useState(false);
+
+  const searchRequestId =
+    useRef(0);
+
+  /**
+ * ==========================================================
+ * HANDLE SEARCH QUERY CHANGE
+ * ==========================================================
+ */
+
+function handleSearchQueryChange(
+  value: string
+) {
+  setSearchQuery(value);
+
+  const query = value.trim();
+
+  if (query.length < 4) {
+    setSearchResults([]);
+    setSearchError(null);
+    setIsSearching(false);
+    setShowResults(false);
+
+    return;
+  }
+
+  setShowResults(true);
+}
+
+  /**
+   * ==========================================================
+   * SYNC EXTERNAL POSITION
    * ==========================================================
    */
 
@@ -268,10 +275,8 @@ export default function AddressMapPicker({
 
     const hasChanged =
       !previous ||
-      previous[0] !==
-        externalPosition[0] ||
-      previous[1] !==
-        externalPosition[1];
+      previous[0] !== externalPosition[0] ||
+      previous[1] !== externalPosition[1];
 
     if (!hasChanged) {
       return;
@@ -280,14 +285,113 @@ export default function AddressMapPicker({
     previousExternalPosition.current =
       externalPosition;
 
-    queueMicrotask(() => {
-      setPosition(
-        externalPosition
-      );
-    });
-  }, [
-    externalPosition,
-  ]);
+    setPosition(externalPosition);
+  }, [externalPosition]);
+
+  /**
+   * ==========================================================
+   * SEARCH ADDRESS
+   * ==========================================================
+   */
+
+useEffect(() => {
+  const query = searchQuery.trim();
+
+  if (query.length < 4) {
+    return;
+  }
+
+  const requestId =
+    ++searchRequestId.current;
+
+    const controller =
+      new AbortController();
+
+    const timeoutId =
+      window.setTimeout(async () => {
+        try {
+          setIsSearching(true);
+          setSearchError(null);
+          setShowResults(true);
+
+          const response = await fetch(
+            `/api/maps/search?q=${encodeURIComponent(query)}`,
+            {
+              method: "GET",
+              signal: controller.signal,
+              headers: {
+                Accept: "application/json",
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              "Layanan pencarian alamat sedang tidak tersedia."
+            );
+          }
+
+          const data =
+            (await response.json()) as
+              | NominatimResult[]
+              | { message?: string };
+
+          if (
+            requestId !==
+            searchRequestId.current
+          ) {
+            return;
+          }
+
+          if (!Array.isArray(data)) {
+            throw new Error(
+              data.message ??
+                "Format hasil pencarian tidak valid."
+            );
+          }
+
+          setSearchResults(data);
+        } catch (error) {
+          if (
+            error instanceof DOMException &&
+            error.name === "AbortError"
+          ) {
+            return;
+          }
+
+          if (
+            requestId !==
+            searchRequestId.current
+          ) {
+            return;
+          }
+
+          console.error(
+            "[ADDRESS_MAP_SEARCH_ERROR]",
+            error
+          );
+
+          setSearchResults([]);
+          setSearchError(
+            error instanceof Error
+              ? error.message
+              : "Gagal mencari alamat."
+          );
+        } finally {
+          if (
+            requestId ===
+            searchRequestId.current
+          ) {
+            setIsSearching(false);
+          }
+        }
+      }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [searchQuery]);
 
   /**
    * ==========================================================
@@ -299,18 +403,15 @@ export default function AddressMapPicker({
     newLatitude: number,
     newLongitude: number
   ) {
-    const newPosition:
-      [number, number] = [
-        newLatitude,
-        newLongitude,
-      ];
+    const newPosition: [number, number] = [
+      newLatitude,
+      newLongitude,
+    ];
 
     previousExternalPosition.current =
       newPosition;
 
-    setPosition(
-      newPosition
-    );
+    setPosition(newPosition);
 
     onChange(
       newLatitude,
@@ -320,87 +421,42 @@ export default function AddressMapPicker({
 
   /**
    * ==========================================================
-   * GET CURRENT LOCATION
+   * SELECT SEARCH RESULT
    * ==========================================================
    */
 
-  function handleGetCurrentLocation() {
+  function handleSelectSearchResult(
+    result: NominatimResult
+  ) {
+    const newLatitude =
+      Number.parseFloat(result.lat);
+
+    const newLongitude =
+      Number.parseFloat(result.lon);
+
     if (
-      !navigator.geolocation
+      !Number.isFinite(newLatitude) ||
+      !Number.isFinite(newLongitude)
     ) {
-      window.alert(
-        "Browser Anda tidak mendukung fitur lokasi."
+      setSearchError(
+        "Koordinat lokasi tidak valid."
       );
 
       return;
     }
 
-    setIsGettingLocation(true);
-
-    navigator.geolocation.getCurrentPosition(
-      (currentPosition) => {
-        const newLatitude =
-          currentPosition.coords.latitude;
-
-        const newLongitude =
-          currentPosition.coords.longitude;
-
-        handleLocationChange(
-          newLatitude,
-          newLongitude
-        );
-
-        setIsGettingLocation(false);
-      },
-
-      (error) => {
-        console.error(
-          "[GET_CURRENT_LOCATION_ERROR]",
-          error
-        );
-
-        let message =
-          "Gagal mendapatkan lokasi Anda.";
-
-        if (
-          error.code ===
-          error.PERMISSION_DENIED
-        ) {
-          message =
-            "Izin lokasi ditolak. Silakan aktifkan izin lokasi pada browser.";
-        }
-
-        if (
-          error.code ===
-          error.POSITION_UNAVAILABLE
-        ) {
-          message =
-            "Informasi lokasi tidak tersedia.";
-        }
-
-        if (
-          error.code ===
-          error.TIMEOUT
-        ) {
-          message =
-            "Waktu untuk mendapatkan lokasi telah habis. Silakan coba lagi.";
-        }
-
-        window.alert(
-          message
-        );
-
-        setIsGettingLocation(false);
-      },
-
-      {
-        enableHighAccuracy: true,
-
-        timeout: 10000,
-
-        maximumAge: 0,
-      }
+    handleLocationChange(
+      newLatitude,
+      newLongitude
     );
+
+    setSearchQuery(
+      result.display_name
+    );
+
+    setSearchResults([]);
+    setShowResults(false);
+    setSearchError(null);
   }
 
   /**
@@ -411,55 +467,106 @@ export default function AddressMapPicker({
 
   return (
     <div className="space-y-4">
-      {/* ====================================================== */}
-      {/* HEADER */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          SEARCH HEADER
+          ====================================================== */}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
+      <div className="relative space-y-2">
+        <label
+          htmlFor="address-map-search"
+          className="text-sm font-medium"
+        >
+          📍 Cari lokasi alamat (Kelurahan)
+        </label>
 
-            <h3 className="font-semibold">
-              Pin Lokasi Pengiriman
-            </h3>
-          </div>
+        <div className="relative">
+          <input
+            id="address-map-search"
+            type="search"
+            value={searchQuery}
+              onChange={(event) => {
+                handleSearchQueryChange(
+                event.target.value
+                );
+              }}
+            onFocus={() => {
+              if (searchResults.length > 0) {
+                setShowResults(true);
+              }
+            }}
+            placeholder="Cari alamat, jalan, kelurahan, atau kota..."
+            className="h-11 w-full rounded-lg border bg-background px-3 pr-24 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            autoComplete="off"
+          />
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            Klik pada peta untuk menentukan lokasi
-            pengiriman secara lebih akurat.
-          </p>
+          {isSearching && (
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+              Mencari...
+            </span>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={
-            handleGetCurrentLocation
-          }
-          disabled={
-            isGettingLocation
-          }
-          className="inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isGettingLocation ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+        <p className="text-xs text-muted-foreground">
+          Ketik minimal 4 karakter, lalu pilih hasil
+          pencarian untuk memindahkan marker.
+        </p>
 
-              Mengambil Lokasi...
-            </>
-          ) : (
-            <>
-              <Crosshair className="h-4 w-4" />
+        {searchError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          >
+            {searchError}
+          </div>
+        )}
 
-              Gunakan Lokasi Saya
-            </>
+        {showResults &&
+          searchResults.length > 0 && (
+            <div className="absolute z-[1000] mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-background shadow-lg">
+              {searchResults.map((result) => (
+                <button
+                  key={result.place_id}
+                  type="button"
+                  onClick={() => {
+                    handleSelectSearchResult(result);
+                  }}
+                  className="block w-full border-b px-3 py-3 text-left text-sm transition last:border-b-0 hover:bg-muted"
+                >
+                  <span className="block font-medium">
+                    {result.display_name}
+                  </span>
+
+                  {(result.type ||
+                    result.category) && (
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {[
+                        result.category,
+                        result.type,
+                      ]
+                        .filter(Boolean)
+                        .join(" • ")}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           )}
-        </button>
+
+        {showResults &&
+          !isSearching &&
+          searchQuery.trim().length >= 4 &&
+          searchResults.length === 0 &&
+          !searchError && (
+            <div className="rounded-lg border bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
+              Lokasi tidak ditemukan. Coba gunakan
+              kata kunci alamat yang lebih lengkap.
+            </div>
+          )}
       </div>
 
-      {/* ====================================================== */}
-      {/* MAP */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          MAP
+          ====================================================== */}
 
       <div className="overflow-hidden rounded-xl border">
         <MapContainer
@@ -480,12 +587,8 @@ export default function AddressMapPicker({
           />
 
           <MapCenterController
-            latitude={
-              position[0]
-            }
-            longitude={
-              position[1]
-            }
+            latitude={position[0]}
+            longitude={position[1]}
           />
 
           <Marker
@@ -514,9 +617,9 @@ export default function AddressMapPicker({
         </MapContainer>
       </div>
 
-      {/* ====================================================== */}
-      {/* COORDINATES */}
-      {/* ====================================================== */}
+      {/* ======================================================
+          COORDINATES
+          ====================================================== */}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border bg-muted/30 p-3">

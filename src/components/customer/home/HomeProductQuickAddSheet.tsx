@@ -1,30 +1,16 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-  useTransition,
-} from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { createPortal } from "react-dom";
 
-import {
-  Check,
-  Loader2,
-  Minus,
-  Plus,
-  ShoppingCart,
-  X,
-} from "lucide-react";
+import { emitCartUpdated } from "@/lib/cart/cart-events";
 
-import {
-  addToCartAction,
-} from "@/actions/cart/add-to-cart";
+import { Check, Loader2, Minus, Plus, ShoppingCart, X } from "lucide-react";
 
-import {
-  getProductVariants,
-} from "@/actions/cart/get-product-variants";
+import { addToCartAction } from "@/actions/cart/add-to-cart";
+
+import { getProductVariants } from "@/actions/cart/get-product-variants";
 
 interface ProductVariantOption {
   id: string;
@@ -84,11 +70,7 @@ function formatRupiah(value: number) {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
-  }).format(
-    Number.isFinite(value)
-      ? Math.max(0, value)
-      : 0
-  );
+  }).format(Number.isFinite(value) ? Math.max(0, value) : 0);
 }
 
 export default function HomeProductQuickAddSheet({
@@ -98,35 +80,19 @@ export default function HomeProductQuickAddSheet({
   onClose,
   onAdded,
 }: HomeProductQuickAddSheetProps) {
-  const [
-    data,
-    setData,
-  ] = useState<ProductVariantData | null>(null);
+  const [data, setData] = useState<ProductVariantData | null>(null);
 
-  const [
-    selectedOptions,
-    setSelectedOptions,
-  ] = useState<Record<string, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string>
+  >({});
 
-  const [
-    quantity,
-    setQuantity,
-  ] = useState(1);
+  const [quantity, setQuantity] = useState(1);
 
-  const [
-    isPending,
-    startTransition,
-  ] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
-  const [
-    message,
-    setMessage,
-  ] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const [
-    success,
-    setSuccess,
-  ] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   /**
    * ==========================================================
@@ -152,10 +118,7 @@ export default function HomeProductQuickAddSheet({
         }
 
         if (!result.success || !result.data) {
-          setMessage(
-            result.message ??
-              "Unable to load product options."
-          );
+          setMessage(result.message ?? "Unable to load product options.");
 
           return;
         }
@@ -163,30 +126,19 @@ export default function HomeProductQuickAddSheet({
         setData(result.data);
       })
       .catch((error) => {
-        console.error(
-          "[HOME_PRODUCT_QUICK_ADD]",
-          error
-        );
+        console.error("[HOME_PRODUCT_QUICK_ADD]", error);
 
         if (!cancelled) {
-          setMessage(
-            "Unable to load product options."
-          );
+          setMessage("Unable to load product options.");
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [
-    open,
-    productId,
-  ]);
+  }, [open, productId]);
 
-  const loading =
-    open &&
-    (!data ||
-      data.productId !== productId);
+  const loading = open && (!data || data.productId !== productId);
 
   const handleClose = () => {
     if (isPending) {
@@ -209,30 +161,18 @@ export default function HomeProductQuickAddSheet({
   const activeVariantGroups = useMemo(
     () =>
       (data?.variantGroups ?? [])
-        .filter(
-          (group) =>
-            group.options.length > 0
-        )
-        .sort(
-          (a, b) =>
-            a.sortOrder -
-            b.sortOrder
-        ),
-    [data]
+        .filter((group) => group.options.length > 0)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [data],
   );
 
   const activeSkus = useMemo(
-  () =>
-    (data?.skus ?? []).filter(
-      (sku) =>
-        sku.isActive &&
-        (
-          sku.stock > 0 ||
-          data?.isPreOrder === true
-        )
-    ),
-  [data]
-);
+    () =>
+      (data?.skus ?? []).filter(
+        (sku) => sku.isActive && (sku.stock > 0 || data?.isPreOrder === true),
+      ),
+    [data],
+  );
 
   /**
    * ==========================================================
@@ -255,9 +195,7 @@ export default function HomeProductQuickAddSheet({
       return null;
     }
 
-    if (
-      activeVariantGroups.length === 0
-    ) {
+    if (activeVariantGroups.length === 0) {
       if (activeSkus.length === 1) {
         return activeSkus[0];
       }
@@ -265,64 +203,37 @@ export default function HomeProductQuickAddSheet({
       return null;
     }
 
-    const selectedOptionIds =
-      activeVariantGroups.map(
-        (group) =>
-          selectedOptions[group.id]
-      );
+    const selectedOptionIds = activeVariantGroups.map(
+      (group) => selectedOptions[group.id],
+    );
 
-    if (
-      selectedOptionIds.some(
-        (optionId) => !optionId
-      )
-    ) {
+    if (selectedOptionIds.some((optionId) => !optionId)) {
       return null;
     }
 
     return (
-      activeSkus.find(
-        (sku) => {
-          const skuOptionIds =
-            sku.options.map(
-              (option) =>
-                option.variantOptionId
-            );
+      activeSkus.find((sku) => {
+        const skuOptionIds = sku.options.map(
+          (option) => option.variantOptionId,
+        );
 
-          if (
-            skuOptionIds.length !==
-            activeVariantGroups.length
-          ) {
-            return false;
-          }
-
-          return selectedOptionIds.every(
-            (optionId) =>
-              skuOptionIds.includes(
-                optionId
-              )
-          );
+        if (skuOptionIds.length !== activeVariantGroups.length) {
+          return false;
         }
-      ) ?? null
+
+        return selectedOptionIds.every((optionId) =>
+          skuOptionIds.includes(optionId),
+        );
+      }) ?? null
     );
-  }, [
-    data,
-    activeVariantGroups,
-    activeSkus,
-    selectedOptions,
-  ]);
+  }, [data, activeVariantGroups, activeSkus, selectedOptions]);
 
   /**
    * ==========================================================
    * SELECTED SKU STOCK
    * ==========================================================
    */
-  const selectedStock =
-    selectedSku
-      ? Math.max(
-          0,
-          selectedSku.stock
-        )
-      : 0;
+  const selectedStock = selectedSku ? Math.max(0, selectedSku.stock) : 0;
 
   /**
    * ==========================================================
@@ -334,71 +245,35 @@ export default function HomeProductQuickAddSheet({
    *
    * Ini mencegah kombinasi variant yang tidak mempunyai SKU.
    */
-  const isOptionAvailable = (
-    groupId: string,
-    optionId: string
-  ) => {
+  const isOptionAvailable = (groupId: string, optionId: string) => {
     if (!data) {
       return false;
     }
 
-    const otherSelections =
-      activeVariantGroups
-        .filter(
-          (group) =>
-            group.id !== groupId
-        )
-        .map(
-          (group) => ({
-            groupId: group.id,
-            optionId:
-              selectedOptions[
-                group.id
-              ],
-          })
-        )
-        .filter(
-          (selection) =>
-            Boolean(
-              selection.optionId
-            )
-        );
+    const otherSelections = activeVariantGroups
+      .filter((group) => group.id !== groupId)
+      .map((group) => ({
+        groupId: group.id,
+        optionId: selectedOptions[group.id],
+      }))
+      .filter((selection) => Boolean(selection.optionId));
 
-    return activeSkus.some(
-      (sku) => {
-        const optionIdsByGroup =
-          new Map<
-            string,
-            string
-          >();
+    return activeSkus.some((sku) => {
+      const optionIdsByGroup = new Map<string, string>();
 
-        for (
-          const option
-          of sku.options
-        ) {
-          optionIdsByGroup.set(
-            option.groupId,
-            option.variantOptionId
-          );
-        }
-
-        if (
-          optionIdsByGroup.get(
-            groupId
-          ) !== optionId
-        ) {
-          return false;
-        }
-
-        return otherSelections.every(
-          (selection) =>
-            optionIdsByGroup.get(
-              selection.groupId
-            ) ===
-            selection.optionId
-        );
+      for (const option of sku.options) {
+        optionIdsByGroup.set(option.groupId, option.variantOptionId);
       }
-    );
+
+      if (optionIdsByGroup.get(groupId) !== optionId) {
+        return false;
+      }
+
+      return otherSelections.every(
+        (selection) =>
+          optionIdsByGroup.get(selection.groupId) === selection.optionId,
+      );
+    });
   };
 
   /**
@@ -406,20 +281,15 @@ export default function HomeProductQuickAddSheet({
    * CHANGE OPTION
    * ==========================================================
    */
-  const handleSelectOption = (
-    groupId: string,
-    optionId: string
-  ) => {
+  const handleSelectOption = (groupId: string, optionId: string) => {
     setMessage(null);
     setSuccess(false);
     setQuantity(1);
 
-    setSelectedOptions(
-      (current) => ({
-        ...current,
-        [groupId]: optionId,
-      })
-    );
+    setSelectedOptions((current) => ({
+      ...current,
+      [groupId]: optionId,
+    }));
   };
 
   /**
@@ -428,30 +298,20 @@ export default function HomeProductQuickAddSheet({
    * ==========================================================
    */
   const decreaseQuantity = () => {
-    setQuantity(
-      (current) =>
-        Math.max(
-          1,
-          current - 1
-        )
-    );
+    setQuantity((current) => Math.max(1, current - 1));
   };
 
   const increaseQuantity = () => {
-  if (!selectedSku) {
-    return;
-  }
+    if (!selectedSku) {
+      return;
+    }
 
-  setQuantity(
-    (current) =>
+    setQuantity((current) =>
       data?.isPreOrder === true
         ? current + 1
-        : Math.min(
-            selectedStock,
-            current + 1
-          )
-  );
-};
+        : Math.min(selectedStock, current + 1),
+    );
+  };
 
   /**
    * ==========================================================
@@ -459,13 +319,10 @@ export default function HomeProductQuickAddSheet({
    * ==========================================================
    */
   const handleAddToCart = () => {
-    const isPreOrder =
-      data?.isPreOrder === true;
+    const isPreOrder = data?.isPreOrder === true;
 
     if (!selectedSku) {
-      setMessage(
-        "Silakan pilih semua varian produk."
-      );
+      setMessage("Silakan pilih semua varian produk.");
 
       return;
     }
@@ -476,13 +333,8 @@ export default function HomeProductQuickAddSheet({
      * Pre-Order boleh diproses walaupun
      * stock SKU saat ini 0.
      */
-    if (
-      !isPreOrder &&
-      selectedStock <= 0
-    ) {
-      setMessage(
-        "Stok produk sedang habis."
-      );
+    if (!isPreOrder && selectedStock <= 0) {
+      setMessage("Stok produk sedang habis.");
 
       return;
     }
@@ -494,20 +346,13 @@ export default function HomeProductQuickAddSheet({
      * karena stock fisik belum tersedia.
      */
     if (quantity < 1) {
-      setMessage(
-        "Jumlah pembelian minimal 1."
-      );
+      setMessage("Jumlah pembelian minimal 1.");
 
       return;
     }
 
-    if (
-      !isPreOrder &&
-      quantity > selectedStock
-    ) {
-      setMessage(
-        "Jumlah pembelian melebihi stok."
-      );
+    if (!isPreOrder && quantity > selectedStock) {
+      setMessage("Jumlah pembelian melebihi stok.");
 
       return;
     }
@@ -517,29 +362,56 @@ export default function HomeProductQuickAddSheet({
 
     startTransition(async () => {
       try {
-        const result =
-          await addToCartAction({
-            productId,
-            skuId:
-              selectedSku.id,
-            quantity,
-            customerNote: null,
-          });
+        const result = await addToCartAction({
+          productId,
+          skuId: selectedSku.id,
+          quantity,
+          customerNote: null,
+        });
 
+        /**
+         * ========================================================
+         * VALIDASI HASIL ADD TO CART
+         * ========================================================
+         */
         if (!result.success) {
           setMessage(
-            result.message ??
-              "Gagal menambahkan produk ke keranjang."
+            result.message ?? "Gagal menambahkan produk ke keranjang.",
           );
 
           return;
         }
 
+        /**
+         * ========================================================
+         * BERHASIL MENAMBAHKAN PRODUK
+         * ========================================================
+         */
+
         setSuccess(true);
+
+        setMessage(
+          result.message ?? "Produk berhasil ditambahkan ke keranjang.",
+        );
+
+        /**
+         * Update seluruh cart badge secara otomatis
+         * tanpa melakukan refresh halaman.
+         *
+         * Event ini akan ditangkap oleh:
+         * - SiteCartButton
+         * - MobileBottomNavigation
+         * - Komponen cart badge lainnya
+         */
+        emitCartUpdated();
+
+        /**
+         * Callback tambahan jika tersedia.
+         */
         onAdded?.();
 
         /**
-         * Beri sedikit waktu agar customer melihat
+         * Beri sedikit waktu agar customer dapat melihat
          * feedback berhasil sebelum sheet ditutup.
          */
         window.setTimeout(() => {
@@ -550,14 +422,9 @@ export default function HomeProductQuickAddSheet({
           onClose();
         }, 500);
       } catch (error) {
-        console.error(
-          "[HOME_PRODUCT_QUICK_ADD_SUBMIT]",
-          error
-        );
+        console.error("[HOME_PRODUCT_QUICK_ADD_SUBMIT]", error);
 
-        setMessage(
-          "Terjadi kesalahan saat menambahkan produk."
-        );
+        setMessage("Terjadi kesalahan saat menambahkan produk.");
       }
     });
   };
@@ -571,11 +438,7 @@ export default function HomeProductQuickAddSheet({
       className="fixed inset-0 z-[100] flex items-end justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label={
-        productName ??
-        data?.productName ??
-        "Pilih produk"
-      }
+      aria-label={productName ?? data?.productName ?? "Pilih produk"}
     >
       {/* Overlay */}
       <button
@@ -591,9 +454,7 @@ export default function HomeProductQuickAddSheet({
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 pr-4">
             <h2 className="truncate text-base font-bold text-slate-900">
-              {data?.productName ??
-                productName ??
-                "Pilih produk"}
+              {data?.productName ?? productName ?? "Pilih produk"}
             </h2>
 
             <p className="mt-0.5 text-xs text-slate-500">
@@ -620,9 +481,7 @@ export default function HomeProductQuickAddSheet({
             <div className="flex min-h-48 items-center justify-center">
               <div className="flex flex-col items-center gap-3 text-sm text-slate-500">
                 <Loader2 className="h-7 w-7 animate-spin" />
-                <span>
-                  Memuat pilihan produk...
-                </span>
+                <span>Memuat pilihan produk...</span>
               </div>
             </div>
           ) : message && !data ? (
@@ -631,8 +490,7 @@ export default function HomeProductQuickAddSheet({
             </div>
           ) : data ? (
             <div className="space-y-6">
-              {activeVariantGroups.length ===
-              0 ? (
+              {activeVariantGroups.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-sm font-semibold text-slate-900">
                     Produk siap ditambahkan
@@ -645,9 +503,7 @@ export default function HomeProductQuickAddSheet({
                       </span>
 
                       <span className="text-base font-bold text-slate-900">
-                        {formatRupiah(
-                          selectedSku.price
-                        )}
+                        {formatRupiah(selectedSku.price)}
                       </span>
                     </div>
                   ) : (
@@ -657,69 +513,52 @@ export default function HomeProductQuickAddSheet({
                   )}
                 </div>
               ) : (
-                activeVariantGroups.map(
-                  (group) => (
-                    <section
-                      key={group.id}
-                      className="space-y-3"
-                    >
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">
-                          {group.name}
-                        </h3>
-                      </div>
+                activeVariantGroups.map((group) => (
+                  <section key={group.id} className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        {group.name}
+                      </h3>
+                    </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {group.options.map(
-                          (option) => {
-                            const selected =
-                              selectedOptions[
-                                group.id
-                              ] ===
-                              option.id;
+                    <div className="flex flex-wrap gap-2">
+                      {group.options.map((option) => {
+                        const selected =
+                          selectedOptions[group.id] === option.id;
 
-                            const available =
-                              isOptionAvailable(
-                                group.id,
-                                option.id
-                              );
+                        const available = isOptionAvailable(
+                          group.id,
+                          option.id,
+                        );
 
-                            return (
-                              <button
-                                key={option.id}
-                                type="button"
-                                disabled={
-                                  !available ||
-                                  isPending
-                                }
-                                onClick={() =>
-                                  handleSelectOption(
-                                    group.id,
-                                    option.id
-                                  )
-                                }
-                                className={[
-                                  "relative rounded-xl border px-4 py-2.5 text-sm font-medium transition",
-                                  selected
-                                    ? "border-slate-900 bg-slate-900 text-white"
-                                    : available
-                                      ? "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
-                                      : "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 line-through",
-                                ].join(" ")}
-                              >
-                                {option.label}
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            disabled={!available || isPending}
+                            onClick={() =>
+                              handleSelectOption(group.id, option.id)
+                            }
+                            className={[
+                              "relative rounded-xl border px-4 py-2.5 text-sm font-medium transition",
+                              selected
+                                ? "border-slate-900 bg-slate-900 text-white"
+                                : available
+                                  ? "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+                                  : "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300 line-through",
+                            ].join(" ")}
+                          >
+                            {option.label}
 
-                                {selected ? (
-                                  <Check className="ml-1.5 inline-block h-4 w-4" />
-                                ) : null}
-                              </button>
-                            );
-                          }
-                        )}
-                      </div>
-                    </section>
-                  )
-                )
+                            {selected ? (
+                              <Check className="ml-1.5 inline-block h-4 w-4" />
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))
               )}
 
               {/* Selected SKU summary */}
@@ -728,59 +567,49 @@ export default function HomeProductQuickAddSheet({
                   <>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs text-slate-500">
-                          Pilihan
-                        </p>
+                        <p className="text-xs text-slate-500">Pilihan</p>
 
                         <p className="mt-1 text-sm font-semibold text-slate-900">
                           {selectedSku.options
-                            .map(
-                              (option) =>
-                                option.label
-                            )
-                            .join(" • ") ||
-                            selectedSku.sku}
+                            .map((option) => option.label)
+                            .join(" • ") || selectedSku.sku}
                         </p>
                       </div>
 
                       <p className="shrink-0 text-lg font-bold text-slate-900">
-                        {formatRupiah(
-                          selectedSku.price
-                        )}
+                        {formatRupiah(selectedSku.price)}
                       </p>
                     </div>
 
                     <div className="mt-3 text-xs text-slate-500">
-  {data?.isPreOrder === true ? (
-    <>
-      <span className="font-semibold text-[#ef3030]">
-        Pre-Order
-      </span>
+                      {data?.isPreOrder === true ? (
+                        <>
+                          <span className="font-semibold text-[#ef3030]">
+                            Pre-Order
+                          </span>
 
-      {data.preOrderMinDays != null &&
-      data.preOrderMaxDays != null ? (
-        <>
-          {" • "}
-          Estimasi{" "}
-          {data.preOrderMinDays}-
-          {data.preOrderMaxDays} hari
-        </>
-      ) : null}
-    </>
-  ) : (
-    <>
-      Stok tersedia:{" "}
-      <span className="font-semibold text-slate-700">
-        {selectedStock}
-      </span>
-    </>
-  )}
-</div>
+                          {data.preOrderMinDays != null &&
+                          data.preOrderMaxDays != null ? (
+                            <>
+                              {" • "}
+                              Estimasi {data.preOrderMinDays}-
+                              {data.preOrderMaxDays} hari
+                            </>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          Stok tersedia:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {selectedStock}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    Pilih semua varian untuk melihat harga
-                    dan stok.
+                    Pilih semua varian untuk melihat harga dan stok.
                   </p>
                 )}
               </div>
@@ -788,28 +617,20 @@ export default function HomeProductQuickAddSheet({
               {/* Quantity */}
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-bold text-slate-900">
-                    Jumlah
-                  </p>
+                  <p className="text-sm font-bold text-slate-900">Jumlah</p>
 
                   <p className="mt-0.5 text-xs text-slate-500">
-  {data?.isPreOrder === true
-    ? "Jumlah Pre-Order tidak dibatasi stok tersedia"
-    : "Maksimal sesuai stok"}
-</p>
+                    {data?.isPreOrder === true
+                      ? "Jumlah Pre-Order tidak dibatasi stok tersedia"
+                      : "Maksimal sesuai stok"}
+                  </p>
                 </div>
 
                 <div className="flex items-center rounded-xl border border-slate-200">
                   <button
                     type="button"
-                    onClick={
-                      decreaseQuantity
-                    }
-                    disabled={
-                      !selectedSku ||
-                      quantity <= 1 ||
-                      isPending
-                    }
+                    onClick={decreaseQuantity}
+                    disabled={!selectedSku || quantity <= 1 || isPending}
                     className="flex h-10 w-10 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
                     aria-label="Kurangi jumlah"
                   >
@@ -822,17 +643,13 @@ export default function HomeProductQuickAddSheet({
 
                   <button
                     type="button"
-                    onClick={
-                      increaseQuantity
-                    }
+                    onClick={increaseQuantity}
                     disabled={
-  !selectedSku ||
-  (
-    data?.isPreOrder !== true &&
-    quantity >= selectedStock
-  ) ||
-  isPending
-}
+                      !selectedSku ||
+                      (data?.isPreOrder !== true &&
+                        quantity >= selectedStock) ||
+                      isPending
+                    }
                     className="flex h-10 w-10 items-center justify-center text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
                     aria-label="Tambah jumlah"
                   >
@@ -860,18 +677,15 @@ export default function HomeProductQuickAddSheet({
         {/* Footer */}
         {!loading && data ? (
           <div className="border-t border-slate-100 bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
-<button
-  type="button"
-  onClick={handleAddToCart}
-  disabled={
-  (
-    data?.isPreOrder !== true &&
-    selectedStock <= 0
-  ) ||
-    isPending ||
-    success
-  }
-  className="
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={
+                (data?.isPreOrder !== true && selectedStock <= 0) ||
+                isPending ||
+                success
+              }
+              className="
     flex
     w-full
     items-center
@@ -891,24 +705,24 @@ export default function HomeProductQuickAddSheet({
     disabled:cursor-not-allowed
     disabled:bg-slate-300
   "
->
-  {isPending ? (
-    <>
-      <Loader2 className="h-5 w-5 animate-spin" />
-      Menambahkan...
-    </>
-  ) : success ? (
-    <>
-      <Check className="h-5 w-5" />
-      Berhasil Ditambahkan
-    </>
-  ) : (
-    <>
-      <ShoppingCart className="h-5 w-5" />
-      Tambah ke Keranjang
-    </>
-  )}
-</button>
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Menambahkan...
+                </>
+              ) : success ? (
+                <>
+                  <Check className="h-5 w-5" />
+                  Berhasil Ditambahkan
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-5 w-5" />
+                  Tambah ke Keranjang
+                </>
+              )}
+            </button>
           </div>
         ) : null}
       </div>

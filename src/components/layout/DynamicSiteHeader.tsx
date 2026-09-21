@@ -1,12 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import {
-  ArrowRight,
-  Fish,
-  Heart,
-  Menu,
-} from "lucide-react";
+import { ArrowRight, Fish, Heart, Menu } from "lucide-react";
 
 import { auth } from "@/auth";
 
@@ -134,9 +129,7 @@ export default async function DynamicSiteHeader({
 
   const user = session?.user;
 
-  const userName =
-    user?.name?.trim() ||
-    "Pengguna";
+  const userName = user?.name?.trim() || "Pengguna";
 
   const userRole = user?.role;
 
@@ -146,13 +139,9 @@ export default async function DynamicSiteHeader({
    * ==========================================================
    */
 
-  const storeName =
-    settings.storeName?.trim() ||
-    "Pisjo Market";
+  const storeName = settings.storeName?.trim() || "Pisjo Market";
 
-  const storeDescription =
-    settings.storeDescription?.trim() ||
-    "Fresh Seafood";
+  const storeDescription = settings.storeDescription?.trim() || "Fresh Seafood";
 
   /**
    * ==========================================================
@@ -160,9 +149,7 @@ export default async function DynamicSiteHeader({
    * ==========================================================
    */
 
-  const siteLogo =
-    settings.siteLogo?.trim() ||
-    null;
+  const siteLogo = settings.siteLogo?.trim() || null;
 
   /**
    * ==========================================================
@@ -177,8 +164,7 @@ export default async function DynamicSiteHeader({
       .map((word) => word.charAt(0))
       .join("")
       .slice(0, 2)
-      .toUpperCase() ||
-    "FM";
+      .toUpperCase() || "FM";
 
   /**
    * ==========================================================
@@ -200,19 +186,20 @@ export default async function DynamicSiteHeader({
     >
       <div
         className="
-          mx-auto
-          flex
-          min-h-16
-          max-w-7xl
-          flex-wrap
-          items-center
-          justify-between
-          gap-3
-          px-4
-          py-2
-          sm:px-6
-          lg:px-8
-        "
+    mx-auto
+    flex
+    min-h-16
+    max-w-7xl
+    flex-wrap
+    items-center
+    gap-2
+    px-3
+    py-2
+    sm:gap-3
+    sm:px-6
+    lg:flex-nowrap
+    lg:px-8
+  "
       >
         {/* ================================================== */}
         {/* LOGO                                               */}
@@ -221,40 +208,44 @@ export default async function DynamicSiteHeader({
         <Link
           href="/"
           className="
-            flex
-            min-w-0
-            shrink-0
-            items-center
-            gap-3
-          "
+    flex
+    min-w-0
+    flex-1
+    items-center
+    gap-2
+    overflow-hidden
+    sm:gap-3
+    lg:flex-none
+  "
         >
           <div
-  className="
-    relative
-    flex
-    h-11
-    w-11
-    shrink-0
-    items-center
-    justify-center
-    overflow-hidden
-    rounded-2xl
-  "
->
+            className="
+  relative
+  flex
+  h-9
+  w-9
+  shrink-0
+  items-center
+  justify-center
+  overflow-hidden
+  rounded-xl
+  sm:h-11
+  sm:w-11
+  sm:rounded-2xl
+"
+          >
             {siteLogo ? (
               <Image
-  src={siteLogo}
-  alt={`${storeName} Logo`}
-  fill
-  sizes="44px"
-  className="object-contain"
-  priority
-  unoptimized
-/>
+                src={siteLogo}
+                alt={`${storeName} Logo`}
+                fill
+                sizes="44px"
+                className="object-contain"
+                priority
+                unoptimized
+              />
             ) : storeInitial ? (
-              <span className="text-sm font-bold">
-                {storeInitial}
-              </span>
+              <span className="text-sm font-bold">{storeInitial}</span>
             ) : (
               <Fish className="h-5 w-5" />
             )}
@@ -275,13 +266,15 @@ export default async function DynamicSiteHeader({
 
             <p
               className="
-                truncate
-                text-[10px]
-                font-semibold
-                uppercase
-                tracking-[0.18em]
-                text-[var(--pisjo-primary)]
-              "
+    hidden
+    truncate
+    text-[10px]
+    font-semibold
+    uppercase
+    tracking-[0.18em]
+    text-[var(--pisjo-primary)]
+    sm:block
+  "
             >
               {storeDescription}
             </p>
@@ -316,55 +309,51 @@ export default async function DynamicSiteHeader({
 
           {/* PRODUK */}
 
-        <Link
-          href={
-            mode === "customer"
-              ? "/customer/products"
-              : "/products"
-          }
-          className={[
-            "text-sm font-medium transition",
-            activePage === "products"
-              ? "text-slate-950"
-              : "text-slate-600 hover:text-[var(--pisjo-primary)]",
-          ].join(" ")}
-        >
-          Produk
-        </Link>
+          <Link
+            href={mode === "customer" ? "/customer/products" : "/products"}
+            className={[
+              "text-sm font-medium transition",
+              activePage === "products"
+                ? "text-slate-950"
+                : "text-slate-600 hover:text-[var(--pisjo-primary)]",
+            ].join(" ")}
+          >
+            Produk
+          </Link>
 
-        {/* PROMO */}
+          {/* PROMO */}
 
-        <Link
-          href="/promotions"
-          className="
+          <Link
+            href="/promotions"
+            className="
             text-sm
             font-medium
             text-slate-600
             transition
             hover:text-[var(--pisjo-primary)]
           "
-        >
-          Promo
-        </Link>
+          >
+            Promo
+          </Link>
 
-        {/* FLASH SALE */}
+          {/* FLASH SALE */}
 
-        <Link
-          href="/flash-sale"
-          className="
+          <Link
+            href="/flash-sale"
+            className="
             text-sm
             font-semibold
             text-[var(--pisjo-primary)]
             transition
             hover:opacity-80
           "
-        >
-          Flash Sale
-        </Link>
+          >
+            Flash Sale
+          </Link>
 
-        {/* CUSTOMER NAVIGATION */}
+          {/* CUSTOMER NAVIGATION */}
 
-        {mode === "customer" ? (
+          {mode === "customer" ? (
             <>
               <Link
                 href="/customer/rewards"
@@ -429,21 +418,20 @@ export default async function DynamicSiteHeader({
 
           <div
             className="
-              min-w-0
-              md:max-w-sm
-              lg:max-w-lg
-            "
+    min-w-0
+    flex-1
+    md:max-w-sm
+    lg:max-w-lg
+  "
           >
             <SiteSearch />
           </div>
 
           {/* CART */}
 
- {/* CART */}
+          {/* CART */}
 
-<SiteCartButton
-  mode={mode}
-/>
+          <SiteCartButton mode={mode} />
 
           {/* ================================================== */}
           {/* CUSTOMER ACTIONS                                  */}
@@ -501,25 +489,23 @@ export default async function DynamicSiteHeader({
                       ring-white
                     "
                   >
-                    {wishlistCount > 99
-                      ? "99+"
-                      : wishlistCount}
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
                   </span>
                 )}
               </Link>
 
-            {/* CUSTOMER NOTIFICATIONS */}
+              {/* CUSTOMER NOTIFICATIONS */}
 
-            <CustomerNotificationBell />
+              <CustomerNotificationBell />
 
-            {/* CUSTOMER ACCOUNT */}
+              {/* CUSTOMER ACCOUNT */}
 
-            {customerName && customerInitial ? (
-              <CustomerAccountMenu
-                customerName={customerName}
-                customerInitial={customerInitial}
-              />
-            ) : null}
+              {customerName && customerInitial ? (
+                <CustomerAccountMenu
+                  customerName={customerName}
+                  customerInitial={customerInitial}
+                />
+              ) : null}
             </>
           ) : (
             /* ================================================== */
@@ -528,10 +514,7 @@ export default async function DynamicSiteHeader({
 
             <>
               {user ? (
-                <HomeUserMenu
-                  name={userName}
-                  role={userRole}
-                />
+                <HomeUserMenu name={userName} role={userRole} />
               ) : (
                 <>
                   {/* LOGIN */}
@@ -576,7 +559,6 @@ export default async function DynamicSiteHeader({
                     "
                   >
                     Daftar
-
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </>
@@ -591,18 +573,17 @@ export default async function DynamicSiteHeader({
 
         <div
           className="
-            flex
-            shrink-0
-            items-center
-            gap-2
-            md:hidden
-          "
+    flex
+    shrink-0
+    items-center
+    gap-1
+    sm:gap-2
+    md:hidden
+  "
         >
-{/* CART */}
+          {/* CART */}
 
-<SiteCartButton
-  mode={mode}
-/>
+          <SiteCartButton mode={mode} />
 
           {/* CUSTOMER MOBILE ACTIONS */}
 
@@ -654,46 +635,34 @@ export default async function DynamicSiteHeader({
                       ring-white
                     "
                   >
-                    {wishlistCount > 99
-                      ? "99+"
-                      : wishlistCount}
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
                   </span>
                 )}
               </Link>
 
               {/* CUSTOMER NOTIFICATIONS */}
 
-<CustomerNotificationBell />
+              <CustomerNotificationBell />
 
               {/* ACCOUNT */}
 
-<CustomerAccountMenu
-  customerName={customerName || "Customer"}
-  customerInitial={
-    (
-      customerInitial ||
-      customerName?.charAt(0) ||
-      "C"
-    )
-      .charAt(0)
-      .toUpperCase()
-  }
-/>
+              <CustomerAccountMenu
+                customerName={customerName || "Customer"}
+                customerInitial={(
+                  customerInitial ||
+                  customerName?.charAt(0) ||
+                  "C"
+                )
+                  .charAt(0)
+                  .toUpperCase()}
+              />
             </>
           ) : (
             /* PUBLIC MOBILE ACCOUNT */
 
             <Link
-              href={
-                user
-                  ? "/customer"
-                  : "/login"
-              }
-              aria-label={
-                user
-                  ? "Buka akun"
-                  : "Masuk"
-              }
+              href={user ? "/customer" : "/login"}
+              aria-label={user ? "Buka akun" : "Masuk"}
               className="
                 inline-flex
                 h-10
@@ -717,9 +686,7 @@ export default async function DynamicSiteHeader({
                     text-slate-900
                   "
                 >
-                  {userName
-                    .charAt(0)
-                    .toUpperCase()}
+                  {userName.charAt(0).toUpperCase()}
                 </span>
               ) : (
                 <Menu
@@ -740,10 +707,12 @@ export default async function DynamicSiteHeader({
 
         <div
           className="
-            order-last
-            w-full
-            md:hidden
-          "
+    order-last
+    basis-full
+    w-full
+    pt-1
+    md:hidden
+  "
         >
           <SiteSearch mobile />
         </div>

@@ -24,6 +24,10 @@ import {
   addToCartAction,
 } from "@/actions/cart/add-to-cart";
 
+import {
+  emitCartUpdated,
+} from "@/lib/cart/cart-events";
+
 /**
  * ============================================================
  * PRODUCT VARIANT GROUP
@@ -1105,9 +1109,7 @@ setQuantity(
           "Produk berhasil ditambahkan ke keranjang."
       );
 
-      window.dispatchEvent(
-        new Event("cart-updated")
-      );
+        emitCartUpdated();
 
       if (buyNow) {
         router.push(
