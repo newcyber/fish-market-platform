@@ -852,15 +852,15 @@ export default function HomeProductCard({
                   <div
                     className="
                       inline-flex
-                      min-h-[22px]
+                      min-h-5
                       max-w-full
                       items-center
                       justify-center
                       gap-0.5
                       rounded-full
                       bg-red-500
-                      px-2
-                      py-1
+                      px-1.5
+                      py-0.5
                       text-white
                       shadow-[0_2px_6px_rgba(0,0,0,0.16)]
 
@@ -902,13 +902,13 @@ export default function HomeProductCard({
                       ml-1
                       mt-1
                       inline-flex
-                      min-h-[18px]
+                      min-h-4
                       items-center
                       justify-center
                       rounded-full
                       bg-white
-                      px-2
-                      py-1
+                      px-1.5
+                      py-0.5
                       text-[7px]
                       font-semibold
                       leading-none
@@ -940,14 +940,14 @@ export default function HomeProductCard({
                   <div
                     className="
                       inline-flex
-                      min-h-[22px]
+                      min-h-5
                       max-w-full
                       items-center
                       gap-0.5
                       rounded-full
                       bg-red-500
-                      px-2
-                      py-1
+                      px-1.5
+                      py-0.5
                       text-white
                       shadow-[0_2px_6px_rgba(0,0,0,0.16)]
 
@@ -986,10 +986,10 @@ export default function HomeProductCard({
                   {preOrderEstimate && (
                     <div
                       className="
-                        ml-1
-                        mt-1
+                        ml-0.5
+                        mt-0.5
                         inline-flex
-                        min-h-[18px]
+                        min-h-4
                         max-w-full
                         items-center
                         justify-center
