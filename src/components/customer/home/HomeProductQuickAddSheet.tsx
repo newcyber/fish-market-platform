@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 
 import { createPortal } from "react-dom";
 
@@ -94,6 +101,10 @@ export default function HomeProductQuickAddSheet({
 
   const [success, setSuccess] = useState(false);
 
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  const closeTimerRef = useRef<number | null>(null);
+
   /**
    * ==========================================================
    * LOAD PRODUCT VARIANTS
@@ -140,9 +151,14 @@ export default function HomeProductQuickAddSheet({
 
   const loading = open && (!data || data.productId !== productId);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (isPending) {
       return;
+    }
+
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
     }
 
     setSelectedOptions({});
@@ -151,7 +167,54 @@ export default function HomeProductQuickAddSheet({
     setSuccess(false);
 
     onClose();
-  };
+  }, [isPending, onClose]);
+
+  /**
+   * ==========================================================
+   * SHEET ACCESSIBILITY & BODY SCROLL LOCK
+   * ==========================================================
+   */
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      handleClose();
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    const focusTimer = window.setTimeout(() => {
+      closeButtonRef.current?.focus();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, handleClose]);
+
+  /**
+   * Clear the auto-close timer when the component unmounts.
+   */
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+  }, []);
 
   /**
    * ==========================================================
@@ -235,9 +298,7 @@ export default function HomeProductQuickAddSheet({
    */
   const selectedStock = selectedSku ? Math.max(0, selectedSku.stock) : 0;
 
-  const totalPrice = selectedSku
-    ? selectedSku.price * quantity
-    : 0;
+  const totalPrice = selectedSku ? selectedSku.price * quantity : 0;
 
   /**
    * ==========================================================
@@ -415,7 +476,8 @@ export default function HomeProductQuickAddSheet({
          * Beri sedikit waktu agar customer dapat melihat
          * feedback berhasil sebelum sheet ditutup.
          */
-        window.setTimeout(() => {
+        closeTimerRef.current = window.setTimeout(() => {
+          closeTimerRef.current = null;
           setSelectedOptions({});
           setQuantity(1);
           setMessage(null);
@@ -439,7 +501,7 @@ export default function HomeProductQuickAddSheet({
       className="fixed inset-0 z-[100] flex items-end justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label={productName ?? data?.productName ?? "Pilih produk"}
+      aria-labelledby="quick-add-sheet-title"
     >
       {/* Overlay */}
       <button
@@ -454,7 +516,10 @@ export default function HomeProductQuickAddSheet({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 pr-4">
-            <h2 className="truncate text-base font-bold text-slate-900">
+            <h2
+              id="quick-add-sheet-title"
+              className="truncate text-base font-bold text-slate-900"
+            >
               {data?.productName ?? productName ?? "Pilih produk"}
             </h2>
 
@@ -466,6 +531,7 @@ export default function HomeProductQuickAddSheet({
           </div>
 
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={handleClose}
             disabled={isPending}
