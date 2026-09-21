@@ -1,12 +1,5 @@
 import Link from "next/link";
-import {
-  ChevronRight,
-  MapPin,
-  Package,
-  Search,
-  Star,
-  Ticket,
-} from "lucide-react";
+import { ChevronRight, MapPin, Package, Star, Ticket } from "lucide-react";
 
 interface CustomerHomeAddress {
   id: string;
@@ -38,12 +31,7 @@ function getArea(address: CustomerHomeAddress | null) {
     return null;
   }
 
-  return [
-    address.district,
-    address.city,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  return [address.district, address.city].filter(Boolean).join(", ");
 }
 
 function getAddressTitle(address: CustomerHomeAddress | null) {
@@ -51,11 +39,7 @@ function getAddressTitle(address: CustomerHomeAddress | null) {
     return "Tambahkan alamat pengiriman";
   }
 
-  return (
-    address.label?.trim() ||
-    getArea(address) ||
-    address.fullAddress
-  );
+  return address.label?.trim() || getArea(address) || address.fullAddress;
 }
 
 function getAddressSubtitle(address: CustomerHomeAddress | null) {
@@ -69,12 +53,7 @@ function getAddressSubtitle(address: CustomerHomeAddress | null) {
     return area;
   }
 
-  return [
-    address.village,
-    address.postalCode,
-  ]
-    .filter(Boolean)
-    .join(" • ");
+  return [address.village, address.postalCode].filter(Boolean).join(" • ");
 }
 
 export default function CustomerHomeHeader({
@@ -180,6 +159,7 @@ export default function CustomerHomeHeader({
         {/* Delivery address */}
         <Link
           href="/customer/addresses"
+          aria-label="Kelola alamat pengiriman"
           className="
             mb-3
             flex
@@ -193,6 +173,10 @@ export default function CustomerHomeHeader({
             backdrop-blur-sm
             transition
             hover:bg-white/15
+            active:scale-[0.99]
+            focus-visible:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-white
             md:mb-4
             md:border
             md:border-slate-100
@@ -217,10 +201,7 @@ export default function CustomerHomeHeader({
               md:text-(--pisjo-primary)
             "
           >
-            <MapPin
-              aria-hidden="true"
-              className="h-4.5 w-4.5"
-            />
+            <MapPin aria-hidden="true" className="h-4.5 w-4.5" />
           </span>
 
           <span className="min-w-0 flex-1">
@@ -310,6 +291,10 @@ export default function CustomerHomeHeader({
               text-center
               transition
               hover:bg-slate-50
+              active:scale-[0.98]
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-(--pisjo-primary)
               md:min-h-20
             "
           >
@@ -325,19 +310,14 @@ export default function CustomerHomeHeader({
                 text-amber-500
               "
             >
-              <Star
-                aria-hidden="true"
-                className="h-4.5 w-4.5 fill-current"
-              />
+              <Star aria-hidden="true" className="h-4.5 w-4.5 fill-current" />
             </span>
 
             <span className="text-sm font-bold leading-none">
               {formatPoints(rewardPoints)}
             </span>
 
-            <span className="text-[10px] text-slate-500">
-              Poin
-            </span>
+            <span className="text-[10px] text-slate-500">Poin</span>
           </Link>
 
           {/* Voucher */}
@@ -357,6 +337,10 @@ export default function CustomerHomeHeader({
               text-center
               transition
               hover:bg-slate-50
+              active:scale-[0.98]
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-(--pisjo-primary)
               md:min-h-20
             "
           >
@@ -372,19 +356,12 @@ export default function CustomerHomeHeader({
                 text-sky-600
               "
             >
-              <Ticket
-                aria-hidden="true"
-                className="h-4.5 w-4.5"
-              />
+              <Ticket aria-hidden="true" className="h-4.5 w-4.5" />
             </span>
 
-            <span className="text-sm font-bold leading-none">
-              Voucher
-            </span>
+            <span className="text-sm font-bold leading-none">Voucher</span>
 
-            <span className="text-[10px] text-slate-500">
-              Tukar
-            </span>
+            <span className="text-[10px] text-slate-500">Tukar</span>
           </Link>
 
           {/* Active orders */}
@@ -417,19 +394,14 @@ export default function CustomerHomeHeader({
                 text-blue-600
               "
             >
-              <Package
-                aria-hidden="true"
-                className="h-4.5 w-4.5"
-              />
+              <Package aria-hidden="true" className="h-4.5 w-4.5" />
             </span>
 
             <span className="text-sm font-bold leading-none">
               {activeOrderCount}
             </span>
 
-            <span className="text-[10px] text-slate-500">
-              Pesanan aktif
-            </span>
+            <span className="text-[10px] text-slate-500">Pesanan aktif</span>
           </Link>
         </div>
       </div>

@@ -9,14 +9,13 @@ import {
   ChevronRight,
   Fish,
   Package,
+  Pause,
+  Play,
   Sparkles,
   Zap,
 } from "lucide-react";
 
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 /**
  * ============================================================
@@ -78,10 +77,7 @@ type HomeHeroCarouselProps = {
   };
 };
 
-type SlideTone =
-  | "ocean"
-  | "promo"
-  | "fresh";
+type SlideTone = "ocean" | "promo" | "fresh";
 
 type HeroSlide = {
   eyebrow: string;
@@ -100,26 +96,20 @@ type HeroSlide = {
  * ============================================================
  */
 
-function getHeroTheme(
-  tone: SlideTone
-) {
+function getHeroTheme(tone: SlideTone) {
   switch (tone) {
     case "promo":
       return {
         background:
           "from-[var(--ocean-900)] via-[var(--ocean-800)] to-[var(--ocean-700)]",
 
-        highlight:
-          "text-[var(--fresh-400)]",
+        highlight: "text-[var(--fresh-400)]",
 
-        icon:
-          "text-[var(--fresh-400)]",
+        icon: "text-[var(--fresh-400)]",
 
-        glow:
-          "bg-[var(--fresh-400)]/15",
+        glow: "bg-[var(--fresh-400)]/15",
 
-        button:
-          "bg-[var(--fresh-500)] text-white hover:bg-[var(--fresh-600)]",
+        button: "bg-[var(--fresh-500)] text-white hover:bg-[var(--fresh-600)]",
       };
 
     case "fresh":
@@ -127,17 +117,13 @@ function getHeroTheme(
         background:
           "from-[var(--ocean-950)] via-[var(--ocean-900)] to-[var(--ocean-800)]",
 
-        highlight:
-          "text-[var(--fresh-400)]",
+        highlight: "text-[var(--fresh-400)]",
 
-        icon:
-          "text-[var(--fresh-400)]",
+        icon: "text-[var(--fresh-400)]",
 
-        glow:
-          "bg-[var(--fresh-400)]/15",
+        glow: "bg-[var(--fresh-400)]/15",
 
-        button:
-          "bg-white text-[var(--ocean-900)] hover:bg-[var(--ice-100)]",
+        button: "bg-white text-[var(--ocean-900)] hover:bg-[var(--ice-100)]",
       };
 
     case "ocean":
@@ -146,17 +132,13 @@ function getHeroTheme(
         background:
           "from-[var(--ocean-950)] via-[var(--ocean-900)] to-[var(--ocean-800)]",
 
-        highlight:
-          "text-[var(--fresh-400)]",
+        highlight: "text-[var(--fresh-400)]",
 
-        icon:
-          "text-[#b9d9f2]",
+        icon: "text-[#b9d9f2]",
 
-        glow:
-          "bg-[#7bb5df]/15",
+        glow: "bg-[#7bb5df]/15",
 
-        button:
-          "bg-white text-[var(--ocean-900)] hover:bg-[var(--ice-100)]",
+        button: "bg-white text-[var(--ocean-900)] hover:bg-[var(--ice-100)]",
       };
   }
 }
@@ -173,112 +155,74 @@ export default function HomeHeroCarousel({
   heroContent,
 }: HomeHeroCarouselProps) {
   const slides: HeroSlide[] = [
-{
-  eyebrow:
-    heroContent?.slide1?.eyebrow ||
-    "PUSAT IKAN SEGAR",
+    {
+      eyebrow: heroContent?.slide1?.eyebrow || "PUSAT IKAN SEGAR",
 
-  title:
-    heroContent?.slide1?.title ||
-    "Ikan Segar,",
+      title: heroContent?.slide1?.title || "Ikan Segar,",
 
-  highlight:
-    heroContent?.slide1?.highlight ||
-    "Langsung untuk Keluarga.",
+      highlight: heroContent?.slide1?.highlight || "Langsung untuk Keluarga.",
 
-  description:
-    heroContent?.slide1?.description ||
-    "Belanja ikan dan seafood pilihan dengan lebih mudah dari satu tempat.",
+      description:
+        heroContent?.slide1?.description ||
+        "Belanja ikan dan seafood pilihan dengan lebih mudah dari satu tempat.",
 
-  button:
-    heroContent?.slide1?.button ||
-    "Belanja Sekarang",
+      button: heroContent?.slide1?.button || "Belanja Sekarang",
 
-  icon:
-    Fish,
+      icon: Fish,
 
-  image:
-    heroImages?.slide1 ?? null,
+      image: heroImages?.slide1 ?? null,
 
-  tone:
-    "ocean",
-},
+      tone: "ocean",
+    },
 
-{
-  eyebrow:
-    heroContent?.slide2?.eyebrow ||
-    "PROMO PILIHAN",
+    {
+      eyebrow: heroContent?.slide2?.eyebrow || "PROMO PILIHAN",
 
-  title:
-    heroContent?.slide2?.title ||
-    "Seafood Favorit,",
+      title: heroContent?.slide2?.title || "Seafood Favorit,",
 
-  highlight:
-    heroContent?.slide2?.highlight ||
-    "Harga Lebih Menarik.",
+      highlight: heroContent?.slide2?.highlight || "Harga Lebih Menarik.",
 
-  description:
-    heroContent?.slide2?.description ||
-    "Temukan berbagai pilihan produk dan promo terbaik yang tersedia hari ini.",
+      description:
+        heroContent?.slide2?.description ||
+        "Temukan berbagai pilihan produk dan promo terbaik yang tersedia hari ini.",
 
-  button:
-    heroContent?.slide2?.button ||
-    "Lihat Promo",
+      button: heroContent?.slide2?.button || "Lihat Promo",
 
-  icon:
-    Zap,
+      icon: Zap,
 
-  image:
-    heroImages?.slide2 ?? null,
+      image: heroImages?.slide2 ?? null,
 
-  tone:
-    "promo",
-},
+      tone: "promo",
+    },
 
-{
-  eyebrow:
-    heroContent?.slide3?.eyebrow ||
-    "BELANJA LEBIH MUDAH",
+    {
+      eyebrow: heroContent?.slide3?.eyebrow || "BELANJA LEBIH MUDAH",
 
-  title:
-    heroContent?.slide3?.title ||
-    "Pilih Produk,",
+      title: heroContent?.slide3?.title || "Pilih Produk,",
 
-  highlight:
-    heroContent?.slide3?.highlight ||
-    "Kami Siapkan Pesanan Anda.",
+      highlight: heroContent?.slide3?.highlight || "Kami Siapkan Pesanan Anda.",
 
-  description:
-    heroContent?.slide3?.description ||
-    "Nikmati pengalaman belanja seafood yang praktis, segar, dan nyaman.",
+      description:
+        heroContent?.slide3?.description ||
+        "Nikmati pengalaman belanja seafood yang praktis, segar, dan nyaman.",
 
-  button:
-    heroContent?.slide3?.button ||
-    "Lihat Produk",
+      button: heroContent?.slide3?.button || "Lihat Produk",
 
-  icon:
-    Package,
+      icon: Package,
 
-  image:
-    heroImages?.slide3 ?? null,
+      image: heroImages?.slide3 ?? null,
 
-  tone:
-    "fresh",
-},
+      tone: "fresh",
+    },
   ];
 
-  const [
-    activeIndex,
-    setActiveIndex,
-  ] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  const activeSlide =
-    slides[activeIndex];
+  const [isPaused, setIsPaused] = useState(false);
 
-  const theme =
-    getHeroTheme(
-      activeSlide.tone
-    );
+  const activeSlide = slides[activeIndex];
+
+  const theme = getHeroTheme(activeSlide.tone);
 
   /**
    * ==========================================================
@@ -287,26 +231,20 @@ export default function HomeHeroCarousel({
    */
 
   useEffect(() => {
-    const interval =
-      window.setInterval(
-        () => {
-          setActiveIndex(
-            (current) =>
-              current ===
-                slides.length - 1
-                ? 0
-                : current + 1
-          );
-        },
-        5000
+    if (isPaused) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveIndex((current) =>
+        current === slides.length - 1 ? 0 : current + 1,
       );
+    }, 5000);
 
     return () => {
-      window.clearInterval(
-        interval
-      );
+      window.clearInterval(interval);
     };
-  }, [slides.length]);
+  }, [isPaused, slides.length]);
 
   /**
    * ==========================================================
@@ -315,26 +253,18 @@ export default function HomeHeroCarousel({
    */
 
   function previousSlide() {
-    setActiveIndex(
-      (current) =>
-        current === 0
-          ? slides.length - 1
-          : current - 1
+    setActiveIndex((current) =>
+      current === 0 ? slides.length - 1 : current - 1,
     );
   }
 
   function nextSlide() {
-    setActiveIndex(
-      (current) =>
-        current ===
-          slides.length - 1
-          ? 0
-          : current + 1
+    setActiveIndex((current) =>
+      current === slides.length - 1 ? 0 : current + 1,
     );
   }
 
-  const Icon =
-    activeSlide.icon;
+  const Icon = activeSlide.icon;
 
   return (
     <section
@@ -362,6 +292,11 @@ export default function HomeHeroCarousel({
             "sm:rounded-3xl",
             theme.background,
           ].join(" ")}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Banner utama Pisjo Market"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
         >
           {/* =================================================
               BACKGROUND DECORATION
@@ -429,8 +364,8 @@ export default function HomeHeroCarousel({
               CONTENT
           ================================================= */}
 
-<div
-  className="
+          <div
+            className="
     relative
     grid
     min-h-[205px]
@@ -451,7 +386,7 @@ export default function HomeHeroCarousel({
     xl:min-h-[370px]
     xl:px-12
   "
->
+          >
             {/* =================================================
                 MOBILE HERO IMAGE
             ================================================= */}
@@ -595,12 +530,7 @@ export default function HomeHeroCarousel({
               >
                 {activeSlide.title}
 
-                <span
-                  className={[
-                    "mt-1 block",
-                    theme.highlight,
-                  ].join(" ")}
-                >
+                <span className={["mt-1 block", theme.highlight].join(" ")}>
                   {activeSlide.highlight}
                 </span>
               </h2>
@@ -730,13 +660,13 @@ export default function HomeHeroCarousel({
                     motion-reduce:animate-none
                   "
                 >
-<Image
-  src={activeSlide.image}
-  alt={activeSlide.title}
-  width={480}
-  height={480}
-  unoptimized
-  className="
+                  <Image
+                    src={activeSlide.image}
+                    alt={activeSlide.title}
+                    width={480}
+                    height={480}
+                    unoptimized
+                    className="
     h-auto
     w-[92%]
     max-w-[420px]
@@ -750,7 +680,7 @@ export default function HomeHeroCarousel({
     xl:w-[96%]
     xl:max-w-[470px]
   "
-/>
+                  />
                 </div>
               ) : (
                 <div
@@ -776,10 +706,7 @@ export default function HomeHeroCarousel({
                 >
                   <Icon
                     aria-hidden="true"
-                    className={[
-                      "h-20 w-20",
-                      theme.icon,
-                    ].join(" ")}
+                    className={["h-20 w-20", theme.icon].join(" ")}
                   />
                 </div>
               )}
@@ -811,7 +738,6 @@ export default function HomeHeroCarousel({
                 "
               >
                 Segar
-
                 <span
                   className="
                     mx-1
@@ -821,9 +747,7 @@ export default function HomeHeroCarousel({
                 >
                   •
                 </span>
-
                 Praktis
-
                 <span
                   className="
                     mx-1
@@ -833,7 +757,6 @@ export default function HomeHeroCarousel({
                 >
                   •
                 </span>
-
                 Terpercaya
               </div>
             </div>
@@ -868,10 +791,7 @@ export default function HomeHeroCarousel({
               lg:flex
             "
           >
-            <ChevronLeft
-              aria-hidden="true"
-              className="h-4.5 w-4.5"
-            />
+            <ChevronLeft aria-hidden="true" className="h-4.5 w-4.5" />
           </button>
 
           {/* =================================================
@@ -903,10 +823,7 @@ export default function HomeHeroCarousel({
               lg:flex
             "
           >
-            <ChevronRight
-              aria-hidden="true"
-              className="h-4.5 w-4.5"
-            />
+            <ChevronRight aria-hidden="true" className="h-4.5 w-4.5" />
           </button>
 
           {/* =================================================
@@ -924,33 +841,63 @@ export default function HomeHeroCarousel({
               sm:bottom-3.5
             "
           >
-            {slides.map(
-              (
-                _,
-                index
-              ) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() =>
-                    setActiveIndex(index)
-                  }
-                  aria-label={`Tampilkan banner ${index + 1}`}
-                  aria-current={
-                    activeIndex === index
-                      ? "true"
-                      : undefined
-                  }
-                  className={[
-                    "h-1.5 rounded-full transition-all duration-300",
-                    activeIndex === index
-                      ? "w-6 bg-(--fresh-400)"
-                      : "w-1.5 bg-white/35 hover:bg-white/70",
-                  ].join(" ")}
-                />
-              )
-            )}
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setActiveIndex(index)}
+                aria-label={`Tampilkan banner ${index + 1}`}
+                aria-current={activeIndex === index ? "true" : undefined}
+                className={[
+                  "h-1.5 rounded-full transition-all duration-300",
+                  activeIndex === index
+                    ? "w-6 bg-(--fresh-400)"
+                    : "w-1.5 bg-white/35 hover:bg-white/70",
+                ].join(" ")}
+              />
+            ))}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsPaused((current) => !current)}
+            aria-label={
+              isPaused ? "Putar otomatis banner" : "Jeda otomatis banner"
+            }
+            aria-pressed={isPaused}
+            className="
+              absolute
+              bottom-2
+              right-3
+              z-30
+              inline-flex
+              h-7
+              w-7
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-white/20
+              bg-slate-950/25
+              text-white
+              backdrop-blur
+              transition
+              hover:bg-white/20
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-white
+              focus-visible:ring-offset-2
+              focus-visible:ring-offset-transparent
+              sm:bottom-3
+              sm:right-4
+            "
+          >
+            {isPaused ? (
+              <Play aria-hidden="true" className="h-3.5 w-3.5" />
+            ) : (
+              <Pause aria-hidden="true" className="h-3.5 w-3.5" />
+            )}
+          </button>
         </div>
       </div>
     </section>
