@@ -235,6 +235,10 @@ export default function HomeProductQuickAddSheet({
    */
   const selectedStock = selectedSku ? Math.max(0, selectedSku.stock) : 0;
 
+  const totalPrice = selectedSku
+    ? selectedSku.price * quantity
+    : 0;
+
   /**
    * ==========================================================
    * OPTION AVAILABILITY
@@ -389,10 +393,7 @@ export default function HomeProductQuickAddSheet({
          */
 
         setSuccess(true);
-
-        setMessage(
-          result.message ?? "Produk berhasil ditambahkan ke keranjang.",
-        );
+        setMessage(null);
 
         /**
          * Update seluruh cart badge secara otomatis
@@ -606,6 +607,16 @@ export default function HomeProductQuickAddSheet({
                         </>
                       )}
                     </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-4 border-t border-slate-200 pt-3">
+                      <span className="text-sm font-medium text-slate-600">
+                        Total
+                      </span>
+
+                      <span className="text-lg font-bold text-slate-900">
+                        {formatRupiah(totalPrice)}
+                      </span>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-slate-500">
@@ -658,7 +669,7 @@ export default function HomeProductQuickAddSheet({
                 </div>
               </div>
 
-              {message ? (
+              {message && !success ? (
                 <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
                   {message}
                 </div>
@@ -681,6 +692,7 @@ export default function HomeProductQuickAddSheet({
               type="button"
               onClick={handleAddToCart}
               disabled={
+                !selectedSku ||
                 (data?.isPreOrder !== true && selectedStock <= 0) ||
                 isPending ||
                 success
