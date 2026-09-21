@@ -17,30 +17,21 @@ import CategoryService from "@/services/category/category.service";
 import CustomerProductQuickAdd from "@/components/customer/products/CustomerProductQuickAdd";
 import { CategoryRepository } from "@/repositories/CategoryRepository";
 
-import {
-  prisma,
-} from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
-import {
-  auth,
-} from "@/auth";
+import { auth } from "@/auth";
 
 import WishlistService from "@/services/wishlist/wishlist.service";
 
 import ToggleWishlistButton from "@/components/customer/wishlist/ToggleWishlistButton";
 
-import HomeCategoryService from
-  "@/services/category/home-category.service";
+import HomeCategoryService from "@/services/category/home-category.service";
 
-  import type {
-  HomeCategorySlug,
-} from "@/constants/customer/home-categories";
+import type { HomeCategorySlug } from "@/constants/customer/home-categories";
 
-import ProductGridTransition from
-  "@/components/customer/products/ProductGridTransition";
+import ProductGridTransition from "@/components/customer/products/ProductGridTransition";
 
-  import ProductCategoryNavigation from
-  "@/components/customer/products/ProductCategoryNavigation";
+import ProductCategoryNavigation from "@/components/customer/products/ProductCategoryNavigation";
 
 export const dynamic = "force-dynamic";
 
@@ -84,75 +75,53 @@ export default async function CustomerProductsPage({
    * ==========================================================
    */
 
-  const params =
-    (await searchParams) ?? {};
+  const params = (await searchParams) ?? {};
 
-  const search =
-    params.search?.trim() ||
-    undefined;
+  const search = params.search?.trim() || undefined;
 
   const categorySlug =
-  params.category &&
-  params.category !== "all"
-    ? params.category
+    params.category && params.category !== "all" ? params.category : undefined;
+
+  /**
+   * ==========================================================
+   * HOME CATEGORY FILTER
+   * ==========================================================
+   */
+
+  const isHomeCategory =
+    categorySlug === "ikan-segar" ||
+    categorySlug === "udang" ||
+    categorySlug === "seafood" ||
+    categorySlug === "frozen" ||
+    categorySlug === "paket-hemat" ||
+    categorySlug === "promo";
+
+  const homeCategorySlug = isHomeCategory
+    ? (categorySlug as HomeCategorySlug)
     : undefined;
 
+  /**
+   * Database category ID resolver.
+   *
+   * URL menggunakan category slug, sedangkan
+   * Product.categoryId menggunakan ID database.
+   */
+  let databaseCategoryId: string | undefined;
 
-    /**
- * ==========================================================
- * HOME CATEGORY FILTER
- * ==========================================================
- */
+  if (!isHomeCategory && categorySlug) {
+    const category =
+      (await CategoryRepository.findBySlug(categorySlug)) ??
+      (await CategoryRepository.findById(categorySlug));
 
-const isHomeCategory =
-  categorySlug ===
-    "ikan-segar" ||
-  categorySlug ===
-    "udang" ||
-  categorySlug ===
-    "seafood" ||
-  categorySlug ===
-    "frozen" ||
-  categorySlug ===
-    "paket-hemat" ||
-  categorySlug ===
-    "promo";
+    databaseCategoryId = category?.id ?? "__category_not_found__";
+  }
 
-const homeCategorySlug =
-  isHomeCategory
-    ? (
-        categorySlug as
-          | HomeCategorySlug
-      )
-    : undefined;
-
-    /**
- * Database category ID resolver.
- *
- * URL menggunakan category slug, sedangkan
- * Product.categoryId menggunakan ID database.
- */
-let databaseCategoryId: string | undefined;
-
-if (!isHomeCategory && categorySlug) {
-  const category =
-    (await CategoryRepository.findBySlug(categorySlug)) ??
-    (await CategoryRepository.findById(categorySlug));
-
-  databaseCategoryId =
-    category?.id ?? "__category_not_found__";
-}
-
-const categoryIds =
-  homeCategorySlug &&
-  homeCategorySlug !==
-    "promo" &&
-  homeCategorySlug !==
-    "paket-hemat"
-    ? await HomeCategoryService.getCategoryIds(
-        homeCategorySlug
-      )
-    : undefined;
+  const categoryIds =
+    homeCategorySlug &&
+    homeCategorySlug !== "promo" &&
+    homeCategorySlug !== "paket-hemat"
+      ? await HomeCategoryService.getCategoryIds(homeCategorySlug)
+      : undefined;
 
   /**
    * ==========================================================
@@ -160,35 +129,30 @@ const categoryIds =
    * ==========================================================
    */
 
-  const [
-    products,
-    categories,
-    storeSettings,
-  ] = await Promise.all([
-ProductService.getProducts({
-  search,
+  const [products, categories, storeSettings] = await Promise.all([
+    ProductService.getProducts({
+      search,
 
-  /**
-   * Database category filter.
-   *
-   * categorySlug sudah dikonversi menjadi category ID
-   * melalui CategoryRepository.
-   */
-  categoryId: databaseCategoryId,
+      /**
+       * Database category filter.
+       *
+       * categorySlug sudah dikonversi menjadi category ID
+       * melalui CategoryRepository.
+       */
+      categoryId: databaseCategoryId,
 
-  /**
-   * Logical homepage category.
-   */
-  categoryIds,
+      /**
+       * Logical homepage category.
+       */
+      categoryIds,
 
-  /**
-   * PROMO
-   */
-  discounted:
-    homeCategorySlug === "promo",
+      /**
+       * PROMO
+       */
+      discounted: homeCategorySlug === "promo",
 
-  published: true,
-}),
+      published: true,
+    }),
 
     CategoryService.getCategories({
       active: true,
@@ -205,9 +169,7 @@ ProductService.getProducts({
    * Menggunakan sumber yang sama dengan Homepage Slider Slide 1.
    */
 
-  const heroImage =
-    storeSettings?.heroSlide1Image ??
-    null;
+  const heroImage = storeSettings?.heroSlide1Image ?? null;
 
   /**
    * ==========================================================
@@ -218,64 +180,59 @@ ProductService.getProducts({
    * agar tidak terjadi N+1 query.
    */
 
-  const now =
-    new Date();
+  const now = new Date();
 
-  const productIds =
-    products.map(
-      (product) =>
-        product.id
-    );
+  const productIds = products.map((product) => product.id);
 
   const flashSaleItems =
     productIds.length > 0
       ? await prisma.flashSaleItem.findMany({
-        where: {
-          productId: {
-            in: productIds,
-          },
-
-          isActive: true,
-
-          flashSale: {
-            status: "ACTIVE",
-
-            startAt: {
-              lte: now,
+          where: {
+            productId: {
+              in: productIds,
             },
 
-            endAt: {
-              gt: now,
+            isActive: true,
+
+            flashSale: {
+              status: "ACTIVE",
+
+              startAt: {
+                lte: now,
+              },
+
+              endAt: {
+                gt: now,
+              },
             },
           },
-        },
 
-        select: {
-          id: true,
+          select: {
+            id: true,
 
-          productId: true,
+            productId: true,
 
-          weightOptionId: true,
+            weightOptionId: true,
 
-          originalPrice: true,
+            originalPrice: true,
 
-          flashPrice: true,
+            flashPrice: true,
 
-          stockLimit: true,
+            stockLimit: true,
 
-          soldQuantity: true,
+            soldQuantity: true,
 
-          flashSale: {
-            select: {
-              id: true,
+            flashSale: {
+              select: {
+                id: true,
 
-              name: true,
+                name: true,
 
-              slug: true,
+                slug: true,
+              },
             },
           },
-        },
-      })
+        })
       : [];
 
   /**
@@ -288,80 +245,53 @@ ProductService.getProducts({
    * paling rendah yang kuotanya masih tersedia.
    */
 
-  const flashSaleByProductId =
-    new Map<
-      string,
-      {
-        id: string;
-        originalPrice: number;
-        flashPrice: number;
-        stockLimit: number;
-        soldQuantity: number;
-        campaignName: string;
-      }
-    >();
+  const flashSaleByProductId = new Map<
+    string,
+    {
+      id: string;
+      originalPrice: number;
+      flashPrice: number;
+      stockLimit: number;
+      soldQuantity: number;
+      campaignName: string;
+    }
+  >();
 
-  for (
-    const item of flashSaleItems
-  ) {
-    const remainingQuota =
-      item.stockLimit -
-      item.soldQuantity;
+  for (const item of flashSaleItems) {
+    const remainingQuota = item.stockLimit - item.soldQuantity;
 
     /**
      * Jangan tampilkan promo
      * jika kuota sudah habis.
      */
 
-    if (
-      remainingQuota <= 0
-    ) {
+    if (remainingQuota <= 0) {
       continue;
     }
 
     const normalizedItem = {
-      id:
-        item.id,
+      id: item.id,
 
-      originalPrice:
-        Number(
-          item.originalPrice
-        ),
+      originalPrice: Number(item.originalPrice),
 
-      flashPrice:
-        Number(
-          item.flashPrice
-        ),
+      flashPrice: Number(item.flashPrice),
 
-      stockLimit:
-        item.stockLimit,
+      stockLimit: item.stockLimit,
 
-      soldQuantity:
-        item.soldQuantity,
+      soldQuantity: item.soldQuantity,
 
-      campaignName:
-        item.flashSale.name,
+      campaignName: item.flashSale.name,
     };
 
-    const existingItem =
-      flashSaleByProductId.get(
-        item.productId
-      );
+    const existingItem = flashSaleByProductId.get(item.productId);
 
     /**
      * Gunakan Flash Sale
      * dengan harga paling rendah.
      */
 
-    if (
-      !existingItem ||
-      normalizedItem.flashPrice <
-      existingItem.flashPrice
-    ) {
-      flashSaleByProductId.set(
-        item.productId,
-        normalizedItem
-      );
+    if (!existingItem || normalizedItem.flashPrice < existingItem.flashPrice) {
+      flashSaleByProductId.set(item.productId, normalizedItem);
     }
   }
 
@@ -371,23 +301,15 @@ ProductService.getProducts({
    * ==========================================================
    */
 
-  const session =
-    await auth();
+  const session = await auth();
 
-  const wishlist =
-    session?.user?.id
-      ? await WishlistService.getWishlist(
-        session.user.id
-      )
-      : null;
+  const wishlist = session?.user?.id
+    ? await WishlistService.getWishlist(session.user.id)
+    : null;
 
-  const wishlistProductIds =
-    new Set(
-      wishlist?.items.map(
-        (item) =>
-          item.productId
-      ) ?? []
-    );
+  const wishlistProductIds = new Set(
+    wishlist?.items.map((item) => item.productId) ?? [],
+  );
 
   return (
     <main
@@ -396,7 +318,6 @@ ProductService.getProducts({
         bg-slate-50
       "
     >
-
       {/* ==================================================== */}
       {/* HERO */}
       {/* ==================================================== */}
@@ -592,8 +513,8 @@ ProductService.getProducts({
                   lg:leading-8
                 "
               >
-                Temukan berbagai pilihan ikan dan seafood berkualitas
-                yang tersedia untuk kebutuhan rumah, usaha, dan keluarga Anda.
+                Temukan berbagai pilihan ikan dan seafood berkualitas yang
+                tersedia untuk kebutuhan rumah, usaha, dan keluarga Anda.
               </p>
 
               <div
@@ -861,7 +782,6 @@ ProductService.getProducts({
           bg-white
         "
       >
-
         <div
           className="
             mx-auto
@@ -877,7 +797,6 @@ ProductService.getProducts({
             lg:px-8
           "
         >
-
           <form
             method="GET"
             action="/customer/products"
@@ -889,7 +808,6 @@ ProductService.getProducts({
               lg:flex-row
             "
           >
-
             {/* SEARCH */}
 
             <div
@@ -898,7 +816,6 @@ ProductService.getProducts({
                 flex-1
               "
             >
-
               <Search
                 className="
                   pointer-events-none
@@ -919,9 +836,7 @@ ProductService.getProducts({
               <input
                 type="search"
                 name="search"
-                defaultValue={
-                  params.search ?? ""
-                }
+                defaultValue={params.search ?? ""}
                 placeholder="Cari ikan, udang, cumi..."
                 className="
                   h-11
@@ -950,7 +865,6 @@ ProductService.getProducts({
                   focus:ring-(--fresh-100)
                 "
               />
-
             </div>
 
             {/* CATEGORY SELECT */}
@@ -962,7 +876,6 @@ ProductService.getProducts({
                 lg:w-64
               "
             >
-
               <SlidersHorizontal
                 className="
                   pointer-events-none
@@ -982,10 +895,7 @@ ProductService.getProducts({
 
               <select
                 name="category"
-                defaultValue={
-                  params.category ??
-                  "all"
-                }
+                defaultValue={params.category ?? "all"}
                 className="
                   h-11
                   w-full
@@ -1013,32 +923,14 @@ ProductService.getProducts({
                   focus:ring-(--fresh-100)
                 "
               >
+                <option value="all">Semua Kategori</option>
 
-                <option value="all">
-                  Semua Kategori
-                </option>
-
-                {categories.map(
-                  (category) => (
-
-                    <option
-                      key={
-                        category.id
-                      }
-                      value={
-                        category.id
-                      }
-                    >
-
-                      {category.name}
-
-                    </option>
-
-                  )
-                )}
-
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
               </select>
-
             </div>
 
             {/* SUBMIT */}
@@ -1063,20 +955,17 @@ ProductService.getProducts({
                 hover:bg-(--ocean-800)
               "
             >
-
               Cari Produk
-
             </button>
-
           </form>
 
           {/* ====================================================== */}
-{/* CATEGORY NAVIGATION */}
-{/* ====================================================== */}
+          {/* CATEGORY NAVIGATION */}
+          {/* ====================================================== */}
 
-<div
-  id="categories"
-  className="
+          <div
+            id="categories"
+            className="
     scroll-mt-24
 
     mt-4
@@ -1095,9 +984,9 @@ ProductService.getProducts({
     sm:mt-5
     sm:p-4
   "
->
-  <div
-    className="
+          >
+            <div
+              className="
       mb-3
 
       flex
@@ -1105,10 +994,10 @@ ProductService.getProducts({
       justify-between
       gap-3
     "
-  >
-    <div className="min-w-0">
-      <p
-        className="
+            >
+              <div className="min-w-0">
+                <p
+                  className="
           text-[9px]
           font-black
           tracking-[0.2em]
@@ -1117,12 +1006,12 @@ ProductService.getProducts({
 
           sm:text-[10px]
         "
-      >
-        BELANJA BERDASARKAN
-      </p>
+                >
+                  BELANJA BERDASARKAN
+                </p>
 
-      <h2
-        className="
+                <h2
+                  className="
           mt-0.5
 
           text-base
@@ -1133,13 +1022,13 @@ ProductService.getProducts({
 
           sm:text-lg
         "
-      >
-        Kategori Produk
-      </h2>
-    </div>
+                >
+                  Kategori Produk
+                </h2>
+              </div>
 
-    <span
-      className="
+              <span
+                className="
         shrink-0
 
         rounded-full
@@ -1157,37 +1046,30 @@ ProductService.getProducts({
         sm:px-3
         sm:text-xs
       "
-    >
-      {categories.length} Kategori
-    </span>
-  </div>
+              >
+                {categories.length} Kategori
+              </span>
+            </div>
 
-<ProductCategoryNavigation
-  categories={categories.map(
-    (category) => ({
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-    })
-  )}
-  activeCategorySlug={categorySlug}
-  basePath="/customer/products"
-  searchQuery={search}
-/>
-</div>
-
+            <ProductCategoryNavigation
+              categories={categories.map((category) => ({
+                id: category.id,
+                name: category.name,
+                slug: category.slug,
+              }))}
+              activeCategorySlug={categorySlug}
+              basePath="/customer/products"
+              searchQuery={search}
+            />
+          </div>
         </div>
-
       </section>
 
       {/* ==================================================== */}
       {/* PRODUCTS */}
       {/* ==================================================== */}
 
-      <section
-        id="produk"
-      >
-
+      <section id="produk">
         <div
           className="
             mx-auto
@@ -1204,7 +1086,6 @@ ProductService.getProducts({
             lg:py-10
           "
         >
-
           {/* SECTION HEADER */}
 
           <div
@@ -1219,9 +1100,7 @@ ProductService.getProducts({
               sm:mb-5
             "
           >
-
             <div>
-
               <p
                 className="
                   text-[9px]
@@ -1233,9 +1112,7 @@ ProductService.getProducts({
                   sm:text-xs
                 "
               >
-
                 KOLEKSI SEAFOOD
-
               </p>
 
               <h2
@@ -1252,9 +1129,7 @@ ProductService.getProducts({
                   lg:text-[28px]
                 "
               >
-
                 Produk Tersedia
-
               </h2>
 
               <p
@@ -1267,11 +1142,8 @@ ProductService.getProducts({
                   sm:text-sm
                 "
               >
-
                 Pilih seafood favorit Anda.
-
               </p>
-
             </div>
 
             <div
@@ -1299,7 +1171,6 @@ ProductService.getProducts({
                 shadow-sm
               "
             >
-
               <Package
                 className="
                   h-3.5
@@ -1310,23 +1181,15 @@ ProductService.getProducts({
               />
 
               {products.length}
-
             </div>
-
           </div>
 
           {products.length === 0 ? (
-
-            <EmptyState
-              search={search}
-              category={categorySlug}
-            />
-
+            <EmptyState search={search} category={categorySlug} />
           ) : (
-
-      <ProductGridTransition>
-            <div
-              className="
+            <ProductGridTransition>
+              <div
+                className="
                 grid
 
                 grid-cols-3
@@ -1340,13 +1203,8 @@ ProductService.getProducts({
 
                 2xl:grid-cols-6
               "
-            >
-
-              {products.map(
-                (
-                  product,
-                index
-                  ) => {
+              >
+                {products.map((product, index) => {
                   /**
                    * ============================================
                    * IMAGE
@@ -1354,16 +1212,11 @@ ProductService.getProducts({
                    */
 
                   const thumbnail =
-                    product.images?.find(
-                      (image) =>
-                        image.isThumbnail
-                    ) ??
+                    product.images?.find((image) => image.isThumbnail) ??
                     product.images?.[0] ??
                     null;
 
-                  const image =
-                    thumbnail?.image ??
-                    null;
+                  const image = thumbnail?.image ?? null;
 
                   /**
                    * ============================================
@@ -1371,10 +1224,7 @@ ProductService.getProducts({
                    * ============================================
                    */
 
-                  const price =
-                    Number(
-                      product.price
-                    );
+                  const price = Number(product.price);
 
                   /**
                    * ============================================
@@ -1383,39 +1233,21 @@ ProductService.getProducts({
                    */
 
                   const flashSale =
-                    flashSaleByProductId.get(
-                      product.id
-                    ) ?? null;
+                    flashSaleByProductId.get(product.id) ?? null;
 
-                  const isFlashSale =
-                    flashSale !== null;
+                  const isFlashSale = flashSale !== null;
 
-                  const originalPrice =
-                    isFlashSale
-                      ? flashSale.originalPrice
-                      : price;
+                  const originalPrice = isFlashSale
+                    ? flashSale.originalPrice
+                    : price;
 
-                  const finalPrice =
-                    isFlashSale
-                      ? flashSale.flashPrice
-                      : price;
+                  const finalPrice = isFlashSale ? flashSale.flashPrice : price;
 
-                  const saving =
-                    Math.max(
-                      0,
-                      originalPrice -
-                      finalPrice
-                    );
+                  const saving = Math.max(0, originalPrice - finalPrice);
 
                   const discountPercentage =
                     originalPrice > 0
-                      ? Math.round(
-                        (
-                          saving /
-                          originalPrice
-                        ) *
-                        100
-                      )
+                      ? Math.round((saving / originalPrice) * 100)
                       : 0;
 
                   /**
@@ -1424,13 +1256,9 @@ ProductService.getProducts({
                    * ============================================
                    */
 
-                  const stock =
-                    Number(
-                      product.stock ?? 0
-                    );
+                  const stock = Number(product.stock ?? 0);
 
-                  const outOfStock =
-                    stock <= 0;
+                  const outOfStock = stock <= 0;
 
                   /**
                    * ============================================
@@ -1438,9 +1266,7 @@ ProductService.getProducts({
                    * ============================================
                    */
 
-                  const isHot =
-                    product.featured ===
-                    true;
+                  const isHot = product.featured === true;
 
                   /**
                    * ============================================
@@ -1448,27 +1274,18 @@ ProductService.getProducts({
                    * ============================================
                    */
 
-                  const initialInWishlist =
-                    wishlistProductIds.has(
-                      product.id
-                    );
+                  const initialInWishlist = wishlistProductIds.has(product.id);
 
                   return (
-  <div
-    key={
-      product.id
-    }
-    className="product-card-stagger"
-    style={{
-      animationDelay:
-        `${Math.min(
-          index * 45,
-          360
-        )}ms`,
-    }}
-  >
-    <article
-      className="
+                    <div
+                      key={product.id}
+                      className="product-card-stagger"
+                      style={{
+                        animationDelay: `${Math.min(index * 45, 360)}ms`,
+                      }}
+                    >
+                      <article
+                        className="
         group
         relative
 
@@ -1502,14 +1319,13 @@ ProductService.getProducts({
         sm:hover:bg-white
         sm:hover:shadow-[0_14px_34px_rgba(23,50,77,0.10)]
       "
-    >
+                      >
+                        {/* ====================================== */}
+                        {/* WISHLIST */}
+                        {/* ====================================== */}
 
-                      {/* ====================================== */}
-                      {/* WISHLIST */}
-                      {/* ====================================== */}
-
-                      <div
-                        className="
+                        <div
+                          className="
                           absolute
                           right-1.5
                           top-1.5
@@ -1518,16 +1334,11 @@ ProductService.getProducts({
                           sm:right-2
                           sm:top-2
                         "
-                      >
-
-                        <ToggleWishlistButton
-                          productId={
-                            product.id
-                          }
-                          initialInWishlist={
-                            initialInWishlist
-                          }
-                          className="
+                        >
+                          <ToggleWishlistButton
+                            productId={product.id}
+                            initialInWishlist={initialInWishlist}
+                            className="
                             flex
                             h-7
                             w-7
@@ -1545,25 +1356,21 @@ ProductService.getProducts({
                             sm:h-9
                             sm:w-9
                           "
-                        />
+                          />
+                        </div>
 
-                      </div>
+                        {/* ====================================== */}
+                        {/* PRODUCT IMAGE */}
+                        {/* ====================================== */}
 
-                      {/* ====================================== */}
-                      {/* PRODUCT IMAGE */}
-                      {/* ====================================== */}
-
-                      <Link
-                        href={
-                          `/products/${product.slug}`
-                        }
-                        className="
+                        <Link
+                          href={`/products/${product.slug}`}
+                          className="
                           block
                         "
-                      >
-
-                        <div
-  className="
+                        >
+                          <div
+                            className="
     relative
 
     aspect-square
@@ -1580,98 +1387,48 @@ ProductService.getProducts({
     sm:group-hover:from-(--ice-50)
     sm:group-hover:to-(--fresh-100)
   "
->
-{image ? (
-  <>
-    <Image
-      src={image}
-      alt={product.name}
-      fill
-      unoptimized
-      sizes="
+                          >
+                            {image ? (
+                              <>
+                                <Image
+                                  src={image}
+                                  alt={product.name}
+                                  fill
+                                  unoptimized
+                                  sizes="
         (max-width: 639px) 33vw,
         (max-width: 1023px) 25vw,
         (max-width: 1535px) 20vw,
         16vw
       "
-      className={`
+                                  className={`
         object-cover
 
         transition-all
         duration-500
         ease-out
 
-        ${
-          outOfStock
-            ? "grayscale opacity-60"
-            : "sm:group-hover:scale-[1.035]"
-        }
+        ${outOfStock ? "grayscale opacity-60" : "sm:group-hover:scale-[1.035]"}
       `}
-    />
+                                />
 
-    {outOfStock && (
-      <>
-        {/* DARK OVERLAY */}
-        <div
-          className="
+                                {outOfStock && (
+                                  <>
+                                    {/* DARK OVERLAY */}
+                                    <div
+                                      className="
             absolute
             inset-0
             z-10
             bg-slate-950/20
           "
-        />
-
-        {/* SOLD OUT RIBBON */}
-        <div
-          className="
-            absolute
-            left-1/2
-            top-1/2
-            z-20
-            w-[125%]
-            -translate-x-1/2
-            -translate-y-1/2
-            -rotate-[12deg]
-          "
-        >
-          <div
-            className="
-              flex
-              items-center
-              justify-center
-
-              border-y-2
-              border-red-700
-
-              bg-red-600
-
-              px-4
-              py-2.5
-
-              shadow-[0_4px_12px_rgba(0,0,0,0.22)]
-            "
-          >
-            <span
-              className="
-                text-sm
-                font-black
-                uppercase
-                tracking-[0.18em]
-                text-white
-
-                sm:text-base
-              "
-            >
-              HABIS
-            </span>
-          </div>
-        </div>
-      </>
-    )}
-  </>
-) : (
-  <div
-    className="
+                                    />
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              <div
+                                className="
       flex
       h-full
       w-full
@@ -1683,35 +1440,35 @@ ProductService.getProducts({
 
       text-(--ink-400)
     "
-  >
-    <Fish
-      className="
+                              >
+                                <Fish
+                                  className="
         h-7
         w-7
 
         sm:h-9
         sm:w-9
       "
-    />
+                                />
 
-    <span
-      className="
+                                <span
+                                  className="
         text-[8px]
 
         sm:text-xs
       "
-    >
-      Belum ada gambar
-    </span>
-  </div>
-)}
+                                >
+                                  Belum ada gambar
+                                </span>
+                              </div>
+                            )}
 
-                          {/* ================================== */}
-                          {/* BADGES */}
-                          {/* ================================== */}
+                            {/* ================================== */}
+                            {/* BADGES */}
+                            {/* ================================== */}
 
-                          <div
-                            className="
+                            <div
+                              className="
                               absolute
                               left-1.5
                               top-1.5
@@ -1726,14 +1483,12 @@ ProductService.getProducts({
                               sm:top-2
                               sm:gap-1.5
                             "
-                          >
+                            >
+                              {/* FLASH SALE */}
 
-                            {/* FLASH SALE */}
-
-                            {isFlashSale && (
-
-                              <span
-                                className="
+                              {isFlashSale && (
+                                <span
+                                  className="
                                   inline-flex
                                   items-center
                                   gap-1
@@ -1755,10 +1510,9 @@ ProductService.getProducts({
                                   sm:px-2
                                   sm:text-[10px]
                                 "
-                              >
-
-                                <Zap
-                                  className="
+                                >
+                                  <Zap
+                                    className="
                                     h-2.5
                                     w-2.5
 
@@ -1767,19 +1521,16 @@ ProductService.getProducts({
                                     sm:h-3
                                     sm:w-3
                                   "
-                                />
+                                  />
+                                  FLASH SALE
+                                </span>
+                              )}
 
-                                FLASH SALE
+                              {/* HOT */}
 
-                              </span>
-
-                            )}
-
-                            {/* HOT */}
-
-{isHot && (
-  <div
-    className="
+                              {isHot && (
+                                <div
+                                  className="
       relative
       z-20
 
@@ -1803,9 +1554,9 @@ ProductService.getProducts({
       sm:px-2
       sm:text-[10px]
     "
-  >
-    <Flame
-      className="
+                                >
+                                  <Flame
+                                    className="
         h-2.5
         w-2.5
         fill-current
@@ -1813,22 +1564,19 @@ ProductService.getProducts({
         sm:h-3
         sm:w-3
       "
-    />
+                                  />
+                                  HOT
+                                </div>
+                              )}
+                            </div>
 
-    HOT
-  </div>
-)}
+                            {/* ================================== */}
+                            {/* OUT OF STOCK */}
+                            {/* ================================== */}
 
-                          </div>
-
-                          {/* ================================== */}
-                          {/* OUT OF STOCK */}
-                          {/* ================================== */}
-
-                          {outOfStock && (
-
-                            <div
-                              className="
+                            {outOfStock && (
+                              <div
+                                className="
                                 absolute
                                 inset-0
                                 z-20
@@ -1839,10 +1587,9 @@ ProductService.getProducts({
 
                                 bg-(--ocean-950)/45
                               "
-                            >
-
-                              <span
-                                className="
+                              >
+                                <span
+                                  className="
                                   rounded-full
 
                                   bg-white
@@ -1859,26 +1606,20 @@ ProductService.getProducts({
                                   sm:py-1.5
                                   sm:text-xs
                                 "
-                              >
+                                >
+                                  Stok Habis
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </Link>
 
-                                Stok Habis
+                        {/* ====================================== */}
+                        {/* CONTENT */}
+                        {/* ====================================== */}
 
-                              </span>
-
-                            </div>
-
-                          )}
-
-                        </div>
-
-                      </Link>
-
-                      {/* ====================================== */}
-                      {/* CONTENT */}
-                      {/* ====================================== */}
-
-                      <div
-                        className="
+                        <div
+                          className="
                           flex
                           flex-1
                           flex-col
@@ -1887,12 +1628,11 @@ ProductService.getProducts({
 
                           sm:p-3
                         "
-                      >
+                        >
+                          {/* CATEGORY */}
 
-                        {/* CATEGORY */}
-
-                        <p
-                          className="
+                          <p
+                            className="
                             truncate
 
                             text-[7px]
@@ -1903,26 +1643,20 @@ ProductService.getProducts({
 
                             sm:text-[10px]
                           "
-                        >
+                          >
+                            {product.category?.name ?? "SEAFOOD"}
+                          </p>
 
-                          {product.category?.name ??
-                            "SEAFOOD"}
+                          {/* PRODUCT NAME */}
 
-                        </p>
-
-                        {/* PRODUCT NAME */}
-
-                        <Link
-                          href={
-                            `/products/${product.slug}`
-                          }
-                          className="
+                          <Link
+                            href={`/products/${product.slug}`}
+                            className="
                             block
                           "
-                        >
-
-                          <h2
-                            className="
+                          >
+                            <h2
+                              className="
                               mt-1
 
                               line-clamp-2
@@ -1942,43 +1676,36 @@ ProductService.getProducts({
                               sm:text-sm
                               sm:leading-5
                             "
-                          >
+                            >
+                              {product.name}
+                            </h2>
+                          </Link>
 
-                            {product.name}
+                          {/* ==================================== */}
+                          {/* PRICE */}
+                          {/* ==================================== */}
 
-                          </h2>
-
-                        </Link>
-
-                        {/* ==================================== */}
-                        {/* PRICE */}
-                        {/* ==================================== */}
-
-                        <div
-                          className="
+                          <div
+                            className="
                             mt-2
                             min-h-11.25
 
                             sm:mt-3
                             sm:min-h-14.5
                           "
-                        >
-
-                          {isFlashSale ? (
-
-                            <>
-
-                              <div
-                                className="
+                          >
+                            {isFlashSale ? (
+                              <>
+                                <div
+                                  className="
                                   flex
                                   items-center
                                   gap-1
                                   overflow-hidden
                                 "
-                              >
-
-                                <span
-                                  className="
+                                >
+                                  <span
+                                    className="
                                     truncate
 
                                     text-[7px]
@@ -1987,17 +1714,11 @@ ProductService.getProducts({
 
                                     sm:text-xs
                                   "
-                                >
+                                  >
+                                    {formatRupiah(originalPrice)}
+                                  </span>
 
-                                  {formatRupiah(
-                                    originalPrice
-                                  )}
-
-                                </span>
-
-                                {discountPercentage >
-                                  0 && (
-
+                                  {discountPercentage > 0 && (
                                     <span
                                       className="
                                       shrink-0
@@ -2018,19 +1739,13 @@ ProductService.getProducts({
                                       sm:text-[9px]
                                     "
                                     >
-
-                                      -{
-                                        discountPercentage
-                                      }%
-
+                                      -{discountPercentage}%
                                     </span>
-
                                   )}
+                                </div>
 
-                              </div>
-
-                              <p
-                                className="
+                                <p
+                                  className="
                                   mt-0.5
 
                                   truncate
@@ -2043,18 +1758,13 @@ ProductService.getProducts({
                                   sm:mt-1
                                   sm:text-base
                                 "
-                              >
+                                >
+                                  {formatRupiah(finalPrice)}
+                                </p>
 
-                                {formatRupiah(
-                                  finalPrice
-                                )}
-
-                              </p>
-
-                              {saving > 0 && (
-
-                                <p
-                                  className="
+                                {saving > 0 && (
+                                  <p
+                                    className="
                                     mt-0.5
 
                                     hidden
@@ -2066,24 +1776,14 @@ ProductService.getProducts({
 
                                     sm:block
                                   "
-                                >
-
-                                  Hemat{" "}
-
-                                  {formatRupiah(
-                                    saving
-                                  )}
-
-                                </p>
-
-                              )}
-
-                            </>
-
-                          ) : (
-
-                            <p
-                              className="
+                                  >
+                                    Hemat {formatRupiah(saving)}
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <p
+                                className="
                                 truncate
 
                                 text-[11px]
@@ -2093,24 +1793,18 @@ ProductService.getProducts({
 
                                 sm:text-base
                               "
-                            >
+                              >
+                                {formatRupiah(price)}
+                              </p>
+                            )}
+                          </div>
 
-                              {formatRupiah(
-                                price
-                              )}
+                          {/* ==================================== */}
+                          {/* FOOTER */}
+                          {/* ==================================== */}
 
-                            </p>
-
-                          )}
-
-                        </div>
-
-                        {/* ==================================== */}
-                        {/* FOOTER */}
-                        {/* ==================================== */}
-
-<div
-  className="
+                          <div
+                            className="
     mt-auto
     flex
     items-center
@@ -2118,42 +1812,34 @@ ProductService.getProducts({
     gap-1
     pt-2
   "
->
-  <span
-    className="
+                          >
+                            <span
+                              className="
       truncate
       text-[7px]
       font-medium
       text-(--ink-400)
       sm:text-xs
     "
-  >
-    {outOfStock
-      ? "Tidak tersedia"
-      : `Stok ${stock}`}
-  </span>
+                            >
+                              {outOfStock ? "Tidak tersedia" : `Stok ${stock}`}
+                            </span>
 
-  <CustomerProductQuickAdd
-    productId={product.id}
-    productName={product.name}
-    disabled={outOfStock}
-  />
-</div>
-
-                      </div>
-
-                        </article>
-</div>
-);
-                }
-              )}
-
-            </div>
-</ProductGridTransition>
+                            <CustomerProductQuickAdd
+                              productId={product.id}
+                              productName={product.name}
+                              disabled={outOfStock}
+                            />
+                          </div>
+                        </div>
+                      </article>
+                    </div>
+                  );
+                })}
+              </div>
+            </ProductGridTransition>
           )}
-
         </div>
-
       </section>
 
       {/* ==================================================== */}
@@ -2168,7 +1854,6 @@ ProductService.getProducts({
           bg-white
         "
       >
-
         <div
           className="
             mx-auto
@@ -2184,7 +1869,6 @@ ProductService.getProducts({
             lg:px-8
           "
         >
-
           <div
             className="
               flex
@@ -2204,9 +1888,7 @@ ProductService.getProducts({
               sm:p-9
             "
           >
-
             <div>
-
               <p
                 className="
                   text-[10px]
@@ -2216,9 +1898,7 @@ ProductService.getProducts({
                   text-(--fresh-300)
                 "
               >
-
                 BELANJA SEAFOOD
-
               </p>
 
               <h2
@@ -2231,9 +1911,7 @@ ProductService.getProducts({
                   sm:text-2xl
                 "
               >
-
                 Temukan seafood favorit Anda.
-
               </h2>
 
               <p
@@ -2248,13 +1926,9 @@ ProductService.getProducts({
                   text-white/60
                 "
               >
-
-                Pilih produk favorit,
-                masukkan ke keranjang,
-                lalu lanjutkan ke checkout.
-
+                Pilih produk favorit, masukkan ke keranjang, lalu lanjutkan ke
+                checkout.
               </p>
-
             </div>
 
             <Link
@@ -2282,9 +1956,7 @@ ProductService.getProducts({
                 hover:bg-(--fresh-600)
               "
             >
-
               Buka Keranjang
-
               <ArrowRight
                 className="
                   ml-2
@@ -2292,15 +1964,10 @@ ProductService.getProducts({
                   w-4
                 "
               />
-
             </Link>
-
           </div>
-
         </div>
-
       </section>
-
     </main>
   );
 }
@@ -2337,7 +2004,6 @@ function EmptyState({
         sm:py-20
       "
     >
-
       <div
         className="
           mx-auto
@@ -2356,14 +2022,12 @@ function EmptyState({
           text-(--fresh-600)
         "
       >
-
         <Sparkles
           className="
             h-8
             w-8
           "
         />
-
       </div>
 
       <h2
@@ -2376,9 +2040,7 @@ function EmptyState({
           text-(--ocean-950)
         "
       >
-
         Produk tidak ditemukan
-
       </h2>
 
       <p
@@ -2393,13 +2055,11 @@ function EmptyState({
           text-slate-500
         "
       >
-
         {search
           ? `Tidak ada produk yang cocok dengan pencarian "${search}".`
           : category
             ? "Belum ada produk pada kategori ini."
             : "Belum ada produk yang dipublikasikan."}
-
       </p>
 
       <Link
@@ -2428,11 +2088,8 @@ function EmptyState({
           hover:bg-(--ocean-800)
         "
       >
-
         Lihat Semua Produk
-
       </Link>
-
     </div>
   );
 }
@@ -2443,20 +2100,10 @@ function EmptyState({
  * ============================================================
  */
 
-function formatRupiah(
-  value: number
-) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }
-  ).format(
-    Math.max(
-      0,
-      value
-    )
-  );
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, value));
 }
