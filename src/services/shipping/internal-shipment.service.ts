@@ -1,11 +1,8 @@
-import {
-  OrderStatus,
-  Prisma,
-} from "@prisma/client";
+import { OrderStatus, Prisma } from "@prisma/client";
 
-import {
-  prisma,
-} from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
+
+import notificationService from "@/services/notification/notification.service";
 
 /**
  * ============================================================
@@ -35,11 +32,9 @@ import {
 
 const INTERNAL_PROVIDER = "INTERNAL";
 
-const INTERNAL_SERVICE_NAME =
-  "Pisjo Internal Delivery";
+const INTERNAL_SERVICE_NAME = "Pisjo Internal Delivery";
 
-const TRACKING_PREFIX =
-  "PSJ-INT";
+const TRACKING_PREFIX = "PSJ-INT";
 
 /**
  * ============================================================
@@ -97,29 +92,15 @@ class InternalShipmentService {
    * ==========================================================
    */
 
-  private generateRandomCode(
-    length: number = 6
-  ): string {
-    const characters =
-      "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  private generateRandomCode(length: number = 6): string {
+    const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     let result = "";
 
-    for (
-      let index = 0;
-      index < length;
-      index += 1
-    ) {
-      const randomIndex =
-        Math.floor(
-          Math.random() *
-            characters.length
-        );
+    for (let index = 0; index < length; index += 1) {
+      const randomIndex = Math.floor(Math.random() * characters.length);
 
-      result +=
-        characters.charAt(
-          randomIndex
-        );
+      result += characters.charAt(randomIndex);
     }
 
     return result;
@@ -140,26 +121,12 @@ class InternalShipmentService {
    * ==========================================================
    */
 
-  private getDateCode(
-    date: Date
-  ): string {
-    const year =
-      date
-        .getFullYear()
-        .toString();
+  private getDateCode(date: Date): string {
+    const year = date.getFullYear().toString();
 
-    const month =
-      (
-        date.getMonth() + 1
-      )
-        .toString()
-        .padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
 
-    const day =
-      date
-        .getDate()
-        .toString()
-        .padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
 
     return `${year}${month}${day}`;
   }
@@ -179,18 +146,10 @@ class InternalShipmentService {
    * ==========================================================
    */
 
-  private generateTrackingNumber(
-    date: Date
-  ): string {
-    const dateCode =
-      this.getDateCode(
-        date
-      );
+  private generateTrackingNumber(date: Date): string {
+    const dateCode = this.getDateCode(date);
 
-    const randomCode =
-      this.generateRandomCode(
-        6
-      );
+    const randomCode = this.generateRandomCode(6);
 
     return `${TRACKING_PREFIX}-${dateCode}-${randomCode}`;
   }
@@ -215,26 +174,18 @@ class InternalShipmentService {
 
     const maxAttempts = 20;
 
-    for (
-      let attempt = 0;
-      attempt < maxAttempts;
-      attempt += 1
-    ) {
-      const trackingNumber =
-        this.generateTrackingNumber(
-          new Date()
-        );
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const trackingNumber = this.generateTrackingNumber(new Date());
 
-      const existingOrder =
-        await prisma.order.findUnique({
-          where: {
-            trackingNumber,
-          },
+      const existingOrder = await prisma.order.findUnique({
+        where: {
+          trackingNumber,
+        },
 
-          select: {
-            id: true,
-          },
-        });
+        select: {
+          id: true,
+        },
+      });
 
       if (!existingOrder) {
         return trackingNumber;
@@ -242,7 +193,7 @@ class InternalShipmentService {
     }
 
     throw new Error(
-      "Gagal menghasilkan nomor resi unik. Silakan coba kembali."
+      "Gagal menghasilkan nomor resi unik. Silakan coba kembali.",
     );
   }
 
@@ -263,9 +214,7 @@ class InternalShipmentService {
    * ==========================================================
    */
 
-  async createShipment(
-    orderId: string
-  ): Promise<CreateInternalShipmentResult> {
+  async createShipment(orderId: string): Promise<CreateInternalShipmentResult> {
     try {
       /**
        * ========================================================
@@ -273,15 +222,13 @@ class InternalShipmentService {
        * ========================================================
        */
 
-      const normalizedOrderId =
-        orderId?.trim();
+      const normalizedOrderId = orderId?.trim();
 
       if (!normalizedOrderId) {
         return {
           success: false,
 
-          message:
-            "Order ID wajib diisi.",
+          message: "Order ID wajib diisi.",
         };
       }
 
@@ -291,24 +238,25 @@ class InternalShipmentService {
        * ========================================================
        */
 
-      const order =
-        await prisma.order.findUnique({
-          where: {
-            id: normalizedOrderId,
-          },
+      const order = await prisma.order.findUnique({
+        where: {
+          id: normalizedOrderId,
+        },
 
-          select: {
-            id: true,
+        select: {
+          id: true,
 
-            orderNumber: true,
+          orderNumber: true,
 
-            status: true,
+          userId: true,
 
-            trackingNumber: true,
+          status: true,
 
-            shippingProvider: true,
-          },
-        });
+          trackingNumber: true,
+
+          shippingProvider: true,
+        },
+      });
 
       /**
        * ========================================================
@@ -320,8 +268,7 @@ class InternalShipmentService {
         return {
           success: false,
 
-          message:
-            "Pesanan tidak ditemukan.",
+          message: "Pesanan tidak ditemukan.",
         };
       }
 
@@ -334,10 +281,7 @@ class InternalShipmentService {
        * berada pada status PROCESSING.
        */
 
-      if (
-        order.status !==
-        OrderStatus.PROCESSING
-      ) {
+      if (order.status !== OrderStatus.PROCESSING) {
         return {
           success: false,
 
@@ -352,14 +296,11 @@ class InternalShipmentService {
        * ========================================================
        */
 
-      if (
-        order.trackingNumber
-      ) {
+      if (order.trackingNumber) {
         return {
           success: false,
 
-          message:
-            `Pesanan ini sudah memiliki nomor resi: ${order.trackingNumber}`,
+          message: `Pesanan ini sudah memiliki nomor resi: ${order.trackingNumber}`,
         };
       }
 
@@ -369,8 +310,7 @@ class InternalShipmentService {
        * ========================================================
        */
 
-      const trackingNumber =
-        await this.generateUniqueTrackingNumber();
+      const trackingNumber = await this.generateUniqueTrackingNumber();
 
       /**
        * ========================================================
@@ -378,8 +318,7 @@ class InternalShipmentService {
        * ========================================================
        */
 
-      const now =
-        new Date();
+      const now = new Date();
 
       /**
        * ========================================================
@@ -399,113 +338,128 @@ class InternalShipmentService {
        * ========================================================
        */
 
-      const updatedOrder =
-  await prisma.$transaction(
-    async (
-      tx: Prisma.TransactionClient
-    ) => {
-            /**
-             * ==================================================
-             * RE-CHECK ORDER
-             * ==================================================
-             *
-             * Menghindari race condition apabila admin
-             * menekan tombol dua kali atau terdapat request
-             * bersamaan.
-             */
+      const updatedOrder = await prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          /**
+           * ==================================================
+           * RE-CHECK ORDER
+           * ==================================================
+           *
+           * Menghindari race condition apabila admin
+           * menekan tombol dua kali atau terdapat request
+           * bersamaan.
+           */
 
-            const currentOrder =
-              await tx.order.findUnique({
-                where: {
-                  id: normalizedOrderId,
-                },
+          const currentOrder = await tx.order.findUnique({
+            where: {
+              id: normalizedOrderId,
+            },
 
-                select: {
-                  id: true,
+            select: {
+              id: true,
 
-                  orderNumber: true,
+              orderNumber: true,
 
-                  status: true,
+              status: true,
 
-                  trackingNumber: true,
-                },
-              });
+              trackingNumber: true,
+            },
+          });
 
-            if (!currentOrder) {
-              throw new Error(
-                "Pesanan tidak ditemukan."
-              );
-            }
-
-            if (
-              currentOrder.status !==
-              OrderStatus.PROCESSING
-            ) {
-              throw new Error(
-                "Pesanan tidak lagi berada pada status PROCESSING."
-              );
-            }
-
-            if (
-              currentOrder.trackingNumber
-            ) {
-              throw new Error(
-                `Pesanan ini sudah memiliki nomor resi: ${currentOrder.trackingNumber}`
-              );
-            }
-
-            /**
-             * ==================================================
-             * UPDATE ORDER
-             * ==================================================
-             */
-
-            return tx.order.update({
-              where: {
-                id: normalizedOrderId,
-              },
-
-              data: {
-                shippingProvider:
-                  INTERNAL_PROVIDER,
-
-                shippingService:
-                  INTERNAL_SERVICE_NAME,
-
-                trackingNumber,
-
-                shippedAt:
-                  now,
-
-                /**
-                 * Field lama tetap diisi
-                 * untuk menjaga kompatibilitas
-                 * dengan sistem sebelumnya.
-                 */
-
-                shippingAt:
-                  now,
-
-                status:
-                  OrderStatus.SHIPPING,
-              },
-
-              select: {
-                id: true,
-
-                orderNumber: true,
-
-                trackingNumber: true,
-
-                shippingProvider: true,
-
-                shippingService: true,
-
-                shippedAt: true,
-              },
-            });
+          if (!currentOrder) {
+            throw new Error("Pesanan tidak ditemukan.");
           }
-        );
+
+          if (currentOrder.status !== OrderStatus.PROCESSING) {
+            throw new Error(
+              "Pesanan tidak lagi berada pada status PROCESSING.",
+            );
+          }
+
+          if (currentOrder.trackingNumber) {
+            throw new Error(
+              `Pesanan ini sudah memiliki nomor resi: ${currentOrder.trackingNumber}`,
+            );
+          }
+
+          /**
+           * ==================================================
+           * UPDATE ORDER
+           * ==================================================
+           */
+
+          return tx.order.update({
+            where: {
+              id: normalizedOrderId,
+            },
+
+            data: {
+              shippingProvider: INTERNAL_PROVIDER,
+
+              shippingService: INTERNAL_SERVICE_NAME,
+
+              trackingNumber,
+
+              shippedAt: now,
+
+              /**
+               * Field lama tetap diisi
+               * untuk menjaga kompatibilitas
+               * dengan sistem sebelumnya.
+               */
+
+              shippingAt: now,
+
+              status: OrderStatus.SHIPPING,
+            },
+
+            select: {
+              id: true,
+
+              orderNumber: true,
+
+              trackingNumber: true,
+
+              shippingProvider: true,
+
+              shippingService: true,
+
+              shippedAt: true,
+            },
+          });
+        },
+      );
+
+      /**
+       * ========================================================
+       * CUSTOMER NOTIFICATION
+       * ========================================================
+       *
+       * Notifikasi dibuat setelah transaksi order
+       * berhasil diselesaikan.
+       *
+       * Jika notifikasi gagal, proses pembuatan resi
+       * tetap dianggap berhasil.
+       */
+
+      if (order.userId) {
+        try {
+          await notificationService.createCustomerOrderStatusNotification({
+            userId: order.userId,
+
+            orderId: updatedOrder.id,
+
+            orderNumber: updatedOrder.orderNumber,
+
+            status: OrderStatus.SHIPPING,
+          });
+        } catch (notificationError) {
+          console.error(
+            "[INTERNAL_SHIPMENT_CUSTOMER_NOTIFICATION_ERROR]",
+            notificationError,
+          );
+        }
+      }
 
       /**
        * ========================================================
@@ -516,34 +470,24 @@ class InternalShipmentService {
       return {
         success: true,
 
-        message:
-          "Resi Kurir Internal berhasil dibuat.",
+        message: "Resi Kurir Internal berhasil dibuat.",
 
         data: {
-          orderId:
-            updatedOrder.id,
+          orderId: updatedOrder.id,
 
-          orderNumber:
-            updatedOrder.orderNumber,
+          orderNumber: updatedOrder.orderNumber,
 
-          trackingNumber:
-            updatedOrder.trackingNumber!,
+          trackingNumber: updatedOrder.trackingNumber!,
 
-          shippingProvider:
-            updatedOrder.shippingProvider!,
+          shippingProvider: updatedOrder.shippingProvider!,
 
-          shippingService:
-            updatedOrder.shippingService!,
+          shippingService: updatedOrder.shippingService!,
 
-          shippedAt:
-            updatedOrder.shippedAt!,
+          shippedAt: updatedOrder.shippedAt!,
         },
       };
     } catch (error) {
-      console.error(
-        "[INTERNAL_SHIPMENT_CREATE_ERROR]",
-        error
-      );
+      console.error("[INTERNAL_SHIPMENT_CREATE_ERROR]", error);
 
       return {
         success: false,
@@ -563,7 +507,6 @@ class InternalShipmentService {
  * ============================================================
  */
 
-const internalShipmentService =
-  new InternalShipmentService();
+const internalShipmentService = new InternalShipmentService();
 
 export default internalShipmentService;

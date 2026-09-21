@@ -50,6 +50,38 @@ function formatCurrency(
   ).format(value);
 }
 
+function getOrderItemImage(
+  item: {
+    product?: {
+      images?: Array<{
+        image: string | null;
+        isThumbnail: boolean;
+        sortOrder: number;
+      }>;
+    } | null;
+  }
+) {
+  const images = item.product?.images ?? [];
+
+  const thumbnail =
+    images.find(
+      (image) =>
+        image.isThumbnail &&
+        Boolean(image.image)
+    ) ??
+    [...images]
+      .sort(
+        (a, b) =>
+          a.sortOrder - b.sortOrder
+      )
+      .find(
+        (image) =>
+          Boolean(image.image)
+      );
+
+  return thumbnail?.image ?? null;
+}
+
 /**
  * ============================================================
  * FORMAT DATE
@@ -526,47 +558,51 @@ try {
 
               <div className="space-y-5">
 
-                {order.items.map(
-                  (item) => (
-                    <div
-                      key={item.id}
-                      className="flex gap-4 border-b border-slate-100 pb-5 last:border-b-0 last:pb-0"
-                    >
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-100">
-                        <Package className="h-6 w-6 text-slate-400" />
-                      </div>
+{order.items.map((item) => {
+  const image = getOrderItemImage(item);
 
-                      <div className="min-w-0 flex-1">
+  return (
+    <div
+      key={item.id}
+      className="flex gap-4 border-b border-slate-100 pb-5 last:border-b-0 last:pb-0"
+    >
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+        {image ? (
+          <Image
+            src={image}
+            alt={item.productName}
+            fill
+            sizes="56px"
+            unoptimized
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <Package className="h-6 w-6 text-slate-400" />
+          </div>
+        )}
+      </div>
 
-                        <h3 className="font-medium text-slate-900">
-                          {item.productName}
-                        </h3>
+      <div className="min-w-0 flex-1">
+        <h3 className="font-medium text-slate-900">
+          {item.productName}
+        </h3>
 
-                        <p className="mt-1 text-sm text-slate-500">
-                          {formatCurrency(
-                            Number(
-                              item.price
-                            )
-                          )}
-                          {" × "}
-                          {item.quantity}
-                        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          {formatCurrency(Number(item.price))}
+          {" × "}
+          {item.quantity}
+        </p>
+      </div>
 
-                      </div>
-
-                      <div className="shrink-0 text-right">
-                        <p className="font-semibold text-slate-950">
-                          {formatCurrency(
-                            Number(
-                              item.subtotal
-                            )
-                          )}
-                        </p>
-                      </div>
-
-                    </div>
-                  )
-                )}
+      <div className="shrink-0 text-right">
+        <p className="font-semibold text-slate-950">
+          {formatCurrency(Number(item.subtotal))}
+        </p>
+      </div>
+    </div>
+  );
+})}
 
               </div>
                         </section>

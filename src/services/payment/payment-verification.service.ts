@@ -408,16 +408,13 @@ export class PaymentVerificationService {
 
       try {
         await notificationService.createCustomerPaymentNotification({
+          paymentProofId:
+            verificationResult.notificationContext.paymentProofId,
           userId: verificationResult.notificationContext.userId,
-
           orderId: verificationResult.notificationContext.orderId,
-
           orderNumber: verificationResult.notificationContext.orderNumber,
-
           type: NotificationType.PAYMENT_VERIFIED,
-
           title: "Pembayaran Berhasil Diverifikasi",
-
           message: `Pembayaran untuk pesanan ${verificationResult.notificationContext.orderNumber} telah diverifikasi. Pesanan sedang diproses.`,
         });
       } catch (notificationError) {
@@ -515,18 +512,15 @@ export class PaymentVerificationService {
 
       try {
         await notificationService.createCustomerPaymentNotification({
-          userId: rejectionResult.notificationContext.userId,
-
-          orderId: rejectionResult.notificationContext.orderId,
-
-          orderNumber: rejectionResult.notificationContext.orderNumber,
-
-          type: NotificationType.SYSTEM,
-
-          title: "Pembayaran Ditolak",
-
-          message: `Pembayaran untuk pesanan ${rejectionResult.notificationContext.orderNumber} ditolak. Alasan: ${normalizedReason}. Silakan periksa pesanan dan kirim ulang bukti pembayaran.`,
-        });
+  paymentProofId:
+    rejectionResult.notificationContext.paymentProofId,
+  userId: rejectionResult.notificationContext.userId,
+  orderId: rejectionResult.notificationContext.orderId,
+  orderNumber: rejectionResult.notificationContext.orderNumber,
+  type: NotificationType.SYSTEM,
+  title: "Pembayaran Ditolak",
+  message: `Pembayaran untuk pesanan ${rejectionResult.notificationContext.orderNumber} ditolak. Alasan: ${normalizedReason}. Silakan periksa pesanan dan kirim ulang bukti pembayaran.`,
+});
       } catch (notificationError) {
         console.error(
           "[CUSTOMER_PAYMENT_REJECTED_NOTIFICATION_ERROR]",

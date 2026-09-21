@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import Image from "next/image";
+
 import {
   notFound,
   redirect,
@@ -28,6 +30,37 @@ import {
 import { auth } from "@/auth";
 
 import OrderService from "@/services/order/order.service";
+
+function getOrderItemImage(
+  item: {
+    product?: {
+      images?: Array<{
+        image: string | null;
+        isThumbnail: boolean;
+        sortOrder: number;
+      }>;
+    } | null;
+  }
+) {
+  const images = item.product?.images ?? [];
+
+  const thumbnail =
+    images.find(
+      (image) =>
+        image.isThumbnail &&
+        Boolean(image.image)
+    ) ??
+    [...images]
+      .sort(
+        (a, b) =>
+          a.sortOrder - b.sortOrder
+      )
+      .find((image) =>
+        Boolean(image.image)
+      );
+
+  return thumbnail?.image ?? null;
+}
 
 /**
  * ============================================================
@@ -1657,7 +1690,10 @@ export default async function CustomerOrderTrackingPage({
   </div>
 
   <div className="divide-y divide-slate-100">
-    {order.items.map((item) => (
+  {order.items.map((item) => {
+    const image = getOrderItemImage(item);
+
+    return (
       <div
         key={item.id}
         className="
@@ -1670,40 +1706,51 @@ export default async function CustomerOrderTrackingPage({
           sm:py-5
         "
       >
-        {/* PRODUCT IMAGE PLACEHOLDER */}
-        <div
-          className="
-            flex
-            h-16
-            w-16
-            shrink-0
-            items-center
-            justify-center
-            overflow-hidden
-            rounded-xl
-            bg-slate-100
-            sm:h-20
-            sm:w-20
-          "
-        >
-          <Package
-            className="
-              h-7
-              w-7
-              text-slate-400
-              sm:h-8
-              sm:w-8
-            "
-          />
-        </div>
+{/* PRODUCT IMAGE */}
+<div
+  className="
+    relative
+    h-16
+    w-16
+    shrink-0
+    overflow-hidden
+    rounded-xl
+    bg-slate-100
+    sm:h-20
+    sm:w-20
+  "
+>
+  {image ? (
+    <Image
+      src={image}
+      alt={item.productName}
+      fill
+      sizes="(max-width: 640px) 64px, 80px"
+      unoptimized
+      className="object-cover"
+    />
+  ) : (
+    <div className="flex h-full w-full items-center justify-center">
+      <Package
+        className="
+          h-7
+          w-7
+          text-slate-400
+          sm:h-8
+          sm:w-8
+        "
+      />
+    </div>
+  )}
+</div>
 
-        {/* PRODUCT INFORMATION */}
-        <div
-          className="
-            min-w-0
-            flex-1
-          "
-        >
+{/* PRODUCT INFORMATION */}
+<div
+  className="
+    min-w-0
+    flex-1
+  "
+>
           <h3
             className="
               line-clamp-2
@@ -1801,9 +1848,10 @@ export default async function CustomerOrderTrackingPage({
           >
             {formatCurrency(Number(item.subtotal))}
           </p>
-        </div>
+                </div>
       </div>
-    ))}
+    );
+  })}
   </div>
 </section>
 

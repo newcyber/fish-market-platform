@@ -2762,6 +2762,8 @@ model PaymentProof {
 
   status PaymentStatus @default(PENDING)
 
+  confirmationEventId String? @unique
+
   verifiedAt DateTime?
 
   verifiedById String?
@@ -3484,15 +3486,18 @@ model Notification {
   id String @id @default(cuid())
 
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   orderId String?
-  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  title   String
+  title String
   message String
-  type    NotificationType
-  href    String?
+  type NotificationType
+  href String?
+
+  // Idempotency key untuk mencegah notifikasi duplikat
+  eventKey String? @unique
 
   isRead Boolean @default(false)
 

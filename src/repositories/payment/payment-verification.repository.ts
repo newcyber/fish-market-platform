@@ -604,14 +604,15 @@ export class PaymentVerificationRepository {
         },
       });
 
-      return {
-        updatedProof,
-        notificationContext: {
-          orderId: order.id,
-          userId: order.userId,
-          orderNumber: order.orderNumber,
-        },
-      };
+return {
+  updatedProof,
+  notificationContext: {
+    paymentProofId: updatedProof.id,
+    orderId: order.id,
+    userId: order.userId,
+    orderNumber: order.orderNumber,
+  },
+};
     });
   }
 
@@ -812,14 +813,15 @@ export class PaymentVerificationRepository {
         },
       });
 
-      return {
-        updatedProof,
-        notificationContext: {
-          orderId: order.id,
-          userId: order.userId,
-          orderNumber: order.orderNumber,
-        },
-      };
+return {
+  updatedProof,
+  notificationContext: {
+    paymentProofId: updatedProof.id,
+    orderId: order.id,
+    userId: order.userId,
+    orderNumber: order.orderNumber,
+  },
+};
     });
   }
 }

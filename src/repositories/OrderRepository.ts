@@ -679,7 +679,7 @@ static async forceDelete(id: string) {
 });
   }
 
-  static async findByIdAndUserId(
+static async findByIdAndUserId(
   id: string,
   userId: string
 ) {
@@ -692,14 +692,32 @@ static async forceDelete(id: string) {
 
     include: {
       user: true,
+
       address: true,
+
       items: {
         include: {
-          product: true,
+          product: {
+            include: {
+              images: {
+                orderBy: [
+                  {
+                    isThumbnail: "desc",
+                  },
+                  {
+                    sortOrder: "asc",
+                  },
+                ],
+              },
+            },
+          },
+
           sku: true,
         },
       },
+
       paymentProof: true,
+
       paymentChannel: true,
     },
   });
