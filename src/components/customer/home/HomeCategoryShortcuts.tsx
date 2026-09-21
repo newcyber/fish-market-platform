@@ -2,11 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
 /**
@@ -119,11 +115,9 @@ export default function HomeCategoryShortcuts({
    * ==========================================================
    */
 
-  const canExpandMobile =
-    categories.length > MOBILE_CATEGORY_LIMIT;
+  const canExpandMobile = categories.length > MOBILE_CATEGORY_LIMIT;
 
-  const canExpandDesktop =
-    categories.length > COLLAPSED_CATEGORY_LIMIT;
+  const canExpandDesktop = categories.length > COLLAPSED_CATEGORY_LIMIT;
 
   return (
     <section
@@ -201,11 +195,7 @@ export default function HomeCategoryShortcuts({
             "
           >
             Lihat semua
-
-            <ChevronRight
-              aria-hidden="true"
-              className="h-4 w-4"
-            />
+            <ChevronRight aria-hidden="true" className="h-4 w-4" />
           </Link>
         </div>
 
@@ -231,82 +221,90 @@ export default function HomeCategoryShortcuts({
             lg:gap-6
           "
         >
-          {visibleCategories.map(
-            (category, index) => {
-              const categoryHref =
-                `${productsHref}?category=${encodeURIComponent(
-                  category.slug
-                )}`;
+          {visibleCategories.map((category, index) => {
+            const categoryHref = `${productsHref}?category=${encodeURIComponent(
+              category.slug,
+            )}`;
 
-              return (
-                <Link
-                  key={category.id}
-                  href={categoryHref}
-                  className={`
-                    group
-                    flex
-                    min-w-0
-                    flex-col
-                    items-center
-                    text-center
-                    ${
-                      index >= MOBILE_CATEGORY_LIMIT &&
-                      !isExpanded
-                        ? "hidden sm:flex"
-                        : ""
-                    }
-                  `}
-                >
-                  {/* ========================================
+            return (
+              <Link
+                key={category.id}
+                href={categoryHref}
+                aria-label={`Lihat produk kategori ${category.name}`}
+                className={`
+    group
+    flex
+    min-w-0
+    flex-col
+    items-center
+    text-center
+    rounded-2xl
+    px-1
+    py-1
+    outline-none
+    transition
+    duration-200
+    hover:bg-(--ice-50)
+    active:scale-[0.97]
+    focus-visible:ring-2
+    focus-visible:ring-(--pisjo-primary)/40
+    ${index >= MOBILE_CATEGORY_LIMIT && !isExpanded ? "hidden sm:flex" : ""}
+  `}
+              >
+                {/* ========================================
                       CATEGORY IMAGE
                   ======================================== */}
 
-                  <div
-                    className="
-                      relative
-                      flex
-                      h-[58px]
-                      w-[58px]
-                      items-center
-                      justify-center
-                      overflow-hidden
-                      rounded-xl
-                      bg-(--ice-50)
-                      ring-1
-                      ring-slate-100
-                      transition
-                      duration-200
-                      group-hover:-translate-y-0.5
-                      group-hover:ring-slate-200
+                <div
+                  className="
+    relative
+    flex
+    h-[58px]
+    w-[58px]
+    shrink-0
+    items-center
+    justify-center
+    overflow-hidden
+    rounded-xl
+    bg-(--ice-50)
+    ring-1
+    ring-slate-100
+    transition-all
+    duration-200
+    group-hover:-translate-y-0.5
+    group-hover:shadow-sm
+    group-hover:ring-(--pisjo-primary)/20
+    group-focus-visible:ring-2
+    group-focus-visible:ring-(--pisjo-primary)/40
 
-                      sm:h-20
-                      sm:w-20
-                      sm:rounded-2xl
+    sm:h-20
+    sm:w-20
+    sm:rounded-2xl
 
-                      lg:h-32
-                      lg:w-32
-                    "
-                  >
-                    {category.image ? (
-                      <Image
-                        src={category.image}
-                        alt={category.name}
-                        fill
-                        sizes="
+    lg:h-32
+    lg:w-32
+  "
+                >
+                  {category.image ? (
+                    <Image
+                      src={category.image}
+                      alt={category.name}
+                      fill
+                      sizes="
                           (max-width: 639px) 58px,
                           (max-width: 1023px) 80px,
                           128px
                         "
-                        className="
+                      className="
                           object-contain
                           p-1
                           sm:p-2
                         "
-                        unoptimized
-                      />
-                    ) : (
-                      <span
-                        className="
+                      unoptimized
+                    />
+                  ) : (
+                    <span
+                      className="
                           px-1
                           text-center
                           text-[8px]
@@ -315,42 +313,47 @@ export default function HomeCategoryShortcuts({
                           text-slate-400
                           sm:text-[10px]
                         "
-                      >
-                        Tidak ada gambar
-                      </span>
-                    )}
-                  </div>
+                    >
+                      Tidak ada gambar
+                    </span>
+                  )}
+                </div>
 
-                  {/* ========================================
+                {/* ========================================
                       CATEGORY NAME
                   ======================================== */}
 
-                  <span
-                    className="
-                      mt-1
-                      line-clamp-2
-                      w-full
-                      px-0.5
-                      text-[10px]
-                      font-semibold
-                      leading-[13px]
-                      text-slate-700
-                      transition
-                      group-hover:text-(--pisjo-primary)
+                <span
+                  className="
+    mt-1
+    line-clamp-2
+    min-h-[26px]
+    w-full
+    max-w-[78px]
+    overflow-hidden
+    px-0.5
+    text-[10px]
+    font-semibold
+    leading-[13px]
+    text-slate-700
+    transition-colors
+    group-hover:text-(--pisjo-primary)
 
-                      sm:mt-2
-                      sm:text-xs
-                      sm:leading-4
+    sm:mt-2
+    sm:min-h-8
+    sm:max-w-[96px]
+    sm:text-xs
+    sm:leading-4
 
-                      lg:text-sm
-                    "
-                  >
-                    {category.name}
-                  </span>
-                </Link>
-              );
-            }
-          )}
+    lg:max-w-[128px]
+    lg:text-sm
+  "
+                >
+                  {category.name}
+                </span>
+              </Link>
+            );
+          })}
         </div>
 
         {/* ====================================================
@@ -368,14 +371,11 @@ export default function HomeCategoryShortcuts({
           >
             <button
               type="button"
-              onClick={() =>
-                setIsExpanded(
-                  (previous) => !previous
-                )
-              }
+              onClick={() => setIsExpanded((previous) => !previous)}
               aria-expanded={isExpanded}
               className="
                 inline-flex
+                min-h-10
                 items-center
                 gap-1
                 rounded-lg
@@ -396,20 +396,12 @@ export default function HomeCategoryShortcuts({
               {isExpanded ? (
                 <>
                   Lihat Lebih Sedikit
-
-                  <ChevronUp
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                  />
+                  <ChevronUp aria-hidden="true" className="h-4 w-4" />
                 </>
               ) : (
                 <>
                   Lihat Lebih Banyak
-
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                  />
+                  <ChevronDown aria-hidden="true" className="h-4 w-4" />
                 </>
               )}
             </button>
