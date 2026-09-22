@@ -487,10 +487,47 @@ class NotificationService {
           update: {
             phone,
             message,
-            status: WapiDeliveryStatus.PENDING,
+          },
+        });
+
+        const claimResult = await prisma.wapiDelivery.updateMany({
+          where: {
+            id: delivery.id,
+            status: {
+              in: [WapiDeliveryStatus.PENDING, WapiDeliveryStatus.FAILED],
+            },
+          },
+          data: {
+            status: WapiDeliveryStatus.PROCESSING,
+            phone,
+            message,
             errorMessage: null,
           },
         });
+
+        if (claimResult.count === 0) {
+          const currentDelivery = await prisma.wapiDelivery.findUnique({
+            where: {
+              id: delivery.id,
+            },
+            select: {
+              status: true,
+            },
+          });
+
+          if (currentDelivery?.status === WapiDeliveryStatus.SENT) {
+            whatsappResult.sent += 1;
+          }
+
+          console.info("[WHATSAPP_ORDER_NOTIFICATION_CLAIM_SKIPPED]", {
+            orderId,
+            userId: recipient.id,
+            deliveryId: delivery.id,
+            status: currentDelivery?.status ?? "NOT_FOUND",
+          });
+
+          continue;
+        }
 
         try {
           const result = await whatsappService.sendText({
