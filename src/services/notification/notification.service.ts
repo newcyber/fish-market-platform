@@ -413,31 +413,6 @@ class NotificationService {
       for (const recipient of recipients) {
         const phone = recipient.phone?.trim();
 
-        const existingDelivery = await prisma.wapiDelivery.findUnique({
-          where: {
-            orderId_userId: {
-              orderId,
-              userId: recipient.id,
-            },
-          },
-          select: {
-            id: true,
-            status: true,
-          },
-        });
-
-        if (existingDelivery?.status === WapiDeliveryStatus.SENT) {
-          whatsappResult.sent += 1;
-
-          console.info("[WHATSAPP_ORDER_NOTIFICATION_ALREADY_SENT]", {
-            orderId,
-            userId: recipient.id,
-            deliveryId: existingDelivery.id,
-          });
-
-          continue;
-        }
-
         if (!phone) {
           whatsappResult.skipped += 1;
 
@@ -468,6 +443,31 @@ class NotificationService {
         }
 
         whatsappResult.recipients += 1;
+
+        const existingDelivery = await prisma.wapiDelivery.findUnique({
+          where: {
+            orderId_userId: {
+              orderId,
+              userId: recipient.id,
+            },
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        });
+
+        if (existingDelivery?.status === WapiDeliveryStatus.SENT) {
+          whatsappResult.sent += 1;
+
+          console.info("[WHATSAPP_ORDER_NOTIFICATION_ALREADY_SENT]", {
+            orderId,
+            userId: recipient.id,
+            deliveryId: existingDelivery.id,
+          });
+
+          continue;
+        }
 
         const delivery = await prisma.wapiDelivery.upsert({
           where: {
