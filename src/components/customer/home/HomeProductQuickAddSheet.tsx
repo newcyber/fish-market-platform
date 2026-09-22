@@ -103,6 +103,10 @@ export default function HomeProductQuickAddSheet({
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
+
   const closeTimerRef = useRef<number | null>(null);
 
   /**
@@ -169,6 +173,12 @@ export default function HomeProductQuickAddSheet({
     onClose();
   }, [isPending, onClose]);
 
+  const handleCloseRef = useRef(handleClose);
+
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  }, [handleClose]);
+
   /**
    * ==========================================================
    * SHEET ACCESSIBILITY & BODY SCROLL LOCK
@@ -179,15 +189,81 @@ export default function HomeProductQuickAddSheet({
       return;
     }
 
+    const previouslyFocusedElement =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    previouslyFocusedElementRef.current = previouslyFocusedElement;
+
     const previousOverflow = document.body.style.overflow;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCloseRef.current();
+
         return;
       }
 
-      event.preventDefault();
-      handleClose();
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const sheet = sheetRef.current;
+
+      if (!sheet) {
+        return;
+      }
+
+      const focusableElements = Array.from(
+        sheet.querySelectorAll<HTMLElement>(
+          [
+            "button:not([disabled])",
+            "a[href]",
+            "input:not([disabled])",
+            "select:not([disabled])",
+            "textarea:not([disabled])",
+            "[tabindex]:not([tabindex='-1'])",
+          ].join(","),
+        ),
+      ).filter(
+        (element) =>
+          !element.hasAttribute("aria-hidden") &&
+          element.getAttribute("tabindex") !== "-1",
+      );
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+
+        return;
+      }
+
+      const firstFocusableElement = focusableElements[0];
+      const lastFocusableElement =
+        focusableElements[focusableElements.length - 1];
+
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey) {
+        if (
+          activeElement === firstFocusableElement ||
+          !sheet.contains(activeElement)
+        ) {
+          event.preventDefault();
+          lastFocusableElement.focus();
+        }
+
+        return;
+      }
+
+      if (
+        activeElement === lastFocusableElement ||
+        !sheet.contains(activeElement)
+      ) {
+        event.preventDefault();
+        firstFocusableElement.focus();
+      }
     };
 
     document.body.style.overflow = "hidden";
@@ -199,10 +275,22 @@ export default function HomeProductQuickAddSheet({
 
     return () => {
       window.clearTimeout(focusTimer);
+
       document.body.style.overflow = previousOverflow;
+
       document.removeEventListener("keydown", handleKeyDown);
+
+      const elementToRestore = previouslyFocusedElementRef.current;
+
+      if (elementToRestore && document.contains(elementToRestore)) {
+        window.setTimeout(() => {
+          elementToRestore.focus();
+        }, 0);
+      }
+
+      previouslyFocusedElementRef.current = null;
     };
-  }, [open, handleClose]);
+  }, [open]);
 
   /**
    * Clear the auto-close timer when the component unmounts.
@@ -512,7 +600,10 @@ export default function HomeProductQuickAddSheet({
       />
 
       {/* Sheet */}
-      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl bg-white shadow-2xl">
+      <div
+        ref={sheetRef}
+        className="relative z-10 w-full max-w-lg overflow-hidden rounded-t-3xl bg-white shadow-2xl"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 pr-4">
