@@ -502,6 +502,7 @@ class NotificationService {
             phone,
             message,
             errorMessage: null,
+            processingStartedAt: new Date(),
           },
         });
 
@@ -547,6 +548,7 @@ class NotificationService {
                 increment: 1,
               },
               errorMessage: null,
+              processingStartedAt: null,
               sentAt: new Date(),
             },
           });
@@ -568,6 +570,7 @@ class NotificationService {
                 increment: 1,
               },
               errorMessage,
+              processingStartedAt: null,
             },
           });
 

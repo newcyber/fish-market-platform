@@ -3634,9 +3634,10 @@ model WapiDelivery {
   messageId String?
   jid       String?
 
-  attempts     Int       @default(0)
-  errorMessage String?   @db.Text
-  sentAt       DateTime?
+  attempts            Int       @default(0)
+  errorMessage        String?   @db.Text
+  processingStartedAt DateTime?
+  sentAt              DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
