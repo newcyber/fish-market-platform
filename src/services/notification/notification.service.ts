@@ -172,6 +172,11 @@ class NotificationService {
       },
       select: {
         notes: true,
+        paymentMethod: true,
+        subtotal: true,
+        voucherDiscount: true,
+        shippingCost: true,
+        total: true,
         shippingProvider: true,
         shippingService: true,
         items: {
@@ -249,15 +254,54 @@ class NotificationService {
 
     /**
      * ========================================================
+     * FORMAT FINANCIAL ORDER DATA
+     * ========================================================
+     */
+
+    const formatRupiah = (value: unknown): string => {
+      const numericValue = Number(value ?? 0);
+
+      if (!Number.isFinite(numericValue)) {
+        return "Rp0";
+      }
+
+      return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+      }).format(numericValue);
+    };
+
+    const paymentMethod =
+      orderDetails?.paymentMethod === "BANK_TRANSFER"
+        ? "Transfer Bank"
+        : orderDetails?.paymentMethod === "QRIS"
+          ? "QRIS"
+          : orderDetails?.paymentMethod || "Belum ditentukan";
+
+    const orderSubtotal = formatRupiah(orderDetails?.subtotal);
+    const voucherDiscount = formatRupiah(orderDetails?.voucherDiscount);
+    const shippingCost = formatRupiah(orderDetails?.shippingCost);
+
+    const orderTotal = orderDetails?.total
+      ? formatRupiah(orderDetails.total)
+      : (formattedTotal ?? "Tidak tersedia");
+
+    /**
+     * ========================================================
      * RENDER WAPI MESSAGE
      * ========================================================
      */
     const message = renderOrderNotificationTemplate(wapiSettings.template, {
       orderNumber,
       customerName,
-      orderTotal: formattedTotal ?? "Tidak tersedia",
+      orderTotal,
       orderItems,
+      paymentMethod,
+      orderSubtotal,
+      voucherDiscount,
       shippingMethod,
+      shippingCost,
       orderNote,
     });
 

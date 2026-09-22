@@ -10,7 +10,11 @@
  * {{customer_name}}
  * {{order_total}}
  * {{order_items}}
+ * {{payment_method}}
+ * {{order_subtotal}}
+ * {{voucher_discount}}
  * {{shipping_method}}
+ * {{shipping_cost}}
  * {{order_note}}
  *
  * Contoh:
@@ -26,9 +30,17 @@ export const DEFAULT_ORDER_NOTIFICATION_TEMPLATE = `🛒 *PESANAN BARU - PISJO M
 📦 Nomor Pesanan: {{order_number}}
 👤 Customer: {{customer_name}}
 
-🧊 {{order_items}}
+🧊 *Detail Produk*
+{{order_items}}
 
-🚚 {{shipping_method}} | 💰 Total: {{order_total}}
+💳 Pembayaran: {{payment_method}}
+
+🧾 Subtotal: {{order_subtotal}}
+🎟️ Diskon Voucher: {{voucher_discount}}
+🚚 Pengiriman: {{shipping_method}}
+📦 Biaya Pengiriman: {{shipping_cost}}
+💰 *Total: {{order_total}}*
+
 📝 Catatan: {{order_note}}
 
 📲 Mohon segera periksa pesanan melalui dashboard admin.`;
@@ -40,7 +52,11 @@ export const ORDER_NOTIFICATION_TEMPLATE_PLACEHOLDERS = [
   "customer_name",
   "order_total",
   "order_items",
+  "payment_method",
+  "order_subtotal",
+  "voucher_discount",
   "shipping_method",
+  "shipping_cost",
   "order_note",
 ] as const;
 
@@ -80,6 +96,39 @@ export type OrderNotificationTemplateData = {
    * Ikan Tuna | 500 gram | Dibersihkan x2
    */
   orderItems?: string | null;
+
+  /**
+   * Metode pembayaran.
+   *
+   * Contoh:
+   * Transfer Bank
+   * QRIS
+   */
+  paymentMethod?: string | null;
+
+  /**
+   * Subtotal pesanan.
+   *
+   * Contoh:
+   * Rp350.000
+   */
+  orderSubtotal?: string | null;
+
+  /**
+   * Diskon voucher.
+   *
+   * Contoh:
+   * Rp10.000
+   */
+  voucherDiscount?: string | null;
+
+  /**
+   * Biaya pengiriman.
+   *
+   * Contoh:
+   * Rp15.000
+   */
+  shippingCost?: string | null;
 
   /**
    * Metode pengiriman.
@@ -166,7 +215,11 @@ function normalizeTemplateValue(
  * {{customer_name}}
  * {{order_total}}
  * {{order_items}}
+ * {{payment_method}}
+ * {{order_subtotal}}
+ * {{voucher_discount}}
  * {{shipping_method}}
+ * {{shipping_cost}}
  * {{order_note}}
  */
 export function renderOrderNotificationTemplate(
@@ -187,10 +240,21 @@ export function renderOrderNotificationTemplate(
       "Tidak ada detail produk",
     ),
 
+    payment_method: normalizeTemplateValue(
+      data.paymentMethod,
+      "Belum ditentukan",
+    ),
+
+    order_subtotal: normalizeTemplateValue(data.orderSubtotal, "Rp0"),
+
+    voucher_discount: normalizeTemplateValue(data.voucherDiscount, "Rp0"),
+
     shipping_method: normalizeTemplateValue(
       data.shippingMethod,
       "Metode pengiriman belum ditentukan",
     ),
+
+    shipping_cost: normalizeTemplateValue(data.shippingCost, "Rp0"),
 
     order_note: normalizeTemplateValue(data.orderNote, "-"),
   };
