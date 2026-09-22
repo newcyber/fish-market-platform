@@ -114,6 +114,13 @@ enum PromotionDiscountType {
   FIXED_AMOUNT
 }
 
+enum WapiDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
 model User {
   id                String    @id @default(uuid())
   name              String
@@ -172,6 +179,8 @@ model User {
   userVouchers UserVoucher[]
 
   rewardClaims RewardClaim[]
+
+  wapiDeliveries WapiDelivery[] @relation("UserWapiDeliveries")
 
   @@index([email])
   @@index([role])
@@ -1794,6 +1803,8 @@ model Order {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   voucherUsage VoucherUsage?
+
+  wapiDeliveries WapiDelivery[] @relation("OrderWapiDeliveries")
 
   @@index([orderNumber])
   @@index([userId])
@@ -3603,4 +3614,34 @@ model PromotionItem {
   @@unique([promotionId, skuId])
   @@index([promotionId])
   @@index([skuId])
+}
+
+model WapiDelivery {
+  id String @id @default(uuid())
+
+  orderId String
+  order   Order  @relation("OrderWapiDeliveries", fields: [orderId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("UserWapiDeliveries", fields: [userId], references: [id], onDelete: Cascade)
+
+  phone   String
+  message String @db.Text
+
+  status WapiDeliveryStatus @default(PENDING)
+
+  messageId String?
+  jid       String?
+
+  attempts     Int       @default(0)
+  errorMessage String?   @db.Text
+  sentAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orderId, userId])
+  @@index([status])
+  @@index([orderId])
+  @@index([userId])
 }

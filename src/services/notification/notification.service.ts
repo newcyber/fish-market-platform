@@ -1,4 +1,4 @@
-import { NotificationType } from "@prisma/client";
+import { NotificationType, WapiDeliveryStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -413,25 +413,133 @@ class NotificationService {
       for (const recipient of recipients) {
         const phone = recipient.phone?.trim();
 
+        const existingDelivery = await prisma.wapiDelivery.findUnique({
+          where: {
+            orderId_userId: {
+              orderId,
+              userId: recipient.id,
+            },
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        });
+
+        if (existingDelivery?.status === WapiDeliveryStatus.SENT) {
+          whatsappResult.sent += 1;
+
+          console.info("[WHATSAPP_ORDER_NOTIFICATION_ALREADY_SENT]", {
+            orderId,
+            userId: recipient.id,
+            deliveryId: existingDelivery.id,
+          });
+
+          continue;
+        }
+
         if (!phone) {
           whatsappResult.skipped += 1;
+
+          await prisma.wapiDelivery.upsert({
+            where: {
+              orderId_userId: {
+                orderId,
+                userId: recipient.id,
+              },
+            },
+            create: {
+              orderId,
+              userId: recipient.id,
+              phone: "",
+              message,
+              status: WapiDeliveryStatus.SKIPPED,
+              errorMessage: "Recipient tidak memiliki nomor telepon.",
+            },
+            update: {
+              phone: "",
+              message,
+              status: WapiDeliveryStatus.SKIPPED,
+              errorMessage: "Recipient tidak memiliki nomor telepon.",
+            },
+          });
+
           continue;
         }
 
         whatsappResult.recipients += 1;
 
+        const delivery = await prisma.wapiDelivery.upsert({
+          where: {
+            orderId_userId: {
+              orderId,
+              userId: recipient.id,
+            },
+          },
+          create: {
+            orderId,
+            userId: recipient.id,
+            phone,
+            message,
+            status: WapiDeliveryStatus.PENDING,
+            attempts: 0,
+          },
+          update: {
+            phone,
+            message,
+            status: WapiDeliveryStatus.PENDING,
+            errorMessage: null,
+          },
+        });
+
         try {
-          await whatsappService.sendText({
+          const result = await whatsappService.sendText({
             phone,
             message,
           });
 
+          await prisma.wapiDelivery.update({
+            where: {
+              id: delivery.id,
+            },
+            data: {
+              status: WapiDeliveryStatus.SENT,
+              messageId: result.messageId,
+              jid: result.jid,
+              attempts: {
+                increment: 1,
+              },
+              errorMessage: null,
+              sentAt: new Date(),
+            },
+          });
+
           whatsappResult.sent += 1;
         } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Unknown WhatsApp gateway error.";
+
+          await prisma.wapiDelivery.update({
+            where: {
+              id: delivery.id,
+            },
+            data: {
+              status: WapiDeliveryStatus.FAILED,
+              attempts: {
+                increment: 1,
+              },
+              errorMessage,
+            },
+          });
+
           whatsappResult.failed += 1;
 
           console.error("[WHATSAPP_ORDER_NOTIFICATION_ERROR]", {
+            orderId,
             userId: recipient.id,
+            deliveryId: delivery.id,
             error,
           });
         }
@@ -647,7 +755,6 @@ class NotificationService {
     const paymentProofId = input.paymentProofId?.trim();
     const userId = input.userId?.trim();
     const orderId = input.orderId?.trim();
-    const orderNumber = input.orderNumber?.trim() || "Pesanan";
     const title = input.title?.trim();
     const message = input.message?.trim();
 
