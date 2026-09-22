@@ -1,3 +1,4 @@
+
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -9,6 +10,7 @@ import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import DynamicSiteFooter from "@/components/layout/DynamicSiteFooter";
 
 import CustomerBottomNavigation from "@/components/customer/CustomerBottomNavigation";
+import CustomerLayoutChrome from "@/components/customer/CustomerLayoutChrome";
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -70,14 +72,9 @@ export default async function CustomerLayout({
    * CUSTOMER DISPLAY DATA
    * ============================================================ */
 
-  const customerName =
-    customer.name?.trim() ||
-    "Customer";
+  const customerName = customer.name?.trim() || "Customer";
 
-  const customerInitial =
-    customerName
-      .charAt(0)
-      .toUpperCase();
+  const customerInitial = customerName.charAt(0).toUpperCase();
 
   /* ============================================================
    * RENDER
@@ -85,10 +82,9 @@ export default async function CustomerLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-
-      {/* ====================================================== */}
-      {/* GLOBAL CUSTOMER HEADER                                */}
-      {/* ====================================================== */}
+      {/* ========================================================
+       * GLOBAL CUSTOMER HEADER
+       * ======================================================== */}
 
       <DynamicSiteHeader
         mode="customer"
@@ -97,26 +93,16 @@ export default async function CustomerLayout({
         wishlistCount={wishlistCount}
       />
 
-      {/* ====================================================== */}
-      {/* MAIN CONTENT                                           */}
-      {/* ====================================================== */}
+      {/* ========================================================
+       * MAIN CONTENT + CONDITIONAL FOOTER
+       * ======================================================== */}
 
-      <main className="flex-1 pb-16 md:pb-0">
+      <CustomerLayoutChrome
+        footer={<DynamicSiteFooter />}
+        bottomNavigation={<CustomerBottomNavigation />}
+      >
         {children}
-      </main>
-
-      {/* ====================================================== */}
-      {/* FOOTER                                                  */}
-      {/* ====================================================== */}
-
-      <DynamicSiteFooter />
-
-      {/* ====================================================== */}
-      {/* MOBILE BOTTOM NAVIGATION                               */}
-      {/* ====================================================== */}
-
-      <CustomerBottomNavigation />
-
+      </CustomerLayoutChrome>
     </div>
   );
 }

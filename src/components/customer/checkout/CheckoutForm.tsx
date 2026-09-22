@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+
+import { useRef, useState, type RefObject } from "react";
+
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   AlertCircle,
@@ -33,6 +32,8 @@ import { validateVoucherAction } from "@/actions/voucher/validate-voucher";
 
 import ShippingMethodSelector from "@/components/checkout/ShippingMethodSelector";
 
+import DeleteAddressButton from "@/components/customer/address/DeleteAddressButton";
+
 import type {
   AvailableShippingProvider,
   ShippingProviderCode,
@@ -44,9 +45,13 @@ import {
 } from "@/services/shipping/internal-shipping.service";
 
 /**
+
  * ============================================================
+
  * TYPES
+
  * ============================================================
+
  */
 
 interface CheckoutAddress {
@@ -81,16 +86,24 @@ interface CheckoutAddress {
 
 interface CheckoutItem {
   id: string;
+
   productId: string;
+
   quantity: number;
+
   price: number;
+
   subtotal: number;
 
   product: {
     id: string;
+
     name: string;
+
     unit?: string;
+
     stock: number;
+
     image: string | null;
   };
 }
@@ -148,17 +161,19 @@ interface CheckoutFormProps {
 
   subtotal: number;
 
-  paymentChannels:
-  CheckoutPaymentChannel[];
+  paymentChannels: CheckoutPaymentChannel[];
 
-  internalShipping:
-  CheckoutInternalShipping;
+  internalShipping: CheckoutInternalShipping;
 }
 
 /**
+
  * ============================================================
+
  * APPLIED VOUCHER
+
  * ============================================================
+
  */
 
 interface AppliedVoucher {
@@ -174,375 +189,504 @@ interface AppliedVoucher {
 }
 
 /**
+
  * ============================================================
+
  * HELPERS
+
  * ============================================================
+
  */
 
-function formatRupiah(
-  value: number
-) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }
-  ).format(value);
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+
+    currency: "IDR",
+
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 /**
+
  * ============================================================
+
  * CHECKOUT FORM
+
  * ============================================================
+
  */
 
 export default function CheckoutForm({
   addresses,
+
   items,
+
   subtotal,
+
   paymentChannels,
+
   internalShipping,
 }: CheckoutFormProps) {
+  /**
+
+   * ============================================================
+
+   * CHECKOUT SECTION REFERENCES
+
+   * ============================================================
+
+   */
+
+  const productsSectionRef = useRef<HTMLElement | null>(null);
+
+  const addressSectionRef = useRef<HTMLElement | null>(null);
+
+  const shippingSectionRef = useRef<HTMLElement | null>(null);
+
+  const paymentSectionRef = useRef<HTMLElement | null>(null);
+
+  const checkoutConfirmationRef = useRef<HTMLLabelElement | null>(null);
+
   const router = useRouter();
+
   const searchParams = useSearchParams();
 
   /**
+
    * ==========================================================
+
    * SELECTED CART ITEMS
+
    * ==========================================================
+
    *
+
    * Selection berasal dari query:
+
    *
+
    * /customer/checkout?selected=id1,id2
+
    *
+
    * Jika query tidak ada, null berarti seluruh item checkout.
+
    * ==========================================================
+
    */
+
   const selectedItemIds = searchParams.get("selected")
     ? searchParams
+
         .get("selected")!
         .split(",")
+
         .map((id) => id.trim())
+
         .filter(Boolean)
     : null;
 
   /**
+
    * ==========================================================
+
    * DEFAULT ADDRESS
+
    * ==========================================================
+
    */
 
   const defaultAddress =
-    addresses.find(
-      (address) =>
-        address.isDefault
-    ) ??
-    addresses[0] ??
-    null;
+    addresses.find((address) => address.isDefault) ?? addresses[0] ?? null;
 
   /**
+
    * ==========================================================
+
    * SHIPPING PROVIDER STATE
+
    * ==========================================================
+
    */
 
-  const [
-    selectedShippingProvider,
-    setSelectedShippingProvider,
-  ] = useState<ShippingProviderCode>(
-    "INTERNAL"
-  );
+  const [selectedShippingProvider, setSelectedShippingProvider] =
+    useState<ShippingProviderCode>("INTERNAL");
 
   /**
+
    * ==========================================================
+
    * AVAILABLE SHIPPING PROVIDERS
+
    * ==========================================================
+
    */
 
-  const availableShippingProviders:
-    AvailableShippingProvider[] =
+  const availableShippingProviders: AvailableShippingProvider[] =
     internalShipping.enabled
       ? [
-        {
-          code: "PICKUP",
-          name: "Ambil di Tempat",
-          enabled: true,
-        },
-        {
-          code: "INTERNAL",
+          {
+            code: "PICKUP",
 
-          name:
-            internalShipping.name ||
-            "Kurir Internal",
+            name: "Ambil di Tempat",
 
-          enabled: true,
-        },
-      ]
+            enabled: true,
+          },
+
+          {
+            code: "INTERNAL",
+
+            name: internalShipping.name || "Kurir Internal",
+
+            enabled: true,
+          },
+        ]
       : [
-        {
-          code: "PICKUP",
-          name: "Ambil di Tempat",
-          enabled: true,
-        },
-      ];
+          {
+            code: "PICKUP",
+
+            name: "Ambil di Tempat",
+
+            enabled: true,
+          },
+        ];
 
   /**
+
    * ==========================================================
+
    * ADDRESS STATE
+
    * ==========================================================
+
    */
 
-  const [
-    selectedAddressId,
-    setSelectedAddressId,
-  ] = useState<string | null>(
-    defaultAddress?.id ?? null
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    defaultAddress?.id ?? null,
   );
 
   /**
+
    * ==========================================================
+
    * SELECTED ADDRESS
+
    * ==========================================================
+
    */
 
   const selectedAddress =
-    addresses.find(
-      (address) =>
-        address.id ===
-        selectedAddressId
-    ) ?? null;
+    addresses.find((address) => address.id === selectedAddressId) ?? null;
 
   /**
+
    * ==========================================================
+
    * INTERNAL SHIPPING CALCULATION
+
    * ==========================================================
+
    */
 
-  const internalShippingResult:
-    InternalShippingCalculationResult =
+  const internalShippingResult: InternalShippingCalculationResult =
     calculateInternalShipping({
-      storeLocation:
-        internalShipping.storeLocation,
+      storeLocation: internalShipping.storeLocation,
 
       customerLocation: {
-        latitude:
-          selectedAddress?.latitude ??
-          null,
+        latitude: selectedAddress?.latitude ?? null,
 
-        longitude:
-          selectedAddress?.longitude ??
-          null,
+        longitude: selectedAddress?.longitude ?? null,
       },
 
       config: {
-        enabled:
-          internalShipping.enabled,
+        enabled: internalShipping.enabled,
 
-        name:
-          internalShipping.name,
+        name: internalShipping.name,
 
-        baseFee:
-          internalShipping.baseFee,
+        baseFee: internalShipping.baseFee,
 
-        perKmFee:
-          internalShipping.perKmFee,
+        perKmFee: internalShipping.perKmFee,
 
-        minFee:
-          internalShipping.minFee,
+        minFee: internalShipping.minFee,
 
-        maxDistanceKm:
-          internalShipping.maxDistanceKm,
+        maxDistanceKm: internalShipping.maxDistanceKm,
 
-        freeShippingThreshold:
-          internalShipping.freeShippingThreshold,
+        freeShippingThreshold: internalShipping.freeShippingThreshold,
 
-        freeMaxDiscount:
-          internalShipping.freeMaxDiscount,
+        freeMaxDiscount: internalShipping.freeMaxDiscount,
       },
 
       subtotal,
     });
 
   /**
+
    * ==========================================================
+
    * SHIPPING COST
+
    * ==========================================================
+
    */
 
   const shippingCost =
-    selectedShippingProvider ===
-      "INTERNAL" &&
-      internalShippingResult.available
-      ? internalShippingResult.shippingCost ??
-      0
+    selectedShippingProvider === "INTERNAL" && internalShippingResult.available
+      ? (internalShippingResult.shippingCost ?? 0)
       : 0;
 
   /**
+
    * ==========================================================
+
    * PAYMENT STATE
+
    * ==========================================================
+
    */
 
-  const [
-    selectedPaymentChannelId,
-    setSelectedPaymentChannelId,
-  ] = useState<string | null>(
-    paymentChannels[0]?.id ??
-    null
-  );
+  const [selectedPaymentChannelId, setSelectedPaymentChannelId] = useState<
+    string | null
+  >(paymentChannels[0]?.id ?? null);
 
   /**
+
    * ==========================================================
+
    * NOTES
+
    * ==========================================================
+
    */
 
-  const [
-    notes,
-    setNotes,
-  ] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
 
   /**
+
    * ==========================================================
+
    * VOUCHER STATE
+
    * ==========================================================
+
    */
 
-  const [
-    voucherCode,
-    setVoucherCode,
-  ] = useState("");
+  const [voucherCode, setVoucherCode] = useState("");
 
-  const [
-    appliedVoucher,
-    setAppliedVoucher,
-  ] = useState<AppliedVoucher | null>(
-    null
+  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(
+    null,
   );
 
-  const [
-    voucherMessage,
-    setVoucherMessage,
-  ] = useState<string | null>(
-    null
-  );
+  const [voucherMessage, setVoucherMessage] = useState<string | null>(null);
 
-  const [
-    isApplyingVoucher,
-    setIsApplyingVoucher,
-  ] = useState(false);
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
 
   /**
+
    * ==========================================================
+
    * VOUCHER DISCOUNT
+
    * ==========================================================
+
    */
 
-  const voucherDiscount =
-    appliedVoucher?.discountAmount ??
-    0;
+  const voucherDiscount = appliedVoucher?.discountAmount ?? 0;
 
-  const discountedSubtotal =
-    appliedVoucher?.finalSubtotal ??
-    subtotal;
+  const discountedSubtotal = appliedVoucher?.finalSubtotal ?? subtotal;
 
   /**
+
    * ==========================================================
+
    * ORDER TOTAL
+
    * ==========================================================
+
    */
 
-  const orderTotal =
-    discountedSubtotal +
-    shippingCost;
+  const orderTotal = discountedSubtotal + shippingCost;
 
   /**
+
    * ==========================================================
+
    * SUBMIT STATE
+
    * ==========================================================
+
    */
 
-  const [
-    isSubmitting,
-    setIsSubmitting,
-  ] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState<string | null>(
-    null
-  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   /**
+
    * ==========================================================
+
    * CHECKOUT CONFIRMATION
+
    * ==========================================================
+
    */
 
-  const [
-    checkoutConfirmed,
-    setCheckoutConfirmed,
-  ] = useState(false);
+  const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
 
   /**
+
    * ==========================================================
+
    * TOTAL ITEMS
+
    * ==========================================================
+
    */
 
-  const totalItems =
-    items.reduce(
-      (total, item) =>
-        total +
-        item.quantity,
-      0
-    );
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
 
   /**
-   * ==========================================================
-   * HANDLE SHIPPING PROVIDER CHANGE
-   * ==========================================================
+
+   * ============================================================
+
+   * SCROLL TO CHECKOUT SECTION
+
+   * ============================================================
+
    */
 
-  function handleShippingProviderChange(
-    provider:
-      ShippingProviderCode
-  ) {
-    setSelectedShippingProvider(
-      provider
-    );
+  function scrollToCheckoutSection(sectionRef: RefObject<HTMLElement | null>) {
+    window.requestAnimationFrame(() => {
+      sectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+
+        block: "start",
+      });
+    });
+  }
+
+  /**
+
+   * ============================================================
+
+   * VALIDATE CHECKLIST SECTIONS
+
+   * ============================================================
+
+   *
+
+   * Mengarahkan customer ke bagian pertama yang belum lengkap.
+
+   *
+
+   * Return:
+
+   * - true  = semua bagian sudah lengkap
+
+   * - false = masih ada bagian yang belum lengkap
+
+   * ============================================================
+
+   */
+
+  function validateChecklistSections(): boolean {
+    if (items.length === 0) {
+      setErrorMessage("Belum ada produk yang dapat diperiksa.");
+
+      scrollToCheckoutSection(productsSectionRef);
+
+      return false;
+    }
+
+    if (!selectedAddressId || !selectedAddress) {
+      setErrorMessage(
+        "Silakan periksa dan pilih alamat pengiriman terlebih dahulu.",
+      );
+
+      scrollToCheckoutSection(addressSectionRef);
+
+      return false;
+    }
+
+    if (!selectedShippingProvider) {
+      setErrorMessage(
+        "Silakan periksa dan pilih metode pengiriman terlebih dahulu.",
+      );
+
+      scrollToCheckoutSection(shippingSectionRef);
+
+      return false;
+    }
+
+    if (
+      selectedShippingProvider === "INTERNAL" &&
+      !internalShippingResult.available
+    ) {
+      setErrorMessage(
+        internalShippingResult.reason ||
+          "Metode pengiriman internal belum tersedia untuk alamat ini.",
+      );
+
+      scrollToCheckoutSection(shippingSectionRef);
+
+      return false;
+    }
+
+    if (!selectedPaymentChannelId) {
+      setErrorMessage(
+        "Silakan periksa dan pilih metode pembayaran terlebih dahulu.",
+      );
+
+      scrollToCheckoutSection(paymentSectionRef);
+
+      return false;
+    }
+
+    setErrorMessage(null);
+
+    return true;
+  }
+
+  /**
+
+   * ==========================================================
+
+   * HANDLE SHIPPING PROVIDER CHANGE
+
+   * ==========================================================
+
+   */
+
+  function handleShippingProviderChange(provider: ShippingProviderCode) {
+    setSelectedShippingProvider(provider);
 
     setErrorMessage(null);
   }
 
   /**
+
    * ==========================================================
+
    * HANDLE APPLY VOUCHER
+
    * ==========================================================
+
    */
 
   async function handleApplyVoucher() {
-    if (
-      isApplyingVoucher ||
-      isSubmitting
-    ) {
+    if (isApplyingVoucher || isSubmitting) {
       return;
     }
 
-    const normalizedCode =
-      voucherCode
-        .trim()
-        .toUpperCase();
+    const normalizedCode = voucherCode.trim().toUpperCase();
 
     if (!normalizedCode) {
       setAppliedVoucher(null);
 
-      setVoucherMessage(
-        "Masukkan kode voucher terlebih dahulu."
-      );
+      setVoucherMessage("Masukkan kode voucher terlebih dahulu.");
 
       return;
     }
@@ -552,85 +696,66 @@ export default function CheckoutForm({
 
       setVoucherMessage(null);
 
-      const result =
-        await validateVoucherAction({
-          code:
-            normalizedCode,
+      const result = await validateVoucherAction({
+        code: normalizedCode,
 
-          subtotal,
-        });
+        subtotal,
+      });
 
       if (!result.success) {
         setAppliedVoucher(null);
 
-        setVoucherMessage(
-          result.message
-        );
+        setVoucherMessage(result.message);
 
         return;
       }
 
       if (
         !result.voucher ||
-        result.discountAmount ===
-        undefined ||
-        result.finalSubtotal ===
-        undefined
+        result.discountAmount === undefined ||
+        result.finalSubtotal === undefined
       ) {
         setAppliedVoucher(null);
 
-        setVoucherMessage(
-          "Data voucher tidak lengkap."
-        );
+        setVoucherMessage("Data voucher tidak lengkap.");
 
         return;
       }
 
-      setVoucherCode(
-        result.voucher.code
-      );
+      setVoucherCode(result.voucher.code);
 
       setAppliedVoucher({
-        id:
-          result.voucher.id,
+        id: result.voucher.id,
 
-        code:
-          result.voucher.code,
+        code: result.voucher.code,
 
-        name:
-          result.voucher.name,
+        name: result.voucher.name,
 
-        discountAmount:
-          result.discountAmount,
+        discountAmount: result.discountAmount,
 
-        finalSubtotal:
-          result.finalSubtotal,
+        finalSubtotal: result.finalSubtotal,
       });
 
-      setVoucherMessage(
-        result.message ||
-        "Voucher berhasil diterapkan."
-      );
+      setVoucherMessage(result.message || "Voucher berhasil diterapkan.");
     } catch (error) {
-      console.error(
-        "[APPLY_VOUCHER_ERROR]",
-        error
-      );
+      console.error("[APPLY_VOUCHER_ERROR]", error);
 
       setAppliedVoucher(null);
 
-      setVoucherMessage(
-        "Terjadi kesalahan saat menerapkan voucher."
-      );
+      setVoucherMessage("Terjadi kesalahan saat menerapkan voucher.");
     } finally {
       setIsApplyingVoucher(false);
     }
   }
 
   /**
+
    * ==========================================================
+
    * HANDLE REMOVE VOUCHER
+
    * ==========================================================
+
    */
 
   function handleRemoveVoucher() {
@@ -642,23 +767,25 @@ export default function CheckoutForm({
   }
 
   /**
+
    * ==========================================================
+
    * HANDLE VOUCHER CODE CHANGE
+
    * ==========================================================
+
    *
+
    * Jika kode voucher yang sudah diterapkan diubah,
+
    * preview lama langsung dibatalkan.
+
    */
 
-  function handleVoucherCodeChange(
-    value: string
-  ) {
-    const normalizedValue =
-      value.toUpperCase();
+  function handleVoucherCodeChange(value: string) {
+    const normalizedValue = value.toUpperCase();
 
-    setVoucherCode(
-      normalizedValue
-    );
+    setVoucherCode(normalizedValue);
 
     if (appliedVoucher) {
       setAppliedVoucher(null);
@@ -670,9 +797,13 @@ export default function CheckoutForm({
   }
 
   /**
+
    * ==========================================================
+
    * HANDLE CHECKOUT
+
    * ==========================================================
+
    */
 
   async function handleCheckout() {
@@ -680,59 +811,52 @@ export default function CheckoutForm({
       return;
     }
 
+    if (!validateChecklistSections()) {
+      return;
+    }
+
     if (!selectedAddressId) {
-      setErrorMessage(
-        "Silakan pilih alamat pengiriman terlebih dahulu."
-      );
+      setErrorMessage("Silakan pilih alamat pengiriman terlebih dahulu.");
 
       return;
     }
 
     if (!selectedShippingProvider) {
-      setErrorMessage(
-        "Silakan pilih metode pengiriman terlebih dahulu."
-      );
+      setErrorMessage("Silakan pilih metode pengiriman terlebih dahulu.");
 
       return;
     }
 
     if (
-      selectedShippingProvider ===
-      "INTERNAL" &&
+      selectedShippingProvider === "INTERNAL" &&
       !internalShippingResult.available
     ) {
       setErrorMessage(
         internalShippingResult.reason ||
-        "Kurir internal tidak tersedia untuk alamat ini."
+          "Kurir internal tidak tersedia untuk alamat ini.",
       );
 
       return;
     }
 
-    if (
-      !selectedPaymentChannelId
-    ) {
-      setErrorMessage(
-        "Silakan pilih metode pembayaran terlebih dahulu."
-      );
+    if (!selectedPaymentChannelId) {
+      setErrorMessage("Silakan pilih metode pembayaran terlebih dahulu.");
 
       return;
     }
 
-    if (
-      items.length === 0
-    ) {
-      setErrorMessage(
-        "Keranjang belanja Anda kosong."
-      );
+    if (items.length === 0) {
+      setErrorMessage("Keranjang belanja Anda kosong.");
 
       return;
     }
 
     if (!checkoutConfirmed) {
       setErrorMessage(
-        "Silakan centang konfirmasi pesanan sebelum melanjutkan."
+        "Silakan centang konfirmasi pesanan sebelum melanjutkan.",
       );
+
+      scrollToCheckoutSection(checkoutConfirmationRef);
 
       return;
     }
@@ -742,65 +866,44 @@ export default function CheckoutForm({
 
       setErrorMessage(null);
 
-      const result =
-        await createCheckoutOrderAction({
-          addressId:
-            selectedAddressId,
+      const result = await createCheckoutOrderAction({
+        addressId: selectedAddressId,
 
-          paymentChannelId:
-            selectedPaymentChannelId,
+        paymentChannelId: selectedPaymentChannelId,
 
-          shippingProvider:
-            selectedShippingProvider,
+        shippingProvider: selectedShippingProvider,
 
-          notes:
-            notes.trim() || null,
+        notes: notes.trim() || null,
 
-voucherCode:
-  appliedVoucher?.code ??
-  null,
+        voucherCode: appliedVoucher?.code ?? null,
 
-checkoutConfirmed:
-  checkoutConfirmed,
+        checkoutConfirmed: checkoutConfirmed,
 
-selectedItemIds:
-  selectedItemIds,
-        });
+        selectedItemIds: selectedItemIds,
+      });
 
-      if (
-        !result.success
-      ) {
+      if (!result.success) {
+        setErrorMessage(result.message || "Gagal membuat pesanan.");
+
+        return;
+      }
+
+      if (!result.orderId) {
         setErrorMessage(
-          result.message ||
-          "Gagal membuat pesanan."
+          "Pesanan berhasil dibuat, tetapi ID pesanan tidak ditemukan.",
         );
 
         return;
       }
 
-      if (
-        !result.orderId
-      ) {
-        setErrorMessage(
-          "Pesanan berhasil dibuat, tetapi ID pesanan tidak ditemukan."
-        );
-
-        return;
-      }
-
-      router.push(
-        `/customer/orders/${result.orderId}/payment`
-      );
+      router.push(`/customer/orders/${result.orderId}/payment`);
 
       router.refresh();
     } catch (error) {
-      console.error(
-        "[CHECKOUT_FORM_ERROR]",
-        error
-      );
+      console.error("[CHECKOUT_FORM_ERROR]", error);
 
       setErrorMessage(
-        "Terjadi kesalahan saat memproses pesanan. Silakan coba lagi."
+        "Terjadi kesalahan saat memproses pesanan. Silakan coba lagi.",
       );
     } finally {
       setIsSubmitting(false);
@@ -808,22 +911,30 @@ selectedItemIds:
   }
 
   /**
+
    * ==========================================================
+
    * RENDER
+
    * ==========================================================
+
    */
 
   return (
     <main className="min-h-screen bg-[#f5fbff] pb-28 text-slate-900 lg:pb-10">
       {/* ========================================================= */}
+
       {/* CHECKOUT HEADER                                           */}
+
       {/* ========================================================= */}
 
       <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:h-[72px] sm:px-6 lg:px-8">
           <Link
             href="/customer/cart"
+
             className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
+
             aria-label="Kembali ke keranjang"
           >
             <ChevronRight className="h-6 w-6 rotate-180" />
@@ -846,9 +957,7 @@ selectedItemIds:
           </div>
 
           <div className="ml-auto hidden text-right sm:block">
-            <p className="text-xs font-medium text-cyan-700">
-              Pesanan Aman
-            </p>
+            <p className="text-xs font-medium text-cyan-700">Pesanan Aman</p>
 
             <p className="text-[11px] text-slate-400">
               Harga & stok divalidasi kembali
@@ -858,21 +967,288 @@ selectedItemIds:
       </header>
 
       {/* ========================================================= */}
+
       {/* MAIN                                                       */}
+
       {/* ========================================================= */}
 
       <section className="mx-auto max-w-7xl px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-8">
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start lg:gap-6">
           {/* ===================================================== */}
+
           {/* LEFT COLUMN                                            */}
+
           {/* ===================================================== */}
 
           <div className="min-w-0 space-y-4">
             {/* =================================================== */}
-            {/* SHIPPING METHOD                                      */}
+
+            {/* ADDRESS                                             */}
+
             {/* =================================================== */}
 
-            <section className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]">
+            <section
+              ref={addressSectionRef}
+
+              className="scroll-mt-24 overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]"
+            >
+              {/* HEADER */}
+
+              <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-[var(--ocean-950)]">
+                    Alamat Pengiriman
+                  </h2>
+
+                  <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+                    Pilih alamat tujuan pesanan
+                  </p>
+                </div>
+
+                <Link
+                  href="/customer/addresses/create"
+
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-cyan-600 transition hover:bg-cyan-50"
+                >
+                  Tambah
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              {/* EMPTY STATE */}
+
+              {addresses.length === 0 ? (
+                <div className="border-t border-slate-100 px-4 py-8 text-center sm:px-5">
+                  <MapPin className="mx-auto h-8 w-8 text-slate-300" />
+
+                  <p className="mt-2 text-sm font-semibold text-slate-700">
+                    Belum ada alamat pengiriman
+                  </p>
+
+                  <Link
+                    href="/customer/addresses/create"
+
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-cyan-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tambah Alamat
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  {/* COMPACT ADDRESS SELECTOR */}
+
+                  <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-slate-500">
+                        {addresses.length} alamat tersimpan
+                      </p>
+
+                      {addresses.length > 1 && (
+                        <button
+                          type="button"
+
+                          onClick={() =>
+                            setShowAllAddresses((current) => !current)
+                          }
+
+                          disabled={isSubmitting}
+
+                          className="shrink-0 text-xs font-bold text-cyan-600 transition hover:text-cyan-700 disabled:opacity-50"
+                        >
+                          {showAllAddresses ? "Tutup" : "Lihat semua"}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="mt-2 flex max-w-full gap-2 overflow-x-auto pb-1">
+                      {addresses.map((address, index) => {
+                        const isSelected = address.id === selectedAddressId;
+
+                        return (
+                          <button
+                            key={address.id}
+
+                            type="button"
+
+                            onClick={() => {
+                              setSelectedAddressId(address.id);
+
+                              setErrorMessage(null);
+
+                              setShowAllAddresses(false);
+                            }}
+
+                            disabled={isSubmitting}
+
+                            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                              isSelected
+                                ? "border-cyan-600 bg-cyan-600 text-white"
+                                : "border-cyan-200 bg-white text-cyan-700 hover:bg-cyan-50"
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                          >
+                            {address.label || `Alamat ${index + 1}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="divide-y divide-slate-100 border-t border-slate-100">
+                    {(showAllAddresses
+                      ? addresses
+                      : addresses.filter(
+                          (address) =>
+                            address.id ===
+                            (selectedAddressId ?? addresses[0]?.id),
+                        )
+                    ).map((address) => {
+                      const isSelected = address.id === selectedAddressId;
+
+                      return (
+                        <div
+                          key={address.id}
+
+                          className={`px-4 py-4 transition sm:px-5 ${
+                            isSelected ? "bg-cyan-50/40" : "bg-white"
+                          }`}
+                        >
+                          <button
+                            type="button"
+
+                            disabled={isSubmitting}
+
+                            onClick={() => {
+                              setSelectedAddressId(address.id);
+
+                              setErrorMessage(null);
+                            }}
+
+                            className="flex w-full min-w-0 items-start gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {/* ADDRESS ICON */}
+
+                            <div
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                                isSelected
+                                  ? "bg-cyan-600 text-white"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              <MapPin className="h-4 w-4" />
+                            </div>
+
+                            {/* ADDRESS CONTENT */}
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <h3 className="text-sm font-bold text-[var(--ocean-950)]">
+                                  {address.label || "Alamat Pengiriman"}
+                                </h3>
+
+                                {address.isDefault && (
+                                  <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-700">
+                                    Utama
+                                  </span>
+                                )}
+
+                                {isSelected && (
+                                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+                                    Dipilih
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-1 text-xs font-semibold text-slate-700">
+                                {address.receiverName}
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {address.receiverPhone}
+                              </p>
+
+                              <p className="mt-1 line-clamp-3 text-xs leading-5 text-slate-600 sm:text-sm">
+                                {address.fullAddress}, {address.village},{" "}
+                                {address.district}, {address.city},{" "}
+                                {address.province} {address.postalCode}
+                              </p>
+                            </div>
+
+                            {/* CHEVRON */}
+
+                            <ChevronRight
+                              className={`mt-1 h-5 w-5 shrink-0 ${
+                                isSelected ? "text-cyan-600" : "text-slate-400"
+                              }`}
+                            />
+                          </button>
+
+                          {/* ACTIONS */}
+
+                          <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-3">
+                            <Link
+                              href={`/customer/addresses/${address.id}/edit`}
+
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-cyan-600 transition hover:bg-cyan-50"
+                            >
+                              Ubah
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Link>
+
+                            <DeleteAddressButton addressId={address.id} />
+                          </div>
+
+                          {/* GPS WARNING */}
+
+                          {isSelected &&
+                            (address.latitude === null ||
+                              address.longitude === null) && (
+                              <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5">
+                                <p className="text-[11px] leading-5 text-amber-700">
+                                  Tambahkan titik lokasi GPS agar perhitungan
+                                  ongkir lebih akurat.
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* ADD ADDRESS FOOTER */}
+
+              {addresses.length > 0 && (
+                <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
+                  <Link
+                    href="/customer/addresses/create"
+
+                    className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-cyan-200 px-3 py-3 text-cyan-700 transition hover:bg-cyan-50"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-xs font-bold">
+                      <Plus className="h-4 w-4 shrink-0" />
+                      Tambah alamat baru
+                    </span>
+
+                    <ChevronRight className="h-4 w-4 shrink-0" />
+                  </Link>
+                </div>
+              )}
+            </section>
+
+            {/* =================================================== */}
+
+            {/* SHIPPING METHOD                                      */}
+
+            {/* =================================================== */}
+
+            <section
+              ref={shippingSectionRef}
+
+              className="scroll-mt-24 overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]"
+            >
               <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
                 <div>
                   <h2 className="text-base font-bold text-[var(--ocean-950)]">
@@ -890,52 +1266,53 @@ selectedItemIds:
               <div className="px-4 pb-4 sm:px-5 sm:pb-5">
                 <ShippingMethodSelector
                   providers={availableShippingProviders}
+
                   selectedProvider={selectedShippingProvider}
+
                   onChange={handleShippingProviderChange}
+
                   disabled={isSubmitting}
                 />
 
-                {selectedShippingProvider === "INTERNAL" &&
-                  selectedAddress && (
-                    <div className="mt-3 rounded-xl bg-sky-50/70 px-3.5 py-3">
-                      {internalShippingResult.available ? (
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-semibold text-sky-900">
-                              {internalShippingResult.serviceName}
+                {selectedShippingProvider === "INTERNAL" && selectedAddress && (
+                  <div className="mt-3 rounded-xl bg-sky-50/70 px-3.5 py-3">
+                    {internalShippingResult.available ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-sky-900">
+                            {internalShippingResult.serviceName}
+                          </p>
+
+                          {internalShippingResult.distanceKm !== null && (
+                            <p className="mt-0.5 text-[11px] text-sky-700">
+                              Jarak{" "}
+                              {internalShippingResult.distanceKm.toFixed(2)} KM
                             </p>
-
-                            {internalShippingResult.distanceKm !== null && (
-                              <p className="mt-0.5 text-[11px] text-sky-700">
-                                Jarak{" "}
-                                {internalShippingResult.distanceKm.toFixed(2)}{" "}
-                                KM
-                              </p>
-                            )}
-                          </div>
-
-                          {internalShippingResult.isFreeShipping ? (
-                            <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                              GRATIS
-                            </span>
-                          ) : (
-                            <span className="shrink-0 text-sm font-bold text-sky-900">
-                              {formatRupiah(shippingCost)}
-                            </span>
                           )}
                         </div>
-                      ) : (
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
 
-                          <p className="text-xs leading-5 text-red-600">
-                            {internalShippingResult.reason ||
-                              "Kurir internal tidak tersedia untuk alamat ini."}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        {internalShippingResult.isFreeShipping ? (
+                          <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                            GRATIS
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-sm font-bold text-sky-900">
+                            {formatRupiah(shippingCost)}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+
+                        <p className="text-xs leading-5 text-red-600">
+                          {internalShippingResult.reason ||
+                            "Kurir internal tidak tersedia untuk alamat ini."}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {!selectedAddress && (
                   <p className="mt-3 text-xs leading-5 text-slate-500">
@@ -947,135 +1324,16 @@ selectedItemIds:
             </section>
 
             {/* =================================================== */}
-            {/* ADDRESS                                               */}
-            {/* =================================================== */}
 
-            <section className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]">
-              <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
-                <div>
-                  <h2 className="text-base font-bold text-[var(--ocean-950)]">
-                    Alamat Pengiriman
-                  </h2>
-
-                  <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                    Alamat tujuan pesanan
-                  </p>
-                </div>
-
-                <Link
-                  href="/customer/addresses/create"
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-cyan-600 transition hover:bg-cyan-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  Tambah
-                </Link>
-              </div>
-
-              {!selectedAddress && (
-                <div className="border-t border-slate-100 px-4 py-8 text-center sm:px-5">
-                  <MapPin className="mx-auto h-8 w-8 text-slate-300" />
-
-                  <p className="mt-2 text-sm font-semibold text-slate-700">
-                    Belum ada alamat pengiriman
-                  </p>
-
-                  <Link
-                    href="/customer/addresses/create"
-                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-xs font-bold text-white"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Tambah Alamat
-                  </Link>
-                </div>
-              )}
-
-              {selectedAddress && (
-                <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
-                  <div className="flex gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-50 text-cyan-600">
-                      <MapPin className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate text-sm font-bold text-[var(--ocean-950)] sm:text-base">
-                          {selectedAddress.receiverName}
-                        </h3>
-
-                        {selectedAddress.isDefault && (
-                          <span className="shrink-0 rounded-full bg-cyan-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-700">
-                            Utama
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        {selectedAddress.receiverPhone}
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-slate-600 sm:text-sm">
-                        {selectedAddress.fullAddress},{" "}
-                        {selectedAddress.village},{" "}
-                        {selectedAddress.district},{" "}
-                        {selectedAddress.city},{" "}
-                        {selectedAddress.province}{" "}
-                        {selectedAddress.postalCode}
-                      </p>
-                    </div>
-
-                    <Link
-                      href={`/customer/addresses/${selectedAddress.id}/edit`}
-                      className="shrink-0 self-start rounded-lg px-2 py-1 text-xs font-semibold text-cyan-600 hover:bg-cyan-50"
-                    >
-                      Ubah
-                    </Link>
-                  </div>
-
-                  {selectedAddress.latitude === null ||
-                  selectedAddress.longitude === null ? (
-                    <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5">
-                      <p className="text-[11px] leading-5 text-amber-700">
-                        Tambahkan titik lokasi GPS agar perhitungan ongkir
-                        lebih akurat.
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-
-              {addresses.length > 1 && (
-                <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
-                  <p className="text-xs text-slate-400">
-                    {addresses.length} alamat tersimpan
-                  </p>
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {addresses
-                      .filter((address) => address.id !== selectedAddressId)
-                      .map((address) => (
-                        <button
-                          key={address.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedAddressId(address.id);
-                            setErrorMessage(null);
-                          }}
-                          disabled={isSubmitting}
-                          className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 disabled:cursor-not-allowed"
-                        >
-                          {address.label || address.receiverName}
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* =================================================== */}
             {/* PRODUCTS                                              */}
+
             {/* =================================================== */}
 
-            <section className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]">
+            <section
+              ref={productsSectionRef}
+
+              className="scroll-mt-24 overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]"
+            >
               <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
                 <div>
                   <h2 className="text-base font-bold text-[var(--ocean-950)]">
@@ -1089,6 +1347,7 @@ selectedItemIds:
 
                 <Link
                   href="/customer/cart"
+
                   className="shrink-0 text-xs font-semibold text-cyan-600 hover:text-cyan-700"
                 >
                   Ubah
@@ -1099,13 +1358,16 @@ selectedItemIds:
                 {items.map((item) => (
                   <div
                     key={item.id}
+
                     className="flex min-w-0 gap-3 px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4"
                   >
                     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:h-24 sm:w-24">
                       {item.product.image ? (
                         <img
                           src={item.product.image}
+
                           alt={item.product.name}
+
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -1152,10 +1414,54 @@ selectedItemIds:
             </section>
 
             {/* =================================================== */}
-            {/* PAYMENT METHOD                                       */}
+
+            {/* ORDER NOTES                                          */}
+
             {/* =================================================== */}
 
-            <section className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]">
+            <section className="rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_4px_18px_rgba(23,50,77,0.05)] sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                  <Package className="h-4 w-4" />
+                </div>
+
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="text-sm font-bold text-[var(--ocean-950)]">
+                    Catatan Pesanan
+                  </h2>
+
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                    (Opsional)
+                  </span>
+                </div>
+              </div>
+
+              <textarea
+                value={notes}
+
+                onChange={(event) => setNotes(event.target.value)}
+
+                placeholder="Contoh: Tolong hubungi saya sebelum pengiriman."
+
+                maxLength={500}
+
+                disabled={isSubmitting}
+
+                className="mt-3 min-h-24 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-50"
+              />
+            </section>
+
+            {/* =================================================== */}
+
+            {/* PAYMENT METHOD                                       */}
+
+            {/* =================================================== */}
+
+            <section
+              ref={paymentSectionRef}
+
+              className="scroll-mt-24 overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.05)]"
+            >
               <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
                 <div>
                   <h2 className="text-base font-bold text-[var(--ocean-950)]">
@@ -1181,25 +1487,26 @@ selectedItemIds:
               ) : (
                 <div className="border-t border-slate-100">
                   {paymentChannels.map((channel) => {
-                    const isSelected =
-                      channel.id === selectedPaymentChannelId;
+                    const isSelected = channel.id === selectedPaymentChannelId;
 
-                    const isBankTransfer =
-                      channel.type === "BANK_TRANSFER";
+                    const isBankTransfer = channel.type === "BANK_TRANSFER";
 
                     return (
                       <button
                         key={channel.id}
+
                         type="button"
+
                         onClick={() => {
                           setSelectedPaymentChannelId(channel.id);
+
                           setErrorMessage(null);
                         }}
+
                         disabled={isSubmitting}
+
                         className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition sm:px-5 ${
-                          isSelected
-                            ? "bg-sky-50/80"
-                            : "hover:bg-slate-50"
+                          isSelected ? "bg-sky-50/80" : "hover:bg-slate-50"
                         }`}
                       >
                         <div
@@ -1245,47 +1552,20 @@ selectedItemIds:
                 </div>
               )}
             </section>
-
-            {/* =================================================== */}
-            {/* ORDER NOTES                                          */}
-            {/* =================================================== */}
-
-            <section className="rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_4px_18px_rgba(23,50,77,0.05)] sm:p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                  <Package className="h-4 w-4" />
-                </div>
-
-                <div>
-                  <h2 className="text-sm font-bold text-[var(--ocean-950)]">
-                    Catatan Pesanan
-                  </h2>
-
-                  <p className="text-xs text-slate-500">
-                    Opsional
-                  </p>
-                </div>
-              </div>
-
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Contoh: Tolong hubungi saya sebelum pengiriman."
-                maxLength={500}
-                disabled={isSubmitting}
-                className="mt-3 min-h-24 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-50"
-              />
-            </section>
           </div>
 
           {/* ===================================================== */}
+
           {/* RIGHT SUMMARY                                          */}
+
           {/* ===================================================== */}
 
           <aside className="min-w-0 lg:sticky lg:top-24">
             <section className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_8px_28px_rgba(23,50,77,0.08)]">
               {/* ================================================= */}
+
               {/* PAYMENT SUMMARY                                    */}
+
               {/* ================================================= */}
 
               <div className="px-4 py-4 sm:px-5">
@@ -1295,6 +1575,7 @@ selectedItemIds:
 
                 <div className="mt-4 space-y-3">
                   {/* SUBTOTAL */}
+
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-slate-500">
                       Subtotal Produk ({items.length} item)
@@ -1306,11 +1587,10 @@ selectedItemIds:
                   </div>
 
                   {/* VOUCHER DISCOUNT */}
+
                   {appliedVoucher && (
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-red-500">
-                        Diskon Voucher
-                      </span>
+                      <span className="text-red-500">Diskon Voucher</span>
 
                       <span className="font-semibold text-red-600">
                         -{formatRupiah(voucherDiscount)}
@@ -1319,10 +1599,9 @@ selectedItemIds:
                   )}
 
                   {/* SHIPPING */}
+
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-slate-500">
-                      Ongkir
-                    </span>
+                    <span className="text-slate-500">Ongkir</span>
 
                     <span className="font-medium text-slate-700">
                       {internalShippingResult.available
@@ -1334,11 +1613,10 @@ selectedItemIds:
                   </div>
 
                   {/* SHIPPING SUBSIDY */}
+
                   {internalShippingResult.isFreeShipping && (
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-emerald-600">
-                        Subsidi Ongkir
-                      </span>
+                      <span className="text-emerald-600">Subsidi Ongkir</span>
 
                       <span className="font-semibold text-emerald-600">
                         GRATIS
@@ -1350,6 +1628,7 @@ selectedItemIds:
                 <div className="my-4 border-t border-slate-200" />
 
                 {/* TOTAL */}
+
                 <div className="flex items-end justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-[var(--ocean-950)]">
@@ -1368,11 +1647,14 @@ selectedItemIds:
               </div>
 
               {/* ================================================= */}
+
               {/* VOUCHER & POIN                                     */}
+
               {/* ================================================= */}
 
               <div className="border-t border-slate-100">
                 {/* HEADER */}
+
                 <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
@@ -1393,6 +1675,7 @@ selectedItemIds:
 
                 <div className="divide-y divide-slate-100">
                   {/* VOUCHER */}
+
                   <div className="px-4 py-3.5 sm:px-5">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
@@ -1414,8 +1697,11 @@ selectedItemIds:
                       {appliedVoucher && (
                         <button
                           type="button"
+
                           onClick={handleRemoveVoucher}
+
                           disabled={isSubmitting}
+
                           className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Hapus
@@ -1424,26 +1710,35 @@ selectedItemIds:
                     </div>
 
                     {/* VOUCHER INPUT */}
+
                     <div className="mt-3 flex gap-2">
                       <input
                         type="text"
+
                         value={voucherCode}
+
                         onChange={(event) =>
                           handleVoucherCodeChange(event.target.value)
                         }
+
                         placeholder="Masukkan kode voucher"
+
                         disabled={isSubmitting}
+
                         className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:bg-white focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-100"
                       />
 
                       <button
                         type="button"
+
                         onClick={handleApplyVoucher}
+
                         disabled={
                           !voucherCode.trim() ||
                           isSubmitting ||
                           isApplyingVoucher
                         }
+
                         className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-4 text-xs font-bold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                       >
                         {isApplyingVoucher ? (
@@ -1455,6 +1750,7 @@ selectedItemIds:
                     </div>
 
                     {/* VOUCHER MESSAGE */}
+
                     {voucherMessage && (
                       <div
                         className={
@@ -1466,6 +1762,7 @@ selectedItemIds:
                         {appliedVoucher && (
                           <span className="font-semibold">
                             {appliedVoucher.name}
+
                             {" — "}
                           </span>
                         )}
@@ -1475,6 +1772,7 @@ selectedItemIds:
                     )}
 
                     {/* APPLIED VOUCHER */}
+
                     {appliedVoucher && (
                       <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-3 py-2.5">
                         <div className="min-w-0">
@@ -1495,6 +1793,7 @@ selectedItemIds:
                   </div>
 
                   {/* POINTS */}
+
                   <div className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
                       <Star className="h-4 w-4 fill-current" />
@@ -1516,82 +1815,112 @@ selectedItemIds:
               </div>
 
               {/* ================================================= */}
-              {/* CONFIRMATION                                       */}
+
+              {/* CONFIRMATION                                      */}
+
               {/* ================================================= */}
 
-              <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
-                {errorMessage && (
-                  <div className="mb-3 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+              {errorMessage && (
+                <div className="mb-3 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
 
-                    <p className="text-xs leading-5 text-red-700">
-                      {errorMessage}
-                    </p>
-                  </div>
+                  <p className="text-xs leading-5 text-red-700">
+                    {errorMessage}
+                  </p>
+                </div>
+              )}
+
+              <label
+                ref={checkoutConfirmationRef}
+
+                className="scroll-mt-24 flex cursor-pointer items-start gap-2.5 rounded-xl bg-slate-50 p-3"
+              >
+                <input
+                  type="checkbox"
+
+                  checked={checkoutConfirmed}
+
+                  onChange={(event) => {
+                    const isChecked = event.target.checked;
+
+                    if (!isChecked) {
+                      setCheckoutConfirmed(false);
+
+                      setErrorMessage(null);
+
+                      return;
+                    }
+
+                    const isChecklistComplete = validateChecklistSections();
+
+                    if (!isChecklistComplete) {
+                      setCheckoutConfirmed(false);
+
+                      return;
+                    }
+
+                    setCheckoutConfirmed(true);
+
+                    setErrorMessage(null);
+                  }}
+
+                  disabled={isSubmitting}
+
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-600"
+                />
+
+                <span className="text-[11px] leading-5 text-slate-600">
+                  Saya sudah memeriksa produk, alamat pengiriman, metode
+                  pengiriman, dan metode pembayaran.
+                </span>
+              </label>
+
+              {/* DESKTOP BUTTON */}
+
+              <button
+                type="button"
+
+                onClick={handleCheckout}
+
+                disabled={
+                  !selectedAddressId ||
+                  !selectedShippingProvider ||
+                  !selectedPaymentChannelId ||
+                  isSubmitting ||
+                  isApplyingVoucher ||
+                  items.length === 0 ||
+                  (selectedShippingProvider === "INTERNAL" &&
+                    !internalShippingResult.available)
+                }
+
+                className="mt-4 hidden h-12 w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-cyan-600 via-sky-600 to-cyan-600 px-5 text-sm font-bold text-white shadow-[0_8px_22px_rgba(8,145,178,0.24)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(8,145,178,0.30)] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:text-slate-400 disabled:shadow-none lg:flex"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Memproses Pesanan...
+                  </>
+                ) : (
+                  <>
+                    Lanjut Bayar
+                    <ChevronRight className="h-4 w-4" />
+                  </>
                 )}
+              </button>
 
-                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-slate-50 p-3">
-                  <input
-                    type="checkbox"
-                    checked={checkoutConfirmed}
-                    onChange={(event) => {
-                      setCheckoutConfirmed(event.target.checked);
-
-                      if (event.target.checked) {
-                        setErrorMessage(null);
-                      }
-                    }}
-                    disabled={isSubmitting}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-600"
-                  />
-
-                  <span className="text-[11px] leading-5 text-slate-600">
-                    Saya sudah memeriksa produk, alamat pengiriman, metode
-                    pengiriman, dan metode pembayaran.
-                  </span>
-                </label>
-
-                {/* DESKTOP BUTTON */}
-                <button
-                  type="button"
-                  onClick={handleCheckout}
-                  disabled={
-                    !selectedAddressId ||
-                    !selectedShippingProvider ||
-                    !selectedPaymentChannelId ||
-                    isSubmitting ||
-                    isApplyingVoucher ||
-                    items.length === 0 ||
-                    (selectedShippingProvider === "INTERNAL" &&
-                      !internalShippingResult.available)
-                  }
-                  className="mt-4 hidden h-12 w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-cyan-600 via-sky-600 to-cyan-600 px-5 text-sm font-bold text-white shadow-[0_8px_22px_rgba(8,145,178,0.24)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(8,145,178,0.30)] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:text-slate-400 disabled:shadow-none lg:flex"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Memproses Pesanan...
-                    </>
-                  ) : (
-                    <>
-                      Lanjut Bayar
-                      <ChevronRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-
-                <p className="mt-3 hidden text-center text-[10px] leading-4 text-slate-400 lg:block">
-                  Harga, stok, voucher, dan ongkir akan divalidasi kembali saat
-                  pesanan dibuat.
-                </p>
-              </div>
+              <p className="mt-3 hidden text-center text-[10px] leading-4 text-slate-400 lg:block">
+                Harga, stok, voucher, dan ongkir akan divalidasi kembali saat
+                pesanan dibuat.
+              </p>
             </section>
           </aside>
         </div>
       </section>
 
       {/* ========================================================= */}
+
       {/* MOBILE FIXED CHECKOUT BAR                                 */}
+
       {/* ========================================================= */}
 
       <div className="fixed inset-x-0 bottom-16 z-50 border-t border-sky-100 bg-white/95 px-3 py-2.5 shadow-[0_-8px_25px_rgba(23,50,77,0.10)] backdrop-blur lg:hidden">
@@ -1608,7 +1937,9 @@ selectedItemIds:
 
           <button
             type="button"
+
             onClick={handleCheckout}
+
             disabled={
               !selectedAddressId ||
               !selectedShippingProvider ||
@@ -1619,6 +1950,7 @@ selectedItemIds:
               (selectedShippingProvider === "INTERNAL" &&
                 !internalShippingResult.available)
             }
+
             className="inline-flex h-12 min-w-0 flex-[1.35] items-center justify-center gap-2 rounded-xl bg-linear-to-r from-cyan-600 to-sky-600 px-4 text-sm font-bold text-white shadow-[0_7px_20px_rgba(8,145,178,0.25)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:bg-none disabled:text-slate-400 disabled:shadow-none"
           >
             {isSubmitting ? (
