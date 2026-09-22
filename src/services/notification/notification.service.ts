@@ -7,6 +7,10 @@ import notificationRepository from "@/repositories/notification/notification.rep
 import pushDeliveryService from "@/services/notification/push/push-delivery.service";
 import { whatsappService } from "@/services/whatsapp/whatsapp.service";
 
+import { renderOrderNotificationTemplate } from "@/services/notification/order-notification-template";
+
+import settingsRepository from "@/repositories/settings/settings.repository";
+
 /**
  * ============================================================
  * NOTIFICATION SERVICE
@@ -142,13 +146,120 @@ class NotificationService {
           }).format(input.totalAmount)
         : null;
 
-    const messageParts = [`Pesanan baru ${orderNumber} dari ${customerName}.`];
+    /**
+     * ========================================================
+     * LOAD WAPI ORDER NOTIFICATION SETTINGS
+     * ========================================================
+     *
+     * Pengaturan template dibaca dari StoreSettings.
+     * Jika template kosong, helper akan menggunakan
+     * default template.
+     */
+    const wapiSettings =
+      await settingsRepository.getWapiOrderNotificationSettings();
 
-    if (formattedTotal) {
-      messageParts.push(`Total pesanan: ${formattedTotal}.`);
-    }
+    /**
+     * ========================================================
+     * LOAD ORDER DETAILS FOR WHATSAPP MESSAGE
+     * ========================================================
+     *
+     * Mengambil snapshot item dari OrderItem agar detail
+     * produk sesuai dengan kondisi ketika checkout dibuat.
+     */
+    const orderDetails = await prisma.order.findUnique({
+      where: {
+        id: orderId,
+      },
+      select: {
+        notes: true,
+        shippingProvider: true,
+        shippingService: true,
+        items: {
+          orderBy: {
+            id: "asc",
+          },
+          select: {
+            productName: true,
+            productVariant: true,
+            productWeight: true,
+            weightSku: true,
+            weightGrams: true,
+            quantity: true,
+            customerNote: true,
+          },
+        },
+      },
+    });
 
-    const message = messageParts.join(" ");
+    /**
+     * ========================================================
+     * FORMAT ORDER ITEMS
+     * ========================================================
+     *
+     * Contoh hasil:
+     *
+     * Ikan Kakap Merah | 1 Kg Dibersihkan x2
+     * Ikan Tuna | 500 gram | Dibersihkan x2
+     */
+    const orderItems =
+      orderDetails?.items
+        .map((item) => {
+          const productName = item.productName.trim();
+
+          const productWeight =
+            item.productWeight?.trim() ||
+            item.weightSku?.trim() ||
+            (typeof item.weightGrams === "number"
+              ? `${item.weightGrams} gram`
+              : "");
+
+          const productVariant = item.productVariant?.trim() || "";
+
+          const productOptions = [productWeight, productVariant]
+            .filter(Boolean)
+            .join(" ");
+
+          const productLabel = [productName, productOptions]
+            .filter(Boolean)
+            .join(" | ");
+
+          return `${productLabel} x${item.quantity}`;
+        })
+        .join("\n") || "Tidak ada detail produk";
+
+    /**
+     * ========================================================
+     * FORMAT SHIPPING METHOD
+     * ========================================================
+     */
+    const shippingMethod =
+      [
+        orderDetails?.shippingProvider?.trim(),
+        orderDetails?.shippingService?.trim(),
+      ]
+        .filter(Boolean)
+        .join(" | ") || "Metode pengiriman belum ditentukan";
+
+    /**
+     * ========================================================
+     * FORMAT ORDER NOTE
+     * ========================================================
+     */
+    const orderNote = orderDetails?.notes?.trim() || "-";
+
+    /**
+     * ========================================================
+     * RENDER WAPI MESSAGE
+     * ========================================================
+     */
+    const message = renderOrderNotificationTemplate(wapiSettings.template, {
+      orderNumber,
+      customerName,
+      orderTotal: formattedTotal ?? "Tidak tersedia",
+      orderItems,
+      shippingMethod,
+      orderNote,
+    });
 
     /**
      * ========================================================
@@ -281,37 +392,49 @@ class NotificationService {
      * - error hanya dicatat ke log
      */
 
+    /**
+     * ========================================================
+     * WHATSAPP ORDER NOTIFICATION
+     * ========================================================
+     *
+     * Pengiriman WhatsApp dapat dinonaktifkan melalui
+     * Admin Settings tanpa menghentikan notifikasi push.
+     */
+
     const whatsappResult = {
       recipients: 0,
       sent: 0,
       failed: 0,
       skipped: 0,
+      disabled: !wapiSettings.enabled,
     };
 
-    for (const recipient of recipients) {
-      const phone = recipient.phone?.trim();
+    if (wapiSettings.enabled) {
+      for (const recipient of recipients) {
+        const phone = recipient.phone?.trim();
 
-      if (!phone) {
-        whatsappResult.skipped += 1;
-        continue;
-      }
+        if (!phone) {
+          whatsappResult.skipped += 1;
+          continue;
+        }
 
-      whatsappResult.recipients += 1;
+        whatsappResult.recipients += 1;
 
-      try {
-        await whatsappService.sendText({
-          phone,
-          message,
-        });
+        try {
+          await whatsappService.sendText({
+            phone,
+            message,
+          });
 
-        whatsappResult.sent += 1;
-      } catch (error) {
-        whatsappResult.failed += 1;
+          whatsappResult.sent += 1;
+        } catch (error) {
+          whatsappResult.failed += 1;
 
-        console.error("[WHATSAPP_ORDER_NOTIFICATION_ERROR]", {
-          userId: recipient.id,
-          error,
-        });
+          console.error("[WHATSAPP_ORDER_NOTIFICATION_ERROR]", {
+            userId: recipient.id,
+            error,
+          });
+        }
       }
     }
 
@@ -365,8 +488,7 @@ class NotificationService {
       throw new Error("Payment proof ID tidak valid.");
     }
 
-    const confirmationEventId =
-      input.confirmationEventId?.trim();
+    const confirmationEventId = input.confirmationEventId?.trim();
 
     if (!confirmationEventId) {
       throw new Error("Confirmation event ID tidak valid.");
@@ -380,8 +502,7 @@ class NotificationService {
 
     const orderNumber = input.orderNumber?.trim() || "Pesanan";
 
-    const message =
-  `Konfirmasi pembayaran baru untuk pesanan ${orderNumber}.`;
+    const message = `Konfirmasi pembayaran baru untuk pesanan ${orderNumber}.`;
 
     /**
      * ========================================================
@@ -430,26 +551,25 @@ class NotificationService {
      * ========================================================
      */
 
-const notificationResults = await Promise.all(
-  recipients.map(async (recipient) => {
-    const eventKey =
-      `PAYMENT_CONFIRMATION:${confirmationEventId}:${recipient.id}`;
+    const notificationResults = await Promise.all(
+      recipients.map(async (recipient) => {
+        const eventKey = `PAYMENT_CONFIRMATION:${confirmationEventId}:${recipient.id}`;
 
-    return notificationRepository.createIdempotent({
-      userId: recipient.id,
-      title: "Konfirmasi Pembayaran QRIS",
-      message,
-      type: NotificationType.PAYMENT_PROOF,
-      href: "/admin/payments",
-      orderId,
-      eventKey,
-    });
-  }),
-);
+        return notificationRepository.createIdempotent({
+          userId: recipient.id,
+          title: "Konfirmasi Pembayaran QRIS",
+          message,
+          type: NotificationType.PAYMENT_PROOF,
+          href: "/admin/payments",
+          orderId,
+          eventKey,
+        });
+      }),
+    );
 
-const notifications = notificationResults
-  .filter((result) => result.created)
-  .map((result) => result.notification);
+    const notifications = notificationResults
+      .filter((result) => result.created)
+      .map((result) => result.notification);
 
     /**
      * ========================================================
@@ -502,7 +622,6 @@ const notifications = notificationResults
       push: pushResult,
     };
   }
-
 
   /**
    * ==========================================================
@@ -584,8 +703,7 @@ const notifications = notificationResults
      * untuk VERIFIED dan REJECTED.
      */
 
-    const eventKey =
-      `PAYMENT_PROOF:${paymentProofId}:${paymentEvent}`;
+    const eventKey = `PAYMENT_PROOF:${paymentProofId}:${paymentEvent}`;
 
     /*
      * --------------------------------------------------------
@@ -650,10 +768,7 @@ const notifications = notificationResults
           ],
         });
       } catch (error) {
-        console.error(
-          "[WEB_PUSH_CUSTOMER_PAYMENT_ERROR]",
-          error,
-        );
+        console.error("[WEB_PUSH_CUSTOMER_PAYMENT_ERROR]", error);
       }
     }
 
@@ -783,21 +898,17 @@ const notifications = notificationResults
      * - false = event sudah pernah diproses
      */
 
-    const notificationResult =
-      await notificationRepository.createIdempotent({
-        userId,
-        title: notificationContent.title,
-        message: notificationContent.message,
-        type: NotificationType.ORDER_STATUS,
-        href: `/customer/orders/${orderId}`,
-        orderId,
-        eventKey,
-      });
+    const notificationResult = await notificationRepository.createIdempotent({
+      userId,
+      title: notificationContent.title,
+      message: notificationContent.message,
+      type: NotificationType.ORDER_STATUS,
+      href: `/customer/orders/${orderId}`,
+      orderId,
+      eventKey,
+    });
 
-    const {
-      notification,
-      created,
-    } = notificationResult;
+    const { notification, created } = notificationResult;
 
     /**
      * --------------------------------------------------------
@@ -835,10 +946,7 @@ const notifications = notificationResults
           ],
         });
       } catch (error) {
-        console.error(
-          "[WEB_PUSH_CUSTOMER_ORDER_STATUS_ERROR]",
-          error,
-        );
+        console.error("[WEB_PUSH_CUSTOMER_ORDER_STATUS_ERROR]", error);
       }
     }
 
@@ -906,9 +1014,7 @@ const notifications = notificationResults
       throw new Error("Jumlah reward point tidak valid.");
     }
 
-    const formattedPoints = new Intl.NumberFormat("id-ID").format(
-      points,
-    );
+    const formattedPoints = new Intl.NumberFormat("id-ID").format(points);
 
     const title = "Reward point berhasil 🎁";
 
@@ -976,10 +1082,7 @@ const notifications = notificationResults
           ],
         });
       } catch (error) {
-        console.error(
-          "[WEB_PUSH_CUSTOMER_REWARD_POINTS_ERROR]",
-          error,
-        );
+        console.error("[WEB_PUSH_CUSTOMER_REWARD_POINTS_ERROR]", error);
       }
     }
 

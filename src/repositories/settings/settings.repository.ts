@@ -291,6 +291,17 @@ export interface UpdateSettingsPayload {
 
 /**
  * ============================================================
+ * UPDATE WAPI ORDER NOTIFICATION SETTINGS PAYLOAD
+ * ============================================================
+ */
+
+export interface UpdateWapiOrderNotificationSettingsPayload {
+  wapiOrderNotificationEnabled?: boolean;
+  wapiOrderNotificationTemplate?: string | null;
+}
+
+/**
+ * ============================================================
  * UPDATE IMAGE BANNER SETTINGS PAYLOAD
  * ============================================================
  */
@@ -668,6 +679,55 @@ class SettingsRepository {
 
         paymentTimeoutHours: 24,
       },
+        });
+  }
+
+  /**
+   * ============================================================
+   * GET WAPI ORDER NOTIFICATION SETTINGS
+   * ============================================================
+   */
+
+  async getWapiOrderNotificationSettings() {
+    const settings = await this.getOrCreate();
+
+    return {
+      enabled: settings.wapiOrderNotificationEnabled,
+      template: settings.wapiOrderNotificationTemplate,
+    };
+  }
+
+  /**
+   * ============================================================
+   * UPDATE WAPI ORDER NOTIFICATION SETTINGS
+   * ============================================================
+   *
+   * Hanya mengubah field WAPI.
+   * Pengaturan toko lainnya tidak akan ikut tertimpa.
+   */
+
+  async updateWapiOrderNotificationSettings(
+    data: UpdateWapiOrderNotificationSettingsPayload,
+  ) {
+    const settings = await this.getOrCreate();
+
+    const updateData = {
+      ...(data.wapiOrderNotificationEnabled !== undefined && {
+        wapiOrderNotificationEnabled:
+          data.wapiOrderNotificationEnabled,
+      }),
+
+      ...(data.wapiOrderNotificationTemplate !== undefined && {
+        wapiOrderNotificationTemplate:
+          data.wapiOrderNotificationTemplate,
+      }),
+    };
+
+    return prisma.storeSettings.update({
+      where: {
+        id: settings.id,
+      },
+      data: updateData,
     });
   }
 

@@ -3212,6 +3212,25 @@ model StoreSettings {
   paymentTimeoutHours Int @default(24)
 
   // ============================================================
+  // WHATSAPP ORDER NOTIFICATION
+  // ============================================================
+
+  /**
+   * Mengaktifkan atau menonaktifkan notifikasi pesanan baru
+   * melalui WhatsApp kepada admin.
+   */
+  wapiOrderNotificationEnabled Boolean @default(true)
+
+  /**
+   * Template pesan WhatsApp pesanan baru.
+   * Placeholder yang tersedia:
+   * {{order_number}}
+   * {{customer_name}}
+   * {{order_total}}
+   */
+  wapiOrderNotificationTemplate String? @db.Text
+
+  // ============================================================
   // SEO GLOBAL
   // ============================================================
 
@@ -3486,15 +3505,15 @@ model Notification {
   id String @id @default(cuid())
 
   userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   orderId String?
-  order Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  title String
+  title   String
   message String
-  type NotificationType
-  href String?
+  type    NotificationType
+  href    String?
 
   // Idempotency key untuk mencegah notifikasi duplikat
   eventKey String? @unique
