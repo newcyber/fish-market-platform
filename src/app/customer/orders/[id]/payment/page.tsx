@@ -2,10 +2,7 @@ import Image from "next/image";
 
 import Link from "next/link";
 
-import {
-  notFound,
-  redirect,
-} from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
   ArrowLeft,
@@ -17,10 +14,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import {
-  OrderStatus,
-  PaymentStatus,
-} from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 
 import { auth } from "@/auth";
 
@@ -46,17 +40,14 @@ interface PaymentPageProps {
  * ============================================================
  */
 
-export default async function PaymentPage({
-  params,
-}: PaymentPageProps) {
+export default async function PaymentPage({ params }: PaymentPageProps) {
   /**
    * ==========================================================
    * AUTHENTICATION
    * ==========================================================
    */
 
-  const session =
-    await auth();
+  const session = await auth();
 
   if (!session?.user?.id) {
     redirect("/login");
@@ -68,9 +59,7 @@ export default async function PaymentPage({
    * ==========================================================
    */
 
-  const {
-    id,
-  } = await params;
+  const { id } = await params;
 
   /**
    * ==========================================================
@@ -81,11 +70,7 @@ export default async function PaymentPage({
   let order;
 
   try {
-    order =
-      await OrderService.getOrderByIdForUser(
-        id,
-        session.user.id
-      );
+    order = await OrderService.getOrderByIdForUser(id, session.user.id);
   } catch {
     notFound();
   }
@@ -103,16 +88,11 @@ export default async function PaymentPage({
    */
 
   if (
-    order.paymentStatus ===
-      PaymentStatus.VERIFIED ||
-    order.status ===
-      OrderStatus.COMPLETED ||
-    order.status ===
-      OrderStatus.CANCELLED
+    order.paymentStatus === PaymentStatus.VERIFIED ||
+    order.status === OrderStatus.COMPLETED ||
+    order.status === OrderStatus.CANCELLED
   ) {
-    redirect(
-      `/customer/orders/${order.id}`
-    );
+    redirect(`/customer/orders/${order.id}`);
   }
 
   /**
@@ -121,8 +101,7 @@ export default async function PaymentPage({
    * ==========================================================
    */
 
-  const paymentChannel =
-    order.paymentChannel;
+  const paymentChannel = order.paymentChannel;
 
   /**
    * ==========================================================
@@ -130,9 +109,7 @@ export default async function PaymentPage({
    * ==========================================================
    */
 
-  const paymentType =
-    paymentChannel?.type ??
-    "BANK_TRANSFER";
+  const paymentType = paymentChannel?.type ?? "BANK_TRANSFER";
 
   /**
    * ==========================================================
@@ -140,11 +117,9 @@ export default async function PaymentPage({
    * ==========================================================
    */
 
-  const isQris =
-    paymentType === "QRIS";
+  const isQris = paymentType === "QRIS";
 
-  const isBankTransfer =
-    paymentType === "BANK_TRANSFER";
+  const isBankTransfer = paymentType === "BANK_TRANSFER";
 
   /**
    * ==========================================================
@@ -152,17 +127,11 @@ export default async function PaymentPage({
    * ==========================================================
    */
 
-  const formattedTotal =
-    new Intl.NumberFormat(
-      "id-ID",
-      {
-        style: "currency",
-        currency: "IDR",
-        maximumFractionDigits: 0,
-      }
-    ).format(
-      Number(order.total)
-    );
+  const formattedTotal = new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Number(order.total));
 
   /**
    * ==========================================================
@@ -170,8 +139,7 @@ export default async function PaymentPage({
    * ==========================================================
    */
 
-  const hasPaymentProof =
-    Boolean(order.paymentProof);
+  const hasPaymentProof = Boolean(order.paymentProof);
 
   /**
    * ==========================================================
@@ -180,25 +148,13 @@ export default async function PaymentPage({
    */
 
   const paymentName =
-    paymentChannel?.name ??
-    (
-      isQris
-        ? "QRIS"
-        : "Transfer Bank"
-    );
+    paymentChannel?.name ?? (isQris ? "QRIS" : "Transfer Bank");
 
-  const paymentDescription =
-    paymentChannel?.description ??
-    null;
+  const paymentDescription = paymentChannel?.description ?? null;
 
-  const paymentInstructions =
-    paymentChannel?.instructions ??
-    null;
+  const paymentInstructions = paymentChannel?.instructions ?? null;
 
-  const qrisImage =
-    isQris
-      ? paymentChannel?.qrisImage ?? null
-      : null;
+  const qrisImage = isQris ? (paymentChannel?.qrisImage ?? null) : null;
 
   /**
    * ==========================================================
@@ -209,7 +165,6 @@ export default async function PaymentPage({
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-
         {/* ================================================== */}
         {/* BACK */}
         {/* ================================================== */}
@@ -219,12 +174,10 @@ export default async function PaymentPage({
           className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
         >
           <ArrowLeft className="h-4 w-4" />
-
           Kembali ke Detail Pesanan
         </Link>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-
           {/* ================================================ */}
           {/* HEADER */}
           {/* ================================================ */}
@@ -240,16 +193,13 @@ export default async function PaymentPage({
 
             <div>
               <h1 className="text-2xl font-bold text-slate-950">
-                {isQris
-                  ? "Pembayaran QRIS"
-                  : "Pembayaran Transfer"}
+                {isQris ? "Pembayaran QRIS" : "Pembayaran Transfer"}
               </h1>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 {isQris
                   ? "Selesaikan pembayaran menggunakan QRIS untuk pesanan "
                   : "Selesaikan pembayaran melalui transfer untuk pesanan "}
-
                 <span className="font-medium text-slate-700">
                   {order.orderNumber}
                 </span>
@@ -264,11 +214,8 @@ export default async function PaymentPage({
 
           <div className="mb-6 rounded-xl bg-slate-50 p-4">
             <div className="flex items-center justify-between gap-4">
-
               <div>
-                <p className="text-sm text-slate-500">
-                  Total Pembayaran
-                </p>
+                <p className="text-sm text-slate-500">Total Pembayaran</p>
 
                 <p className="mt-1 text-2xl font-bold text-slate-950">
                   {formattedTotal}
@@ -287,11 +234,9 @@ export default async function PaymentPage({
                   ) : (
                     <CreditCard className="h-4 w-4" />
                   )}
-
                   Menunggu Pembayaran
                 </div>
               )}
-
             </div>
           </div>
 
@@ -300,13 +245,11 @@ export default async function PaymentPage({
           {/* ================================================ */}
 
           <div className="mb-6 rounded-xl border border-slate-200 p-4">
-
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Metode Pembayaran
             </p>
 
             <div className="mt-2 flex items-center gap-3">
-
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
                 {isQris ? (
                   <QrCode className="h-5 w-5 text-slate-700" />
@@ -316,9 +259,7 @@ export default async function PaymentPage({
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">
-                  {paymentName}
-                </p>
+                <p className="font-semibold text-slate-900">{paymentName}</p>
 
                 {paymentDescription && (
                   <p className="mt-0.5 text-sm text-slate-500">
@@ -326,7 +267,6 @@ export default async function PaymentPage({
                   </p>
                 )}
               </div>
-
             </div>
           </div>
 
@@ -336,9 +276,7 @@ export default async function PaymentPage({
 
           {isQris && (
             <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5">
-
               <div className="flex justify-center">
-
                 {qrisImage ? (
                   <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                     <Image
@@ -359,11 +297,11 @@ export default async function PaymentPage({
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Silakan hubungi admin jika kode QRIS belum dapat ditampilkan.
+                      Silakan hubungi admin jika kode QRIS belum dapat
+                      ditampilkan.
                     </p>
                   </div>
                 )}
-
               </div>
 
               <div className="mt-6 rounded-xl bg-slate-50 p-4 text-center">
@@ -375,7 +313,6 @@ export default async function PaymentPage({
                   {formattedTotal}
                 </p>
               </div>
-
             </div>
           )}
 
@@ -386,13 +323,11 @@ export default async function PaymentPage({
 
           {isBankTransfer && (
             <div className="mb-6 rounded-xl border border-slate-200 p-5">
-
               <h2 className="font-semibold text-slate-950">
                 Informasi Pembayaran
               </h2>
 
               <div className="mt-5 space-y-4">
-
                 <div className="rounded-xl bg-slate-50 p-4">
                   <p className="text-xs font-medium text-slate-500">
                     Nama Bank
@@ -422,148 +357,26 @@ export default async function PaymentPage({
                     {paymentChannel?.accountNumber ?? "-"}
                   </p>
                 </div>
-
               </div>
-
             </div>
           )}
-
-{/* ================================================ */}
-{/* QRIS PAYMENT INSTRUCTIONS */}
-{/* ================================================ */}
-
-{isQris && (
-  <div className="mb-6 rounded-2xl border border-cyan-200 bg-cyan-50/40 p-5">
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100">
-        <QrCode className="h-5 w-5 text-cyan-700" />
-      </div>
-
-      <div>
-        <h2 className="font-semibold text-slate-950">
-          Petunjuk Pembayaran QRIS
-        </h2>
-
-        <p className="mt-1 text-sm text-slate-500">
-          Ikuti langkah berikut untuk menyelesaikan pembayaran.
-        </p>
-      </div>
-    </div>
-
-    <div className="mt-5 space-y-4">
-      <div className="flex gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
-          1
-        </span>
-
-        <p className="pt-1 text-sm leading-6 text-slate-600">
-          Buka aplikasi{" "}
-          <span className="font-semibold text-slate-800">
-            Mobile Banking atau E-Wallet
-          </span>{" "}
-          yang mendukung pembayaran QRIS.
-        </p>
-      </div>
-
-      <div className="flex gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
-          2
-        </span>
-
-        <p className="pt-1 text-sm leading-6 text-slate-600">
-          Pilih menu{" "}
-          <span className="font-semibold text-slate-800">
-            Scan QR
-          </span>{" "}
-          atau{" "}
-          <span className="font-semibold text-slate-800">
-            Scan QRIS
-          </span>.
-        </p>
-      </div>
-
-      <div className="flex gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
-          3
-        </span>
-
-        <p className="pt-1 text-sm leading-6 text-slate-600">
-          Scan kode QRIS yang ditampilkan di atas.
-        </p>
-      </div>
-
-      <div className="flex gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
-          4
-        </span>
-
-        <p className="pt-1 text-sm leading-6 text-slate-600">
-          Pastikan nominal pembayaran sesuai dengan total pesanan,
-          yaitu{" "}
-          <span className="font-semibold text-slate-900">
-            {formattedTotal}
-          </span>.
-        </p>
-      </div>
-
-      <div className="flex gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
-          5
-        </span>
-
-        <p className="pt-1 text-sm leading-6 text-slate-600">
-          Selesaikan pembayaran hingga transaksi berhasil.
-        </p>
-      </div>
-
-      <div className="flex gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-bold text-white">
-          6
-        </span>
-
-        <p className="pt-1 text-sm leading-6 text-slate-600">
-          Setelah pembayaran berhasil, upload{" "}
-          <span className="font-semibold text-slate-800">
-            bukti pembayaran
-          </span>{" "}
-          di bagian bawah halaman ini agar dapat diperiksa oleh admin.
-        </p>
-      </div>
-    </div>
-
-    <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
-      <p className="text-sm font-semibold text-amber-900">
-        Penting
-      </p>
-
-      <p className="mt-1 text-sm leading-6 text-amber-800">
-        Pastikan nominal pembayaran sesuai dengan total pesanan.
-        Setelah bukti pembayaran diupload, pesanan akan masuk ke
-        proses menunggu verifikasi admin.
-      </p>
-    </div>
-  </div>
-)}
 
           {/* ================================================ */}
           {/* PAYMENT INSTRUCTIONS */}
           {/* HANYA UNTUK TRANSFER */}
           {/* ================================================ */}
 
-          {isBankTransfer &&
-            paymentInstructions && (
-              <div className="mb-6 rounded-xl border border-slate-200 p-5">
+          {isBankTransfer && paymentInstructions && (
+            <div className="mb-6 rounded-xl border border-slate-200 p-5">
+              <h2 className="font-semibold text-slate-950">
+                Instruksi Pembayaran
+              </h2>
 
-                <h2 className="font-semibold text-slate-950">
-                  Instruksi Pembayaran
-                </h2>
-
-                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">
-                  {paymentInstructions}
-                </p>
-
-              </div>
-            )}
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">
+                {paymentInstructions}
+              </p>
+            </div>
+          )}
 
           {/* ================================================ */}
           {/* EXISTING PAYMENT PROOF INFO */}
@@ -571,7 +384,6 @@ export default async function PaymentPage({
 
           {hasPaymentProof && (
             <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-
               <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
 
               <div>
@@ -580,13 +392,11 @@ export default async function PaymentPage({
                 </p>
 
                 <p className="mt-1 text-sm leading-6 text-amber-700">
-                  Anda dapat mengirim ulang bukti pembayaran
-                  jika ingin mengganti file sebelumnya.
-                  Bukti terbaru akan digunakan untuk proses
-                  verifikasi oleh admin.
+                  Anda dapat mengirim ulang bukti pembayaran jika ingin
+                  mengganti file sebelumnya. Bukti terbaru akan digunakan untuk
+                  proses verifikasi oleh admin.
                 </p>
               </div>
-
             </div>
           )}
 
@@ -596,23 +406,18 @@ export default async function PaymentPage({
           {/* ================================================ */}
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-
             <div className="mb-5">
               <h2 className="font-semibold text-slate-950">
                 Upload Bukti Pembayaran
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Upload bukti pembayaran untuk dikirim kepada admin
-                dan menunggu proses verifikasi.
+                Upload bukti pembayaran untuk dikirim kepada admin dan menunggu
+                proses verifikasi.
               </p>
             </div>
 
-            <PaymentProofForm
-  orderId={order.id}
-  paymentType={paymentType}
-/>
-
+            <PaymentProofForm orderId={order.id} paymentType={paymentType} />
           </div>
 
           {/* ================================================ */}
@@ -620,7 +425,6 @@ export default async function PaymentPage({
           {/* ================================================ */}
 
           <div className="mt-6 flex items-start gap-3 rounded-xl border border-slate-200 p-4">
-
             {hasPaymentProof ? (
               <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
             ) : (
@@ -640,7 +444,6 @@ export default async function PaymentPage({
                   : "Setelah pembayaran selesai, upload bukti pembayaran agar admin dapat melakukan verifikasi."}
               </p>
             </div>
-
           </div>
 
           {/* ================================================ */}
@@ -650,13 +453,10 @@ export default async function PaymentPage({
           {hasPaymentProof && (
             <div className="mt-4 flex items-center gap-2 text-sm text-green-700">
               <CheckCircle2 className="h-4 w-4" />
-
               Bukti pembayaran tersimpan.
             </div>
           )}
-
         </div>
-
       </div>
     </main>
   );
