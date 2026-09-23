@@ -28,31 +28,16 @@ import type {
  * ============================================================
  */
 
-function isRecord(
-  value: unknown,
-): value is Record<string, unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function optionalString(value: unknown): boolean {
-  return (
-    value === undefined ||
-    typeof value === "string"
-  );
+  return value === undefined || typeof value === "string";
 }
 
-function optionalNullableString(
-  value: unknown,
-): boolean {
-  return (
-    value === undefined ||
-    value === null ||
-    typeof value === "string"
-  );
+function optionalNullableString(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === "string";
 }
 
 /**
@@ -61,9 +46,7 @@ function optionalNullableString(
  * ============================================================
  */
 
-function validateBrand(
-  value: unknown,
-): value is LandingPageBrandConfig {
+function validateBrand(value: unknown): value is LandingPageBrandConfig {
   if (!isRecord(value)) {
     return false;
   }
@@ -81,9 +64,7 @@ function validateBrand(
  * ============================================================
  */
 
-function validateHero(
-  value: unknown,
-): value is LandingPageHeroConfig {
+function validateHero(value: unknown): value is LandingPageHeroConfig {
   if (!isRecord(value)) {
     return false;
   }
@@ -145,27 +126,22 @@ function validateRewardSection(
   }
 
   return (
-    (value.enabled === undefined ||
-      typeof value.enabled === "boolean") &&
+    (value.enabled === undefined || typeof value.enabled === "boolean") &&
     optionalString(value.eyebrow) &&
     optionalString(value.title) &&
     optionalString(value.description) &&
     optionalString(value.buttonLabel) &&
     optionalString(value.buttonHref) &&
     (value.featuredLimit === undefined ||
-      (
-        typeof value.featuredLimit === "number" &&
+      (typeof value.featuredLimit === "number" &&
         Number.isInteger(value.featuredLimit) &&
         value.featuredLimit >= 1 &&
-        value.featuredLimit <= 10
-      )) &&
+        value.featuredLimit <= 10)) &&
     (value.compactLimit === undefined ||
-      (
-        typeof value.compactLimit === "number" &&
+      (typeof value.compactLimit === "number" &&
         Number.isInteger(value.compactLimit) &&
         value.compactLimit >= 0 &&
-        value.compactLimit <= 20
-      ))
+        value.compactLimit <= 20))
   );
 }
 
@@ -175,16 +151,13 @@ function validateRewardSection(
  * ============================================================
  */
 
-function validateTutorialStep(
-  value: unknown,
-): boolean {
+function validateTutorialStep(value: unknown): boolean {
   if (!isRecord(value)) {
     return false;
   }
 
   return (
-    typeof value.title === "string" &&
-    typeof value.description === "string"
+    typeof value.title === "string" && typeof value.description === "string"
   );
 }
 
@@ -195,10 +168,7 @@ function validateTutorialSection(
     return false;
   }
 
-  if (
-    value.enabled !== undefined &&
-    typeof value.enabled !== "boolean"
-  ) {
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
     return false;
   }
 
@@ -231,9 +201,7 @@ function validateTutorialSection(
  * ============================================================
  */
 
-function validateBenefit(
-  value: unknown,
-): value is LandingPageBenefit {
+function validateBenefit(value: unknown): value is LandingPageBenefit {
   if (!isRecord(value)) {
     return false;
   }
@@ -251,16 +219,13 @@ function validateBenefit(
  * ============================================================
  */
 
-function validateApp(
-  value: unknown,
-): value is LandingPageAppConfig {
+function validateApp(value: unknown): value is LandingPageAppConfig {
   if (!isRecord(value)) {
     return false;
   }
 
   return (
-    (value.enabled === undefined ||
-      typeof value.enabled === "boolean") &&
+    (value.enabled === undefined || typeof value.enabled === "boolean") &&
     optionalString(value.title) &&
     optionalString(value.description) &&
     optionalNullableString(value.image) &&
@@ -275,9 +240,7 @@ function validateApp(
  * ============================================================
  */
 
-function validateStep(
-  value: unknown,
-): value is LandingPageStep {
+function validateStep(value: unknown): value is LandingPageStep {
   if (!isRecord(value)) {
     return false;
   }
@@ -296,9 +259,7 @@ function validateStep(
  * ============================================================
  */
 
-function validateCta(
-  value: unknown,
-): value is LandingPageCtaConfig {
+function validateCta(value: unknown): value is LandingPageCtaConfig {
   if (!isRecord(value)) {
     return false;
   }
@@ -318,9 +279,7 @@ function validateCta(
  * ============================================================
  */
 
-function validateImages(
-  value: unknown,
-): value is LandingPageImagesConfig {
+function validateImages(value: unknown): value is LandingPageImagesConfig {
   if (!isRecord(value)) {
     return false;
   }
@@ -345,17 +304,11 @@ export function isLandingPageConfig(
     return false;
   }
 
-  if (
-    value.brand !== undefined &&
-    !validateBrand(value.brand)
-  ) {
+  if (value.brand !== undefined && !validateBrand(value.brand)) {
     return false;
   }
 
-  if (
-    value.hero !== undefined &&
-    !validateHero(value.hero)
-  ) {
+  if (value.hero !== undefined && !validateHero(value.hero)) {
     return false;
   }
 
@@ -367,11 +320,11 @@ export function isLandingPageConfig(
   }
 
   if (
-  value.rewardSection !== undefined &&
-  !validateRewardSection(value.rewardSection)
-) {
-  return false;
-}
+    value.rewardSection !== undefined &&
+    !validateRewardSection(value.rewardSection)
+  ) {
+    return false;
+  }
 
   if (
     value.tutorialSection !== undefined &&
@@ -390,10 +343,7 @@ export function isLandingPageConfig(
     }
   }
 
-  if (
-    value.app !== undefined &&
-    !validateApp(value.app)
-  ) {
+  if (value.app !== undefined && !validateApp(value.app)) {
     return false;
   }
 
@@ -407,17 +357,11 @@ export function isLandingPageConfig(
     }
   }
 
-  if (
-    value.cta !== undefined &&
-    !validateCta(value.cta)
-  ) {
+  if (value.cta !== undefined && !validateCta(value.cta)) {
     return false;
   }
 
-  if (
-    value.images !== undefined &&
-    !validateImages(value.images)
-  ) {
+  if (value.images !== undefined && !validateImages(value.images)) {
     return false;
   }
 
@@ -450,7 +394,7 @@ const DEFAULT_LANDING_PAGE_REWARD_SECTION = {
   description:
     "Belanja, kumpulkan poin, lalu tukarkan dengan berbagai hadiah menarik dari Pisjo Market.",
   buttonLabel: "Lihat Semua Hadiah",
-  buttonHref: "/rewards",
+  buttonHref: "/customer/rewards",
   featuredLimit: 3,
   compactLimit: 10,
 };
@@ -471,13 +415,11 @@ const DEFAULT_LANDING_PAGE_TUTORIAL_SECTION = {
   steps: [
     {
       title: "Buka di Safari",
-      description:
-        "Akses app.pusatikansegar.com melalui Safari di iPhone.",
+      description: "Akses app.pusatikansegar.com melalui Safari di iPhone.",
     },
     {
       title: "Tap Share",
-      description:
-        "Tekan ikon Share pada Safari.",
+      description: "Tekan ikon Share pada Safari.",
     },
     {
       title: "Add to Home Screen",
@@ -543,8 +485,7 @@ const DEFAULT_LANDING_PAGE_STEPS = [
   {
     number: 4,
     title: "Pantau pesanan",
-    description:
-      "Pantau perkembangan pesanan Anda sampai proses selesai.",
+    description: "Pantau perkembangan pesanan Anda sampai proses selesai.",
   },
 ];
 
@@ -562,21 +503,14 @@ const DEFAULT_LANDING_PAGE_STEPS = [
  * ============================================================
  */
 
-export function normalizeLandingPageConfig(
-  value: unknown,
-): LandingPageConfig {
+export function normalizeLandingPageConfig(value: unknown): LandingPageConfig {
   if (!isLandingPageConfig(value)) {
     return {
-      benefitsSection:
-        DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
-      benefits:
-        DEFAULT_LANDING_PAGE_BENEFITS,
-      rewardSection:
-        DEFAULT_LANDING_PAGE_REWARD_SECTION,
-      tutorialSection:
-        DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,
-      steps:
-        DEFAULT_LANDING_PAGE_STEPS,
+      benefitsSection: DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
+      benefits: DEFAULT_LANDING_PAGE_BENEFITS,
+      rewardSection: DEFAULT_LANDING_PAGE_REWARD_SECTION,
+      tutorialSection: DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,
+      steps: DEFAULT_LANDING_PAGE_STEPS,
     };
   }
 
@@ -584,22 +518,18 @@ export function normalizeLandingPageConfig(
     ...value,
 
     benefitsSection:
-      value.benefitsSection ??
-      DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
+      value.benefitsSection ?? DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
 
     tutorialSection:
-      value.tutorialSection ??
-      DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,
+      value.tutorialSection ?? DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,
 
     benefits:
-      Array.isArray(value.benefits) &&
-      value.benefits.length > 0
+      Array.isArray(value.benefits) && value.benefits.length > 0
         ? value.benefits
         : DEFAULT_LANDING_PAGE_BENEFITS,
 
     steps:
-      Array.isArray(value.steps) &&
-      value.steps.length > 0
+      Array.isArray(value.steps) && value.steps.length > 0
         ? value.steps
         : DEFAULT_LANDING_PAGE_STEPS,
   };

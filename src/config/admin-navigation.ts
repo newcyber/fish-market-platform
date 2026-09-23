@@ -8,14 +8,9 @@ import { Role } from "@prisma/client";
  * ============================================================
  */
 
-const ADMIN_ROLES = [
-  Role.SUPER_ADMIN,
-  Role.ADMIN,
-];
+const ADMIN_ROLES = [Role.SUPER_ADMIN, Role.ADMIN];
 
-const SUPER_ADMIN_ONLY = [
-  Role.SUPER_ADMIN,
-];
+const SUPER_ADMIN_ONLY = [Role.SUPER_ADMIN];
 
 export const ADMIN_NAVIGATION: NavigationItem[] = [
   /**
@@ -285,79 +280,87 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
    * ==========================================================
    */
   {
-  id: "settings",
-  title: "Settings",
-  href: "/admin/settings",
-  icon: "settings",
-  roles: SUPER_ADMIN_ONLY,
-  order: 9,
-
-  children: [
-  {
-    id: "store-settings",
-    title: "Pengaturan Toko",
+    id: "settings",
+    title: "Settings",
     href: "/admin/settings",
     icon: "settings",
     roles: SUPER_ADMIN_ONLY,
-    order: 1,
+    order: 9,
+
+    children: [
+      {
+        id: "store-settings",
+        title: "Pengaturan Toko",
+        href: "/admin/settings",
+        icon: "settings",
+        roles: SUPER_ADMIN_ONLY,
+        order: 1,
+      },
+
+      {
+        id: "payment-channels",
+        title: "Metode Pembayaran",
+        href: "/admin/payment-channels",
+        icon: "payments",
+        roles: SUPER_ADMIN_ONLY,
+        order: 2,
+      },
+
+      {
+        id: "landing-page",
+        title: "Landing Page",
+        href: "/admin/landing-page",
+        icon: "landing-page",
+        roles: SUPER_ADMIN_ONLY,
+        order: 3,
+      },
+
+      {
+        id: "landing-page-images",
+        title: "Image Landing Page",
+        href: "/admin/landing-page/images",
+        icon: "landing-page",
+        roles: SUPER_ADMIN_ONLY,
+        order: 4,
+      },
+
+      {
+        id: "android-app",
+        title: "Android App",
+        href: "/admin/landing-page/android",
+        icon: "landing-page",
+        roles: SUPER_ADMIN_ONLY,
+        order: 5,
+      },
+
+      {
+        id: "ios-app",
+        title: "iOS App",
+        href: "/admin/landing-page/ios",
+        icon: "landing-page",
+        roles: SUPER_ADMIN_ONLY,
+        order: 6,
+      },
+
+      {
+        id: "wapi-setting",
+        title: "WAPI Setting",
+        href: "/admin/settings/wapi",
+        icon: "whatsapp",
+        roles: SUPER_ADMIN_ONLY,
+        order: 7,
+      },
+
+      {
+        id: "wapi-notification-center",
+        title: "WAPI Notification Center",
+        href: "/admin/notifications/wapi-deliveries",
+        icon: "whatsapp",
+        roles: SUPER_ADMIN_ONLY,
+        order: 8,
+      },
+    ],
   },
-
-  {
-    id: "payment-channels",
-    title: "Metode Pembayaran",
-    href: "/admin/payment-channels",
-    icon: "payments",
-    roles: SUPER_ADMIN_ONLY,
-    order: 2,
-  },
-
-  {
-    id: "landing-page",
-    title: "Landing Page",
-    href: "/admin/landing-page",
-    icon: "landing-page",
-    roles: SUPER_ADMIN_ONLY,
-    order: 3,
-  },
-
-  {
-    id: "landing-page-images",
-    title: "Image Landing Page",
-    href: "/admin/landing-page/images",
-    icon: "landing-page",
-    roles: SUPER_ADMIN_ONLY,
-    order: 4,
-  },
-
-  {
-  id: "android-app",
-  title: "Android App",
-  href: "/admin/landing-page/android",
-  icon: "landing-page",
-  roles: SUPER_ADMIN_ONLY,
-  order: 5,
-},
-
-{
-  id: "ios-app",
-  title: "iOS App",
-  href: "/admin/landing-page/ios",
-  icon: "landing-page",
-  roles: SUPER_ADMIN_ONLY,
-  order: 6,
-},
-
-{
-  id: "wapi-setting",
-  title: "WAPI Setting",
-  href: "/admin/settings/wapi",
-  icon: "whatsapp",
-  roles: SUPER_ADMIN_ONLY,
-  order: 7,
-},
-
-],
-},
 
   /**
    * ==========================================================
@@ -378,7 +381,6 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     roles: SUPER_ADMIN_ONLY,
     order: 10,
   },
-
 ];
 
 export default ADMIN_NAVIGATION;
