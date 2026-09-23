@@ -380,135 +380,127 @@ export default function CheckoutForm({
   const selectedAddress =
     addresses.find((address) => address.id === selectedAddressId) ?? null;
 
-  /**
+/**
+ * ==========================================================
+ * INTERNAL SHIPPING CALCULATION
+ * ==========================================================
+ */
 
-   * ==========================================================
+const internalShippingResult: InternalShippingCalculationResult =
+  calculateInternalShipping({
+    storeLocation: internalShipping.storeLocation,
 
-   * INTERNAL SHIPPING CALCULATION
+    customerLocation: {
+      latitude: selectedAddress?.latitude ?? null,
+      longitude: selectedAddress?.longitude ?? null,
+    },
 
-   * ==========================================================
+    config: {
+      enabled: internalShipping.enabled,
+      name: internalShipping.name,
+      baseFee: internalShipping.baseFee,
+      perKmFee: internalShipping.perKmFee,
+      minFee: internalShipping.minFee,
+      maxDistanceKm: internalShipping.maxDistanceKm,
+      freeShippingThreshold: internalShipping.freeShippingThreshold,
+      freeMaxDiscount: internalShipping.freeMaxDiscount,
+    },
 
-   */
+    subtotal,
+  });
 
-  const internalShippingResult: InternalShippingCalculationResult =
-    calculateInternalShipping({
-      storeLocation: internalShipping.storeLocation,
+/**
+ * ==========================================================
+ * SHIPPING COST
+ * ==========================================================
+ */
 
-      customerLocation: {
-        latitude: selectedAddress?.latitude ?? null,
+const isInternalShippingSelected =
+  selectedShippingProvider === "INTERNAL";
 
-        longitude: selectedAddress?.longitude ?? null,
-      },
+const isPickupSelected =
+  selectedShippingProvider === "PICKUP";
 
-      config: {
-        enabled: internalShipping.enabled,
+const shippingCost =
+  isInternalShippingSelected && internalShippingResult.available
+    ? internalShippingResult.normalShippingCost !== null
+      ? Math.max(
+          0,
+          (internalShippingResult.normalShippingCost ?? 0) -
+            (internalShippingResult.shippingDiscount ?? 0),
+        )
+      : (internalShippingResult.shippingCost ?? 0)
+    : 0;
 
-        name: internalShipping.name,
+/**
+ * ==========================================================
+ * PAYMENT STATE
+ * ==========================================================
+ */
 
-        baseFee: internalShipping.baseFee,
+const [selectedPaymentChannelId, setSelectedPaymentChannelId] =
+  useState<string | null>(paymentChannels[0]?.id ?? null);
 
-        perKmFee: internalShipping.perKmFee,
+/**
+ * ==========================================================
+ * NOTES
+ * ==========================================================
+ */
 
-        minFee: internalShipping.minFee,
+const [notes, setNotes] = useState("");
 
-        maxDistanceKm: internalShipping.maxDistanceKm,
+const [showAllAddresses, setShowAllAddresses] = useState(false);
 
-        freeShippingThreshold: internalShipping.freeShippingThreshold,
+/**
+ * ==========================================================
+ * VOUCHER STATE
+ * ==========================================================
+ */
 
-        freeMaxDiscount: internalShipping.freeMaxDiscount,
-      },
+const [voucherCode, setVoucherCode] = useState("");
 
-      subtotal,
-    });
+const [appliedVoucher, setAppliedVoucher] =
+  useState<AppliedVoucher | null>(null);
 
-  /**
+const [voucherMessage, setVoucherMessage] =
+  useState<string | null>(null);
 
-   * ==========================================================
+const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
 
-   * SHIPPING COST
+/**
+ * ==========================================================
+ * VOUCHER DISCOUNT
+ * ==========================================================
+ */
 
-   * ==========================================================
+const voucherDiscount = appliedVoucher?.discountAmount ?? 0;
 
-   */
+const discountedSubtotal =
+  appliedVoucher?.finalSubtotal ?? subtotal;
 
-  const shippingCost =
-    selectedShippingProvider === "INTERNAL" && internalShippingResult.available
-      ? (internalShippingResult.shippingCost ?? 0)
-      : 0;
+/**
+ * ==========================================================
+ * ORDER TOTAL
+ * ==========================================================
+ */
 
-  /**
+const orderTotal = discountedSubtotal + shippingCost;
 
-   * ==========================================================
+/**
+ * ==========================================================
+ * CHECKOUT SHIPPING DEBUG
+ * ==========================================================
+ */
 
-   * PAYMENT STATE
-
-   * ==========================================================
-
-   */
-
-  const [selectedPaymentChannelId, setSelectedPaymentChannelId] = useState<
-    string | null
-  >(paymentChannels[0]?.id ?? null);
-
-  /**
-
-   * ==========================================================
-
-   * NOTES
-
-   * ==========================================================
-
-   */
-
-  const [notes, setNotes] = useState("");
-
-  const [showAllAddresses, setShowAllAddresses] = useState(false);
-
-  /**
-
-   * ==========================================================
-
-   * VOUCHER STATE
-
-   * ==========================================================
-
-   */
-
-  const [voucherCode, setVoucherCode] = useState("");
-
-  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(
-    null,
-  );
-
-  const [voucherMessage, setVoucherMessage] = useState<string | null>(null);
-
-  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
-
-  /**
-
-   * ==========================================================
-
-   * VOUCHER DISCOUNT
-
-   * ==========================================================
-
-   */
-
-  const voucherDiscount = appliedVoucher?.discountAmount ?? 0;
-
-  const discountedSubtotal = appliedVoucher?.finalSubtotal ?? subtotal;
-
-  /**
-
-   * ==========================================================
-
-   * ORDER TOTAL
-
-   * ==========================================================
-
-   */
-
-  const orderTotal = discountedSubtotal + shippingCost;
+console.log("[CHECKOUT SHIPPING DEBUG]", {
+  selectedShippingProvider,
+  discountedSubtotal,
+  normalShippingCost: internalShippingResult.normalShippingCost,
+  shippingDiscount: internalShippingResult.shippingDiscount,
+  internalShippingCost: internalShippingResult.shippingCost,
+  calculatedShippingCost: shippingCost,
+  calculatedOrderTotal: orderTotal,
+});
 
   /**
 
@@ -1218,25 +1210,7 @@ export default function CheckoutForm({
                 </>
               )}
 
-              {/* ADD ADDRESS FOOTER */}
-
-              {addresses.length > 0 && (
-                <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
-                  <Link
-                    href="/customer/addresses/create"
-
-                    className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-cyan-200 px-3 py-3 text-cyan-700 transition hover:bg-cyan-50"
-                  >
-                    <span className="flex min-w-0 items-center gap-2 text-xs font-bold">
-                      <Plus className="h-4 w-4 shrink-0" />
-                      Tambah alamat baru
-                    </span>
-
-                    <ChevronRight className="h-4 w-4 shrink-0" />
-                  </Link>
-                </div>
-              )}
-            </section>
+        </section>
 
             {/* =================================================== */}
 
@@ -1598,31 +1572,42 @@ export default function CheckoutForm({
                     </div>
                   )}
 
-                  {/* SHIPPING */}
+{/* SHIPPING */}
 
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-slate-500">Ongkir</span>
+<div className="flex items-center justify-between gap-3 text-sm">
+  <span className="text-slate-500">Ongkir</span>
 
-                    <span className="font-medium text-slate-700">
-                      {internalShippingResult.available
-                        ? internalShippingResult.isFreeShipping
-                          ? "GRATIS"
-                          : formatRupiah(shippingCost)
-                        : "-"}
-                    </span>
-                  </div>
+  <span className="font-medium text-slate-700">
+    {isInternalShippingSelected &&
+    internalShippingResult.available
+      ? formatRupiah(
+          internalShippingResult.normalShippingCost ??
+            internalShippingResult.shippingCost ??
+            0,
+        )
+      : isPickupSelected
+        ? "GRATIS"
+        : "-"}
+  </span>
+</div>
 
                   {/* SHIPPING SUBSIDY */}
 
-                  {internalShippingResult.isFreeShipping && (
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-emerald-600">Subsidi Ongkir</span>
+                  {isInternalShippingSelected &&
+                    internalShippingResult.available &&
+                    (internalShippingResult.shippingDiscount ?? 0) > 0 && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-emerald-600">Gratis Ongkir</span>
 
-                      <span className="font-semibold text-emerald-600">
-                        GRATIS
-                      </span>
-                    </div>
-                  )}
+                        <span className="font-semibold text-emerald-600">
+                          {internalShippingResult.isFreeShipping
+                            ? "GRATIS"
+                            : `-${formatRupiah(
+                                internalShippingResult.shippingDiscount ?? 0,
+                              )}`}
+                        </span>
+                      </div>
+                    )}
                 </div>
 
                 <div className="my-4 border-t border-slate-200" />
@@ -1653,26 +1638,6 @@ export default function CheckoutForm({
               {/* ================================================= */}
 
               <div className="border-t border-slate-100">
-                {/* HEADER */}
-
-                <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                      <Tag className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-[var(--ocean-950)]">
-                        Voucher & Poin
-                      </p>
-
-                      <p className="mt-0.5 truncate text-xs text-slate-500">
-                        Gunakan voucher atau poin untuk lebih hemat
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="divide-y divide-slate-100">
                   {/* VOUCHER */}
 
@@ -1792,29 +1757,8 @@ export default function CheckoutForm({
                     )}
                   </div>
 
-                  {/* POINTS */}
-
-                  <div className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
-                      <Star className="h-4 w-4 fill-current" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-[var(--ocean-950)]">
-                        Poin Saya
-                      </p>
-
-                      <p className="mt-0.5 truncate text-xs text-slate-500">
-                        Gunakan poin untuk mendapatkan potongan harga
-                      </p>
-                    </div>
-
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
-                  </div>
                 </div>
               </div>
-
-              {/* ================================================= */}
 
               {/* CONFIRMATION                                      */}
 

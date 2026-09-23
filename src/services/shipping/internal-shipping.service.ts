@@ -25,6 +25,7 @@
  * - API
  * - Order Service
  * - Provider kurir lain di masa depan
+ *
  * ============================================================
  */
 
@@ -87,9 +88,19 @@ export interface InternalShippingCalculationResult {
   distanceKm: number | null;
 
   /**
-   * Ongkos kirim final.
+   * Ongkos kirim final setelah subsidi.
    */
   shippingCost: number | null;
+
+  /**
+   * Ongkos kirim normal sebelum subsidi.
+   */
+  normalShippingCost: number | null;
+
+  /**
+   * Nominal subsidi gratis ongkir.
+   */
+  shippingDiscount: number | null;
 
   /**
    * Menandakan apakah customer mendapatkan gratis ongkir.
@@ -132,13 +143,8 @@ const EARTH_RADIUS_KM = 6371;
 /**
  * Mengubah derajat menjadi radian.
  */
-function degreesToRadians(
-  degrees: number
-): number {
-  return (
-    degrees *
-    (Math.PI / 180)
-  );
+function degreesToRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
 }
 
 /**
@@ -148,7 +154,7 @@ function degreesToRadians(
  */
 
 function isValidLatitude(
-  latitude: number | null
+  latitude: number | null,
 ): latitude is number {
   return (
     latitude !== null &&
@@ -159,7 +165,7 @@ function isValidLatitude(
 }
 
 function isValidLongitude(
-  longitude: number | null
+  longitude: number | null,
 ): longitude is number {
   return (
     longitude !== null &&
@@ -170,18 +176,14 @@ function isValidLongitude(
 }
 
 function hasValidLocation(
-  location: ShippingLocation
+  location: ShippingLocation,
 ): location is {
   latitude: number;
   longitude: number;
 } {
   return (
-    isValidLatitude(
-      location.latitude
-    ) &&
-    isValidLongitude(
-      location.longitude
-    )
+    isValidLatitude(location.latitude) &&
+    isValidLongitude(location.longitude)
   );
 }
 
@@ -198,6 +200,7 @@ function hasValidLocation(
  * Catatan:
  * Ini bukan jarak jalan/rute kendaraan.
  * Tahap berikutnya dapat menggunakan routing API jika diperlukan.
+ *
  * ============================================================
  */
 
@@ -209,67 +212,41 @@ export function calculateDistanceKm(
   to: {
     latitude: number;
     longitude: number;
-  }
+  },
 ): number {
-  const latitudeDifference =
-    degreesToRadians(
-      to.latitude -
-        from.latitude
-    );
+  const latitudeDifference = degreesToRadians(
+    to.latitude - from.latitude,
+  );
 
-  const longitudeDifference =
-    degreesToRadians(
-      to.longitude -
-        from.longitude
-    );
+  const longitudeDifference = degreesToRadians(
+    to.longitude - from.longitude,
+  );
 
-  const latitudeFrom =
-    degreesToRadians(
-      from.latitude
-    );
+  const latitudeFrom = degreesToRadians(from.latitude);
 
-  const latitudeTo =
-    degreesToRadians(
-      to.latitude
-    );
+  const latitudeTo = degreesToRadians(to.latitude);
 
   const haversineValue =
-    Math.sin(
-      latitudeDifference / 2
-    ) *
-      Math.sin(
-        latitudeDifference / 2
-      ) +
+    Math.sin(latitudeDifference / 2) *
+      Math.sin(latitudeDifference / 2) +
     Math.cos(latitudeFrom) *
       Math.cos(latitudeTo) *
-      Math.sin(
-        longitudeDifference / 2
-      ) *
-      Math.sin(
-        longitudeDifference / 2
-      );
+      Math.sin(longitudeDifference / 2) *
+      Math.sin(longitudeDifference / 2);
 
   const angularDistance =
     2 *
     Math.atan2(
-      Math.sqrt(
-        haversineValue
-      ),
-      Math.sqrt(
-        1 - haversineValue
-      )
+      Math.sqrt(haversineValue),
+      Math.sqrt(1 - haversineValue),
     );
 
-  const distance =
-    EARTH_RADIUS_KM *
-    angularDistance;
+  const distance = EARTH_RADIUS_KM * angularDistance;
 
   /**
    * Bulatkan hingga 2 angka desimal.
    */
-  return Math.round(
-    distance * 100
-  ) / 100;
+  return Math.round(distance * 100) / 100;
 }
 
 /**
@@ -279,7 +256,7 @@ export function calculateDistanceKm(
  */
 
 export function calculateInternalShipping(
-  input: InternalShippingCalculationInput
+  input: InternalShippingCalculationInput,
 ): InternalShippingCalculationResult {
   const {
     storeLocation,
@@ -296,7 +273,7 @@ export function calculateInternalShipping(
 
   function unavailable(
     reason: string,
-    distanceKm: number | null = null
+    distanceKm: number | null = null,
   ): InternalShippingCalculationResult {
     return {
       available: false,
@@ -308,6 +285,10 @@ export function calculateInternalShipping(
       distanceKm,
 
       shippingCost: null,
+
+      normalShippingCost: null,
+
+      shippingDiscount: null,
 
       isFreeShipping: false,
 
@@ -327,7 +308,7 @@ export function calculateInternalShipping(
 
   if (!config.enabled) {
     return unavailable(
-      "Kurir internal sedang tidak tersedia."
+      "Kurir internal sedang tidak tersedia.",
     );
   }
 
@@ -337,13 +318,9 @@ export function calculateInternalShipping(
    * ----------------------------------------------------------
    */
 
-  if (
-    !hasValidLocation(
-      storeLocation
-    )
-  ) {
+  if (!hasValidLocation(storeLocation)) {
     return unavailable(
-      "Lokasi toko belum dikonfigurasi."
+      "Lokasi toko belum dikonfigurasi.",
     );
   }
 
@@ -353,13 +330,9 @@ export function calculateInternalShipping(
    * ----------------------------------------------------------
    */
 
-  if (
-    !hasValidLocation(
-      customerLocation
-    )
-  ) {
+  if (!hasValidLocation(customerLocation)) {
     return unavailable(
-      "Lokasi GPS alamat pengiriman belum tersedia."
+      "Lokasi GPS alamat pengiriman belum tersedia.",
     );
   }
 
@@ -370,57 +343,47 @@ export function calculateInternalShipping(
    */
 
   if (
-    !Number.isFinite(
-      config.baseFee
-    ) ||
+    !Number.isFinite(config.baseFee) ||
     config.baseFee < 0
   ) {
     return unavailable(
-      "Konfigurasi biaya dasar kurir tidak valid."
+      "Konfigurasi biaya dasar kurir tidak valid.",
     );
   }
 
   if (
-    !Number.isFinite(
-      config.perKmFee
-    ) ||
+    !Number.isFinite(config.perKmFee) ||
     config.perKmFee < 0
   ) {
     return unavailable(
-      "Konfigurasi biaya per kilometer tidak valid."
+      "Konfigurasi biaya per kilometer tidak valid.",
     );
   }
 
   if (
-    !Number.isFinite(
-      config.minFee
-    ) ||
+    !Number.isFinite(config.minFee) ||
     config.minFee < 0
   ) {
     return unavailable(
-      "Konfigurasi minimum ongkir tidak valid."
+      "Konfigurasi minimum ongkir tidak valid.",
     );
   }
 
   if (
-    !Number.isFinite(
-      config.freeMaxDiscount
-    ) ||
+    !Number.isFinite(config.freeMaxDiscount) ||
     config.freeMaxDiscount < 0
   ) {
     return unavailable(
-      "Konfigurasi maksimum subsidi ongkir tidak valid."
+      "Konfigurasi maksimum subsidi ongkir tidak valid.",
     );
   }
 
   if (
-    !Number.isFinite(
-      config.maxDistanceKm
-    ) ||
+    !Number.isFinite(config.maxDistanceKm) ||
     config.maxDistanceKm <= 0
   ) {
     return unavailable(
-      "Konfigurasi jarak maksimum tidak valid."
+      "Konfigurasi jarak maksimum tidak valid.",
     );
   }
 
@@ -430,11 +393,10 @@ export function calculateInternalShipping(
    * ----------------------------------------------------------
    */
 
-  const distanceKm =
-    calculateDistanceKm(
-      storeLocation,
-      customerLocation
-    );
+  const distanceKm = calculateDistanceKm(
+    storeLocation,
+    customerLocation,
+  );
 
   /**
    * ----------------------------------------------------------
@@ -442,13 +404,10 @@ export function calculateInternalShipping(
    * ----------------------------------------------------------
    */
 
-  if (
-    distanceKm >
-    config.maxDistanceKm
-  ) {
+  if (distanceKm > config.maxDistanceKm) {
     return unavailable(
       `Alamat berada di luar jangkauan pengiriman maksimal ${config.maxDistanceKm} KM.`,
-      distanceKm
+      distanceKm,
     );
   }
 
@@ -459,8 +418,7 @@ export function calculateInternalShipping(
    */
 
   const normalizedSubtotal =
-    Number.isFinite(subtotal) &&
-    subtotal > 0
+    Number.isFinite(subtotal) && subtotal > 0
       ? subtotal
       : 0;
 
@@ -471,8 +429,7 @@ export function calculateInternalShipping(
    *
    * Formula:
    *
-   * baseFee +
-   * (distanceKm * perKmFee)
+   * baseFee + (distanceKm * perKmFee)
    *
    * kemudian:
    *
@@ -483,27 +440,21 @@ export function calculateInternalShipping(
    */
 
   const distanceFee =
-    distanceKm *
-    config.perKmFee;
+    distanceKm * config.perKmFee;
 
   const rawShippingCost =
-    config.baseFee +
-    distanceFee;
+    config.baseFee + distanceFee;
 
   const normalShippingCost =
     Math.max(
       rawShippingCost,
-      config.minFee
+      config.minFee,
     );
 
   const isEligibleForShippingSubsidy =
-    config.freeShippingThreshold !==
-      null &&
-    Number.isFinite(
-      config.freeShippingThreshold
-    ) &&
-    config.freeShippingThreshold >
-      0 &&
+    config.freeShippingThreshold !== null &&
+    Number.isFinite(config.freeShippingThreshold) &&
+    config.freeShippingThreshold > 0 &&
     normalizedSubtotal >=
       config.freeShippingThreshold;
 
@@ -511,27 +462,39 @@ export function calculateInternalShipping(
     isEligibleForShippingSubsidy
       ? Math.min(
           normalShippingCost,
-          config.freeMaxDiscount
+          config.freeMaxDiscount,
         )
       : 0;
 
   const finalShippingCost =
     Math.max(
       0,
-      normalShippingCost -
-        shippingDiscount
+      normalShippingCost - shippingDiscount,
     );
 
   /**
    * ----------------------------------------------------------
-   * Ongkir dibulatkan ke Rupiah penuh.
+   * ROUND SHIPPING VALUES
    * ----------------------------------------------------------
+   *
+   * Semua nilai biaya dibulatkan ke Rupiah penuh
+   * agar nilai yang ditampilkan konsisten.
    */
 
+  const roundedNormalShippingCost =
+    Math.round(normalShippingCost);
+
+  const roundedShippingDiscount =
+    Math.round(shippingDiscount);
+
   const roundedShippingCost =
-    Math.round(
-      finalShippingCost
-    );
+    Math.round(finalShippingCost);
+
+  /**
+   * ----------------------------------------------------------
+   * FINAL RESULT
+   * ----------------------------------------------------------
+   */
 
   return {
     available: true,
@@ -545,6 +508,12 @@ export function calculateInternalShipping(
     shippingCost:
       roundedShippingCost,
 
+    normalShippingCost:
+      roundedNormalShippingCost,
+
+    shippingDiscount:
+      roundedShippingDiscount,
+
     isFreeShipping:
       roundedShippingCost === 0,
 
@@ -552,9 +521,7 @@ export function calculateInternalShipping(
       config.baseFee,
 
     distanceFee:
-      Math.round(
-        distanceFee
-      ),
+      Math.round(distanceFee),
 
     reason: null,
   };

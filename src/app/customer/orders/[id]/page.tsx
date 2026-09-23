@@ -897,6 +897,36 @@ try {
                   </span>
                 </div>
 
+                {Number(order.voucherDiscount) > 0 && (
+  <div className="flex items-center justify-between gap-4 text-sm">
+    <span className="text-slate-500">
+      Diskon Voucher
+    </span>
+
+    <span className="font-medium text-emerald-600">
+      -{formatCurrency(Number(order.voucherDiscount))}
+    </span>
+  </div>
+)}
+
+{order.voucherCode && (
+  <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+    <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+      Voucher Digunakan
+    </p>
+
+    <p className="mt-1 font-semibold text-emerald-900">
+      {order.voucherCode}
+    </p>
+
+    {order.voucherName && (
+      <p className="mt-1 text-xs text-emerald-700">
+        {order.voucherName}
+      </p>
+    )}
+  </div>
+)}
+
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-slate-500">
                     Ongkos Kirim
@@ -948,6 +978,86 @@ try {
                   ) : (
                     <CreditCard className="h-5 w-5 text-slate-700" />
                   )}
+
+                  {order.paymentProof && (
+  <div className="mt-4 rounded-xl border border-slate-200 p-4">
+    <p className="text-sm font-semibold text-slate-900">
+      Informasi Bukti Pembayaran
+    </p>
+
+    <div className="mt-3 space-y-3 text-sm">
+      {order.paymentProof.bankName && (
+        <div className="flex items-start justify-between gap-4">
+          <span className="text-slate-500">
+            Bank
+          </span>
+
+          <span className="text-right font-medium text-slate-900">
+            {order.paymentProof.bankName}
+          </span>
+        </div>
+      )}
+
+      {order.paymentProof.accountName && (
+        <div className="flex items-start justify-between gap-4">
+          <span className="text-slate-500">
+            Nama Pengirim
+          </span>
+
+          <span className="text-right font-medium text-slate-900">
+            {order.paymentProof.accountName}
+          </span>
+        </div>
+      )}
+
+      {order.paymentProof.accountNumber && (
+        <div className="flex items-start justify-between gap-4">
+          <span className="text-slate-500">
+            Nomor Rekening
+          </span>
+
+          <span className="text-right font-mono font-medium text-slate-900">
+            {order.paymentProof.accountNumber}
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-start justify-between gap-4">
+        <span className="text-slate-500">
+          Diunggah
+        </span>
+
+        <span className="text-right text-slate-700">
+          {formatDate(order.paymentProof.createdAt)}
+        </span>
+      </div>
+
+      {order.paymentProof.verifiedAt && (
+        <div className="flex items-start justify-between gap-4">
+          <span className="text-slate-500">
+            Diverifikasi
+          </span>
+
+          <span className="text-right text-slate-700">
+            {formatDate(order.paymentProof.verifiedAt)}
+          </span>
+        </div>
+      )}
+    </div>
+
+    {isPaymentRejected && order.paymentProof.rejectionReason && (
+      <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+          Alasan Penolakan
+        </p>
+
+        <p className="mt-1 text-sm leading-6 text-red-800">
+          {order.paymentProof.rejectionReason}
+        </p>
+      </div>
+    )}
+  </div>
+)}
 
                 </div>
 
@@ -1117,16 +1227,66 @@ try {
 
                 <div className="space-y-4">
 
-                  <div className="rounded-xl bg-slate-50 p-4">
+                  <div className="space-y-4">
+  <div className="rounded-xl bg-slate-50 p-4">
+    <p className="text-sm font-medium text-slate-900">
+      {paymentName}
+    </p>
 
-                    <p className="text-sm font-medium text-slate-900">
-                      {paymentName}
-                    </p>
+    {paymentDescription && (
+      <p className="mt-1 text-sm leading-6 text-slate-500">
+        {paymentDescription}
+      </p>
+    )}
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      {paymentDescription ??
-                        "Status pembayaran akan diperbarui setelah proses verifikasi."}
-                    </p>
+    {paymentChannel?.bankName && (
+      <div className="mt-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Bank
+        </p>
+
+        <p className="mt-1 font-semibold text-slate-900">
+          {paymentChannel.bankName}
+        </p>
+      </div>
+    )}
+
+    {paymentChannel?.accountNumber && (
+      <div className="mt-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Nomor Rekening
+        </p>
+
+        <p className="mt-1 break-all font-mono text-lg font-semibold tracking-wide text-slate-900">
+          {paymentChannel.accountNumber}
+        </p>
+      </div>
+    )}
+
+    {paymentChannel?.accountHolder && (
+      <div className="mt-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Atas Nama
+        </p>
+
+        <p className="mt-1 font-medium text-slate-900">
+          {paymentChannel.accountHolder}
+        </p>
+      </div>
+    )}
+  </div>
+
+  {paymentChannel?.instructions && (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <p className="text-sm font-semibold text-slate-900">
+        Petunjuk Pembayaran
+      </p>
+
+      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">
+        {paymentChannel.instructions}
+      </p>
+    </div>
+  )}
 
                   </div>
 
