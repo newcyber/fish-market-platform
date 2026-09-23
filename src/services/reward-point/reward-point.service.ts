@@ -104,10 +104,9 @@ export function parseWeightLabelToGrams(
    * 700~800g
    */
 
-  const rangeMatch =
-    normalized.match(
-      /^(\d+(?:\.\d+)?)[\-–~](\d+(?:\.\d+)?)(kg|g|gram|gr)$/
-    );
+  const rangeMatch = normalized.match(
+    /^(\d+(?:\.\d+)?)[-–~](\d+(?:\.\d+)?)(kg|g|gram|gr)$/,
+  );
 
   if (rangeMatch) {
     const minimum =
@@ -144,10 +143,9 @@ export function parseWeightLabelToGrams(
    * ==========================================================
    */
 
-  const singleMatch =
-    normalized.match(
-      /^(\d+(?:\.\d+)?)(kg|g|gram|gr)$/
-    );
+  const singleMatch = normalized.match(
+    /^(\d+(?:\.\d+)?)(kg|g|gram|gr)$/,
+  );
 
   if (!singleMatch) {
     return null;
