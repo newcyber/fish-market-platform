@@ -33,6 +33,7 @@ import ProductService from "@/services/product/product.service";
 import settingsService from "@/services/settings/settings.service";
 
 import AddToCartButton from "@/components/customer/products/AddToCartButton";
+import ProductShareButton from "@/components/customer/products/ProductShareButton";
 
 import ProductDetailGallery from "@/components/customer/products/ProductDetailGallery";
 import ProductDescription from "@/components/customer/products/ProductDescription";
@@ -878,61 +879,60 @@ const normalizedFlashSaleItems =
               <div className="p-5 lg:p-6">
 
                 <ProductDetailGallery
-                  productName={
-                    product.name
-                  }
+  productName={
+    product.name
+  }
 
-                  images={
-                    images.map(
-                      (image) => ({
-                        id:
-                          image.id,
+  images={
+    images.map(
+      (image) => ({
+        id: image.id,
+        image: image.image,
+        isThumbnail: image.isThumbnail,
+        sortOrder: image.sortOrder,
+      })
+    )
+  }
 
-                        image:
-                          image.image,
+  shareButton={
+    <ProductShareButton
+      productName={product.name}
+      productSlug={product.slug}
+    />
+  }
+  favoriteButton={
+    <ToggleWishlistButton
+      productId={
+        product.id
+      }
 
-                        isThumbnail:
-                          image.isThumbnail,
+      initialInWishlist={
+        initialInWishlist
+      }
 
-                        sortOrder:
-                          image.sortOrder,
-                      })
-                    )
-                  }
-
-                  favoriteButton={
-                    <ToggleWishlistButton
-                      productId={
-                        product.id
-                      }
-
-                      initialInWishlist={
-                        initialInWishlist
-                      }
-
-                      className="
-                        flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-full
-                        border
-                        border-slate-200/80
-                        bg-white/95
-                        text-slate-700
-                        shadow-md
-                        backdrop-blur-sm
-                        transition-all
-                        duration-200
-                        hover:scale-105
-                        hover:bg-white
-                        hover:text-red-500
-                        active:scale-95
-                      "
-                    />
-                  }
-                />
+      className="
+        flex
+        h-11
+        w-11
+        items-center
+        justify-center
+        rounded-full
+        border
+        border-slate-200/80
+        bg-white/95
+        text-slate-700
+        shadow-md
+        backdrop-blur-sm
+        transition-all
+        duration-200
+        hover:scale-105
+        hover:bg-white
+        hover:text-red-500
+        active:scale-95
+      "
+    />
+  }
+/>
 
               </div>
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -45,10 +46,12 @@ interface ProductDetailGalleryProps {
    * OPTIONAL OVERLAY
    *
    * Digunakan untuk menampilkan komponen
-   * seperti tombol wishlist di atas gambar.
+   * seperti tombol wishlist dan share di atas gambar.
    */
 
   favoriteButton?: ReactNode;
+
+  shareButton?: ReactNode;
 }
 
 /**
@@ -64,6 +67,7 @@ interface ProductDetailGalleryProps {
  * - Active thumbnail
  * - Previous / next image
  * - Favorite button overlay
+ * - Share button overlay
  * - Empty state
  * - Responsive
  *
@@ -76,6 +80,7 @@ export default function ProductDetailGallery({
   productName,
   images,
   favoriteButton,
+  shareButton,
 }: ProductDetailGalleryProps) {
   /**
    * ==========================================================
@@ -84,28 +89,20 @@ export default function ProductDetailGallery({
    */
 
   const sortedImages = useMemo(() => {
-    return [...images].sort(
-      (a, b) => {
-        if (
-          a.isThumbnail &&
-          !b.isThumbnail
-        ) {
-          return -1;
-        }
-
-        if (
-          !a.isThumbnail &&
-          b.isThumbnail
-        ) {
-          return 1;
-        }
-
-        return (
-          (a.sortOrder ?? 0) -
-          (b.sortOrder ?? 0)
-        );
+    return [...images].sort((a, b) => {
+      if (a.isThumbnail && !b.isThumbnail) {
+        return -1;
       }
-    );
+
+      if (!a.isThumbnail && b.isThumbnail) {
+        return 1;
+      }
+
+      return (
+        (a.sortOrder ?? 0) -
+        (b.sortOrder ?? 0)
+      );
+    });
   }, [images]);
 
   /**
@@ -120,8 +117,7 @@ export default function ProductDetailGallery({
   ] = useState(0);
 
   const activeImage =
-    sortedImages[activeIndex] ??
-    null;
+    sortedImages[activeIndex] ?? null;
 
   const hasMultipleImages =
     sortedImages.length > 1;
@@ -137,11 +133,10 @@ export default function ProductDetailGallery({
       return;
     }
 
-    setActiveIndex(
-      (current) =>
-        current === 0
-          ? sortedImages.length - 1
-          : current - 1
+    setActiveIndex((current) =>
+      current === 0
+        ? sortedImages.length - 1
+        : current - 1
     );
   };
 
@@ -156,12 +151,10 @@ export default function ProductDetailGallery({
       return;
     }
 
-    setActiveIndex(
-      (current) =>
-        current ===
-        sortedImages.length - 1
-          ? 0
-          : current + 1
+    setActiveIndex((current) =>
+      current === sortedImages.length - 1
+        ? 0
+        : current + 1
     );
   };
 
@@ -195,13 +188,11 @@ export default function ProductDetailGallery({
 
   return (
     <div className="w-full">
-
       {/* ======================================================
           MAIN IMAGE
       ====================================================== */}
 
       <div className="group relative aspect-square w-full overflow-hidden bg-muted">
-
         {/* PRODUCT IMAGE */}
 
         <Image
@@ -215,20 +206,25 @@ export default function ProductDetailGallery({
         />
 
         {/* ====================================================
-            FAVORITE BUTTON
+            SHARE AND FAVORITE BUTTONS
         ==================================================== */}
 
-        {favoriteButton && (
+        {(shareButton || favoriteButton) && (
           <div
             className="
               absolute
               right-3
               top-3
               z-30
+              flex
+              flex-col
+              gap-2
               sm:right-4
               sm:top-4
             "
           >
+            {shareButton}
+
             {favoriteButton}
           </div>
         )}
@@ -308,57 +304,52 @@ export default function ProductDetailGallery({
 
       {hasMultipleImages && (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {sortedImages.map((image, index) => {
+            const isActive =
+              index === activeIndex;
 
-          {sortedImages.map(
-            (image, index) => {
-              const isActive =
-                index === activeIndex;
-
-              return (
-                <button
-                  key={image.id}
-                  type="button"
-                  onClick={() =>
-                    setActiveIndex(index)
-                  }
-                  aria-label={`Lihat gambar ${
+            return (
+              <button
+                key={image.id}
+                type="button"
+                onClick={() =>
+                  setActiveIndex(index)
+                }
+                aria-label={`Lihat gambar ${
+                  index + 1
+                }`}
+                className={[
+                  "relative h-18 w-18",
+                  "shrink-0",
+                  "overflow-hidden",
+                  "rounded-lg",
+                  "border-2",
+                  "transition-all",
+                  isActive
+                    ? "border-cyan-600"
+                    : [
+                        "border-transparent",
+                        "opacity-75",
+                        "hover:border-slate-300",
+                        "hover:opacity-100",
+                      ].join(" "),
+                ].join(" ")}
+              >
+                <Image
+                  src={image.image}
+                  alt={`${productName} ${
                     index + 1
                   }`}
-                  className={[
-                    "relative h-18 w-18",
-                    "shrink-0",
-                    "overflow-hidden",
-                    "rounded-lg",
-                    "border-2",
-                    "transition-all",
-                    isActive
-                      ? "border-cyan-600"
-                      : [
-                          "border-transparent",
-                          "opacity-75",
-                          "hover:border-slate-300",
-                          "hover:opacity-100",
-                        ].join(" "),
-                  ].join(" ")}
-                >
-                  <Image
-                    src={image.image}
-                    alt={`${productName} ${
-                      index + 1
-                    }`}
-                    fill
-                    sizes="72px"
-                    className="object-cover"
-                    unoptimized
-                  />
-                </button>
-              );
-            }
-          )}
-
+                  fill
+                  sizes="72px"
+                  className="object-cover"
+                  unoptimized
+                />
+              </button>
+            );
+          })}
         </div>
       )}
-
     </div>
   );
 }
