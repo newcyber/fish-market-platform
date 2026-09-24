@@ -39,10 +39,27 @@ export default async function PisjoLandingPage() {
 
   const rewardSection = config.rewardSection ?? {};
 
-  const rewardButtonHref =
-    rewardSection.buttonHref === "/rewards"
-      ? "/customer/rewards"
-      : rewardSection.buttonHref;
+  const rewardButtonHref = (() => {
+    const rawHref = rewardSection.buttonHref?.trim();
+
+    if (!rawHref) {
+      return null;
+    }
+
+    // URL absolut atau URL eksternal dipertahankan.
+    if (!rawHref.startsWith("/")) {
+      return rawHref;
+    }
+
+    // /rewards harus diarahkan ke halaman customer rewards.
+    const normalizedPath =
+      rawHref === "/rewards"
+        ? "/customer/rewards"
+        : rawHref;
+
+    // Path internal diarahkan ke storefront.
+    return `${urls.store.replace(/\/+$/, "")}/${normalizedPath.replace(/^\/+/, "")}`;
+  })();
 
   const tutorialSection = config.tutorialSection ?? {};
 
@@ -550,7 +567,7 @@ export default async function PisjoLandingPage() {
               </div>
             ) : null}
 
-            {rewardSection.buttonHref && rewardSection.buttonLabel ? (
+            {rewardButtonHref && rewardSection.buttonLabel ? (
               <div className="mt-10 flex justify-center">
                 <a
                   href={rewardButtonHref}
