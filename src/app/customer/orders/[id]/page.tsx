@@ -774,47 +774,7 @@ try {
                   </div>
                 </div>
 
-                {/* SAVED COORDINATES */}
-
-                {order.address.latitude !== null &&
-                  order.address.longitude !== null && (
-                    <div className="rounded-xl bg-slate-50 p-4">
-
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-slate-500" />
-
-                        <p className="text-sm font-medium text-slate-700">
-                          Pin Lokasi Tersimpan
-                        </p>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-3">
-
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Latitude
-                          </p>
-
-                          <p className="mt-1 font-mono text-sm font-medium">
-                            {order.address.latitude.toString()}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Longitude
-                          </p>
-
-                          <p className="mt-1 font-mono text-sm font-medium">
-                            {order.address.longitude.toString()}
-                          </p>
-                        </div>
-
-                      </div>
-                    </div>
-                  )}
-
-                {/* NOTES */}
+              {/* NOTES */}
 
                 {order.address.notes && (
                   <div className="rounded-xl border border-slate-200 p-4">

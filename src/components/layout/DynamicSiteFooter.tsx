@@ -162,7 +162,7 @@ export default async function DynamicSiteFooter() {
     "FM";
 
   return (
-    <footer className="mt-12 border-t border-slate-200 bg-white sm:mt-16">
+    <footer className="hidden mt-12 border-t border-slate-200 bg-white sm:mt-16 md:block">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-14">
 
         {/* ================================================== */}

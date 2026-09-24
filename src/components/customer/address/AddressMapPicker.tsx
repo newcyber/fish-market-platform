@@ -30,6 +30,7 @@ import L from "leaflet";
 interface AddressMapPickerProps {
   latitude?: number | null;
   longitude?: number | null;
+  showCoordinates?: boolean;
 
   onChange: (
     latitude: number,
@@ -170,6 +171,7 @@ export default function AddressMapPicker({
   latitude,
   longitude,
   onChange,
+  showCoordinates = true,
 }: AddressMapPickerProps) {
   /**
    * ==========================================================
@@ -621,7 +623,8 @@ useEffect(() => {
           COORDINATES
           ====================================================== */}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {showCoordinates && (
+        <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">
             Latitude
@@ -642,6 +645,7 @@ useEffect(() => {
           </p>
         </div>
       </div>
+      )}
     </div>
   );
 }

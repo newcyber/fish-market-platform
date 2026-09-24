@@ -686,6 +686,7 @@ export default function CreateAddressForm() {
         </div>
 
         <AddressMapPicker
+         showCoordinates={false}
           latitude={
             formData.latitude.trim() === "" ? null : Number(formData.latitude)
           }
@@ -703,55 +704,11 @@ export default function CreateAddressForm() {
           }}
         />
 
-        {/* ==================================================== */}
-        {/* MANUAL COORDINATE INPUT */}
-        {/* ==================================================== */}
-
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="latitude"
-              className="mb-2 block text-sm font-medium"
-            >
-              Latitude
-            </label>
-
-            <input
-              id="latitude"
-              name="latitude"
-              type="number"
-              step="any"
-              value={formData.latitude}
-              onChange={handleChange}
-              placeholder="-6.2088000"
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="longitude"
-              className="mb-2 block text-sm font-medium"
-            >
-              Longitude
-            </label>
-
-            <input
-              id="longitude"
-              name="longitude"
-              type="number"
-              step="any"
-              value={formData.longitude}
-              onChange={handleChange}
-              placeholder="106.8456000"
-              className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition focus:ring-2"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* ====================================================== */}
-      {/* DEFAULT */}
+
+     </div>
+
+     {/* DEFAULT */}
       {/* ====================================================== */}
 
       <label className="flex cursor-pointer items-start gap-3 rounded-xl border p-4">
