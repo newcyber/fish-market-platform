@@ -55,7 +55,7 @@ export function ProductToolbar({
   const [stockValue, setStockValue] = useState(stock);
 
 useEffect(() => {
-  const timeout = setTimeout(() => {
+  const timeout = window.setTimeout(() => {
     const params = new URLSearchParams(searchParams.toString());
 
     if (searchValue.trim()) {
@@ -83,15 +83,26 @@ useEffect(() => {
     }
 
     // Filter/search berubah → kembali ke halaman pertama.
-    // Jangan hapus page ketika hanya pagination yang berubah.
     params.delete("page");
 
     const query = params.toString();
+    const nextUrl = query ? `${pathname}?${query}` : pathname;
 
-    router.replace(query ? `${pathname}?${query}` : pathname);
+    // Hindari router.replace() jika URL tidak berubah.
+    const currentUrl = searchParams.toString()
+      ? `${pathname}?${searchParams.toString()}`
+      : pathname;
+
+    if (nextUrl === currentUrl) {
+      return;
+    }
+
+    router.replace(nextUrl);
   }, 400);
 
-  return () => clearTimeout(timeout);
+  return () => {
+    window.clearTimeout(timeout);
+  };
 }, [
   searchValue,
   categoryValue,
@@ -99,6 +110,7 @@ useEffect(() => {
   stockValue,
   pathname,
   router,
+  searchParams,
 ]);
 
   const hasFilters =

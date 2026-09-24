@@ -53,9 +53,7 @@ export default async function PisjoLandingPage() {
 
     // /rewards harus diarahkan ke halaman customer rewards.
     const normalizedPath =
-      rawHref === "/rewards"
-        ? "/customer/rewards"
-        : rawHref;
+      rawHref === "/rewards" ? "/customer/rewards" : rawHref;
 
     // Path internal diarahkan ke storefront.
     return `${urls.store.replace(/\/+$/, "")}/${normalizedPath.replace(/^\/+/, "")}`;
@@ -162,23 +160,23 @@ export default async function PisjoLandingPage() {
           <div className="absolute -bottom-28 left-[-15%] h-48 w-[130%] rounded-[50%] border-t border-white/80 bg-[#bcecff]/35" />
         </div>
 
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-20 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:px-8 lg:pb-28 lg:pt-24">
+        <div className="mx-auto grid max-w-7xl items-center gap-7 px-4 pb-12 pt-8 sm:gap-12 sm:px-6 sm:pb-24 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:px-8 lg:pb-28 lg:pt-24">
           {/* Copy */}
 
           <div className="max-w-2xl">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#159ee8]/15 bg-white/80 px-3.5 py-2 text-xs font-bold text-[#0788e8] shadow-sm backdrop-blur-sm">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#159ee8]/15 bg-white/80 px-3 py-1.5 text-[10px] font-bold text-[#0788e8] shadow-sm backdrop-blur-sm sm:mb-6 sm:px-3.5 sm:py-2 sm:text-xs">
               <Sparkles className="h-3.5 w-3.5" />
               {hero.eyebrow || "Belanja seafood jadi lebih mudah"}
             </div>
 
-            <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-[var(--pisjo-navy)] sm:text-5xl lg:text-6xl">
+            <h1 className="text-[2.15rem] font-black leading-[1.05] tracking-tight text-[var(--pisjo-navy)] sm:text-5xl lg:text-6xl">
               {hero.title || "Seafood pilihan,"}
               <span className="block text-[var(--pisjo-primary)]">
                 {hero.highlight || "langsung lebih mudah."}
               </span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-7 text-[var(--pisjo-text-secondary)] sm:text-lg sm:leading-8">
+            <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--pisjo-text-secondary)] sm:mt-6 sm:text-lg sm:leading-8">
               {hero.description ||
                 "Temukan berbagai kebutuhan seafood dan produk pilihan melalui Pisjo Market. Belanja lebih praktis, pesan dengan mudah, dan pantau pesanan Anda dalam satu tempat."}
             </p>
@@ -187,11 +185,11 @@ export default async function PisjoLandingPage() {
             {/* HERO CTA                                            */}
             {/* ================================================== */}
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap">
               {/* Store */}
               <a
                 href={urls.store}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-primary)] px-6 text-sm font-bold text-white shadow-lg shadow-[rgb(7_136_232_/_0.20)] transition hover:-translate-y-0.5 hover:bg-[var(--pisjo-ocean)]"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--pisjo-primary)] px-6 text-sm font-black text-white shadow-lg shadow-[rgb(7_136_232_/_0.20)] transition hover:-translate-y-0.5 hover:bg-[var(--pisjo-ocean)] sm:w-auto sm:rounded-2xl"
               >
                 <ShoppingBag className="h-5 w-5" />
 
@@ -206,7 +204,7 @@ export default async function PisjoLandingPage() {
                   href={androidUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
+                  className="hidden min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)] sm:inline-flex"
                 >
                   <Smartphone className="h-5 w-5 shrink-0 text-[var(--pisjo-primary)]" />
 
@@ -223,7 +221,7 @@ export default async function PisjoLandingPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Download iOS"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
+                  className="hidden min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)] sm:inline-flex"
                 >
                   {/* Apple Logo */}
                   <svg
@@ -241,7 +239,7 @@ export default async function PisjoLandingPage() {
               ) : null}
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-500">
+            <div className="mt-6 flex flex-wrap gap-x-4 gap-y-3 text-xs text-slate-500 sm:mt-8 sm:gap-x-6 sm:text-sm">
               <div className="flex items-center gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-green)]/15 text-[var(--pisjo-green)]">
                   <Check className="h-3 w-3" />
@@ -262,12 +260,12 @@ export default async function PisjoLandingPage() {
 
           {/* Visual */}
 
-          <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+          <div className="relative mx-auto -mt-1 w-full max-w-xl lg:mt-0 lg:max-w-none">
             {heroImage ? (
               /* =========================
                  HERO IMAGE FROM ADMIN
                  ========================= */
-              <div className="relative mx-auto aspect-[4/3] w-full max-w-xl overflow-hidden rounded-[2rem] border border-white bg-white shadow-2xl shadow-slate-900/10">
+              <div className="relative mx-auto aspect-[4/3] w-full max-w-xl overflow-hidden rounded-[1.5rem] border border-white bg-white shadow-xl shadow-slate-900/10 sm:rounded-[2rem]">
                 <Image
                   src={heroImage}
                   alt={hero.title || storeName}
@@ -388,68 +386,68 @@ export default async function PisjoLandingPage() {
                   Lebih untung belanja langsung
                 </div>
 
-                <h2 className="mt-5 max-w-xl text-3xl font-black tracking-tight sm:text-4xl">
+                <h2 className="mt-4 max-w-xl text-2xl font-black leading-tight tracking-tight sm:mt-5 sm:text-4xl">
                   Sudah pernah belanja seafood melalui marketplace?
                 </h2>
 
-                <p className="mt-5 max-w-xl text-sm leading-7 text-cyan-50 sm:text-base">
+                <p className="mt-4 max-w-xl text-sm leading-6 text-cyan-50 sm:mt-5 sm:text-base sm:leading-7">
                   Sekarang nikmati pengalaman belanja langsung di PISJO MARKET
                   dengan manfaat khusus untuk pelanggan setia.
                 </p>
 
                 <a
                   href={urls.store}
-                  className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[var(--pisjo-navy)] shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50"
+                  className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[var(--pisjo-navy)] shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50 sm:mt-7"
                 >
                   Mulai Belanja
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="flex gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  <ShoppingBag className="mt-0.5 h-5 w-5 shrink-0 text-cyan-100" />
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-1">
+                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
+                  <ShoppingBag className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
                   <div>
-                    <h3 className="text-sm font-extrabold text-white">
+                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
                       Harga khusus PISJO
                     </h3>
-                    <p className="mt-1 text-xs leading-5 text-cyan-100">
+                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
                       Nikmati penawaran langsung dari PISJO MARKET.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-cyan-100" />
+                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
                   <div>
-                    <h3 className="text-sm font-extrabold text-white">
+                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
                       Poin setiap transaksi
                     </h3>
-                    <p className="mt-1 text-xs leading-5 text-cyan-100">
+                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
                       Kumpulkan poin dari aktivitas belanja Anda.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  <PackageCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-100" />
+                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
+                  <PackageCheck className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
                   <div>
-                    <h3 className="text-sm font-extrabold text-white">
+                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
                       Hadiah dari poin
                     </h3>
-                    <p className="mt-1 text-xs leading-5 text-cyan-100">
+                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
                       Tukarkan poin dengan reward yang tersedia.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex gap-3 rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  <ArrowRight className="mt-0.5 h-5 w-5 shrink-0 text-cyan-100" />
+                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
+                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
                   <div>
-                    <h3 className="text-sm font-extrabold text-white">
+                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
                       Repeat order lebih mudah
                     </h3>
-                    <p className="mt-1 text-xs leading-5 text-cyan-100">
+                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
                       Kembali berbelanja tanpa proses yang rumit.
                     </p>
                   </div>
@@ -461,11 +459,95 @@ export default async function PisjoLandingPage() {
       </section>
 
       {/* ====================================================== */}
+      {/* BENEFIT SHORTCUTS                                       */}
+      {/* ====================================================== */}
+
+      <section
+        aria-label="Keuntungan Pisjo Market"
+        className="relative bg-white px-4 py-5 sm:px-6 lg:px-8"
+      >
+        <div className="mx-auto max-w-7xl">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            <a
+              href={urls.store}
+              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
+                <Store className="h-5 w-5" />
+              </span>
+
+              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
+                Harga Khusus
+              </span>
+
+              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
+                Harga spesial untuk pelanggan Pisjo
+              </span>
+            </a>
+
+            <a
+              href={urls.store}
+              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
+                <ShoppingBag className="h-5 w-5" />
+              </span>
+
+              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
+                Poin Belanja
+              </span>
+
+              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
+                Kumpulkan poin setiap transaksi
+              </span>
+            </a>
+
+            <a
+              href={rewardButtonHref ?? urls.store}
+              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
+                <PackageCheck className="h-5 w-5" />
+              </span>
+
+              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
+                Rewards
+              </span>
+
+              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
+                Tukarkan poin dengan hadiah
+              </span>
+            </a>
+
+            <a
+              href={urls.store}
+              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
+                <Fish className="h-5 w-5" />
+              </span>
+
+              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
+                Bersihkan Ikan
+              </span>
+
+              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
+                Pilihan layanan seafood praktis
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================== */}
       {/* BENEFITS                                                */}
       {/* ====================================================== */}
 
       {benefits.length > 0 && (
-        <section className="relative overflow-hidden bg-gradient-to-b from-white via-[#f1faff] to-[#e5f7ff]">
+        <section
+          id="benefits"
+          className="relative overflow-hidden bg-gradient-to-b from-white via-[#f1faff] to-[#e5f7ff]"
+        >
           <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
               {benefitsSection.eyebrow ? (
@@ -517,7 +599,7 @@ export default async function PisjoLandingPage() {
             className="pointer-events-none absolute -right-32 bottom-0 h-80 w-80 rounded-full bg-[#bdefff]/30 blur-3xl"
           />
 
-          <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+          <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
               {rewardSection.eyebrow ? (
                 <p className="text-sm font-bold text-[var(--pisjo-primary)]">
@@ -540,7 +622,7 @@ export default async function PisjoLandingPage() {
 
             {/* Featured rewards */}
             {featuredRewards.length > 0 ? (
-              <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-8 !flex !flex-nowrap min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:!box-border [&>*]:basis-[calc((100%-0.75rem)/2)] [&>*]:min-w-[calc((100%-0.75rem)/2)] [&>*]:max-w-[calc((100%-0.75rem)/2)] [&>*]:shrink-0 [&>*]:snap-start sm:mt-12 sm:!grid sm:!flex-wrap sm:grid-cols-2 sm:gap-5 sm:overflow-visible sm:pb-0 sm:[&>*]:basis-auto sm:[&>*]:min-w-0 sm:[&>*]:max-w-none sm:[&>*]:shrink lg:grid-cols-3">
                 {featuredRewards.map((reward) => (
                   <RewardCard
                     key={reward.id}
@@ -555,7 +637,7 @@ export default async function PisjoLandingPage() {
 
             {/* Compact rewards */}
             {compactRewards.length > 0 ? (
-              <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="mt-6 flex min-w-0 snap-x gap-3 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:min-w-[184px] [&>*]:shrink-0 [&>*]:snap-start sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:pb-0 sm:[&>*]:min-w-0 sm:[&>*]:shrink lg:grid-cols-5">
                 {compactRewards.map((reward) => (
                   <CompactRewardCard
                     key={reward.id}
@@ -630,7 +712,7 @@ export default async function PisjoLandingPage() {
                         <div className="h-1.5 w-20 rounded-full bg-slate-200" />
                       </div>
 
-                      <div className="p-5">
+                      <div className="p-3 sm:p-5">
                         <div className="rounded-2xl bg-white p-4 shadow-sm">
                           <p className="text-[10px] font-semibold text-slate-400">
                             Safari
@@ -804,7 +886,7 @@ export default async function PisjoLandingPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Download Pisjo Market di App Store"
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
+                    className="hidden min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)] sm:inline-flex"
                   >
                     {/* Apple Logo */}
                     <svg
@@ -1058,14 +1140,14 @@ function RewardCard({
   requiredPoints: number;
 }) {
   return (
-    <div className="group overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-      <div className="relative aspect-[4/3] overflow-hidden bg-[#f4fbff]">
+    <div className="group min-w-0 overflow-hidden rounded-[1.35rem] border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+      <div className="relative aspect-[1/1] overflow-hidden bg-[#f4fbff] sm:aspect-[4/3]">
         {image ? (
           <Image
             src={image}
             alt={name}
             fill
-            className="object-contain p-5 transition duration-300 group-hover:scale-105"
+            className="object-contain p-2.5 transition duration-300 group-hover:scale-105 sm:p-5"
             sizes="(max-width: 768px) 50vw, 33vw"
           />
         ) : (
@@ -1076,17 +1158,17 @@ function RewardCard({
       </div>
 
       <div className="p-5">
-        <h3 className="line-clamp-2 text-base font-black text-[var(--pisjo-navy)]">
+        <h3 className="line-clamp-2 text-[11px] font-black leading-4 text-[var(--pisjo-navy)] sm:text-base sm:leading-5">
           {name}
         </h3>
 
         {description ? (
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-[var(--pisjo-text-secondary)]">
+          <p className="mt-1.5 line-clamp-2 text-[10px] leading-4 text-[var(--pisjo-text-secondary)] sm:mt-2 sm:text-sm sm:leading-6">
             {description}
           </p>
         ) : null}
 
-        <div className="mt-4 inline-flex items-center rounded-full bg-[#fff4d6] px-3 py-1.5 text-sm font-black text-[#b77900]">
+        <div className="mt-3 inline-flex items-center rounded-full bg-[#fff4d6] px-2.5 py-1 text-xs font-black text-[#b77900] sm:mt-4 sm:px-3 sm:py-1.5 sm:text-sm">
           {requiredPoints.toLocaleString("id-ID")} Poin
         </div>
       </div>
@@ -1104,14 +1186,14 @@ function CompactRewardCard({
   requiredPoints: number;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#f4fbff]">
+    <div className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-slate-100 bg-white p-2.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:gap-4 sm:p-3">
+      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f4fbff] sm:h-20 sm:w-20">
         {image ? (
           <Image
             src={image}
             alt={name}
             fill
-            className="object-contain p-2"
+            className="object-contain p-1.5 sm:p-2"
             sizes="80px"
           />
         ) : (
@@ -1122,7 +1204,7 @@ function CompactRewardCard({
       </div>
 
       <div className="min-w-0">
-        <h3 className="line-clamp-2 text-sm font-bold text-[var(--pisjo-navy)]">
+        <h3 className="line-clamp-2 text-xs font-bold leading-4 text-[var(--pisjo-navy)] sm:text-sm">
           {name}
         </h3>
 

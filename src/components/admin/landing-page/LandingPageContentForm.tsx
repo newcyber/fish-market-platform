@@ -100,7 +100,7 @@ export default function LandingPageContentForm({
   );
 
   const [heroPrimaryButtonLabel, setHeroPrimaryButtonLabel] = useState(
-    getString(hero.primaryButtonLabel, "Kunjungi Store"),
+    getString(hero.primaryButtonLabel, "Belanja Sekarang"),
   );
 
   const [heroSecondaryButtonLabel, setHeroSecondaryButtonLabel] = useState(
