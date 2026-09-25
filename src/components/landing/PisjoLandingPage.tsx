@@ -18,11 +18,12 @@ import {
   Truck,
 } from "lucide-react";
 
-import HomeFeaturedProducts from "@/components/customer/home/HomeFeaturedProducts";
+import LandingFeaturedProducts from "./LandingFeaturedProducts";
 import LandingFooter from "@/components/landing/LandingFooter";
 import LandingHeader from "@/components/landing/LandingHeader";
 import { serializeHomepageProduct } from "@/lib/products/serialize-homepage-product";
 import landingPageService from "@/repositories/landing-page/landing-page.service";
+import LandingValuePropositions from "./LandingValuePropositions";
 import ProductRepository from "@/repositories/ProductRepository";
 import LandingFaq from "./LandingFaq";
 import LandingTestimonials from "./LandingTestimonials";
@@ -38,9 +39,14 @@ export default async function PisjoLandingPage() {
 
   const productsHref = `${urls.store.replace(/\/+$/, "")}/customer/products`;
 
-  const featuredProducts = (await ProductRepository.findFeatured(6)).map(
-    serializeHomepageProduct,
-  );
+  const featuredProducts = (
+    await ProductRepository.findFeatured(
+      Math.max(
+        1,
+        Math.min(config.featuredProductsSection?.displayLimit ?? 6, 12),
+      ),
+    )
+  ).map(serializeHomepageProduct);
 
   const storeName = brand.storeName;
   const storeDescription = brand.storeDescription;
@@ -49,6 +55,12 @@ export default async function PisjoLandingPage() {
   const hero = config.hero ?? {};
   const benefits = config.benefits ?? [];
   const benefitsSection = config.benefitsSection ?? {};
+  const valuePropositionSection = config.valuePropositionSection ?? {};
+  const tutorialSection = config.tutorialSection ?? {};
+
+  const tutorialSteps = (tutorialSection.steps ?? []).slice(0, 3);
+
+  const howItWorksSection = config.howItWorksSection ?? {};
 
   const rewardSection = config.rewardSection ?? {};
 
@@ -95,6 +107,9 @@ export default async function PisjoLandingPage() {
 
   const heroImage = images.hero ?? null;
 
+  const heroBackgroundImage = images.heroBackground ?? null;
+  const heroBackgroundMobileImage = images.heroBackgroundMobile ?? null;
+
   const storeInitial =
     storeName
       .split(/\s+/)
@@ -122,7 +137,36 @@ export default async function PisjoLandingPage() {
       {/* HERO                                                    */}
       {/* ====================================================== */}
 
-      <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#e8f8ff] via-[#f4fbff] to-white">
+      <section
+        className="pisjo-hero-background relative isolate overflow-hidden bg-gradient-to-b from-[#e8f8ff] via-[#f4fbff] to-white"
+        style={
+          heroBackgroundImage
+            ? {
+                backgroundImage: `url("${heroBackgroundImage}")`,
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+                backgroundRepeat: "no-repeat",
+              }
+            : undefined
+        }
+      >
+        {heroBackgroundMobileImage ? (
+          <style>{`
+            @media (max-width: 767px) {
+              .pisjo-hero-background {
+                background-image: url("${heroBackgroundMobileImage}") !important;
+              }
+            }
+          `}</style>
+        ) : null}
+
+        {heroBackgroundImage || heroBackgroundMobileImage ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-white/10"
+          />
+        ) : null}
+
         {/* Ocean ambient background */}
         <div
           aria-hidden="true"
@@ -212,13 +256,13 @@ export default async function PisjoLandingPage() {
               /* =========================
                  HERO IMAGE FROM ADMIN
                  ========================= */
-              <div className="relative mx-auto aspect-[4/3] w-full max-w-xl overflow-hidden rounded-[1.5rem] border border-white bg-white shadow-xl shadow-slate-900/10 sm:rounded-[2rem]">
+              <div className="relative mx-auto aspect-[4/3] w-full max-w-xl overflow-visible sm:rounded-[2rem]">
                 <Image
                   src={heroImage}
                   alt={hero.title || storeName}
                   fill
                   priority
-                  className="object-contain"
+                  className="pisjo-hero-float object-contain"
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </div>
@@ -313,187 +357,13 @@ export default async function PisjoLandingPage() {
       {/* FEATURED PRODUCTS                                      */}
       {/* ====================================================== */}
 
-      <HomeFeaturedProducts
+      <LandingFeaturedProducts
         products={featuredProducts}
         productsHref={productsHref}
+        section={config.featuredProductsSection}
       />
 
-      {/* ====================================================== */}
-      {/* MARKETPLACE CUSTOMER CONVERSION                         */}
-      {/* ====================================================== */}
-
-      <section className="relative overflow-hidden bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#062f49] via-[#075477] to-[#0b7891] px-6 py-10 text-white shadow-xl sm:px-10 lg:px-14 lg:py-14">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-300/15 blur-3xl"
-            />
-
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-emerald-300/10 blur-3xl"
-            />
-
-            <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-cyan-100">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Lebih untung belanja langsung
-                </div>
-
-                <h2 className="mt-4 max-w-xl text-2xl font-black leading-tight tracking-tight sm:mt-5 sm:text-4xl">
-                  Sudah pernah belanja seafood melalui marketplace?
-                </h2>
-
-                <p className="mt-4 max-w-xl text-sm leading-6 text-cyan-50 sm:mt-5 sm:text-base sm:leading-7">
-                  Sekarang nikmati pengalaman belanja langsung di PISJO MARKET
-                  dengan manfaat khusus untuk pelanggan setia.
-                </p>
-
-                <a
-                  href={urls.store}
-                  className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[var(--pisjo-navy)] shadow-lg transition hover:-translate-y-0.5 hover:bg-cyan-50 sm:mt-7"
-                >
-                  Mulai Belanja
-                  <ArrowRight className="h-4 w-4" />
-                </a>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-1">
-                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
-                  <ShoppingBag className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
-                  <div>
-                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
-                      Harga khusus PISJO
-                    </h3>
-                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
-                      Nikmati penawaran langsung dari PISJO MARKET.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
-                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
-                  <div>
-                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
-                      Poin setiap transaksi
-                    </h3>
-                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
-                      Kumpulkan poin dari aktivitas belanja Anda.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
-                  <PackageCheck className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
-                  <div>
-                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
-                      Hadiah dari poin
-                    </h3>
-                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
-                      Tukarkan poin dengan reward yang tersedia.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex min-w-0 gap-2.5 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
-                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100 sm:h-5 sm:w-5" />
-                  <div>
-                    <h3 className="text-xs font-extrabold leading-4 text-white sm:text-sm sm:leading-5">
-                      Repeat order lebih mudah
-                    </h3>
-                    <p className="mt-1 text-[10px] leading-4 text-cyan-100 sm:text-xs sm:leading-5">
-                      Kembali berbelanja tanpa proses yang rumit.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ====================================================== */}
-      {/* BENEFIT SHORTCUTS                                       */}
-      {/* ====================================================== */}
-
-      <section
-        aria-label="Keuntungan Pisjo Market"
-        className="relative bg-white px-4 py-5 sm:px-6 lg:px-8"
-      >
-        <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-            <a
-              href={urls.store}
-              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
-                <Store className="h-5 w-5" />
-              </span>
-
-              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
-                Harga Khusus
-              </span>
-
-              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
-                Harga spesial untuk pelanggan Pisjo
-              </span>
-            </a>
-
-            <a
-              href={urls.store}
-              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
-                <ShoppingBag className="h-5 w-5" />
-              </span>
-
-              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
-                Poin Belanja
-              </span>
-
-              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
-                Kumpulkan poin setiap transaksi
-              </span>
-            </a>
-
-            <a
-              href={rewardButtonHref ?? urls.store}
-              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
-                <PackageCheck className="h-5 w-5" />
-              </span>
-
-              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
-                Rewards
-              </span>
-
-              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
-                Tukarkan poin dengan hadiah
-              </span>
-            </a>
-
-            <a
-              href={urls.store}
-              className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_5px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-[var(--pisjo-primary)]/30 hover:shadow-lg"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f5ff] text-[var(--pisjo-primary)]">
-                <Fish className="h-5 w-5" />
-              </span>
-
-              <span className="mt-4 text-xs font-black leading-5 text-[var(--pisjo-navy)] sm:text-sm">
-                Bersihkan Ikan
-              </span>
-
-              <span className="mt-1 text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">
-                Pilihan layanan seafood praktis
-              </span>
-            </a>
-          </div>
-        </div>
-      </section>
+      <LandingValuePropositions section={valuePropositionSection} />
 
       {/* ====================================================== */}
       {/* BENEFITS                                                */}
@@ -526,23 +396,25 @@ export default async function PisjoLandingPage() {
             </div>
 
             <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-              {benefits.slice(0, 6).map((benefit, index) => (
-                <Benefit
-                  key={`${benefit.title}-${index}`}
-                  icon={<BenefitIcon name={benefit.icon} />}
-                  title={benefit.title}
-                  description={benefit.description}
-                />
-              ))}
+              {benefits
+                .slice(
+                  0,
+                  Math.max(1, Math.min(benefitsSection.displayLimit ?? 6, 12)),
+                )
+                .map((benefit, index) => (
+                  <Benefit
+                    key={`${benefit.title}-${index}`}
+                    icon={<BenefitIcon name={benefit.icon} />}
+                    title={benefit.title}
+                    description={benefit.description}
+                  />
+                ))}
             </div>
           </div>
         </section>
       )}
 
-      {/* ====================================================== */}
-      {/* TESTIMONIALS                                            */}
-      {/* ====================================================== */}
-
+      {/* TESTIMONIALS */}
       <LandingTestimonials section={config.testimonialsSection} />
 
       {/* ====================================================== */}
@@ -754,54 +626,207 @@ export default async function PisjoLandingPage() {
       </section>
 
       {/* ====================================================== */}
+
+
+  {/* TUTORIAL INSTALASI                                     */}
+  {/* ====================================================== */}
+
+  {tutorialSection.enabled !== false ? (
+    <section className="relative overflow-hidden bg-white">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-40 top-1/3 h-80 w-80 rounded-full bg-[#bdefff]/30 blur-3xl"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-40 bottom-0 h-80 w-80 rounded-full bg-[#ffe9a8]/30 blur-3xl"
+      />
+
+      <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-24">
+        <div className="flex justify-center">
+          <div className="relative w-full max-w-sm">
+            <div
+              aria-hidden="true"
+              className="absolute inset-8 rounded-[3rem] bg-[#0788e8]/10 blur-3xl"
+            />
+
+            {tutorialSection.image ? (
+              <div className="relative overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white p-4 shadow-xl">
+                <div className="relative overflow-hidden rounded-[2rem] bg-slate-50">
+                  <Image
+                    src={tutorialSection.image}
+                    alt={
+                      tutorialSection.title ||
+                      "Tutorial instalasi PISJO di iPhone"
+                    }
+                    width={720}
+                    height={960}
+                    className="h-auto max-h-[38rem] w-full object-contain"
+                    sizes="(max-width: 1024px) 90vw, 384px"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="relative mx-auto w-full max-w-[18rem] rounded-[2.8rem] border-[8px] border-slate-900 bg-white p-2 shadow-2xl">
+                <div className="overflow-hidden rounded-[2.1rem] bg-[#f4fbff]">
+                  <div className="flex h-8 items-center justify-center bg-white">
+                    <div className="h-1.5 w-20 rounded-full bg-slate-200" />
+                  </div>
+
+                  <div className="p-5">
+                    <div className="rounded-2xl bg-white p-4 shadow-sm">
+                      <p className="text-[10px] font-semibold text-slate-400">
+                        Safari
+                      </p>
+                      <p className="mt-3 text-sm font-black text-[var(--pisjo-navy)]">
+                        Pisjo Market
+                      </p>
+                      <div className="mt-4 h-24 rounded-xl bg-[var(--pisjo-gradient)]" />
+                      <div className="mt-4 h-2 w-3/4 rounded-full bg-slate-200" />
+                      <div className="mt-2 h-2 w-1/2 rounded-full bg-slate-100" />
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-center">
+                      <p className="text-xs font-bold text-[var(--pisjo-primary)]">
+                        Tambahkan ke Home Screen
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="min-w-0 max-w-2xl">
+          {tutorialSection.eyebrow ? (
+            <p className="text-sm font-bold text-[var(--pisjo-primary)]">
+              {tutorialSection.eyebrow}
+            </p>
+          ) : null}
+
+          {tutorialSection.title ? (
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
+              {tutorialSection.title}
+            </h2>
+          ) : null}
+
+          {tutorialSection.description ? (
+            <p className="mt-4 text-base leading-7 text-[var(--pisjo-text-secondary)]">
+              {tutorialSection.description}
+            </p>
+          ) : null}
+
+          {tutorialSteps.length > 0 ? (
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              {tutorialSteps.map((step, index) => (
+                <div
+                  key={`${step.title}-${index}`}
+                  className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--pisjo-soft-blue)] text-sm font-black text-[var(--pisjo-primary)]">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+
+                  <h3 className="mt-4 break-words text-sm font-black text-[var(--pisjo-navy)]">
+                    {step.title}
+                  </h3>
+
+                  <p className="mt-2 break-words text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {tutorialSection.infoText ? (
+            <div className="mt-6 flex min-w-0 items-start gap-3 rounded-2xl border border-[#0788e8]/10 bg-[#f0faff] p-4 text-sm font-semibold text-[var(--pisjo-navy)]">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-primary)] text-xs font-black text-white">
+                i
+              </div>
+              <span className="min-w-0 break-words">
+                {tutorialSection.infoText}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  ) : null}
+
+  {/* ====================================================== */}
+
+
       {/* HOW IT WORKS                                            */}
       {/* ====================================================== */}
 
-      <section className="relative overflow-hidden bg-white">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#e5f8ff] to-transparent"
-        />
-
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-bold text-[var(--pisjo-primary)]">
-              CARA BELANJA
-            </p>
-
-            <h2 className="mt-3 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
-              Mulai belanja dalam beberapa langkah
-            </h2>
-
-            <p className="mt-4 text-base leading-7 text-[var(--pisjo-text-secondary)]">
-              Tidak perlu proses yang rumit. Buka Pisjo Market dan mulai pilih
-              produk yang Anda butuhkan.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-5 md:grid-cols-4">
-            {steps.map((step) => (
-              <Step
-                key={step.number}
-                number={String(step.number).padStart(2, "0")}
-                icon={
-                  step.number === 1 ? (
-                    <Store className="h-5 w-5" />
-                  ) : step.number === 2 ? (
-                    <Fish className="h-5 w-5" />
-                  ) : step.number === 3 ? (
-                    <ShoppingBag className="h-5 w-5" />
-                  ) : (
-                    <PackageCheck className="h-5 w-5" />
-                  )
+      {howItWorksSection.enabled !== false && (
+        <section
+          className="relative overflow-hidden bg-white bg-cover bg-center"
+          style={
+            howItWorksSection.backgroundImage
+              ? {
+                  backgroundImage: `linear-gradient(
+                  180deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                rgba(234, 247, 255, 0.32) 100%
+                  ), url("${howItWorksSection.backgroundImage}")`,
                 }
-                title={step.title}
-                description={step.description}
-              />
-            ))}
+              : undefined
+          }
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#e5f8ff]/40 to-transparent"
+          />
+
+          <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+            <div className="mx-auto max-w-2xl text-center">
+              {howItWorksSection.eyebrow ? (
+                <p className="text-sm font-bold text-[var(--pisjo-primary)]">
+                  {howItWorksSection.eyebrow}
+                </p>
+              ) : null}
+
+              {howItWorksSection.title ? (
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
+                  {howItWorksSection.title}
+                </h2>
+              ) : null}
+
+              {howItWorksSection.description ? (
+                <p className="mt-4 text-base leading-7 text-[var(--pisjo-text-secondary)]">
+                  {howItWorksSection.description}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-12 grid gap-5 md:grid-cols-4">
+              {steps.map((step) => (
+                <Step
+                  key={step.number}
+                  number={String(step.number).padStart(2, "0")}
+                  icon={
+                    step.number === 1 ? (
+                      <Store className="h-5 w-5" />
+                    ) : step.number === 2 ? (
+                      <Fish className="h-5 w-5" />
+                    ) : step.number === 3 ? (
+                      <ShoppingBag className="h-5 w-5" />
+                    ) : (
+                      <PackageCheck className="h-5 w-5" />
+                    )
+                  }
+                  title={step.title}
+                  description={step.description}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ====================================================== */}
       {/* FAQ                                                     */}
@@ -815,7 +840,16 @@ export default async function PisjoLandingPage() {
 
       <section className="border-t border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#062b63] via-[#07599a] to-[#0788e8] px-6 py-12 text-white shadow-2xl shadow-[#0788e8]/15 sm:px-10 lg:px-14">
+          <div
+            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#062b63] via-[#07599a] to-[#0788e8] bg-cover bg-center px-6 py-12 text-white shadow-2xl shadow-[#0788e8]/15 sm:px-10 lg:px-14"
+            style={
+              cta.backgroundImage
+                ? {
+                    backgroundImage: `linear-gradient(90deg, rgba(3, 30, 73, 0.94) 0%, rgba(3, 67, 125, 0.78) 48%, rgba(3, 67, 125, 0.35) 100%), url("${cta.backgroundImage}")`,
+                  }
+                : undefined
+            }
+          >
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -right-20 -top-32 h-72 w-72 rounded-full bg-white/10 blur-3xl"

@@ -5,15 +5,18 @@ import type {
   LandingPageBenefitsSectionConfig,
   LandingPageConfig,
   LandingPageCtaConfig,
+  LandingPageFeaturedProductsSectionConfig,
+  LandingPageFaqItem,
+  LandingPageFaqSectionConfig,
   LandingPageHeroConfig,
+  LandingPageHowItWorksSectionConfig,
   LandingPageImagesConfig,
   LandingPageRewardSectionConfig,
   LandingPageStep,
   LandingPageTestimonial,
   LandingPageTestimonialsSectionConfig,
-  LandingPageFaqItem,
-  LandingPageFaqSectionConfig,
   LandingPageTutorialSectionConfig,
+  LandingPageValuePropositionSectionConfig,
 } from "./landing-page.types";
 
 /**
@@ -112,8 +115,125 @@ function validateBenefitsSection(
   return (
     optionalString(value.eyebrow) &&
     optionalString(value.title) &&
-    optionalString(value.description)
+    optionalString(value.description) &&
+    (value.displayLimit === undefined ||
+      (typeof value.displayLimit === "number" &&
+        Number.isInteger(value.displayLimit) &&
+        value.displayLimit >= 1 &&
+        value.displayLimit <= 12))
   );
+}
+
+/**
+ * ============================================================
+ * VALUE PROPOSITION SECTION
+ * ============================================================
+ */
+
+function validateValuePropositionItem(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.title === "string" &&
+    typeof value.description === "string" &&
+    optionalString(value.icon)
+  );
+}
+
+function validateValuePropositionSection(
+  value: unknown,
+): value is LandingPageValuePropositionSectionConfig {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
+    return false;
+  }
+
+  if (
+    !optionalString(value.eyebrow) ||
+    !optionalString(value.title) ||
+    !optionalString(value.description)
+  ) {
+    return false;
+  }
+
+  if (value.items !== undefined) {
+    if (
+      !Array.isArray(value.items) ||
+      value.items.length > 12 ||
+      !value.items.every(validateValuePropositionItem)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * ============================================================
+ * HOW IT WORKS SECTION
+ * ============================================================
+ */
+
+function validateHowItWorksSection(
+  value: unknown,
+): value is LandingPageHowItWorksSectionConfig {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    (value.enabled === undefined || typeof value.enabled === "boolean") &&
+    optionalString(value.eyebrow) &&
+    optionalString(value.title) &&
+    optionalString(value.description) &&
+    optionalNullableString(value.backgroundImage)
+  );
+}
+
+/**
+ * ============================================================
+ * FEATURED PRODUCTS SECTION
+ * ============================================================
+ */
+
+function validateFeaturedProductsSection(
+  value: unknown,
+): value is LandingPageFeaturedProductsSectionConfig {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
+    return false;
+  }
+
+  if (
+    !optionalString(value.eyebrow) ||
+    !optionalString(value.title) ||
+    !optionalString(value.description) ||
+    !optionalString(value.buttonLabel) ||
+    !optionalString(value.mobileButtonLabel)
+  ) {
+    return false;
+  }
+
+  if (
+    value.displayLimit !== undefined &&
+    (typeof value.displayLimit !== "number" ||
+      !Number.isInteger(value.displayLimit) ||
+      value.displayLimit < 1 ||
+      value.displayLimit > 12)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -205,9 +325,7 @@ function validateTutorialSection(
  * ============================================================
  */
 
-function validateTestimonial(
-  value: unknown,
-): value is LandingPageTestimonial {
+function validateTestimonial(value: unknown): value is LandingPageTestimonial {
   if (!isRecord(value)) {
     return false;
   }
@@ -217,6 +335,7 @@ function validateTestimonial(
     typeof value.message === "string" &&
     optionalString(value.role) &&
     optionalNullableString(value.avatar) &&
+    optionalNullableString(value.productImage) &&
     (value.rating === undefined ||
       (typeof value.rating === "number" &&
         Number.isFinite(value.rating) &&
@@ -232,10 +351,7 @@ function validateTestimonialsSection(
     return false;
   }
 
-  if (
-    value.enabled !== undefined &&
-    typeof value.enabled !== "boolean"
-  ) {
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
     return false;
   }
 
@@ -266,17 +382,12 @@ function validateTestimonialsSection(
  * ============================================================
  */
 
-function validateFaqItem(
-  value: unknown,
-): value is LandingPageFaqItem {
+function validateFaqItem(value: unknown): value is LandingPageFaqItem {
   if (!isRecord(value)) {
     return false;
   }
 
-  return (
-    typeof value.question === "string" &&
-    typeof value.answer === "string"
-  );
+  return typeof value.question === "string" && typeof value.answer === "string";
 }
 
 function validateFaqSection(
@@ -286,10 +397,7 @@ function validateFaqSection(
     return false;
   }
 
-  if (
-    value.enabled !== undefined &&
-    typeof value.enabled !== "boolean"
-  ) {
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") {
     return false;
   }
 
@@ -319,7 +427,6 @@ function validateFaqSection(
  * BENEFIT
  * ============================================================
  */
-
 
 function validateBenefit(value: unknown): value is LandingPageBenefit {
   if (!isRecord(value)) {
@@ -389,7 +496,8 @@ function validateCta(value: unknown): value is LandingPageCtaConfig {
     optionalString(value.title) &&
     optionalString(value.description) &&
     optionalString(value.buttonLabel) &&
-    optionalString(value.buttonHref)
+    optionalString(value.buttonHref) &&
+    optionalNullableString(value.backgroundImage)
   );
 }
 
@@ -406,6 +514,8 @@ function validateImages(value: unknown): value is LandingPageImagesConfig {
 
   return (
     optionalNullableString(value.hero) &&
+    optionalNullableString(value.heroBackground) &&
+    optionalNullableString(value.heroBackgroundMobile) &&
     optionalNullableString(value.app) &&
     optionalNullableString(value.ogImage)
   );
@@ -440,6 +550,27 @@ export function isLandingPageConfig(
   }
 
   if (
+    value.valuePropositionSection !== undefined &&
+    !validateValuePropositionSection(value.valuePropositionSection)
+  ) {
+    return false;
+  }
+
+  if (
+    value.howItWorksSection !== undefined &&
+    !validateHowItWorksSection(value.howItWorksSection)
+  ) {
+    return false;
+  }
+
+  if (
+    value.featuredProductsSection !== undefined &&
+    !validateFeaturedProductsSection(value.featuredProductsSection)
+  ) {
+    return false;
+  }
+
+  if (
     value.rewardSection !== undefined &&
     !validateRewardSection(value.rewardSection)
   ) {
@@ -460,10 +591,7 @@ export function isLandingPageConfig(
     return false;
   }
 
-  if (
-    value.faqSection !== undefined &&
-    !validateFaqSection(value.faqSection)
-  ) {
+  if (value.faqSection !== undefined && !validateFaqSection(value.faqSection)) {
     return false;
   }
 
@@ -549,8 +677,7 @@ const DEFAULT_LANDING_PAGE_TESTIMONIALS_SECTION = {
     {
       name: "Pelanggan PISJO",
       role: "Pelanggan",
-      message:
-        "Proses pemesanan mudah dan pilihan seafood cukup lengkap.",
+      message: "Proses pemesanan mudah dan pilihan seafood cukup lengkap.",
       rating: 5,
       avatar: null,
     },
@@ -565,8 +692,7 @@ const DEFAULT_LANDING_PAGE_TESTIMONIALS_SECTION = {
     {
       name: "Mitra Kuliner",
       role: "Pelanggan",
-      message:
-        "Informasi produk dan proses checkout mudah dipahami.",
+      message: "Informasi produk dan proses checkout mudah dipahami.",
       rating: 5,
       avatar: null,
     },
@@ -593,8 +719,7 @@ const DEFAULT_LANDING_PAGE_FAQ_SECTION = {
     },
     {
       question: "Apakah saya dapat memantau pesanan?",
-      answer:
-        "Anda dapat memantau status pesanan melalui akun PISJO Market.",
+      answer: "Anda dapat memantau status pesanan melalui akun PISJO Market.",
     },
     {
       question: "Apakah tersedia reward point?",
@@ -735,8 +860,7 @@ export function normalizeLandingPageConfig(value: unknown): LandingPageConfig {
     testimonialsSection:
       value.testimonialsSection ?? DEFAULT_LANDING_PAGE_TESTIMONIALS_SECTION,
 
-    faqSection:
-      value.faqSection ?? DEFAULT_LANDING_PAGE_FAQ_SECTION,
+    faqSection: value.faqSection ?? DEFAULT_LANDING_PAGE_FAQ_SECTION,
 
     tutorialSection:
       value.tutorialSection ?? DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,

@@ -21,12 +21,14 @@ import {
 import { FormEvent, useState, useTransition } from "react";
 
 import { updateLandingPageAction } from "@/actions/admin/landing-page/update-landing-page";
+
 import type {
   LandingPageBenefit,
   LandingPageConfig,
   LandingPageFaqItem,
   LandingPageStep,
   LandingPageTestimonial,
+  LandingPageValuePropositionItem,
 } from "@/repositories/landing-page/landing-page.types";
 
 interface LandingPageContentFormProps {
@@ -36,6 +38,7 @@ interface LandingPageContentFormProps {
 
 const MIN_LANDING_PAGE_ITEMS = 3;
 const MAX_LANDING_PAGE_ITEMS = 6;
+const MAX_VALUE_PROPOSITION_ITEMS = 12;
 
 const BENEFIT_ICON_OPTIONS = [
   {
@@ -85,12 +88,23 @@ export default function LandingPageContentForm({
   const [enabled, setEnabled] = useState(initialEnabled);
 
   const hero = initialConfig.hero ?? {};
+  const images = initialConfig.images ?? {};
   const app = initialConfig.app ?? {};
   const cta = initialConfig.cta ?? {};
   const benefitsSection = initialConfig.benefitsSection ?? {};
+
+  const valuePropositionSection = initialConfig.valuePropositionSection ?? {};
+
+  const howItWorksSection = initialConfig.howItWorksSection ?? {};
+
+  const featuredProductsSection = initialConfig.featuredProductsSection ?? {};
+
   const rewardSection = initialConfig.rewardSection ?? {};
+
   const tutorialSection = initialConfig.tutorialSection ?? {};
+
   const testimonialsSection = initialConfig.testimonialsSection ?? {};
+
   const faqSection = initialConfig.faqSection ?? {};
 
   const [heroEyebrow, setHeroEyebrow] = useState(getString(hero.eyebrow));
@@ -107,8 +121,16 @@ export default function LandingPageContentForm({
     getString(hero.primaryButtonLabel, "Belanja Sekarang"),
   );
 
+  const [heroBackgroundImage, setHeroBackgroundImage] = useState(
+    getString(images.heroBackground),
+  );
+
+  const [heroBackgroundMobileImage, setHeroBackgroundMobileImage] = useState(
+    getString(images.heroBackgroundMobile),
+  );
+
   const [benefitsEyebrow, setBenefitsEyebrow] = useState(
-    getString(benefitsSection.eyebrow, "KENAPA PISJO MARKET?"),
+    getString(benefitsSection.eyebrow, "MANFAAT UNTUK PELANGGAN"),
   );
 
   const [benefitsTitle, setBenefitsTitle] = useState(
@@ -121,6 +143,94 @@ export default function LandingPageContentForm({
       "Pilihan ikan dan seafood berkualitas untuk kebutuhan rumah maupun usaha, dengan proses belanja yang praktis.",
     ),
   );
+
+  const [valuePropositionEnabled, setValuePropositionEnabled] = useState(
+    valuePropositionSection.enabled !== false,
+  );
+
+  const [valuePropositionEyebrow, setValuePropositionEyebrow] = useState(
+    getString(valuePropositionSection.eyebrow, "MENGAPA PISJO MARKET?"),
+  );
+
+  const [valuePropositionTitle, setValuePropositionTitle] = useState(
+    getString(
+      valuePropositionSection.title,
+      "Lebih dari sekadar tempat membeli seafood",
+    ),
+  );
+
+  const [valuePropositionDescription, setValuePropositionDescription] =
+    useState(
+      getString(
+        valuePropositionSection.description,
+        "Nikmati pengalaman belanja seafood yang praktis dengan produk pilihan dan manfaat untuk pelanggan.",
+      ),
+    );
+
+  const [valuePropositionItems, setValuePropositionItems] = useState<
+    LandingPageValuePropositionItem[]
+  >(valuePropositionSection.items ?? []);
+
+  const [howItWorksEnabled, setHowItWorksEnabled] = useState(
+    howItWorksSection.enabled !== false,
+  );
+
+  const [howItWorksEyebrow, setHowItWorksEyebrow] = useState(
+    getString(howItWorksSection.eyebrow, "CARA BERBELANJA"),
+  );
+
+  const [howItWorksTitle, setHowItWorksTitle] = useState(
+    getString(
+      howItWorksSection.title,
+      "Belanja seafood dalam beberapa langkah",
+    ),
+  );
+
+  const [howItWorksDescription, setHowItWorksDescription] = useState(
+    getString(
+      howItWorksSection.description,
+      "Ikuti langkah sederhana untuk mendapatkan seafood pilihan Anda.",
+    ),
+  );
+
+  const [howItWorksBackgroundImage, setHowItWorksBackgroundImage] = useState(
+    getString(howItWorksSection.backgroundImage),
+  );
+
+  const [featuredProductsEnabled, setFeaturedProductsEnabled] = useState(
+    featuredProductsSection.enabled !== false,
+  );
+
+  const [featuredProductsEyebrow, setFeaturedProductsEyebrow] = useState(
+    getString(featuredProductsSection.eyebrow, "PRODUK PILIHAN"),
+  );
+
+  const [featuredProductsTitle, setFeaturedProductsTitle] = useState(
+    getString(featuredProductsSection.title, "Pilihan seafood untuk Anda"),
+  );
+
+  const [featuredProductsDescription, setFeaturedProductsDescription] =
+    useState(
+      getString(
+        featuredProductsSection.description,
+        "Temukan produk seafood pilihan dari PISJO Market.",
+      ),
+    );
+
+  const [featuredProductsButtonLabel, setFeaturedProductsButtonLabel] =
+    useState(
+      getString(featuredProductsSection.buttonLabel, "Lihat Semua Produk"),
+    );
+
+  const [
+    featuredProductsMobileButtonLabel,
+    setFeaturedProductsMobileButtonLabel,
+  ] = useState(
+    getString(featuredProductsSection.mobileButtonLabel, "Lihat Semua"),
+  );
+
+  const [featuredProductsDisplayLimit, setFeaturedProductsDisplayLimit] =
+    useState(featuredProductsSection.displayLimit ?? 6);
 
   const [rewardEnabled, setRewardEnabled] = useState(
     rewardSection.enabled !== false,
@@ -246,6 +356,10 @@ export default function LandingPageContentForm({
     getString(cta.buttonLabel, "Kunjungi Store"),
   );
 
+  const [ctaBackgroundImage, setCtaBackgroundImage] = useState(
+    getString(cta.backgroundImage),
+  );
+
   const [benefits, setBenefits] = useState<LandingPageBenefit[]>(
     initialConfig.benefits ?? [],
   );
@@ -298,6 +412,18 @@ export default function LandingPageContentForm({
     faqSection.items ?? [],
   );
 
+  const [faqBackgroundImage, setFaqBackgroundImage] = useState(
+    getString(faqSection.backgroundImage),
+  );
+
+  const [faqIllustrationImage, setFaqIllustrationImage] = useState(
+    getString(faqSection.illustrationImage),
+  );
+
+  const [faqIllustrationAlt, setFaqIllustrationAlt] = useState(
+    getString(faqSection.illustrationAlt, "Ilustrasi hadiah PISJO"),
+  );
+
   const [message, setMessage] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -342,6 +468,44 @@ export default function LandingPageContentForm({
     }
 
     setBenefits((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
+  };
+
+  const updateValueProposition = (
+    index: number,
+    field: keyof LandingPageValuePropositionItem,
+    value: string,
+  ) => {
+    setValuePropositionItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const addValueProposition = () => {
+    if (valuePropositionItems.length >= MAX_VALUE_PROPOSITION_ITEMS) {
+      return;
+    }
+
+    setValuePropositionItems((current) => [
+      ...current,
+      {
+        title: "",
+        description: "",
+        icon: "fish",
+      },
+    ]);
+  };
+
+  const removeValueProposition = (index: number) => {
+    setValuePropositionItems((current) =>
       current.filter((_, itemIndex) => itemIndex !== index),
     );
   };
@@ -514,6 +678,12 @@ export default function LandingPageContentForm({
             primaryButtonLabel: heroPrimaryButtonLabel,
           },
 
+          images: {
+            ...(initialConfig.images ?? {}),
+            heroBackground: heroBackgroundImage.trim() || null,
+            heroBackgroundMobile: heroBackgroundMobileImage.trim() || null,
+          },
+
           /**
            * ==================================================
            * BENEFITS SECTION
@@ -524,6 +694,53 @@ export default function LandingPageContentForm({
             eyebrow: benefitsEyebrow,
             title: benefitsTitle,
             description: benefitsDescription,
+          },
+
+          /**
+           * ==================================================
+           * VALUE PROPOSITION SECTION
+           * ==================================================
+           */
+          valuePropositionSection: {
+            ...valuePropositionSection,
+            enabled: valuePropositionEnabled,
+            eyebrow: valuePropositionEyebrow,
+            title: valuePropositionTitle,
+            description: valuePropositionDescription,
+            items: valuePropositionItems,
+          },
+
+          /**
+           * ==================================================
+           * HOW IT WORKS SECTION
+           * ==================================================
+           */
+          howItWorksSection: {
+            ...howItWorksSection,
+            enabled: howItWorksEnabled,
+            eyebrow: howItWorksEyebrow,
+            title: howItWorksTitle,
+            description: howItWorksDescription,
+            backgroundImage: howItWorksBackgroundImage.trim() || null,
+          },
+
+          /**
+           * ==================================================
+           * FEATURED PRODUCTS SECTION
+           * ==================================================
+           */
+          featuredProductsSection: {
+            ...featuredProductsSection,
+            enabled: featuredProductsEnabled,
+            eyebrow: featuredProductsEyebrow,
+            title: featuredProductsTitle,
+            description: featuredProductsDescription,
+            buttonLabel: featuredProductsButtonLabel,
+            mobileButtonLabel: featuredProductsMobileButtonLabel,
+            displayLimit: Math.max(
+              1,
+              Math.min(Math.round(featuredProductsDisplayLimit), 12),
+            ),
           },
 
           benefits,
@@ -553,6 +770,9 @@ export default function LandingPageContentForm({
             eyebrow: faqEyebrow,
             title: faqTitle,
             description: faqDescription,
+            backgroundImage: faqBackgroundImage.trim() || null,
+            illustrationImage: faqIllustrationImage.trim() || null,
+            illustrationAlt: faqIllustrationAlt.trim() || null,
             items: faqItems,
           },
 
@@ -658,6 +878,7 @@ export default function LandingPageContentForm({
             title: ctaTitle,
             description: ctaDescription,
             buttonLabel: ctaButtonLabel,
+            backgroundImage: ctaBackgroundImage.trim() || null,
           },
         },
       });
@@ -762,7 +983,7 @@ export default function LandingPageContentForm({
               label="Eyebrow"
               value={heroEyebrow}
               onChange={setHeroEyebrow}
-              placeholder="Belanja seafood jadi lebih mudah"
+              placeholder="SEAFOOD SEGAR & BERKUALITAS"
             />
 
             <Field
@@ -794,42 +1015,239 @@ export default function LandingPageContentForm({
               onChange={setHeroPrimaryButtonLabel}
             />
           </div>
+
+          <div className="grid gap-6 border-t pt-6 md:grid-cols-2">
+            <Field
+              label="Background Hero Desktop"
+              value={heroBackgroundImage}
+              onChange={setHeroBackgroundImage}
+              placeholder="/images/landing/hero-pisjo.webp"
+            />
+
+            <Field
+              label="Background Hero Mobile"
+              value={heroBackgroundMobileImage}
+              onChange={setHeroBackgroundMobileImage}
+              placeholder="/images/landing/hero-pisjo-mobile.webp"
+            />
+          </div>
+
+          <div className="rounded-xl border border-dashed bg-muted/30 p-4">
+            <p className="text-sm font-semibold">Panduan Background Hero</p>
+
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Gunakan gambar artwork hero lengkap yang berisi laut, seafood,
+              smartphone, badge, dan ornamen visual. Kosongkan field jika ingin
+              menggunakan background gradient bawaan.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* BENEFITS HEADER */}
 
-      <div className="grid gap-5 border-b p-6">
-        <div>
-          <p className="text-sm font-semibold">Header Section</p>
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <div>
+            <h2 className="text-lg font-semibold">Header Section</h2>
 
-          <p className="mt-1 text-xs text-muted-foreground">
-            Judul dan pengantar yang tampil sebelum daftar benefit pada Landing
-            Page.
-          </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Judul dan pengantar yang tampil sebelum daftar benefit pada
+              Landing Page.
+            </p>
+          </div>
         </div>
 
-        <Field
-          label="Eyebrow"
-          value={benefitsEyebrow}
-          onChange={setBenefitsEyebrow}
-          placeholder="KENAPA PISJO MARKET?"
-        />
+        <div className="grid gap-5 p-6">
+          <Field
+            label="Eyebrow"
+            value={benefitsEyebrow}
+            onChange={setBenefitsEyebrow}
+            placeholder="MANFAAT UNTUK PELANGGAN"
+          />
 
-        <Field
-          label="Title"
-          value={benefitsTitle}
-          onChange={setBenefitsTitle}
-          placeholder="Belanja seafood jadi lebih mudah"
-        />
+          <Field
+            label="Title"
+            value={benefitsTitle}
+            onChange={setBenefitsTitle}
+            placeholder="Belanja seafood jadi lebih mudah"
+          />
 
-        <TextareaField
-          label="Description"
-          value={benefitsDescription}
-          onChange={setBenefitsDescription}
-          rows={3}
-        />
-      </div>
+          <TextareaField
+            label="Description"
+            value={benefitsDescription}
+            onChange={setBenefitsDescription}
+            rows={3}
+          />
+        </div>
+      </section>
+
+      {/* VALUE PROPOSITION */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <div>
+            <h2 className="text-lg font-semibold">Value Proposition</h2>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Kelola alasan utama dan keunggulan PISJO Market yang ditampilkan
+              kepada pelanggan.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">Tampilkan Value Proposition</p>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                Section dapat dinonaktifkan tanpa menghapus kontennya.
+              </p>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={valuePropositionEnabled}
+              onChange={(event) =>
+                setValuePropositionEnabled(event.target.checked)
+              }
+              className="h-5 w-5 rounded border-slate-300"
+            />
+          </label>
+
+          <div className="grid gap-5">
+            <Field
+              label="Eyebrow"
+              value={valuePropositionEyebrow}
+              onChange={setValuePropositionEyebrow}
+              placeholder="MENGAPA PISJO MARKET?"
+            />
+
+            <Field
+              label="Title"
+              value={valuePropositionTitle}
+              onChange={setValuePropositionTitle}
+              placeholder="Lebih dari sekadar tempat membeli seafood"
+            />
+
+            <TextareaField
+              label="Description"
+              value={valuePropositionDescription}
+              onChange={setValuePropositionDescription}
+              rows={3}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* VALUE PROPOSITION ITEMS */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Value Proposition Items</h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Kelola keunggulan yang ditampilkan pada Value Proposition.
+                Maksimal 12 item.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={addValueProposition}
+              disabled={
+                valuePropositionItems.length >= MAX_VALUE_PROPOSITION_ITEMS
+              }
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              Tambah Item
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-5 p-6">
+          {valuePropositionItems.map((item, index) => (
+            <div
+              key={`value-proposition-${index}`}
+              className="rounded-xl border p-5"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Item {index + 1}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => removeValueProposition(index)}
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10"
+                  title="Hapus item"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Hapus
+                </button>
+              </div>
+
+              <div className="grid gap-5">
+                <Field
+                  label="Title"
+                  value={item.title}
+                  onChange={(value) =>
+                    updateValueProposition(index, "title", value)
+                  }
+                />
+
+                <TextareaField
+                  label="Description"
+                  value={item.description}
+                  onChange={(value) =>
+                    updateValueProposition(index, "description", value)
+                  }
+                  rows={3}
+                />
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Icon</label>
+
+                  <select
+                    value={item.icon ?? "fish"}
+                    onChange={(event) =>
+                      updateValueProposition(index, "icon", event.target.value)
+                    }
+                    className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  >
+                    {BENEFIT_ICON_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {valuePropositionItems.length === 0 && (
+            <div className="rounded-xl border border-dashed p-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                Belum ada item Value Proposition.
+              </p>
+
+              <button
+                type="button"
+                onClick={addValueProposition}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold"
+              >
+                <Plus className="h-4 w-4" />
+                Tambah Item
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* BENEFITS */}
 
@@ -1030,6 +1448,34 @@ export default function LandingPageContentForm({
                 value={item.role ?? ""}
                 onChange={(value) => updateTestimonial(index, "role", value)}
               />
+
+              <Field
+                label="URL Gambar / Avatar"
+                value={item.avatar ?? ""}
+                onChange={(value) => updateTestimonial(index, "avatar", value)}
+                placeholder="https://contoh.com/foto-pelanggan.webp"
+              />
+
+              <p className="text-xs leading-5 text-muted-foreground">
+                Opsional. Masukkan URL gambar pelanggan. Jika dikosongkan,
+                placeholder ikan bawaan akan tetap ditampilkan.
+              </p>
+
+              <Field
+                label="URL Gambar Produk"
+                value={item.productImage ?? ""}
+                onChange={(value) =>
+                  updateTestimonial(index, "productImage", value)
+                }
+                placeholder="https://contoh.com/produk-ikan.webp"
+              />
+
+              <p className="text-xs leading-5 text-muted-foreground">
+                Opsional. Masukkan URL gambar produk yang berkaitan dengan
+                testimonial ini. Jika dikosongkan, gambar produk tidak
+                ditampilkan.
+              </p>
+
 
               <TextareaField
                 label="Pesan"
@@ -1374,6 +1820,165 @@ export default function LandingPageContentForm({
         </div>
       </section>
 
+      {/* HOW IT WORKS */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <div>
+            <h2 className="text-lg font-semibold">How It Works</h2>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Konfigurasi judul dan deskripsi section Cara Belanja pada Landing
+              Page.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">Tampilkan How It Works</p>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                Section dapat dinonaktifkan tanpa menghapus konfigurasi.
+              </p>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={howItWorksEnabled}
+              onChange={(event) => setHowItWorksEnabled(event.target.checked)}
+              className="h-5 w-5 rounded border-slate-300"
+            />
+          </label>
+
+          <Field
+            label="Eyebrow"
+            value={howItWorksEyebrow}
+            onChange={setHowItWorksEyebrow}
+          />
+
+          <Field
+            label="Title"
+            value={howItWorksTitle}
+            onChange={setHowItWorksTitle}
+          />
+
+          <TextareaField
+            label="Description"
+            value={howItWorksDescription}
+            onChange={setHowItWorksDescription}
+            rows={4}
+          />
+
+          <Field
+            label="Background Image URL"
+            value={howItWorksBackgroundImage}
+            onChange={setHowItWorksBackgroundImage}
+            placeholder="https://example.com/how-it-works-background.webp"
+          />
+        </div>
+      </section>
+
+      {/* FEATURED PRODUCTS */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <div>
+            <h2 className="text-lg font-semibold">Featured Products</h2>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Konfigurasi section produk unggulan yang ditampilkan pada Landing
+              Page.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 p-6">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">Tampilkan Featured Products</p>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                Section dapat dinonaktifkan tanpa menghapus konfigurasi.
+              </p>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={featuredProductsEnabled}
+              onChange={(event) =>
+                setFeaturedProductsEnabled(event.target.checked)
+              }
+              className="h-5 w-5 rounded border-slate-300"
+            />
+          </label>
+
+          <Field
+            label="Eyebrow"
+            value={featuredProductsEyebrow}
+            onChange={setFeaturedProductsEyebrow}
+          />
+
+          <Field
+            label="Title"
+            value={featuredProductsTitle}
+            onChange={setFeaturedProductsTitle}
+          />
+
+          <TextareaField
+            label="Description"
+            value={featuredProductsDescription}
+            onChange={setFeaturedProductsDescription}
+            rows={4}
+          />
+
+          <Field
+            label="Button Label"
+            value={featuredProductsButtonLabel}
+            onChange={setFeaturedProductsButtonLabel}
+          />
+
+          <Field
+            label="Mobile Button Label"
+            value={featuredProductsMobileButtonLabel}
+            onChange={setFeaturedProductsMobileButtonLabel}
+          />
+
+          <div className="grid gap-2">
+            <label
+              htmlFor="featured-products-display-limit"
+              className="text-sm font-medium"
+            >
+              Jumlah Produk Ditampilkan
+            </label>
+
+            <input
+              id="featured-products-display-limit"
+              type="number"
+              min={1}
+              max={12}
+              step={1}
+              value={featuredProductsDisplayLimit}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+
+                setFeaturedProductsDisplayLimit(
+                  Number.isFinite(value)
+                    ? Math.max(1, Math.min(Math.round(value), 12))
+                    : 1,
+                );
+              }}
+              className="h-10 rounded-xl border bg-background px-3 text-sm"
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Masukkan jumlah produk antara 1 sampai 12.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* STEPS */}
 
       <section className="rounded-2xl border bg-card shadow-sm">
@@ -1504,6 +2109,91 @@ export default function LandingPageContentForm({
             rows={3}
           />
 
+          {/* FAQ VISUAL SETTINGS */}
+
+          <div className="grid gap-6 rounded-xl border bg-slate-50/50 p-5">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">
+                Tampilan Visual FAQ
+              </h3>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                Atur background dan ilustrasi yang ditampilkan pada section FAQ.
+              </p>
+            </div>
+
+            {/* BACKGROUND FAQ */}
+            <div className="space-y-2">
+              <label
+                htmlFor="faq-background-image"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Background FAQ
+              </label>
+
+              <input
+                id="faq-background-image"
+                type="url"
+                value={faqBackgroundImage}
+                onChange={(event) => setFaqBackgroundImage(event.target.value)}
+                placeholder="https://.../faq-background.webp"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+              />
+
+              <p className="text-xs text-slate-500">
+                URL gambar background untuk section FAQ. Kosongkan jika ingin
+                menggunakan background default.
+              </p>
+            </div>
+
+            {/* ILUSTRASI FAQ */}
+            <div className="space-y-2">
+              <label
+                htmlFor="faq-illustration-image"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Gambar Ilustrasi FAQ
+              </label>
+
+              <input
+                id="faq-illustration-image"
+                type="url"
+                value={faqIllustrationImage}
+                onChange={(event) =>
+                  setFaqIllustrationImage(event.target.value)
+                }
+                placeholder="https://.../faq-illustration.webp"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+              />
+
+              <p className="text-xs text-slate-500">
+                Gambar hadiah atau ilustrasi yang ditampilkan di bagian kanan
+                FAQ.
+              </p>
+            </div>
+
+            {/* ALT TEXT ILUSTRASI */}
+            <div className="space-y-2">
+              <label
+                htmlFor="faq-illustration-alt"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Alt Text Ilustrasi FAQ
+              </label>
+
+              <input
+                id="faq-illustration-alt"
+                type="text"
+                value={faqIllustrationAlt}
+                onChange={(event) => setFaqIllustrationAlt(event.target.value)}
+                placeholder="Ilustrasi hadiah PISJO"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* DAFTAR FAQ */}
+
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm font-semibold">Daftar FAQ</p>
 
@@ -1582,6 +2272,13 @@ export default function LandingPageContentForm({
             label="Button Label"
             value={ctaButtonLabel}
             onChange={setCtaButtonLabel}
+          />
+
+          <Field
+            label="Background Image URL"
+            value={ctaBackgroundImage}
+            onChange={setCtaBackgroundImage}
+            placeholder="https://example.com/seafood-banner.webp"
           />
         </div>
       </section>

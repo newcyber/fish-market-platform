@@ -670,3 +670,29 @@ body::after {
     animation: none;
   }
 }
+
+/* =========================================================
+   PISJO HERO IMAGE FLOATING ANIMATION
+   ========================================================= */
+
+@keyframes pisjo-hero-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -12px, 0);
+  }
+}
+
+.pisjo-hero-float {
+  animation: pisjo-hero-float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pisjo-hero-float {
+    animation: none;
+  }
+}

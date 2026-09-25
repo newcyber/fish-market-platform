@@ -54,6 +54,39 @@ export interface LandingPageBenefitsSectionConfig {
   eyebrow?: string;
   title?: string;
   description?: string;
+  displayLimit?: number;
+}
+
+export interface LandingPageValuePropositionItem {
+  title: string;
+  description: string;
+  icon?: string;
+}
+
+export interface LandingPageValuePropositionSectionConfig {
+  enabled?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  items?: LandingPageValuePropositionItem[];
+}
+
+export interface LandingPageHowItWorksSectionConfig {
+  enabled?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  backgroundImage?: string | null;
+}
+
+export interface LandingPageFeaturedProductsSectionConfig {
+  enabled?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  buttonLabel?: string;
+  mobileButtonLabel?: string;
+  displayLimit?: number;
 }
 
 /**
@@ -80,7 +113,6 @@ export interface LandingPageRewardSectionConfig {
   compactLimit?: number;
 }
 
-
 /**
  * ============================================================
  * TESTIMONIAL SECTION
@@ -93,6 +125,12 @@ export interface LandingPageTestimonial {
   message: string;
   rating?: number;
   avatar?: string | null;
+
+  /**
+   * Gambar produk yang ditampilkan pada kartu testimonial.
+   * Tidak berkaitan dengan avatar pelanggan.
+   */
+  productImage?: string | null;
 }
 
 export interface LandingPageTestimonialsSectionConfig {
@@ -119,6 +157,9 @@ export interface LandingPageFaqSectionConfig {
   eyebrow?: string;
   title?: string;
   description?: string;
+  backgroundImage?: string | null;
+  illustrationImage?: string | null;
+  illustrationAlt?: string | null;
   items?: LandingPageFaqItem[];
 }
 
@@ -156,10 +197,26 @@ export interface LandingPageCtaConfig {
   title?: string;
   description?: string;
   buttonLabel?: string;
+  buttonHref?: string;
+  backgroundImage?: string | null;
 }
 
 export interface LandingPageImagesConfig {
+  /**
+   * Gambar visual utama di sisi kanan hero.
+   */
   hero?: string | null;
+
+  /**
+   * Background artwork hero untuk desktop.
+   */
+  heroBackground?: string | null;
+
+  /**
+   * Background artwork hero untuk perangkat mobile.
+   */
+  heroBackgroundMobile?: string | null;
+
   app?: string | null;
   ogImage?: string | null;
 }
@@ -170,6 +227,9 @@ export interface LandingPageConfig {
 
   benefitsSection?: LandingPageBenefitsSectionConfig;
   benefits?: LandingPageBenefit[];
+  valuePropositionSection?: LandingPageValuePropositionSectionConfig;
+  howItWorksSection?: LandingPageHowItWorksSectionConfig;
+  featuredProductsSection?: LandingPageFeaturedProductsSectionConfig;
 
   rewardSection?: LandingPageRewardSectionConfig;
 
