@@ -9,6 +9,10 @@ import type {
   LandingPageImagesConfig,
   LandingPageRewardSectionConfig,
   LandingPageStep,
+  LandingPageTestimonial,
+  LandingPageTestimonialsSectionConfig,
+  LandingPageFaqItem,
+  LandingPageFaqSectionConfig,
   LandingPageTutorialSectionConfig,
 } from "./landing-page.types";
 
@@ -197,9 +201,125 @@ function validateTutorialSection(
 
 /**
  * ============================================================
+ * TESTIMONIAL SECTION
+ * ============================================================
+ */
+
+function validateTestimonial(
+  value: unknown,
+): value is LandingPageTestimonial {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.name === "string" &&
+    typeof value.message === "string" &&
+    optionalString(value.role) &&
+    optionalNullableString(value.avatar) &&
+    (value.rating === undefined ||
+      (typeof value.rating === "number" &&
+        Number.isFinite(value.rating) &&
+        value.rating >= 1 &&
+        value.rating <= 5))
+  );
+}
+
+function validateTestimonialsSection(
+  value: unknown,
+): value is LandingPageTestimonialsSectionConfig {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    value.enabled !== undefined &&
+    typeof value.enabled !== "boolean"
+  ) {
+    return false;
+  }
+
+  if (
+    !optionalString(value.eyebrow) ||
+    !optionalString(value.title) ||
+    !optionalString(value.description)
+  ) {
+    return false;
+  }
+
+  if (value.items !== undefined) {
+    if (
+      !Array.isArray(value.items) ||
+      value.items.length > 12 ||
+      !value.items.every(validateTestimonial)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * ============================================================
+ * FAQ SECTION
+ * ============================================================
+ */
+
+function validateFaqItem(
+  value: unknown,
+): value is LandingPageFaqItem {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.question === "string" &&
+    typeof value.answer === "string"
+  );
+}
+
+function validateFaqSection(
+  value: unknown,
+): value is LandingPageFaqSectionConfig {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    value.enabled !== undefined &&
+    typeof value.enabled !== "boolean"
+  ) {
+    return false;
+  }
+
+  if (
+    !optionalString(value.eyebrow) ||
+    !optionalString(value.title) ||
+    !optionalString(value.description)
+  ) {
+    return false;
+  }
+
+  if (value.items !== undefined) {
+    if (
+      !Array.isArray(value.items) ||
+      value.items.length > 20 ||
+      !value.items.every(validateFaqItem)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * ============================================================
  * BENEFIT
  * ============================================================
  */
+
 
 function validateBenefit(value: unknown): value is LandingPageBenefit {
   if (!isRecord(value)) {
@@ -333,6 +453,20 @@ export function isLandingPageConfig(
     return false;
   }
 
+  if (
+    value.testimonialsSection !== undefined &&
+    !validateTestimonialsSection(value.testimonialsSection)
+  ) {
+    return false;
+  }
+
+  if (
+    value.faqSection !== undefined &&
+    !validateFaqSection(value.faqSection)
+  ) {
+    return false;
+  }
+
   if (value.benefits !== undefined) {
     if (!Array.isArray(value.benefits)) {
       return false;
@@ -397,6 +531,82 @@ const DEFAULT_LANDING_PAGE_REWARD_SECTION = {
   buttonHref: "/customer/rewards",
   featuredLimit: 3,
   compactLimit: 10,
+};
+
+/**
+ * ============================================================
+ * DEFAULT LANDING PAGE TESTIMONIALS
+ * ============================================================
+ */
+
+const DEFAULT_LANDING_PAGE_TESTIMONIALS_SECTION = {
+  enabled: true,
+  eyebrow: "CERITA PELANGGAN",
+  title: "Dipercaya untuk kebutuhan seafood",
+  description:
+    "Pengalaman pelanggan menjadi motivasi kami untuk terus memberikan layanan terbaik.",
+  items: [
+    {
+      name: "Pelanggan PISJO",
+      role: "Pelanggan",
+      message:
+        "Proses pemesanan mudah dan pilihan seafood cukup lengkap.",
+      rating: 5,
+      avatar: null,
+    },
+    {
+      name: "Pelanggan Setia",
+      role: "Pelanggan",
+      message:
+        "Membantu memenuhi kebutuhan seafood untuk keluarga maupun usaha.",
+      rating: 5,
+      avatar: null,
+    },
+    {
+      name: "Mitra Kuliner",
+      role: "Pelanggan",
+      message:
+        "Informasi produk dan proses checkout mudah dipahami.",
+      rating: 5,
+      avatar: null,
+    },
+  ],
+};
+
+/**
+ * ============================================================
+ * DEFAULT LANDING PAGE FAQ
+ * ============================================================
+ */
+
+const DEFAULT_LANDING_PAGE_FAQ_SECTION = {
+  enabled: true,
+  eyebrow: "FAQ",
+  title: "Pertanyaan yang sering ditanyakan",
+  description:
+    "Temukan jawaban untuk pertanyaan umum seputar belanja di PISJO Market.",
+  items: [
+    {
+      question: "Bagaimana cara melakukan pemesanan?",
+      answer:
+        "Pilih produk yang diinginkan, masukkan ke keranjang, lalu lanjutkan ke checkout.",
+    },
+    {
+      question: "Apakah saya dapat memantau pesanan?",
+      answer:
+        "Anda dapat memantau status pesanan melalui akun PISJO Market.",
+    },
+    {
+      question: "Apakah tersedia reward point?",
+      answer:
+        "PISJO Market menyediakan program reward point sesuai ketentuan yang berlaku.",
+    },
+    {
+      question: "Bagaimana cara menghubungi PISJO Market?",
+      answer:
+        "Gunakan halaman kontak atau kanal komunikasi resmi PISJO Market yang tersedia.",
+    },
+  ],
 };
 
 /**
@@ -509,6 +719,8 @@ export function normalizeLandingPageConfig(value: unknown): LandingPageConfig {
       benefitsSection: DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
       benefits: DEFAULT_LANDING_PAGE_BENEFITS,
       rewardSection: DEFAULT_LANDING_PAGE_REWARD_SECTION,
+      testimonialsSection: DEFAULT_LANDING_PAGE_TESTIMONIALS_SECTION,
+      faqSection: DEFAULT_LANDING_PAGE_FAQ_SECTION,
       tutorialSection: DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,
       steps: DEFAULT_LANDING_PAGE_STEPS,
     };
@@ -519,6 +731,12 @@ export function normalizeLandingPageConfig(value: unknown): LandingPageConfig {
 
     benefitsSection:
       value.benefitsSection ?? DEFAULT_LANDING_PAGE_BENEFITS_SECTION,
+
+    testimonialsSection:
+      value.testimonialsSection ?? DEFAULT_LANDING_PAGE_TESTIMONIALS_SECTION,
+
+    faqSection:
+      value.faqSection ?? DEFAULT_LANDING_PAGE_FAQ_SECTION,
 
     tutorialSection:
       value.tutorialSection ?? DEFAULT_LANDING_PAGE_TUTORIAL_SECTION,

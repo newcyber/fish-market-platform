@@ -3,14 +3,13 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
-import {
-  buildSeoMetadata,
-  type SeoSettings,
-} from "@/lib/seo/seo-metadata";
+import { buildSeoMetadata, type SeoSettings } from "@/lib/seo/seo-metadata";
 
-import {
-  notFound,
-} from "next/navigation";
+import { resolveSeoBaseUrl } from "@/lib/seo/seo.utils";
+
+import { notFound } from "next/navigation";
+
+import { ProductJsonLd } from "@/lib/seo/product-jsonld";
 
 import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import MobileBottomNavigation from "@/components/layout/MobileBottomNavigation";
@@ -43,14 +42,11 @@ import ProductRecommendationService from "@/services/product/product-recommendat
 
 import ToggleWishlistButton from "@/components/customer/wishlist/ToggleWishlistButton";
 
-import {
-  auth,
-} from "@/auth";
+import { auth } from "@/auth";
 
 import WishlistService from "@/services/wishlist/wishlist.service";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 /**
  * ============================================================
@@ -109,12 +105,9 @@ export async function generateMetadata({
     });
   }
 
-  const storeName =
-    settings.storeName?.trim() ||
-    "Pisjo Market Platform";
+  const storeName = settings.storeName?.trim() || "Pisjo Market Platform";
 
-  const productName =
-    product.name.trim();
+  const productName = product.name.trim();
 
   const productDescription =
     product.description?.trim() ||
@@ -122,24 +115,19 @@ export async function generateMetadata({
     settings.storeDescription?.trim() ||
     "Modern Pisjo Marketplace";
 
-  const productImage =
-    product.images
-      .slice()
-      .sort(
-        (a, b) =>
-          Number(b.isThumbnail) -
-            Number(a.isThumbnail) ||
-          a.sortOrder - b.sortOrder,
-      )[0]?.image;
+  const productImage = product.images
+    .slice()
+    .sort(
+      (a, b) =>
+        Number(b.isThumbnail) - Number(a.isThumbnail) ||
+        a.sortOrder - b.sortOrder,
+    )[0]?.image;
 
-  const ogTitle =
-    settings.seoOgTitle?.trim()
-      ? `${productName} | ${settings.seoOgTitle.trim()}`
-      : productName;
+  const ogTitle = settings.seoOgTitle?.trim()
+    ? `${productName} | ${settings.seoOgTitle.trim()}`
+    : productName;
 
-  const ogDescription =
-    settings.seoOgDescription?.trim() ||
-    productDescription;
+  const ogDescription = settings.seoOgDescription?.trim() || productDescription;
 
   return buildSeoMetadata(seoSettings, {
     pathname: `/products/${product.slug}`,
@@ -164,16 +152,15 @@ export default async function ProductDetailPage({
   const { slug } = await params;
   const { preview } = await searchParams;
 
+  const settings = await settingsService.getSettings();
+
   /**
    * ==========================================================
    * GET PRODUCT
    * ==========================================================
    */
 
-  const product =
-    await ProductService.getProductBySlug(
-      slug
-    );
+  const product = await ProductService.getProductBySlug(slug);
 
   const session = await auth();
 
@@ -189,13 +176,42 @@ export default async function ProductDetailPage({
    * ==========================================================
    */
 
-if (!product) {
-  notFound();
-}
+  if (!product) {
+    notFound();
+  }
 
-if (!product.isPublished && !isAdminPreview) {
-  notFound();
-}
+  if (!product.isPublished && !isAdminPreview) {
+    notFound();
+  }
+
+const seoBaseUrl = resolveSeoBaseUrl(
+  settings.seoCanonicalUrl,
+  process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    "https://app.pusatikansegar.com"
+);
+
+  const productJsonLd = (
+    <ProductJsonLd
+      product={{
+        name: product.name,
+        description: product.description,
+        slug: product.slug,
+        sku: product.sku,
+        category: product.category,
+        images: product.images,
+        skus: product.skus,
+        price: product.price,
+        stock: product.stock,
+        isPublished: product.isPublished,
+        isPreOrder: product.isPreOrder,
+      }}
+      options={{
+        baseUrl: seoBaseUrl,
+        storeName: settings.storeName?.trim() || "Pisjo Market Platform",
+        currency: "IDR",
+      }}
+    />
+  );
 
   /**
    * ==========================================================
@@ -204,9 +220,7 @@ if (!product.isPublished && !isAdminPreview) {
    */
 
   const ingredients =
-    typeof product.ingredients === "string"
-      ? product.ingredients.trim()
-      : "";
+    typeof product.ingredients === "string" ? product.ingredients.trim() : "";
 
   const storageInstructions =
     typeof product.storageInstructions === "string"
@@ -218,32 +232,33 @@ if (!product.isPublished && !isAdminPreview) {
       ? product.usageInstructions.trim()
       : "";
 
-  const nutritionInformation =
-    Array.isArray(product.nutritionInformation)
-      ? product.nutritionInformation
-          .filter(
-            (item): item is {
-              name: string;
-              value: string;
-              unit: string;
-            } =>
-              typeof item === "object" &&
-              item !== null &&
-              !Array.isArray(item) &&
-              "name" in item &&
-              "value" in item &&
-              "unit" in item &&
-              typeof item.name === "string" &&
-              typeof item.value === "string" &&
-              typeof item.unit === "string"
-          )
-          .filter(
-            (item) =>
-              item.name.trim().length > 0 ||
-              item.value.trim().length > 0 ||
-              item.unit.trim().length > 0
-          )
-      : [];
+  const nutritionInformation = Array.isArray(product.nutritionInformation)
+    ? product.nutritionInformation
+        .filter(
+          (
+            item,
+          ): item is {
+            name: string;
+            value: string;
+            unit: string;
+          } =>
+            typeof item === "object" &&
+            item !== null &&
+            !Array.isArray(item) &&
+            "name" in item &&
+            "value" in item &&
+            "unit" in item &&
+            typeof item.name === "string" &&
+            typeof item.value === "string" &&
+            typeof item.unit === "string",
+        )
+        .filter(
+          (item) =>
+            item.name.trim().length > 0 ||
+            item.value.trim().length > 0 ||
+            item.unit.trim().length > 0,
+        )
+    : [];
 
   const hasAdditionalInformation =
     ingredients.length > 0 ||
@@ -251,14 +266,14 @@ if (!product.isPublished && !isAdminPreview) {
     storageInstructions.length > 0 ||
     usageInstructions.length > 0;
 
-const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
-  ProductRecommendationService.getFrequentlyBoughtTogether(product.id, 8),
-  ProductRecommendationService.getRelatedProducts(
-    product.id,
-    product.category.id,
-    8,
-  ),
-]);
+  const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
+    ProductRecommendationService.getFrequentlyBoughtTogether(product.id, 8),
+    ProductRecommendationService.getRelatedProducts(
+      product.id,
+      product.category.id,
+      8,
+    ),
+  ]);
 
   /**
    * ==========================================================
@@ -266,13 +281,9 @@ const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
    * ==========================================================
    */
 
-  const initialInWishlist =
-    session?.user?.id
-      ? await WishlistService.isInWishlist(
-          session.user.id,
-          product.id
-        )
-      : false;
+  const initialInWishlist = session?.user?.id
+    ? await WishlistService.isInWishlist(session.user.id, product.id)
+    : false;
 
   /**
    * ==========================================================
@@ -280,29 +291,17 @@ const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
    * ==========================================================
    */
 
-  const images =
-    [...product.images].sort(
-      (a, b) => {
-        if (
-          a.isThumbnail &&
-          !b.isThumbnail
-        ) {
-          return -1;
-        }
+  const images = [...product.images].sort((a, b) => {
+    if (a.isThumbnail && !b.isThumbnail) {
+      return -1;
+    }
 
-        if (
-          !a.isThumbnail &&
-          b.isThumbnail
-        ) {
-          return 1;
-        }
+    if (!a.isThumbnail && b.isThumbnail) {
+      return 1;
+    }
 
-        return (
-          a.sortOrder -
-          b.sortOrder
-        );
-      }
-    );
+    return a.sortOrder - b.sortOrder;
+  });
 
   /**
    * ==========================================================
@@ -310,20 +309,12 @@ const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
    * ==========================================================
    */
 
-  const variantGroups =
-  product.variantGroups
+  const variantGroups = product.variantGroups
     .filter(
       (group) =>
-        group.isActive &&
-        group.options.some(
-          (option) => option.isActive
-        )
+        group.isActive && group.options.some((option) => option.isActive),
     )
-    .sort(
-      (a, b) =>
-        a.sortOrder -
-        b.sortOrder
-    )
+    .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((group) => ({
       id: group.id,
       name: group.name,
@@ -331,15 +322,8 @@ const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
       isActive: group.isActive,
 
       options: group.options
-        .filter(
-          (option) =>
-            option.isActive
-        )
-        .sort(
-          (a, b) =>
-            a.sortOrder -
-            b.sortOrder
-        )
+        .filter((option) => option.isActive)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((option) => ({
           id: option.id,
           groupId: option.groupId,
@@ -359,38 +343,28 @@ const [frequentlyBoughtProducts, relatedProducts] = await Promise.all([
    * berasal dari SKU, bukan dari legacy weight data.
    */
 
-  const activeSkus =
-    product.skus
-      .filter(
-        (sku) =>
-          sku.isActive &&
-          sku.productId === product.id
-      );
+  const activeSkus = product.skus.filter(
+    (sku) => sku.isActive && sku.productId === product.id,
+  );
 
-  const skuPriceList: number[] =
-    activeSkus
-      .map((sku) => Number(sku.price))
-      .filter(
-        (price) =>
-          Number.isFinite(price) &&
-          price >= 0
-      );
+  const skuPriceList: number[] = activeSkus
+    .map((sku) => Number(sku.price))
+    .filter((price) => Number.isFinite(price) && price >= 0);
 
-/**
- * ==========================================================
- * ACTIVE FLASH SALE ITEMS
- * ==========================================================
- *
- * Flash Sale sekarang diarahkan ke SKU.
- * Harga promo tidak boleh dianggap sebagai harga product-wide
- * sebelum customer memilih kombinasi variant.
- *
- * Query melalui FlashSaleService agar Product Detail tidak
- * mengakses Prisma Flash Sale secara langsung.
- */
-const flashSaleItems =
-  await FlashSaleService.getActiveItemsByProductId(
-    product.id
+  /**
+   * ==========================================================
+   * ACTIVE FLASH SALE ITEMS
+   * ==========================================================
+   *
+   * Flash Sale sekarang diarahkan ke SKU.
+   * Harga promo tidak boleh dianggap sebagai harga product-wide
+   * sebelum customer memilih kombinasi variant.
+   *
+   * Query melalui FlashSaleService agar Product Detail tidak
+   * mengakses Prisma Flash Sale secara langsung.
+   */
+  const flashSaleItems = await FlashSaleService.getActiveItemsByProductId(
+    product.id,
   );
 
   /**
@@ -399,38 +373,23 @@ const flashSaleItems =
    * ==========================================================
    */
 
-const normalizedFlashSaleItems =
-  flashSaleItems.map(
-    (item) => ({
-          id:
-            item.id,
+  const normalizedFlashSaleItems = flashSaleItems.map((item) => ({
+    id: item.id,
 
-          skuId:
-            item.skuId,
+    skuId: item.skuId,
 
-          originalPrice:
-            Number(
-              item.originalPrice
-            ),
+    originalPrice: Number(item.originalPrice),
 
-          flashPrice:
-            Number(
-              item.flashPrice
-            ),
+    flashPrice: Number(item.flashPrice),
 
-          stockLimit:
-            item.stockLimit,
+    stockLimit: item.stockLimit,
 
-          soldQuantity:
-            item.soldQuantity,
+    soldQuantity: item.soldQuantity,
 
-          campaignName:
-            item.flashSale.name,
+    campaignName: item.flashSale.name,
 
-          endsAt:
-            item.flashSale.endAt.toISOString(),
-        })
-      );
+    endsAt: item.flashSale.endAt.toISOString(),
+  }));
 
   /**
    * ==========================================================
@@ -438,10 +397,7 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const baseProductPrice =
-    Number(
-      product.price
-    );
+  const baseProductPrice = Number(product.price);
 
   /**
    * ==========================================================
@@ -449,21 +405,14 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const now =
-    new Date();
+  const now = new Date();
 
   const isProductDiscountActive =
     product.isDiscountActive &&
     product.discountType !== null &&
     product.discountValue !== null &&
-    (
-      product.discountStartAt === null ||
-      product.discountStartAt <= now
-    ) &&
-    (
-      product.discountEndAt === null ||
-      product.discountEndAt > now
-    );
+    (product.discountStartAt === null || product.discountStartAt <= now) &&
+    (product.discountEndAt === null || product.discountEndAt > now);
 
   /**
    * ==========================================================
@@ -471,44 +420,23 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  let productDiscountAmount =
-    0;
+  let productDiscountAmount = 0;
 
-  if (
-    isProductDiscountActive
-  ) {
-    const discountValue =
-      Number(
-        product.discountValue
-      );
+  if (isProductDiscountActive) {
+    const discountValue = Number(product.discountValue);
 
-    if (
-      product.discountType ===
-      "PERCENTAGE"
-    ) {
-      productDiscountAmount =
-        (
-          baseProductPrice *
-          discountValue
-        ) / 100;
+    if (product.discountType === "PERCENTAGE") {
+      productDiscountAmount = (baseProductPrice * discountValue) / 100;
     }
 
-    if (
-      product.discountType ===
-      "FIXED_AMOUNT"
-    ) {
-      productDiscountAmount =
-        discountValue;
+    if (product.discountType === "FIXED_AMOUNT") {
+      productDiscountAmount = discountValue;
     }
 
-    productDiscountAmount =
-      Math.min(
-        baseProductPrice,
-        Math.max(
-          0,
-          productDiscountAmount
-        )
-      );
+    productDiscountAmount = Math.min(
+      baseProductPrice,
+      Math.max(0, productDiscountAmount),
+    );
   }
 
   /**
@@ -521,9 +449,7 @@ const normalizedFlashSaleItems =
    */
 
   const originalPriceList: number[] =
-    skuPriceList.length > 0
-      ? skuPriceList
-      : [baseProductPrice];
+    skuPriceList.length > 0 ? skuPriceList : [baseProductPrice];
 
   /**
    * ==========================================================
@@ -531,12 +457,9 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const uniqueOriginalPriceList: number[] =
-    Array.from(
-      new Set<number>(
-        originalPriceList
-      )
-    );
+  const uniqueOriginalPriceList: number[] = Array.from(
+    new Set<number>(originalPriceList),
+  );
 
   /**
    * ==========================================================
@@ -544,15 +467,9 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const minimumOriginalPrice =
-    Math.min(
-      ...uniqueOriginalPriceList
-    );
+  const minimumOriginalPrice = Math.min(...uniqueOriginalPriceList);
 
-  const maximumOriginalPrice =
-    Math.max(
-      ...uniqueOriginalPriceList
-    );
+  const maximumOriginalPrice = Math.max(...uniqueOriginalPriceList);
 
   /**
    * ==========================================================
@@ -561,23 +478,13 @@ const normalizedFlashSaleItems =
    */
 
   const discountValue =
-    product.discountValue !== null
-      ? Number(
-          product.discountValue
-        )
-      : 0;
+    product.discountValue !== null ? Number(product.discountValue) : 0;
 
   const hasDiscountStarted =
-    !product.discountStartAt ||
-    new Date(
-      product.discountStartAt
-    ) <= now;
+    !product.discountStartAt || new Date(product.discountStartAt) <= now;
 
   const hasDiscountEnded =
-    !!product.discountEndAt &&
-    new Date(
-      product.discountEndAt
-    ) <= now;
+    !!product.discountEndAt && new Date(product.discountEndAt) <= now;
 
   const isDiscountCurrentlyActive =
     product.isDiscountActive &&
@@ -592,60 +499,26 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const applyProductDiscount = (
-    originalPrice: number
-  ) => {
-    if (
-      !isDiscountCurrentlyActive
-    ) {
+  const applyProductDiscount = (originalPrice: number) => {
+    if (!isDiscountCurrentlyActive) {
       return originalPrice;
     }
 
-    if (
-      product.discountType ===
-      "PERCENTAGE"
-    ) {
-      const percentage =
-        Math.min(
-          100,
-          Math.max(
-            0,
-            discountValue
-          )
-        );
+    if (product.discountType === "PERCENTAGE") {
+      const percentage = Math.min(100, Math.max(0, discountValue));
 
-      const discountAmount =
-        originalPrice *
-        (
-          percentage /
-          100
-        );
+      const discountAmount = originalPrice * (percentage / 100);
 
-      return Math.max(
-        0,
-        originalPrice -
-          discountAmount
-      );
+      return Math.max(0, originalPrice - discountAmount);
     }
 
-    if (
-      product.discountType ===
-      "FIXED_AMOUNT"
-    ) {
-      const discountAmount =
-        Math.min(
-          originalPrice,
-          Math.max(
-            0,
-            discountValue
-          )
-        );
-
-      return Math.max(
-        0,
-        originalPrice -
-          discountAmount
+    if (product.discountType === "FIXED_AMOUNT") {
+      const discountAmount = Math.min(
+        originalPrice,
+        Math.max(0, discountValue),
       );
+
+      return Math.max(0, originalPrice - discountAmount);
     }
 
     return originalPrice;
@@ -657,13 +530,9 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const finalPriceList: number[] =
-    uniqueOriginalPriceList.map(
-      (originalPrice) =>
-        applyProductDiscount(
-          originalPrice
-        )
-    );
+  const finalPriceList: number[] = uniqueOriginalPriceList.map(
+    (originalPrice) => applyProductDiscount(originalPrice),
+  );
 
   /**
    * ==========================================================
@@ -671,15 +540,9 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const minimumFinalPrice =
-    Math.min(
-      ...finalPriceList
-    );
+  const minimumFinalPrice = Math.min(...finalPriceList);
 
-  const maximumFinalPrice =
-    Math.max(
-      ...finalPriceList
-    );
+  const maximumFinalPrice = Math.max(...finalPriceList);
 
   /**
    * ==========================================================
@@ -687,19 +550,9 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const minimumSaving =
-    Math.max(
-      0,
-      minimumOriginalPrice -
-        minimumFinalPrice
-    );
+  const minimumSaving = Math.max(0, minimumOriginalPrice - minimumFinalPrice);
 
-  const maximumSaving =
-    Math.max(
-      0,
-      maximumOriginalPrice -
-        maximumFinalPrice
-    );
+  const maximumSaving = Math.max(0, maximumOriginalPrice - maximumFinalPrice);
 
   /**
    * ==========================================================
@@ -707,20 +560,12 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const hasOriginalPriceRange =
-    minimumOriginalPrice !==
-    maximumOriginalPrice;
+  const hasOriginalPriceRange = minimumOriginalPrice !== maximumOriginalPrice;
 
-  const hasFinalPriceRange =
-    minimumFinalPrice !==
-    maximumFinalPrice;
+  const hasFinalPriceRange = minimumFinalPrice !== maximumFinalPrice;
 
   const hasPriceDiscount =
-    isDiscountCurrentlyActive &&
-    (
-      minimumSaving > 0 ||
-      maximumSaving > 0
-    );
+    isDiscountCurrentlyActive && (minimumSaving > 0 || maximumSaving > 0);
 
   /**
    * ==========================================================
@@ -731,35 +576,23 @@ const normalizedFlashSaleItems =
    * variant di AddToCartButton.
    */
 
-  const displayOriginalPrice =
-    minimumOriginalPrice;
+  const displayOriginalPrice = minimumOriginalPrice;
 
-  const displayOriginalPriceMax =
-    maximumOriginalPrice;
+  const displayOriginalPriceMax = maximumOriginalPrice;
 
-  const displayFinalPrice =
-    minimumFinalPrice;
+  const displayFinalPrice = minimumFinalPrice;
 
-  const displayFinalPriceMax =
-    maximumFinalPrice;
+  const displayFinalPriceMax = maximumFinalPrice;
 
-  const displaySaving =
-    minimumSaving;
+  const displaySaving = minimumSaving;
 
-  const displaySavingMax =
-    maximumSaving;
+  const displaySavingMax = maximumSaving;
 
   const displayDiscountPercentage =
     displayOriginalPrice > 0
       ? Math.round(
-          (
-            (
-              displayOriginalPrice -
-              displayFinalPrice
-            ) /
-            displayOriginalPrice
-          ) *
-            100
+          ((displayOriginalPrice - displayFinalPrice) / displayOriginalPrice) *
+            100,
         )
       : 0;
 
@@ -769,8 +602,7 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const hasFlashSale =
-    normalizedFlashSaleItems.length > 0;
+  const hasFlashSale = normalizedFlashSaleItems.length > 0;
 
   /**
    * ==========================================================
@@ -778,14 +610,11 @@ const normalizedFlashSaleItems =
    * ==========================================================
    */
 
-  const stock =
-    product.stock;
+  const stock = product.stock;
 
-  const isPreOrder =
-    product.isPreOrder === true;
+  const isPreOrder = product.isPreOrder === true;
 
-  const outOfStock =
-    !isPreOrder && stock <= 0;
+  const outOfStock = !isPreOrder && stock <= 0;
 
   /**
    * ============================================================
@@ -794,28 +623,30 @@ const normalizedFlashSaleItems =
    */
 
   return (
-    <>
-      {/* ====================================================== */}
-      {/* PUBLIC SITE HEADER                                     */}
-      {/* ====================================================== */}
+  <>
+    {productJsonLd}
 
-      <DynamicSiteHeader activePage="products" />
+    {/* ====================================================== */}
+    {/* PUBLIC SITE HEADER                                     */}
+    {/* ====================================================== */}
+
+    <DynamicSiteHeader activePage="products" />
 
       <main className="min-h-screen bg-[#f5f5f5]">
-
         {isAdminPreview && (
-  <div className="border-b border-amber-200 bg-amber-50">
-    <div className="mx-auto flex max-w-300 items-center gap-3 px-4 py-3 lg:px-0">
-      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
-        Mode Preview
-      </span>
+          <div className="border-b border-amber-200 bg-amber-50">
+            <div className="mx-auto flex max-w-300 items-center gap-3 px-4 py-3 lg:px-0">
+              <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
+                Mode Preview
+              </span>
 
-      <p className="text-sm text-amber-800">
-        Produk ini belum dipublish dan hanya dapat dilihat oleh administrator.
-      </p>
-    </div>
-  </div>
-)}
+              <p className="text-sm text-amber-800">
+                Produk ini belum dipublish dan hanya dapat dilihat oleh
+                administrator.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ==================================================== */}
         {/* BREADCRUMB */}
@@ -824,7 +655,6 @@ const normalizedFlashSaleItems =
         <div className="border-b border-slate-200 bg-white">
           <div className="mx-auto max-w-300 px-4 py-4 lg:px-0">
             <nav className="flex flex-wrap items-center gap-1 text-sm">
-
               <Link
                 href="/"
                 className="text-slate-500 transition hover:text-cyan-600"
@@ -855,7 +685,6 @@ const normalizedFlashSaleItems =
               <span className="max-w-70 truncate text-slate-900">
                 {product.name}
               </span>
-
             </nav>
           </div>
         </div>
@@ -864,53 +693,38 @@ const normalizedFlashSaleItems =
         {/* PRODUCT MAIN */}
         {/* ==================================================== */}
 
+        <section>
+          <div className="mx-auto max-w-300 px-3 py-3 sm:px-4 lg:px-0">
+            <div className="bg-white">
+              <div className="grid lg:grid-cols-[480px_minmax(0,1fr)]">
+                {/* ================================================= */}
+                {/* PRODUCT GALLERY */}
+                {/* ================================================= */}
 
-      <section>
-        <div className="mx-auto max-w-300 px-3 py-3 sm:px-4 lg:px-0">
+                <div className="p-5 lg:p-6">
+                  <ProductDetailGallery
+                    productName={product.name}
 
-          <div className="bg-white">
+                    images={images.map((image) => ({
+                      id: image.id,
+                      image: image.image,
+                      isThumbnail: image.isThumbnail,
+                      sortOrder: image.sortOrder,
+                    }))}
 
-            <div className="grid lg:grid-cols-[480px_minmax(0,1fr)]">
+                    shareButton={
+                      <ProductShareButton
+                        productName={product.name}
+                        productSlug={product.slug}
+                      />
+                    }
+                    favoriteButton={
+                      <ToggleWishlistButton
+                        productId={product.id}
 
-              {/* ================================================= */}
-              {/* PRODUCT GALLERY */}
-              {/* ================================================= */}
+                        initialInWishlist={initialInWishlist}
 
-              <div className="p-5 lg:p-6">
-
-                <ProductDetailGallery
-  productName={
-    product.name
-  }
-
-  images={
-    images.map(
-      (image) => ({
-        id: image.id,
-        image: image.image,
-        isThumbnail: image.isThumbnail,
-        sortOrder: image.sortOrder,
-      })
-    )
-  }
-
-  shareButton={
-    <ProductShareButton
-      productName={product.name}
-      productSlug={product.slug}
-    />
-  }
-  favoriteButton={
-    <ToggleWishlistButton
-      productId={
-        product.id
-      }
-
-      initialInWishlist={
-        initialInWishlist
-      }
-
-      className="
+                        className="
         flex
         h-11
         w-11
@@ -930,92 +744,79 @@ const normalizedFlashSaleItems =
         hover:text-red-500
         active:scale-95
       "
-    />
-  }
-/>
-
-              </div>
-
-              {/* ================================================= */}
-              {/* PRODUCT INFO */}
-              {/* ================================================= */}
-
-              <div className="min-w-0 p-5 pb-8 lg:p-6 lg:pl-4">
-
-                {/* BADGES */}
-
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-
-                  <span className="bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700">
-                    {
-                      product.category
-                        .name
+                      />
                     }
-                  </span>
+                  />
+                </div>
 
-                  {product.featured && (
-                    <span className="inline-flex items-center gap-1 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                {/* ================================================= */}
+                {/* PRODUCT INFO */}
+                {/* ================================================= */}
 
-                      <Star className="h-3 w-3 fill-current" />
+                <div className="min-w-0 p-5 pb-8 lg:p-6 lg:pl-4">
+                  {/* BADGES */}
 
-                      Produk Pilihan
-
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700">
+                      {product.category.name}
                     </span>
-                  )}
 
-                </div>
+                    {product.featured && (
+                      <span className="inline-flex items-center gap-1 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                        <Star className="h-3 w-3 fill-current" />
+                        Produk Pilihan
+                      </span>
+                    )}
+                  </div>
 
-                {/* PRODUCT NAME */}
+                  {/* PRODUCT NAME */}
 
-                <h1 className="text-[20px] font-medium leading-7 text-slate-900 lg:text-[24px]">
-                  {product.name}
-                </h1>
+                  <h1 className="text-[20px] font-medium leading-7 text-slate-900 lg:text-[24px]">
+                    {product.name}
+                  </h1>
 
-                {/* PRODUCT AVAILABILITY */}
+                  {/* PRODUCT AVAILABILITY */}
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {isPreOrder ? (
+                      <div className="mt-1">
+                        <p className="text-sm font-medium text-cyan-700">
+                          Produk tersedia melalui Pre-Order
+                        </p>
 
-                  {isPreOrder ? (
-  <div className="mt-1">
-    <p className="text-sm font-medium text-cyan-700">
-      Produk tersedia melalui Pre-Order
-    </p>
+                        {product.preOrderMinDays != null &&
+                        product.preOrderMaxDays != null ? (
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            Estimasi{" "}
+                            <span className="font-semibold text-slate-700">
+                              {product.preOrderMinDays}–
+                              {product.preOrderMaxDays} hari
+                            </span>
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : outOfStock ? (
+                      <p className="mt-1 text-sm text-red-600">
+                        Stok sedang habis
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-sm text-slate-500">
+                        Stok tersedia
+                        <span className="ml-1 font-medium text-slate-900">
+                          ({stock} tersedia)
+                        </span>
+                      </p>
+                    )}
+                  </div>
 
-    {product.preOrderMinDays != null &&
-    product.preOrderMaxDays != null ? (
-      <p className="mt-0.5 text-xs text-slate-500">
-        Estimasi{" "}
-        <span className="font-semibold text-slate-700">
-          {product.preOrderMinDays}–
-          {product.preOrderMaxDays} hari
-        </span>
-      </p>
-    ) : null}
-  </div>
-) : outOfStock ? (
-  <p className="mt-1 text-sm text-red-600">
-    Stok sedang habis
-  </p>
-) : (
-  <p className="mt-1 text-sm text-slate-500">
-    Stok tersedia
-    <span className="ml-1 font-medium text-slate-900">
-      ({stock} tersedia)
-    </span>
-  </p>
-)}
+                  {/* ==================================================== */}
+                  {/* PRODUCT PRICE */}
+                  {/* ==================================================== */}
 
-                </div>
-
-                {/* ==================================================== */}
-                {/* PRODUCT PRICE */}
-                {/* ==================================================== */}
-
-                <div className="mt-5">
-
-                  {hasFlashSale ? (
-                    <div
-                      className="
+                  <div className="mt-5">
+                    {hasFlashSale ? (
+                      <div
+                        className="
                         overflow-hidden
                         rounded-2xl
                         border
@@ -1023,9 +824,9 @@ const normalizedFlashSaleItems =
                         bg-white
                         shadow-sm
                       "
-                    >
-                      <div
-                        className="
+                      >
+                        <div
+                          className="
                           flex
                           flex-col
                           gap-3
@@ -1038,10 +839,10 @@ const normalizedFlashSaleItems =
                           sm:items-center
                           sm:justify-between
                         "
-                      >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="
                               flex
                               h-9
                               w-9
@@ -1051,33 +852,33 @@ const normalizedFlashSaleItems =
                               bg-white/15
                               text-lg
                             "
-                          >
-                            ⚡
-                          </div>
+                            >
+                              ⚡
+                            </div>
 
-                          <div>
-                            <span
-                              className="
+                            <div>
+                              <span
+                                className="
                                 text-base
                                 font-black
                                 tracking-wide
                                 text-white
                                 sm:text-lg
                               "
-                            >
-                              FLASH SALE
-                            </span>
+                              >
+                                FLASH SALE
+                              </span>
 
-                            <p className="mt-0.5 text-xs text-white/75">
-                              Promo tersedia untuk SKU tertentu
-                            </p>
+                              <p className="mt-0.5 text-xs text-white/75">
+                                Promo tersedia untuk SKU tertentu
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="px-4 py-5 sm:px-5 sm:py-6">
-                        <p
-                          className="
+                        <div className="px-4 py-5 sm:px-5 sm:py-6">
+                          <p
+                            className="
                             mb-3
                             text-xs
                             font-medium
@@ -1085,52 +886,52 @@ const normalizedFlashSaleItems =
                             tracking-wide
                             text-slate-400
                           "
-                        >
-                          Harga Produk
-                        </p>
+                          >
+                            Harga Produk
+                          </p>
 
-                        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-                          <div
-                            className="
+                          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+                            <div
+                              className="
                               text-3xl
                               font-bold
                               tracking-tight
                               text-slate-950
                               sm:text-4xl
                             "
-                          >
-                            {formatPriceRange(
-                              displayFinalPrice,
-                              displayFinalPriceMax
-                            )}
-                          </div>
+                            >
+                              {formatPriceRange(
+                                displayFinalPrice,
+                                displayFinalPriceMax,
+                              )}
+                            </div>
 
-                          {hasPriceDiscount && (
-                            <div
-                              className="
+                            {hasPriceDiscount && (
+                              <div
+                                className="
                                 pb-1
                                 text-sm
                                 text-slate-400
                                 line-through
                               "
-                            >
-                              {formatPriceRange(
-                                displayOriginalPrice,
-                                displayOriginalPriceMax
-                              )}
-                            </div>
-                          )}
-                        </div>
+                              >
+                                {formatPriceRange(
+                                  displayOriginalPrice,
+                                  displayOriginalPriceMax,
+                                )}
+                              </div>
+                            )}
+                          </div>
 
-                        <p className="mt-3 text-xs leading-5 text-slate-500">
-                          Pilih varian produk untuk melihat harga dan
-                          Flash Sale yang berlaku pada SKU tersebut.
-                        </p>
+                          <p className="mt-3 text-xs leading-5 text-slate-500">
+                            Pilih varian produk untuk melihat harga dan Flash
+                            Sale yang berlaku pada SKU tersebut.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div
-                      className="
+                    ) : (
+                      <div
+                        className="
                         rounded-2xl
                         border
                         border-slate-200
@@ -1139,11 +940,11 @@ const normalizedFlashSaleItems =
                         py-5
                         sm:px-5
                       "
-                    >
-                      {hasPriceDiscount ? (
-                        <div>
-                          <p
-                            className="
+                      >
+                        {hasPriceDiscount ? (
+                          <div>
+                            <p
+                              className="
                               mb-2
                               text-xs
                               font-medium
@@ -1151,45 +952,45 @@ const normalizedFlashSaleItems =
                               tracking-wide
                               text-slate-400
                             "
-                          >
-                            Harga Produk
-                          </p>
+                            >
+                              Harga Produk
+                            </p>
 
-                          <div className="flex flex-wrap items-end gap-3">
-                            <div
-                              className="
+                            <div className="flex flex-wrap items-end gap-3">
+                              <div
+                                className="
                                 text-3xl
                                 font-bold
                                 tracking-tight
                                 text-slate-950
                                 sm:text-4xl
                               "
-                            >
-                              {formatPriceRange(
-                                displayFinalPrice,
-                                displayFinalPriceMax
-                              )}
-                            </div>
+                              >
+                                {formatPriceRange(
+                                  displayFinalPrice,
+                                  displayFinalPriceMax,
+                                )}
+                              </div>
 
-                            <div
-                              className="
+                              <div
+                                className="
                                 pb-1
                                 text-sm
                                 text-slate-400
                                 line-through
                               "
-                            >
-                              {formatPriceRange(
-                                displayOriginalPrice,
-                                displayOriginalPriceMax
-                              )}
+                              >
+                                {formatPriceRange(
+                                  displayOriginalPrice,
+                                  displayOriginalPriceMax,
+                                )}
+                              </div>
                             </div>
-                          </div>
 
-                          {displaySaving > 0 && (
-                            <div className="mt-4">
-                              <span
-                                className="
+                            {displaySaving > 0 && (
+                              <div className="mt-4">
+                                <span
+                                  className="
                                   inline-flex
                                   items-center
                                   rounded-lg
@@ -1200,20 +1001,20 @@ const normalizedFlashSaleItems =
                                   font-semibold
                                   text-emerald-700
                                 "
-                              >
-                                Hemat{" "}
-                                {formatPriceRange(
-                                  displaySaving,
-                                  displaySavingMax
-                                )}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          <p
-                            className="
+                                >
+                                  Hemat{" "}
+                                  {formatPriceRange(
+                                    displaySaving,
+                                    displaySavingMax,
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <p
+                              className="
                               mb-2
                               text-xs
                               font-medium
@@ -1221,32 +1022,32 @@ const normalizedFlashSaleItems =
                               tracking-wide
                               text-slate-400
                             "
-                          >
-                            Harga Produk
-                          </p>
+                            >
+                              Harga Produk
+                            </p>
 
-                          <div
-                            className="
+                            <div
+                              className="
                               text-3xl
                               font-bold
                               tracking-tight
                               text-slate-950
                               sm:text-4xl
                             "
-                          >
-                            {formatPriceRange(
-                              displayFinalPrice,
-                              displayFinalPriceMax
-                            )}
+                            >
+                              {formatPriceRange(
+                                displayFinalPrice,
+                                displayFinalPriceMax,
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )}
 
-                  {hasFlashSale && (
-                    <div
-                      className="
+                    {hasFlashSale && (
+                      <div
+                        className="
                         mt-3
                         rounded-xl
                         border
@@ -1257,29 +1058,29 @@ const normalizedFlashSaleItems =
                         px-4
                         py-3
                       "
-                    >
-                      <p
-                        className="
+                      >
+                        <p
+                          className="
                           text-xs
                           font-medium
                           leading-5
                           text-[#ff2a00]
                         "
-                      >
-                        ⚡ Flash Sale tersedia untuk pilihan SKU tertentu.
-                        Pilih varian untuk mendapatkan harga promo yang sesuai.
-                      </p>
-                    </div>
-                  )}
+                        >
+                          ⚡ Flash Sale tersedia untuk pilihan SKU tertentu.
+                          Pilih varian untuk mendapatkan harga promo yang
+                          sesuai.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                </div>
+                  {/* ==================================================== */}
+                  {/* PRODUCT META */}
+                  {/* ==================================================== */}
 
-                {/* ==================================================== */}
-                {/* PRODUCT META */}
-                {/* ==================================================== */}
-
-                <div
-                  className="
+                  <div
+                    className="
                     mt-6
                     overflow-hidden
                     rounded-2xl
@@ -1287,24 +1088,22 @@ const normalizedFlashSaleItems =
                     border-slate-200
                     bg-white
                   "
-                >
+                  >
+                    {/* ================================================== */}
+                    {/* SHIPPING */}
+                    {/* ================================================== */}
 
-                  {/* ================================================== */}
-                  {/* SHIPPING */}
-                  {/* ================================================== */}
-
-                  <div
-                    className="
+                    <div
+                      className="
                       flex
                       gap-4
                       px-4
                       py-4
                       sm:px-5
                     "
-                  >
-
-                    <div
-                      className="
+                    >
+                      <div
+                        className="
                         flex
                         h-10
                         w-10
@@ -1314,56 +1113,51 @@ const normalizedFlashSaleItems =
                         rounded-xl
                         bg-cyan-50
                       "
-                    >
-                      <Truck className="h-5 w-5 text-cyan-600" />
-                    </div>
+                      >
+                        <Truck className="h-5 w-5 text-cyan-600" />
+                      </div>
 
-                    <div className="min-w-0">
-
-                      <p
-                        className="
+                      <div className="min-w-0">
+                        <p
+                          className="
                           text-sm
                           font-semibold
                           text-slate-900
                         "
-                      >
-                        Pengiriman
-                      </p>
+                        >
+                          Pengiriman
+                        </p>
 
-                      <p
-                        className="
+                        <p
+                          className="
                           mt-1
                           text-sm
                           leading-6
                           text-slate-500
                         "
-                      >
-                        Pilih alamat dan metode pengiriman
-                        saat checkout.
-                      </p>
-
+                        >
+                          Pilih alamat dan metode pengiriman saat checkout.
+                        </p>
+                      </div>
                     </div>
 
-                  </div>
+                    <div className="mx-4 border-t border-slate-100 sm:mx-5" />
 
-                  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
+                    {/* ================================================== */}
+                    {/* STOCK */}
+                    {/* ================================================== */}
 
-                  {/* ================================================== */}
-                  {/* STOCK */}
-                  {/* ================================================== */}
-
-                  <div
-                    className="
+                    <div
+                      className="
                       flex
                       gap-4
                       px-4
                       py-4
                       sm:px-5
                     "
-                  >
-
-                    <div
-                      className={`
+                    >
+                      <div
+                        className={`
                         flex
                         h-10
                         w-10
@@ -1371,76 +1165,59 @@ const normalizedFlashSaleItems =
                         items-center
                         justify-center
                         rounded-xl
-                        ${
-                          outOfStock
-                            ? "bg-red-50"
-                            : "bg-emerald-50"
-                        }
+                        ${outOfStock ? "bg-red-50" : "bg-emerald-50"}
                       `}
-                    >
+                      >
+                        {outOfStock ? (
+                          <X className="h-5 w-5 text-red-600" />
+                        ) : (
+                          <Check className="h-5 w-5 text-emerald-600" />
+                        )}
+                      </div>
 
-                      {outOfStock ? (
-                        <X className="h-5 w-5 text-red-600" />
-                      ) : (
-                        <Check className="h-5 w-5 text-emerald-600" />
-                      )}
-
-                    </div>
-
-                    <div className="min-w-0">
-
-                      <p
-                        className="
+                      <div className="min-w-0">
+                        <p
+                          className="
                           text-sm
                           font-semibold
                           text-slate-900
                         "
-                      >
-                        Ketersediaan
-                      </p>
-
-                      {outOfStock ? (
-
-                        <p className="mt-1 text-sm text-red-600">
-                          Stok sedang habis
+                        >
+                          Ketersediaan
                         </p>
 
-                      ) : (
-
-                        <p className="mt-1 text-sm text-slate-500">
-
-                          Stok tersedia
-
-                          <span className="ml-1 font-medium text-slate-900">
-                            ({stock} tersedia)
-                          </span>
-
-                        </p>
-
-                      )}
-
+                        {outOfStock ? (
+                          <p className="mt-1 text-sm text-red-600">
+                            Stok sedang habis
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-sm text-slate-500">
+                            Stok tersedia
+                            <span className="ml-1 font-medium text-slate-900">
+                              ({stock} tersedia)
+                            </span>
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                  </div>
+                    <div className="mx-4 border-t border-slate-100 sm:mx-5" />
 
-                  <div className="mx-4 border-t border-slate-100 sm:mx-5" />
+                    {/* ================================================== */}
+                    {/* CATEGORY */}
+                    {/* ================================================== */}
 
-                  {/* ================================================== */}
-                  {/* CATEGORY */}
-                  {/* ================================================== */}
-
-                  <div
-                    className="
+                    <div
+                      className="
                       flex
                       gap-4
                       px-4
                       py-4
                       sm:px-5
                     "
-                  >
-
-                    <div
-                      className="
+                    >
+                      <div
+                        className="
                         flex
                         h-10
                         w-10
@@ -1450,25 +1227,24 @@ const normalizedFlashSaleItems =
                         rounded-xl
                         bg-slate-100
                       "
-                    >
-                      <Tag className="h-5 w-5 text-slate-600" />
-                    </div>
+                      >
+                        <Tag className="h-5 w-5 text-slate-600" />
+                      </div>
 
-                    <div className="min-w-0">
-
-                      <p
-                        className="
+                      <div className="min-w-0">
+                        <p
+                          className="
                           text-sm
                           font-semibold
                           text-slate-900
                         "
-                      >
-                        Kategori
-                      </p>
+                        >
+                          Kategori
+                        </p>
 
-                      <Link
-                        href="/products"
-                        className="
+                        <Link
+                          href="/products"
+                          className="
                           mt-1
                           inline-flex
                           text-sm
@@ -1478,115 +1254,74 @@ const normalizedFlashSaleItems =
                           hover:text-cyan-800
                           hover:underline
                         "
-                      >
-                        {product.category.name}
-                      </Link>
-
+                        >
+                          {product.category.name}
+                        </Link>
+                      </div>
                     </div>
-
                   </div>
 
+                  {/* ================================================= */}
+                  {/* CART ACTION */}
+                  {/* ================================================= */}
+
+                  <div className="mt-8 border-t border-slate-200 pt-7">
+                    <AddToCartButton
+                      productId={product.id}
+
+                      stock={product.stock}
+
+                      basePrice={Number(product.price)}
+
+                      isPreOrder={product.isPreOrder}
+
+                      preOrderMinDays={product.preOrderMinDays}
+
+                      preOrderMaxDays={product.preOrderMaxDays}
+
+                      variantGroups={variantGroups}
+
+                      skus={activeSkus.map((sku) => ({
+                        id: sku.id,
+                        sku: sku.sku,
+                        productId: sku.productId,
+                        price: Number(sku.price),
+                        stock: sku.stock,
+                        isActive: sku.isActive,
+                        skuOptions: sku.skuOptions.map((skuOption) => ({
+                          id: skuOption.id,
+                          skuId: skuOption.skuId,
+                          variantOptionId: skuOption.variantOptionId,
+                        })),
+                      }))}
+
+                      flashSaleItems={normalizedFlashSaleItems}
+
+                      isDiscountActive={product.isDiscountActive}
+
+                      discountType={product.discountType}
+
+                      discountValue={
+                        product.discountValue
+                          ? Number(product.discountValue)
+                          : null
+                      }
+
+                      discountStartAt={product.discountStartAt}
+
+                      discountEndAt={product.discountEndAt}
+                    />
+                  </div>
                 </div>
-
-                {/* ================================================= */}
-                {/* CART ACTION */}
-                {/* ================================================= */}
-
-                <div className="mt-8 border-t border-slate-200 pt-7">
-
-                  <AddToCartButton
-                    productId={
-                      product.id
-                    }
-
-                    stock={
-                      product.stock
-                    }
-
-                    basePrice={
-                      Number(
-                        product.price
-                      )
-                    }
-
-                    isPreOrder={
-                      product.isPreOrder}
-
-                    preOrderMinDays={
-                      product.preOrderMinDays}
-
-                    preOrderMaxDays={
-                      product.preOrderMaxDays}
-
-                    variantGroups={
-                      variantGroups
-                    }
-
-                    skus={
-                      activeSkus.map(
-                        (sku) => ({
-                          id: sku.id,
-                          sku: sku.sku,
-                          productId: sku.productId,
-                          price: Number(sku.price),
-                          stock: sku.stock,
-                          isActive: sku.isActive,
-                          skuOptions:
-                            sku.skuOptions.map(
-                              (skuOption) => ({
-                                id: skuOption.id,
-                                skuId: skuOption.skuId,
-                                variantOptionId:
-                                  skuOption.variantOptionId,
-                              })
-                            ),
-                        })
-                      )
-                    }
-
-                    flashSaleItems={
-                      normalizedFlashSaleItems
-                    }
-
-                    isDiscountActive={
-                      product.isDiscountActive
-                    }
-
-                    discountType={
-                      product.discountType
-                    }
-
-                    discountValue={
-                      product.discountValue
-                        ? Number(
-                            product.discountValue
-                          )
-                        : null
-                    }
-
-                    discountStartAt={
-                      product.discountStartAt
-                    }
-
-                    discountEndAt={
-                      product.discountEndAt
-                    }
-                  />
-
-                </div>
-
               </div>
-
             </div>
 
-          </div>
+            {/* ==================================================== */}
+            {/* PRODUCT INFORMATION */}
+            {/* ==================================================== */}
 
-          {/* ==================================================== */}
-          {/* PRODUCT INFORMATION */}
-          {/* ==================================================== */}
-
-          <section
-            className="
+            <section
+              className="
               mt-3
               bg-white
               px-5
@@ -1594,12 +1329,10 @@ const normalizedFlashSaleItems =
               lg:px-8
               lg:py-6
             "
-          >
-
-            <div className="max-w-4xl">
-
-              <h2
-                className="
+            >
+              <div className="max-w-4xl">
+                <h2
+                  className="
                   border-b
                   border-slate-100
                   pb-4
@@ -1607,24 +1340,23 @@ const normalizedFlashSaleItems =
                   font-semibold
                   text-slate-900
                 "
-              >
-                Informasi Produk
-              </h2>
+                >
+                  Informasi Produk
+                </h2>
 
-              <div
-                className="
+                <div
+                  className="
                   mt-5
                   overflow-hidden
                   rounded-xl
                   border
                   border-slate-200
                 "
-              >
+                >
+                  {/* CATEGORY */}
 
-                {/* CATEGORY */}
-
-                <div
-                  className="
+                  <div
+                    className="
                     grid
                     grid-cols-[110px_minmax(0,1fr)]
                     items-center
@@ -1637,22 +1369,18 @@ const normalizedFlashSaleItems =
                     sm:grid-cols-[160px_minmax(0,1fr)]
                     sm:px-5
                   "
-                >
+                  >
+                    <div className="text-slate-500">Kategori</div>
 
-                  <div className="text-slate-500">
-                    Kategori
+                    <div className="font-medium text-slate-900">
+                      {product.category.name}
+                    </div>
                   </div>
 
-                  <div className="font-medium text-slate-900">
-                    {product.category.name}
-                  </div>
+                  {/* SKU */}
 
-                </div>
-
-                {/* SKU */}
-
-                <div
-                  className="
+                  <div
+                    className="
                     grid
                     grid-cols-[110px_minmax(0,1fr)]
                     items-center
@@ -1663,14 +1391,11 @@ const normalizedFlashSaleItems =
                     sm:grid-cols-[160px_minmax(0,1fr)]
                     sm:px-5
                   "
-                >
+                  >
+                    <div className="text-slate-500">SKU</div>
 
-                  <div className="text-slate-500">
-                    SKU
-                  </div>
-
-                  <div
-                    className="
+                    <div
+                      className="
                       inline-flex
                       w-fit
                       rounded-md
@@ -1682,24 +1407,20 @@ const normalizedFlashSaleItems =
                       font-medium
                       text-slate-700
                     "
-                  >
-                    {product.sku ?? "-"}
+                    >
+                      {product.sku ?? "-"}
+                    </div>
                   </div>
-
                 </div>
-
               </div>
+            </section>
 
-            </div>
+            {/* ==================================================== */}
+            {/* DESCRIPTION */}
+            {/* ==================================================== */}
 
-          </section>
-
-          {/* ==================================================== */}
-          {/* DESCRIPTION */}
-          {/* ==================================================== */}
-
-          <section
-            className="
+            <section
+              className="
               mt-3
               bg-white
               px-5
@@ -1707,16 +1428,14 @@ const normalizedFlashSaleItems =
               lg:px-8
               lg:py-6
             "
-          >
+            >
+              <div className="max-w-4xl">
+                {/* ================================================== */}
+                {/* DESKRIPSI PRODUK */}
+                {/* ================================================== */}
 
-            <div className="max-w-4xl">
-
-              {/* ================================================== */}
-              {/* DESKRIPSI PRODUK */}
-              {/* ================================================== */}
-
-              <h2
-                className="
+                <h2
+                  className="
                   border-b
                   border-slate-100
                   pb-4
@@ -1724,12 +1443,12 @@ const normalizedFlashSaleItems =
                   font-semibold
                   text-slate-900
                 "
-              >
-                Deskripsi Produk
-              </h2>
+                >
+                  Deskripsi Produk
+                </h2>
 
-              <div
-                className="
+                <div
+                  className="
                   mt-5
                   rounded-xl
                   border
@@ -1740,21 +1459,17 @@ const normalizedFlashSaleItems =
                   sm:px-5
                   sm:py-5
                 "
-              >
-                <ProductDescription
-                  description={
-                    product.description ?? ""
-                  }
-                />
-              </div>
+                >
+                  <ProductDescription description={product.description ?? ""} />
+                </div>
 
-              {/* ================================================== */}
-              {/* INFORMASI TAMBAHAN PRODUK */}
-              {/* ================================================== */}
+                {/* ================================================== */}
+                {/* INFORMASI TAMBAHAN PRODUK */}
+                {/* ================================================== */}
 
-              {hasAdditionalInformation && (
-                <section
-                  className="
+                {hasAdditionalInformation && (
+                  <section
+                    className="
                     mt-6
                     overflow-hidden
                     rounded-xl
@@ -1762,56 +1477,52 @@ const normalizedFlashSaleItems =
                     border-slate-200
                     bg-white
                   "
-                >
-
-                  <div
-                    className="
+                  >
+                    <div
+                      className="
                       border-b
                       border-slate-100
                       px-4
                       py-4
                       sm:px-5
                     "
-                  >
-                    <h2
-                      className="
+                    >
+                      <h2
+                        className="
                         text-lg
                         font-semibold
                         text-slate-900
                       "
-                    >
-                      Informasi Produk
-                    </h2>
+                      >
+                        Informasi Produk
+                      </h2>
 
-                    <p
-                      className="
+                      <p
+                        className="
                         mt-1
                         text-sm
                         text-slate-500
                       "
-                    >
-                      Informasi tambahan mengenai kandungan,
-                      nilai gizi, penyimpanan, dan penggunaan produk.
-                    </p>
-                  </div>
+                      >
+                        Informasi tambahan mengenai kandungan, nilai gizi,
+                        penyimpanan, dan penggunaan produk.
+                      </p>
+                    </div>
 
-                  <div
-                    className="
+                    <div
+                      className="
                       divide-y
                       divide-slate-100
                     "
-                  >
+                    >
+                      {/* ================================================== */}
+                      {/* KANDUNGAN / INGREDIENTS */}
+                      {/* ================================================== */}
 
-                    {/* ================================================== */}
-                    {/* KANDUNGAN / INGREDIENTS */}
-                    {/* ================================================== */}
-
-                    {ingredients.length > 0 && (
-                      <details
-                        className="group"
-                      >
-                        <summary
-                          className="
+                      {ingredients.length > 0 && (
+                        <details className="group">
+                          <summary
+                            className="
                             flex
                             cursor-pointer
                             list-none
@@ -1826,13 +1537,11 @@ const normalizedFlashSaleItems =
                             [&::-webkit-details-marker]:hidden
                             sm:px-5
                           "
-                        >
-                          <span>
-                            Kandungan / Ingredients
-                          </span>
+                          >
+                            <span>Kandungan / Ingredients</span>
 
-                          <ChevronRight
-                            className="
+                            <ChevronRight
+                              className="
                               h-4
                               w-4
                               shrink-0
@@ -1840,11 +1549,11 @@ const normalizedFlashSaleItems =
                               transition-transform
                               group-open:rotate-90
                             "
-                          />
-                        </summary>
+                            />
+                          </summary>
 
-                        <div
-                          className="
+                          <div
+                            className="
                             px-4
                             pb-5
                             text-sm
@@ -1852,24 +1561,22 @@ const normalizedFlashSaleItems =
                             text-slate-600
                             sm:px-5
                           "
-                        >
-                          <div className="whitespace-pre-line">
-                            {ingredients}
+                          >
+                            <div className="whitespace-pre-line">
+                              {ingredients}
+                            </div>
                           </div>
-                        </div>
-                      </details>
-                    )}
+                        </details>
+                      )}
 
-                    {/* ================================================== */}
-                    {/* INFORMASI GIZI */}
-                    {/* ================================================== */}
+                      {/* ================================================== */}
+                      {/* INFORMASI GIZI */}
+                      {/* ================================================== */}
 
-                    {nutritionInformation.length > 0 && (
-                      <details
-                        className="group"
-                      >
-                        <summary
-                          className="
+                      {nutritionInformation.length > 0 && (
+                        <details className="group">
+                          <summary
+                            className="
                             flex
                             cursor-pointer
                             list-none
@@ -1884,13 +1591,11 @@ const normalizedFlashSaleItems =
                             [&::-webkit-details-marker]:hidden
                             sm:px-5
                           "
-                        >
-                          <span>
-                            Informasi Gizi
-                          </span>
+                          >
+                            <span>Informasi Gizi</span>
 
-                          <ChevronRight
-                            className="
+                            <ChevronRight
+                              className="
                               h-4
                               w-4
                               shrink-0
@@ -1898,27 +1603,26 @@ const normalizedFlashSaleItems =
                               transition-transform
                               group-open:rotate-90
                             "
-                          />
-                        </summary>
+                            />
+                          </summary>
 
-                        <div
-                          className="
+                          <div
+                            className="
                             px-4
                             pb-5
                             sm:px-5
                           "
-                        >
-                          <div
-                            className="
+                          >
+                            <div
+                              className="
                               overflow-hidden
                               rounded-lg
                               border
                               border-slate-200
                             "
-                          >
-
-                            <div
-                              className="
+                            >
+                              <div
+                                className="
                                 grid
                                 grid-cols-[minmax(0,1fr)_auto_auto]
                                 gap-3
@@ -1931,30 +1635,22 @@ const normalizedFlashSaleItems =
                                 text-slate-500
                                 sm:px-4
                               "
-                            >
-                              <div>
-                                Nutrisi
-                              </div>
+                              >
+                                <div>Nutrisi</div>
 
-                              <div className="text-right">
-                                Nilai
-                              </div>
+                                <div className="text-right">Nilai</div>
 
-                              <div
-                                className="
+                                <div
+                                  className="
                                   min-w-12
                                   text-right
                                 "
-                              >
-                                Satuan
+                                >
+                                  Satuan
+                                </div>
                               </div>
-                            </div>
 
-                            {nutritionInformation.map(
-                              (
-                                item,
-                                index
-                              ) => (
+                              {nutritionInformation.map((item, index) => (
                                 <div
                                   key={`nutrition-${index}`}
                                   className="
@@ -1998,24 +1694,20 @@ const normalizedFlashSaleItems =
                                     {item.unit || "-"}
                                   </div>
                                 </div>
-                              )
-                            )}
-
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      </details>
-                    )}
+                        </details>
+                      )}
 
-                    {/* ================================================== */}
-                    {/* PETUNJUK PENYIMPANAN */}
-                    {/* ================================================== */}
+                      {/* ================================================== */}
+                      {/* PETUNJUK PENYIMPANAN */}
+                      {/* ================================================== */}
 
-                    {storageInstructions.length > 0 && (
-                      <details
-                        className="group"
-                      >
-                        <summary
-                          className="
+                      {storageInstructions.length > 0 && (
+                        <details className="group">
+                          <summary
+                            className="
                             flex
                             cursor-pointer
                             list-none
@@ -2030,13 +1722,11 @@ const normalizedFlashSaleItems =
                             [&::-webkit-details-marker]:hidden
                             sm:px-5
                           "
-                        >
-                          <span>
-                            Petunjuk Penyimpanan
-                          </span>
+                          >
+                            <span>Petunjuk Penyimpanan</span>
 
-                          <ChevronRight
-                            className="
+                            <ChevronRight
+                              className="
                               h-4
                               w-4
                               shrink-0
@@ -2044,11 +1734,11 @@ const normalizedFlashSaleItems =
                               transition-transform
                               group-open:rotate-90
                             "
-                          />
-                        </summary>
+                            />
+                          </summary>
 
-                        <div
-                          className="
+                          <div
+                            className="
                             whitespace-pre-line
                             px-4
                             pb-5
@@ -2057,22 +1747,20 @@ const normalizedFlashSaleItems =
                             text-slate-600
                             sm:px-5
                           "
-                        >
-                          {storageInstructions}
-                        </div>
-                      </details>
-                    )}
+                          >
+                            {storageInstructions}
+                          </div>
+                        </details>
+                      )}
 
-                    {/* ================================================== */}
-                    {/* PETUNJUK PENGGUNAAN */}
-                    {/* ================================================== */}
+                      {/* ================================================== */}
+                      {/* PETUNJUK PENGGUNAAN */}
+                      {/* ================================================== */}
 
-                    {usageInstructions.length > 0 && (
-                      <details
-                        className="group"
-                      >
-                        <summary
-                          className="
+                      {usageInstructions.length > 0 && (
+                        <details className="group">
+                          <summary
+                            className="
                             flex
                             cursor-pointer
                             list-none
@@ -2087,13 +1775,11 @@ const normalizedFlashSaleItems =
                             [&::-webkit-details-marker]:hidden
                             sm:px-5
                           "
-                        >
-                          <span>
-                            Petunjuk Penggunaan
-                          </span>
+                          >
+                            <span>Petunjuk Penggunaan</span>
 
-                          <ChevronRight
-                            className="
+                            <ChevronRight
+                              className="
                               h-4
                               w-4
                               shrink-0
@@ -2101,11 +1787,11 @@ const normalizedFlashSaleItems =
                               transition-transform
                               group-open:rotate-90
                             "
-                          />
-                        </summary>
+                            />
+                          </summary>
 
-                        <div
-                          className="
+                          <div
+                            className="
                             whitespace-pre-line
                             px-4
                             pb-5
@@ -2114,49 +1800,41 @@ const normalizedFlashSaleItems =
                             text-slate-600
                             sm:px-5
                           "
-                        >
-                          {usageInstructions}
-                        </div>
-                      </details>
-                    )}
+                          >
+                            {usageInstructions}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </section>
 
-                  </div>
+            {/* ==================================================== */}
+            {/* RECOMMENDATIONS */}
+            {/* ==================================================== */}
 
-                </section>
-              )}
+            <ProductRecommendationSection
+              title="Yang lain beli ini juga"
+              products={frequentlyBoughtProducts}
+            />
 
-            </div>
+            <ProductRecommendationSection
+              title="Produk terkait"
+              products={relatedProducts}
+              href={`/products?category=${encodeURIComponent(
+                product.category.slug,
+              )}#categories`}
+              showViewAll
+            />
 
-          </section>
+            {/* ==================================================== */}
+            {/* TRUST SECTION */}
+            {/* ==================================================== */}
 
-          {/* ==================================================== */}
-          {/* RECOMMENDATIONS */}
-          {/* ==================================================== */}
-
-          <ProductRecommendationSection
-            title="Yang lain beli ini juga"
-            products={
-              frequentlyBoughtProducts
-            }
-          />
-
-          <ProductRecommendationSection
-            title="Produk terkait"
-            products={
-              relatedProducts
-            }
-            href={`/products?category=${encodeURIComponent(
-              product.category.slug
-            )}#categories`}
-            showViewAll
-          />
-
-          {/* ==================================================== */}
-          {/* TRUST SECTION */}
-          {/* ==================================================== */}
-
-          <section
-            className="
+            <section
+              className="
               mt-5
               overflow-hidden
               rounded-2xl
@@ -2164,100 +1842,86 @@ const normalizedFlashSaleItems =
               border-slate-200
               bg-white
             "
-          >
-
-            <div
-              className="
+            >
+              <div
+                className="
                 border-b
                 border-slate-100
                 px-5
                 py-5
                 lg:px-8
               "
-            >
-
-              <h2
-                className="
+              >
+                <h2
+                  className="
                   text-lg
                   font-semibold
                   text-slate-900
                 "
-              >
-                Kenapa Belanja di Sini?
-              </h2>
+                >
+                  Kenapa Belanja di Sini?
+                </h2>
 
-              <p
-                className="
+                <p
+                  className="
                   mt-1
                   text-sm
                   text-slate-500
                 "
-              >
-                Kami berusaha memberikan pengalaman belanja seafood
-                yang mudah dan nyaman.
-              </p>
+                >
+                  Kami berusaha memberikan pengalaman belanja seafood yang mudah
+                  dan nyaman.
+                </p>
+              </div>
 
-            </div>
-
-            <div className="grid sm:grid-cols-3">
-
-              <div
-                className="
+              <div className="grid sm:grid-cols-3">
+                <div
+                  className="
                   border-b
                   border-slate-100
                   sm:border-b-0
                   sm:border-r
                 "
-              >
-                <TrustItem
-                  icon={
-                    <Fish className="h-6 w-6" />
-                  }
-                  title="Produk Segar"
-                  description="Pilihan seafood untuk kebutuhan Anda."
-                />
-              </div>
+                >
+                  <TrustItem
+                    icon={<Fish className="h-6 w-6" />}
+                    title="Produk Segar"
+                    description="Pilihan seafood untuk kebutuhan Anda."
+                  />
+                </div>
 
-              <div
-                className="
+                <div
+                  className="
                   border-b
                   border-slate-100
                   sm:border-b-0
                   sm:border-r
                 "
-              >
-                <TrustItem
-                  icon={
-                    <ShieldCheck className="h-6 w-6" />
-                  }
-                  title="Kualitas Terjaga"
-                  description="Informasi produk dan stok ditampilkan secara transparan."
-                />
+                >
+                  <TrustItem
+                    icon={<ShieldCheck className="h-6 w-6" />}
+                    title="Kualitas Terjaga"
+                    description="Informasi produk dan stok ditampilkan secara transparan."
+                  />
+                </div>
+
+                <div>
+                  <TrustItem
+                    icon={<Package className="h-6 w-6" />}
+                    title="Checkout Mudah"
+                    description="Proses pembelian dirancang cepat dan praktis."
+                  />
+                </div>
               </div>
-
-              <div>
-                <TrustItem
-                  icon={
-                    <Package className="h-6 w-6" />
-                  }
-                  title="Checkout Mudah"
-                  description="Proses pembelian dirancang cepat dan praktis."
-                />
-              </div>
-
-            </div>
-
-          </section>
-
-        </div>
-      </section>
-
+            </section>
+          </div>
+        </section>
       </main>
 
-        <StickyMobileCartBar />
+      <StickyMobileCartBar />
 
-    <MobileBottomNavigation />
-  </>
+      <MobileBottomNavigation />
+    </>
   );
 }
 
@@ -2288,7 +1952,6 @@ function TrustItem({
         lg:py-6
       "
     >
-
       {/* ICON */}
 
       <div
@@ -2310,7 +1973,6 @@ function TrustItem({
       {/* CONTENT */}
 
       <div className="min-w-0">
-
         <h3
           className="
             text-sm
@@ -2331,9 +1993,7 @@ function TrustItem({
         >
           {description}
         </p>
-
       </div>
-
     </div>
   );
 }
@@ -2344,17 +2004,12 @@ function TrustItem({
  * ============================================================
  */
 
-function formatRupiah(
-  value: number
-) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }
-  ).format(value);
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 /**
@@ -2371,21 +2026,10 @@ function formatRupiah(
  * Rp 30.000 - Rp 50.000
  */
 
-function formatPriceRange(
-  minimum: number,
-  maximum: number
-) {
-  if (
-    minimum === maximum
-  ) {
-    return formatRupiah(
-      minimum
-    );
+function formatPriceRange(minimum: number, maximum: number) {
+  if (minimum === maximum) {
+    return formatRupiah(minimum);
   }
 
-  return `${formatRupiah(
-    minimum
-  )} - ${formatRupiah(
-    maximum
-  )}`;
+  return `${formatRupiah(minimum)} - ${formatRupiah(maximum)}`;
 }

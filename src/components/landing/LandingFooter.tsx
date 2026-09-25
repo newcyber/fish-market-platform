@@ -7,8 +7,6 @@ type LandingFooterProps = {
   siteLogo?: string | null;
   storeInitial: string;
   storeUrl: string;
-  androidUrl?: string | null;
-  iosUrl?: string | null;
 };
 
 export default function LandingFooter({
@@ -17,8 +15,6 @@ export default function LandingFooter({
   siteLogo,
   storeInitial,
   storeUrl,
-  androidUrl,
-  iosUrl,
 }: LandingFooterProps) {
   return (
     <footer className="border-t border-slate-200 bg-white">
@@ -66,28 +62,6 @@ export default function LandingFooter({
           >
             Store
           </a>
-
-          {/* Android */}
-          {androidUrl ? (
-            <a
-              href={androidUrl}
-              className="transition hover:text-[var(--pisjo-primary)]"
-            >
-              Android
-            </a>
-          ) : null}
-
-          {/* iOS */}
-          {iosUrl ? (
-            <a
-              href={iosUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition hover:text-[var(--pisjo-primary)]"
-            >
-              iOS
-            </a>
-          ) : null}
 
           {/* Privacy */}
           <Link

@@ -21,8 +21,13 @@ export interface LandingPageHeroConfig {
   title?: string;
   highlight?: string;
   description?: string;
+
   primaryButtonLabel?: string;
+  primaryButtonHref?: string;
+
   secondaryButtonLabel?: string;
+  secondaryButtonHref?: string;
+
   image?: string | null;
 }
 
@@ -75,6 +80,48 @@ export interface LandingPageRewardSectionConfig {
   compactLimit?: number;
 }
 
+
+/**
+ * ============================================================
+ * TESTIMONIAL SECTION
+ * ============================================================
+ */
+
+export interface LandingPageTestimonial {
+  name: string;
+  role?: string;
+  message: string;
+  rating?: number;
+  avatar?: string | null;
+}
+
+export interface LandingPageTestimonialsSectionConfig {
+  enabled?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  items?: LandingPageTestimonial[];
+}
+
+/**
+ * ============================================================
+ * FAQ SECTION
+ * ============================================================
+ */
+
+export interface LandingPageFaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface LandingPageFaqSectionConfig {
+  enabled?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  items?: LandingPageFaqItem[];
+}
+
 export interface LandingPageTutorialStep {
   title: string;
   description: string;
@@ -125,6 +172,10 @@ export interface LandingPageConfig {
   benefits?: LandingPageBenefit[];
 
   rewardSection?: LandingPageRewardSectionConfig;
+
+  testimonialsSection?: LandingPageTestimonialsSectionConfig;
+
+  faqSection?: LandingPageFaqSectionConfig;
 
   tutorialSection?: LandingPageTutorialSectionConfig;
 

@@ -24,7 +24,9 @@ import { updateLandingPageAction } from "@/actions/admin/landing-page/update-lan
 import type {
   LandingPageBenefit,
   LandingPageConfig,
+  LandingPageFaqItem,
   LandingPageStep,
+  LandingPageTestimonial,
 } from "@/repositories/landing-page/landing-page.types";
 
 interface LandingPageContentFormProps {
@@ -88,6 +90,8 @@ export default function LandingPageContentForm({
   const benefitsSection = initialConfig.benefitsSection ?? {};
   const rewardSection = initialConfig.rewardSection ?? {};
   const tutorialSection = initialConfig.tutorialSection ?? {};
+  const testimonialsSection = initialConfig.testimonialsSection ?? {};
+  const faqSection = initialConfig.faqSection ?? {};
 
   const [heroEyebrow, setHeroEyebrow] = useState(getString(hero.eyebrow));
 
@@ -101,10 +105,6 @@ export default function LandingPageContentForm({
 
   const [heroPrimaryButtonLabel, setHeroPrimaryButtonLabel] = useState(
     getString(hero.primaryButtonLabel, "Belanja Sekarang"),
-  );
-
-  const [heroSecondaryButtonLabel, setHeroSecondaryButtonLabel] = useState(
-    getString(hero.secondaryButtonLabel, "Download Android"),
   );
 
   const [benefitsEyebrow, setBenefitsEyebrow] = useState(
@@ -254,6 +254,50 @@ export default function LandingPageContentForm({
     initialConfig.steps ?? [],
   );
 
+  const [testimonialsEnabled, setTestimonialsEnabled] = useState(
+    testimonialsSection.enabled !== false,
+  );
+
+  const [testimonialsEyebrow, setTestimonialsEyebrow] = useState(
+    getString(testimonialsSection.eyebrow, "CERITA PELANGGAN"),
+  );
+
+  const [testimonialsTitle, setTestimonialsTitle] = useState(
+    getString(testimonialsSection.title, "Dipercaya untuk kebutuhan seafood"),
+  );
+
+  const [testimonialsDescription, setTestimonialsDescription] = useState(
+    getString(
+      testimonialsSection.description,
+      "Pengalaman pelanggan saat berbelanja di PISJO Market.",
+    ),
+  );
+
+  const [testimonials, setTestimonials] = useState<LandingPageTestimonial[]>(
+    testimonialsSection.items ?? [],
+  );
+
+  const [faqEnabled, setFaqEnabled] = useState(faqSection.enabled !== false);
+
+  const [faqEyebrow, setFaqEyebrow] = useState(
+    getString(faqSection.eyebrow, "FAQ"),
+  );
+
+  const [faqTitle, setFaqTitle] = useState(
+    getString(faqSection.title, "Pertanyaan yang sering ditanyakan"),
+  );
+
+  const [faqDescription, setFaqDescription] = useState(
+    getString(
+      faqSection.description,
+      "Temukan jawaban untuk pertanyaan umum seputar belanja di PISJO Market.",
+    ),
+  );
+
+  const [faqItems, setFaqItems] = useState<LandingPageFaqItem[]>(
+    faqSection.items ?? [],
+  );
+
   const [message, setMessage] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -352,6 +396,82 @@ export default function LandingPageContentForm({
     );
   };
 
+  const updateTestimonial = (
+    index: number,
+    field: keyof LandingPageTestimonial,
+    value: string | number,
+  ) => {
+    setTestimonials((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const addTestimonial = () => {
+    if (testimonials.length >= 12) {
+      return;
+    }
+
+    setTestimonials((current) => [
+      ...current,
+      {
+        name: "",
+        role: "",
+        message: "",
+        rating: 5,
+      },
+    ]);
+  };
+
+  const removeTestimonial = (index: number) => {
+    setTestimonials((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
+  };
+
+  const updateFaqItem = (
+    index: number,
+    field: keyof LandingPageFaqItem,
+    value: string,
+  ) => {
+    setFaqItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const addFaqItem = () => {
+    if (faqItems.length >= 20) {
+      return;
+    }
+
+    setFaqItems((current) => [
+      ...current,
+      {
+        question: "",
+        answer: "",
+      },
+    ]);
+  };
+
+  const removeFaqItem = (index: number) => {
+    setFaqItems((current) =>
+      current.filter((_, itemIndex) => itemIndex !== index),
+    );
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -392,7 +512,6 @@ export default function LandingPageContentForm({
             highlight: heroHighlight,
             description: heroDescription,
             primaryButtonLabel: heroPrimaryButtonLabel,
-            secondaryButtonLabel: heroSecondaryButtonLabel,
           },
 
           /**
@@ -408,6 +527,34 @@ export default function LandingPageContentForm({
           },
 
           benefits,
+
+          /**
+           * ==================================================
+           * TESTIMONIALS SECTION
+           * ==================================================
+           */
+          testimonialsSection: {
+            ...testimonialsSection,
+            enabled: testimonialsEnabled,
+            eyebrow: testimonialsEyebrow,
+            title: testimonialsTitle,
+            description: testimonialsDescription,
+            items: testimonials,
+          },
+
+          /**
+           * ==================================================
+           * FAQ SECTION
+           * ==================================================
+           */
+          faqSection: {
+            ...faqSection,
+            enabled: faqEnabled,
+            eyebrow: faqEyebrow,
+            title: faqTitle,
+            description: faqDescription,
+            items: faqItems,
+          },
 
           /**
            * ==================================================
@@ -646,12 +793,6 @@ export default function LandingPageContentForm({
               value={heroPrimaryButtonLabel}
               onChange={setHeroPrimaryButtonLabel}
             />
-
-            <Field
-              label="Android Button"
-              value={heroSecondaryButtonLabel}
-              onChange={setHeroSecondaryButtonLabel}
-            />
           </div>
         </div>
       </section>
@@ -793,6 +934,119 @@ export default function LandingPageContentForm({
               </button>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* TESTIMONIALS */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <h2 className="text-lg font-semibold">Testimonials</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Kelola cerita pelanggan yang ditampilkan pada Landing Page.
+          </p>
+        </div>
+
+        <div className="grid gap-6 p-6">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">Tampilkan Testimonials</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aktifkan atau nonaktifkan section testimonial.
+              </p>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={testimonialsEnabled}
+              onChange={(event) => setTestimonialsEnabled(event.target.checked)}
+              className="h-5 w-5 rounded border-slate-300"
+            />
+          </label>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Field
+              label="Eyebrow"
+              value={testimonialsEyebrow}
+              onChange={setTestimonialsEyebrow}
+            />
+
+            <Field
+              label="Title"
+              value={testimonialsTitle}
+              onChange={setTestimonialsTitle}
+            />
+          </div>
+
+          <TextareaField
+            label="Description"
+            value={testimonialsDescription}
+            onChange={setTestimonialsDescription}
+            rows={3}
+          />
+
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm font-semibold">Daftar Testimonials</p>
+
+            <button
+              type="button"
+              onClick={addTestimonial}
+              disabled={testimonials.length >= 12}
+              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              Tambah
+            </button>
+          </div>
+
+          {testimonials.map((item, index) => (
+            <div
+              key={`testimonial-${index}`}
+              className="grid gap-5 rounded-xl border p-5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Testimonial {index + 1}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => removeTestimonial(index)}
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Hapus
+                </button>
+              </div>
+
+              <Field
+                label="Nama"
+                value={item.name}
+                onChange={(value) => updateTestimonial(index, "name", value)}
+              />
+
+              <Field
+                label="Role / Keterangan"
+                value={item.role ?? ""}
+                onChange={(value) => updateTestimonial(index, "role", value)}
+              />
+
+              <TextareaField
+                label="Pesan"
+                value={item.message}
+                onChange={(value) => updateTestimonial(index, "message", value)}
+                rows={4}
+              />
+
+              <NumberField
+                label="Rating"
+                value={item.rating ?? 5}
+                min={1}
+                max={5}
+                onChange={(value) => updateTestimonial(index, "rating", value)}
+              />
+            </div>
+          ))}
         </div>
       </section>
 
@@ -1203,6 +1457,101 @@ export default function LandingPageContentForm({
               </button>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* FAQ */}
+
+      <section className="rounded-2xl border bg-card shadow-sm">
+        <div className="border-b p-6">
+          <h2 className="text-lg font-semibold">FAQ</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Kelola pertanyaan dan jawaban yang ditampilkan pada Landing Page.
+          </p>
+        </div>
+
+        <div className="grid gap-6 p-6">
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
+            <div>
+              <p className="text-sm font-medium">Tampilkan FAQ</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aktifkan atau nonaktifkan section FAQ.
+              </p>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={faqEnabled}
+              onChange={(event) => setFaqEnabled(event.target.checked)}
+              className="h-5 w-5 rounded border-slate-300"
+            />
+          </label>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Field
+              label="Eyebrow"
+              value={faqEyebrow}
+              onChange={setFaqEyebrow}
+            />
+
+            <Field label="Title" value={faqTitle} onChange={setFaqTitle} />
+          </div>
+
+          <TextareaField
+            label="Description"
+            value={faqDescription}
+            onChange={setFaqDescription}
+            rows={3}
+          />
+
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm font-semibold">Daftar FAQ</p>
+
+            <button
+              type="button"
+              onClick={addFaqItem}
+              disabled={faqItems.length >= 20}
+              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              Tambah
+            </button>
+          </div>
+
+          {faqItems.map((item, index) => (
+            <div
+              key={`faq-${index}`}
+              className="grid gap-5 rounded-xl border p-5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  FAQ {index + 1}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => removeFaqItem(index)}
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Hapus
+                </button>
+              </div>
+
+              <Field
+                label="Pertanyaan"
+                value={item.question}
+                onChange={(value) => updateFaqItem(index, "question", value)}
+              />
+
+              <TextareaField
+                label="Jawaban"
+                value={item.answer}
+                onChange={(value) => updateFaqItem(index, "answer", value)}
+                rows={4}
+              />
+            </div>
+          ))}
         </div>
       </section>
 

@@ -17,7 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const canonicalBase =
     settings.seoCanonicalUrl?.trim() ||
     process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
+    "https://app.pusatikansegar.com";
 
   const baseUrl = canonicalBase.replace(/\/+$/, "");
 

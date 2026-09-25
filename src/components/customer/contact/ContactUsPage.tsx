@@ -319,7 +319,6 @@ const googleMapsUrl = hasCoordinates
         siteLogo={siteLogo}
         storeInitial={storeInitial}
         storeUrl={storeUrl}
-        androidUrl={androidUrl}
       />
     </main>
   );

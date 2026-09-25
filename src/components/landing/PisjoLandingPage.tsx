@@ -5,18 +5,27 @@ import {
   ArrowRight,
   Check,
   ChevronRight,
+  Coins,
   Fish,
+  Gift,
   PackageCheck,
+  RefreshCw,
   ShoppingBag,
   Smartphone,
   Sparkles,
+  Star,
   Store,
   Truck,
 } from "lucide-react";
 
+import HomeFeaturedProducts from "@/components/customer/home/HomeFeaturedProducts";
 import LandingFooter from "@/components/landing/LandingFooter";
 import LandingHeader from "@/components/landing/LandingHeader";
+import { serializeHomepageProduct } from "@/lib/products/serialize-homepage-product";
 import landingPageService from "@/repositories/landing-page/landing-page.service";
+import ProductRepository from "@/repositories/ProductRepository";
+import LandingFaq from "./LandingFaq";
+import LandingTestimonials from "./LandingTestimonials";
 
 export default async function PisjoLandingPage() {
   const landing = await landingPageService.getPublicLandingPage();
@@ -27,14 +36,18 @@ export default async function PisjoLandingPage() {
 
   const { brand, config, rewards, urls } = landing;
 
+  const productsHref = `${urls.store.replace(/\/+$/, "")}/customer/products`;
+
+  const featuredProducts = (await ProductRepository.findFeatured(6)).map(
+    serializeHomepageProduct,
+  );
+
   const storeName = brand.storeName;
   const storeDescription = brand.storeDescription;
   const siteLogo = brand.siteLogo;
 
   const hero = config.hero ?? {};
   const benefits = config.benefits ?? [];
-  const app = config.app ?? {};
-
   const benefitsSection = config.benefitsSection ?? {};
 
   const rewardSection = config.rewardSection ?? {};
@@ -59,10 +72,6 @@ export default async function PisjoLandingPage() {
     return `${urls.store.replace(/\/+$/, "")}/${normalizedPath.replace(/^\/+/, "")}`;
   })();
 
-  const tutorialSection = config.tutorialSection ?? {};
-
-  const tutorialSteps = (tutorialSection.steps ?? []).slice(0, 3);
-
   const rewardFeaturedLimit = Math.max(
     1,
     Math.min(rewardSection.featuredLimit ?? 3, 10),
@@ -85,28 +94,6 @@ export default async function PisjoLandingPage() {
   const images = config.images ?? {};
 
   const heroImage = images.hero ?? null;
-  const appImage = images.app ?? null;
-
-  /*
-   * ============================================================
-   * PLATFORM AVAILABILITY
-   * ============================================================
-   *
-   * Android:
-   * - tersedia jika URL APK tersedia
-   *
-   * iOS:
-   * - tersedia jika App Store URL tersedia
-   *
-   * Tidak menggunakan fallback ke urls.store.
-   * ============================================================
-   */
-
-  const androidAvailable = Boolean(urls.android);
-  const androidUrl = urls.android;
-
-  const iosAvailable = Boolean(urls.ios);
-  const iosUrl = urls.ios;
 
   const storeInitial =
     storeName
@@ -197,46 +184,6 @@ export default async function PisjoLandingPage() {
 
                 <ArrowRight className="h-4 w-4" />
               </a>
-
-              {/* Android */}
-              {androidAvailable && androidUrl ? (
-                <a
-                  href={androidUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)] sm:inline-flex"
-                >
-                  <Smartphone className="h-5 w-5 shrink-0 text-[var(--pisjo-primary)]" />
-
-                  <span>{hero.secondaryButtonLabel || "Download Android"}</span>
-
-                  <ArrowRight className="h-4 w-4 shrink-0" />
-                </a>
-              ) : null}
-
-              {/* iOS */}
-              {iosAvailable && iosUrl ? (
-                <a
-                  href={iosUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Download iOS"
-                  className="hidden min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)] sm:inline-flex"
-                >
-                  {/* Apple Logo */}
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    className="h-5 w-5 shrink-0 fill-current text-[var(--pisjo-navy)]"
-                  >
-                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
-                  </svg>
-
-                  <span>Download iOS</span>
-
-                  <ArrowRight className="h-4 w-4 shrink-0" />
-                </a>
-              ) : null}
             </div>
 
             <div className="mt-6 flex flex-wrap gap-x-4 gap-y-3 text-xs text-slate-500 sm:mt-8 sm:gap-x-6 sm:text-sm">
@@ -361,6 +308,15 @@ export default async function PisjoLandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ====================================================== */}
+      {/* FEATURED PRODUCTS                                      */}
+      {/* ====================================================== */}
+
+      <HomeFeaturedProducts
+        products={featuredProducts}
+        productsHref={productsHref}
+      />
 
       {/* ====================================================== */}
       {/* MARKETPLACE CUSTOMER CONVERSION                         */}
@@ -569,8 +525,8 @@ export default async function PisjoLandingPage() {
               ) : null}
             </div>
 
-            <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-              {benefits.map((benefit, index) => (
+            <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+              {benefits.slice(0, 6).map((benefit, index) => (
                 <Benefit
                   key={`${benefit.title}-${index}`}
                   icon={<BenefitIcon name={benefit.icon} />}
@@ -582,6 +538,12 @@ export default async function PisjoLandingPage() {
           </div>
         </section>
       )}
+
+      {/* ====================================================== */}
+      {/* TESTIMONIALS                                            */}
+      {/* ====================================================== */}
+
+      <LandingTestimonials section={config.testimonialsSection} />
 
       {/* ====================================================== */}
       {/* REWARD POINTS                                           */}
@@ -666,307 +628,130 @@ export default async function PisjoLandingPage() {
       )}
 
       {/* ====================================================== */}
-      {/* TUTORIAL INSTALASI                                     */}
+      {/* BELANJA LANGSUNG DI PISJO                                */}
       {/* ====================================================== */}
 
-      {tutorialSection.enabled !== false ? (
-        <section className="relative overflow-hidden bg-white">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-40 top-1/3 h-80 w-80 rounded-full bg-[#bdefff]/30 blur-3xl"
-          />
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#e8f8ff] via-white to-[#fff9e9]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-32 top-0 h-96 w-96 rounded-full bg-[#8cddff]/25 blur-3xl"
+        />
 
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-40 bottom-0 h-80 w-80 rounded-full bg-[#ffe9a8]/30 blur-3xl"
-          />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-32 bottom-0 h-80 w-80 rounded-full bg-[#ffe9a8]/25 blur-3xl"
+        />
 
-          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-24">
-            <div className="flex justify-center">
-              <div className="relative w-full max-w-sm">
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-8 rounded-[3rem] bg-[#0788e8]/10 blur-3xl"
-                />
-
-                {tutorialSection.image ? (
-                  <div className="relative overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white p-4 shadow-xl">
-                    <div className="relative overflow-hidden rounded-[2rem] bg-slate-50">
-                      <Image
-                        src={tutorialSection.image}
-                        alt={
-                          tutorialSection.title ||
-                          "Tutorial instalasi PISJO di iPhone"
-                        }
-                        width={720}
-                        height={960}
-                        className="h-auto max-h-[38rem] w-full object-contain"
-                        sizes="(max-width: 1024px) 90vw, 384px"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative mx-auto w-full max-w-[18rem] rounded-[2.8rem] border-[8px] border-slate-900 bg-white p-2 shadow-2xl">
-                    <div className="overflow-hidden rounded-[2.1rem] bg-[#f4fbff]">
-                      <div className="flex h-8 items-center justify-center bg-white">
-                        <div className="h-1.5 w-20 rounded-full bg-slate-200" />
-                      </div>
-
-                      <div className="p-3 sm:p-5">
-                        <div className="rounded-2xl bg-white p-4 shadow-sm">
-                          <p className="text-[10px] font-semibold text-slate-400">
-                            Safari
-                          </p>
-                          <p className="mt-3 text-sm font-black text-[var(--pisjo-navy)]">
-                            Pisjo Market
-                          </p>
-                          <div className="mt-4 h-24 rounded-xl bg-[var(--pisjo-gradient)]" />
-                          <div className="mt-4 h-2 w-3/4 rounded-full bg-slate-200" />
-                          <div className="mt-2 h-2 w-1/2 rounded-full bg-slate-100" />
-                        </div>
-
-                        <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-center">
-                          <p className="text-xs font-bold text-[var(--pisjo-primary)]">
-                            Tambahkan ke Home Screen
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+        <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:px-8 lg:py-24">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#0788e8]/15 bg-white/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--pisjo-primary)] shadow-sm sm:text-xs">
+              <Store className="h-3.5 w-3.5" />
+              Belanja langsung di PISJO
             </div>
 
-            <div className="min-w-0 max-w-2xl">
-              {tutorialSection.eyebrow ? (
-                <p className="text-sm font-bold text-[var(--pisjo-primary)]">
-                  {tutorialSection.eyebrow}
-                </p>
-              ) : null}
+            <h2 className="mt-4 text-3xl font-black leading-tight tracking-tight text-[var(--pisjo-navy)] sm:text-4xl lg:text-5xl">
+              Sudah pernah belanja di marketplace kami?
+              <span className="mt-1 block text-[var(--pisjo-primary)]">
+                Sekarang bisa langsung di PISJO.
+              </span>
+            </h2>
 
-              {tutorialSection.title ? (
-                <h2 className="mt-3 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
-                  {tutorialSection.title}
-                </h2>
-              ) : null}
+            <p className="mt-5 max-w-xl text-sm leading-6 text-[var(--pisjo-text-secondary)] sm:text-base sm:leading-7">
+              Pengalaman belanja tetap praktis, pilihan seafood tetap beragam,
+              dan Anda bisa mengumpulkan poin dari transaksi langsung di PISJO
+              Market.
+            </p>
 
-              {tutorialSection.description ? (
-                <p className="mt-4 text-base leading-7 text-[var(--pisjo-text-secondary)]">
-                  {tutorialSection.description}
-                </p>
-              ) : null}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <a
+                href={urls.store}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-primary)] px-6 text-sm font-black text-white shadow-lg shadow-[rgb(7_136_232_/_0.18)] transition hover:-translate-y-0.5 hover:bg-[var(--pisjo-ocean)]"
+              >
+                <ShoppingBag className="h-5 w-5" />
+                Coba Belanja di PISJO
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
 
-              {tutorialSteps.length > 0 ? (
-                <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                  {tutorialSteps.map((step, index) => (
-                    <div
-                      key={`${step.title}-${index}`}
-                      className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--pisjo-soft-blue)] text-sm font-black text-[var(--pisjo-primary)]">
-                        {String(index + 1).padStart(2, "0")}
-                      </div>
+            <p className="mt-4 text-xs font-semibold leading-5 text-slate-500 sm:text-sm">
+              Tidak perlu download aplikasi — langsung belanja melalui browser
+              HP Anda.
+            </p>
+          </div>
 
-                      <h3 className="mt-4 break-words text-sm font-black text-[var(--pisjo-navy)]">
-                        {step.title}
-                      </h3>
+          <div className="relative">
+            <div
+              aria-hidden="true"
+              className="absolute inset-6 rounded-[3rem] bg-[#0788e8]/10 blur-3xl"
+            />
 
-                      <p className="mt-2 break-words text-xs leading-5 text-[var(--pisjo-text-secondary)]">
-                        {step.description}
+            <div className="relative rounded-[2rem] border border-white/80 bg-white/90 p-4 shadow-xl backdrop-blur-sm sm:p-6">
+              <div className="rounded-[1.5rem] bg-gradient-to-br from-[#0b4f91] via-[#087fd1] to-[#12a9e8] p-5 text-white shadow-lg shadow-[#087fd1]/20 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+                    <Store className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">
+                      Pengalaman belanja
+                    </p>
+                    <p className="mt-1 text-base font-black">Tetap sama.</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-start gap-3 rounded-2xl bg-white/10 p-3">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100" />
+                    <div>
+                      <p className="text-sm font-black">
+                        Harga dan pilihan seafood
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-cyan-100">
+                        Pilih produk sesuai kebutuhan keluarga.
                       </p>
                     </div>
-                  ))}
-                </div>
-              ) : null}
-
-              {tutorialSection.infoText ? (
-                <div className="mt-6 flex min-w-0 items-start gap-3 rounded-2xl border border-[#0788e8]/10 bg-[#f0faff] p-4 text-sm font-semibold text-[var(--pisjo-navy)]">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-primary)] text-xs font-black text-white">
-                    i
                   </div>
-                  <span className="min-w-0 break-words">
-                    {tutorialSection.infoText}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
 
-      {/* ====================================================== */}
-      {/* APP SHOWCASE                                            */}
-      {/* ====================================================== */}
-
-      {app.enabled !== false && (
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#e8f8ff] via-[#f5fcff] to-white">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-40 top-1/2 h-[30rem] w-[30rem] -translate-y-1/2 rounded-full bg-[#8cddff]/20 blur-3xl"
-          />
-
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-40 bottom-0 h-72 w-72 rounded-full bg-[#bdefff]/30 blur-3xl"
-          />
-
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-24">
-            <div className="max-w-xl">
-              {/* Platform badges */}
-
-              <div className="flex flex-wrap gap-x-5 gap-y-2">
-                {androidAvailable ? (
-                  <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
-                    <Smartphone className="h-5 w-5 shrink-0" />
-
-                    <span>Pisjo Market di Android</span>
-                  </span>
-                ) : null}
-
-                {iosAvailable ? (
-                  <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
-                    {/* Apple Logo */}
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-5 w-5 shrink-0 fill-current text-[var(--pisjo-primary)]"
-                    >
-                      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
-                    </svg>
-
-                    <span>Pisjo Market di iOS</span>
-                  </span>
-                ) : null}
-
-                {!androidAvailable && !iosAvailable ? (
-                  <span className="inline-flex items-center gap-2 text-sm font-bold text-[var(--pisjo-primary)]">
-                    <Smartphone className="h-5 w-5 shrink-0" />
-
-                    <span>Pisjo Market</span>
-                  </span>
-                ) : null}
-              </div>
-
-              <h2 className="mt-4 text-3xl font-black tracking-tight text-[var(--pisjo-navy)] sm:text-4xl">
-                {app.title || "Belanja kapan saja, langsung dari smartphone."}
-              </h2>
-
-              <p className="mt-5 text-base leading-7 text-[var(--pisjo-text-secondary)]">
-                {app.description ||
-                  "Akses Pisjo Market dari perangkat Anda untuk pengalaman belanja yang lebih praktis."}
-              </p>
-
-              {/* ================================================== */}
-              {/* APP DOWNLOAD BUTTONS                              */}
-              {/* ================================================== */}
-
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                {/* Android */}
-                {androidAvailable && androidUrl ? (
-                  <a
-                    href={androidUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--pisjo-navy)] px-6 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
-                  >
-                    <Smartphone className="h-5 w-5 shrink-0" />
-
-                    <span>
-                      {app.buttonLabel || "Download Aplikasi Android"}
-                    </span>
-
-                    <ArrowRight className="h-4 w-4 shrink-0" />
-                  </a>
-                ) : null}
-
-                {/* iOS / App Store */}
-                {iosAvailable && iosUrl ? (
-                  <a
-                    href={iosUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Download Pisjo Market di App Store"
-                    className="hidden min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-bold text-[var(--pisjo-navy)] shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)] sm:inline-flex"
-                  >
-                    {/* Apple Logo */}
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-5 w-5 shrink-0 fill-current text-[var(--pisjo-navy)]"
-                    >
-                      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
-                    </svg>
-
-                    <span>Download di App Store</span>
-
-                    <ArrowRight className="h-4 w-4 shrink-0" />
-                  </a>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="relative flex justify-center">
-              {appImage ? (
-                /* =========================
-               APP IMAGE FROM ADMIN
-               ========================= */
-                <div className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-white bg-white p-4 shadow-xl sm:p-5">
-                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[2rem] bg-slate-50">
-                    <Image
-                      src={appImage}
-                      alt={app.title || `${storeName} App`}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 384px"
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* =========================
-               FALLBACK APP MOCKUP
-               ========================= */
-                <>
-                  <div
-                    aria-hidden="true"
-                    className="absolute h-72 w-72 rounded-full bg-[var(--pisjo-cyan)]/15 blur-3xl"
-                  />
-
-                  <div className="relative w-full max-w-sm rounded-[2.5rem] border border-white bg-white p-5 shadow-xl">
-                    <div className="rounded-[2rem] bg-[var(--pisjo-gradient)] p-6 text-white">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
-                          <Store className="h-6 w-6" />
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-medium text-white/70">
-                            Selamat datang di
-                          </p>
-
-                          <p className="font-bold">{storeName}</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-10 rounded-2xl bg-white/10 p-4 backdrop-blur">
-                        <p className="text-xs text-white/70">Mulai belanja</p>
-
-                        <p className="mt-1 text-2xl font-black">
-                          Seafood favoritmu
-                        </p>
-
-                        <div className="mt-5 flex items-center justify-between rounded-xl bg-white px-4 py-3 text-sm font-bold text-[var(--pisjo-navy)]">
-                          Belanja sekarang
-                          <ChevronRight className="h-4 w-4" />
-                        </div>
-                      </div>
+                  <div className="flex items-start gap-3 rounded-2xl bg-white/10 p-3">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100" />
+                    <div>
+                      <p className="text-sm font-black">Poin dari transaksi</p>
+                      <p className="mt-1 text-xs leading-5 text-cyan-100">
+                        Kumpulkan poin sesuai ketentuan program.
+                      </p>
                     </div>
                   </div>
-                </>
-              )}
+
+                  <div className="flex items-start gap-3 rounded-2xl bg-white/10 p-3">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-100" />
+                    <div>
+                      <p className="text-sm font-black">
+                        Belanja melalui browser
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-cyan-100">
+                        Akses PISJO langsung dari HP Anda.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-4">
+                <div>
+                  <p className="text-xs font-black text-[var(--pisjo-navy)]">
+                    Siap mulai belanja?
+                  </p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                    Pilih produk favorit Anda.
+                  </p>
+                </div>
+                <ArrowRight className="h-5 w-5 shrink-0 text-[var(--pisjo-primary)]" />
+              </div>
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* ====================================================== */}
       {/* HOW IT WORKS                                            */}
@@ -1019,6 +804,12 @@ export default async function PisjoLandingPage() {
       </section>
 
       {/* ====================================================== */}
+      {/* FAQ                                                     */}
+      {/* ====================================================== */}
+
+      <LandingFaq section={config.faqSection} />
+
+      {/* ====================================================== */}
       {/* FINAL CTA                                               */}
       {/* ====================================================== */}
 
@@ -1047,7 +838,7 @@ export default async function PisjoLandingPage() {
 
                 <p className="mt-4 text-base leading-7 text-white/75">
                   {cta.description ||
-                    "Kunjungi store Pisjo Market atau akses melalui aplikasi untuk mulai menikmati pengalaman belanja yang lebih praktis."}
+                    "Belanja seafood pilihan dengan praktis langsung melalui browser HP Anda. Pilih produk, checkout, dan pantau pesanan dalam satu pengalaman."}
                 </p>
               </div>
 
@@ -1061,46 +852,10 @@ export default async function PisjoLandingPage() {
                   href={urls.store}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
                 >
-                  <span>{cta.buttonLabel || "Kunjungi Store"}</span>
+                  <span>{cta.buttonLabel || "Mulai Belanja"}</span>
 
                   <ArrowRight className="h-4 w-4 shrink-0" />
                 </a>
-
-                {/* Android */}
-                {androidAvailable && androidUrl ? (
-                  <a
-                    href={androidUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
-                  >
-                    <Smartphone className="h-4 w-4 shrink-0" />
-
-                    <span>Download Android</span>
-                  </a>
-                ) : null}
-
-                {/* iOS */}
-                {iosAvailable && iosUrl ? (
-                  <a
-                    href={iosUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Download iOS"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
-                  >
-                    {/* Apple Logo */}
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-4 w-4 shrink-0 fill-current text-white"
-                    >
-                      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.33 4.5-3.74 4.25z" />
-                    </svg>
-
-                    <span>Download iOS</span>
-                  </a>
-                ) : null}
               </div>
             </div>
           </div>
@@ -1117,8 +872,6 @@ export default async function PisjoLandingPage() {
         siteLogo={siteLogo}
         storeInitial={storeInitial}
         storeUrl={urls.store}
-        androidUrl={androidUrl}
-        iosUrl={iosUrl}
       />
     </main>
   );
@@ -1237,6 +990,19 @@ function BenefitIcon({ name }: { name?: string }) {
     case "store":
       return <Store className="h-5 w-5" />;
 
+    case "coins":
+      return <Coins className="h-5 w-5" />;
+
+    case "gift":
+      return <Gift className="h-5 w-5" />;
+
+    case "star":
+      return <Star className="h-5 w-5" />;
+
+    case "refresh-cw":
+    case "refresh":
+      return <RefreshCw className="h-5 w-5" />;
+
     case "fish":
     default:
       return <Fish className="h-5 w-5" />;
@@ -1257,16 +1023,16 @@ function Benefit({
   description: string;
 }) {
   return (
-    <div className="group rounded-2xl border border-[#d7edf7] bg-white/95 p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#7ed8f7] hover:shadow-xl hover:shadow-[#0788e8]/10">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d9f5ff] to-[#bcecff] text-[#0788e8] transition duration-300 group-hover:scale-105">
+    <div className="group flex min-h-[166px] flex-col items-center rounded-2xl border border-[#d7edf7] bg-white/95 p-3 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#7ed8f7] hover:shadow-xl hover:shadow-[#0788e8]/10 sm:min-h-[190px] sm:p-6">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#d9f5ff] to-[#bcecff] text-[#0788e8] transition duration-300 group-hover:scale-105 sm:h-12 sm:w-12">
         {icon}
       </div>
 
-      <h3 className="mt-5 text-base font-bold text-[var(--pisjo-navy)]">
+      <h3 className="mt-3 text-[11px] font-black leading-4 text-[var(--pisjo-navy)] sm:mt-4 sm:text-base sm:leading-5">
         {title}
       </h3>
 
-      <p className="mt-2 text-sm leading-6 text-[var(--pisjo-text-secondary)]">
+      <p className="mt-1 max-w-xs text-[10px] leading-4 text-[var(--pisjo-text-secondary)] sm:mt-2 sm:text-sm sm:leading-6">
         {description}
       </p>
     </div>
