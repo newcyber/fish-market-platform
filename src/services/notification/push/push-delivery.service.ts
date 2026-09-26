@@ -2,9 +2,9 @@ import pushSubscriptionRepository from "@/repositories/notification/push-subscri
 
 import webPushService from "@/services/notification/push/web-push.service";
 
-import type {
-  WebPushSubscription,
-} from "@/services/notification/push/push.types";
+import oneSignalDeliveryService from "@/services/notification/onesignal-delivery.service";
+
+import type { WebPushSubscription } from "@/services/notification/push/push.types";
 
 /**
  * ============================================================
@@ -27,27 +27,18 @@ interface WebPushErrorLike {
  * ============================================================
  */
 
-function getWebPushStatusCode(
-  error: unknown
-): number | undefined {
-  if (
-    typeof error !== "object" ||
-    error === null
-  ) {
+function getWebPushStatusCode(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null) {
     return undefined;
   }
 
-  if (
-    !("statusCode" in error)
-  ) {
+  if (!("statusCode" in error)) {
     return undefined;
   }
 
-  const candidate =
-    error as WebPushErrorLike;
+  const candidate = error as WebPushErrorLike;
 
-  return typeof candidate.statusCode ===
-    "number"
+  return typeof candidate.statusCode === "number"
     ? candidate.statusCode
     : undefined;
 }
@@ -116,6 +107,18 @@ export interface PushDeliveryResult {
   failed: number;
 
   removed: number;
+
+  oneSignal?: {
+    enabled: boolean;
+
+    attempted: number;
+
+    sent: number;
+
+    failed: number;
+
+    noSubscription: number;
+  };
 }
 
 /**
@@ -125,10 +128,11 @@ export interface PushDeliveryResult {
  *
  * Tanggung jawab:
  *
- * - Resolve PushSubscription berdasarkan userId.
- * - Mengirim notification ke seluruh device user.
- * - Menggunakan notificationId yang benar untuk user tersebut.
- * - Menghapus subscription yang sudah invalid.
+ * - Resolve browser PushSubscription berdasarkan userId.
+ * - Mengirim Web Push ke seluruh browser device user.
+ * - Mengirim OneSignal Push ke user External ID yang sama.
+ * - Menggunakan notificationId yang benar untuk setiap recipient.
+ * - Menghapus browser subscription yang sudah invalid.
  *
  * Service ini TIDAK menentukan siapa recipient.
  *
@@ -159,7 +163,7 @@ class PushDeliveryService {
    */
 
   async deliver(
-    input: DeliverPushNotificationInput
+    input: DeliverPushNotificationInput,
   ): Promise<PushDeliveryResult> {
     /**
      * --------------------------------------------------------
@@ -167,38 +171,28 @@ class PushDeliveryService {
      * --------------------------------------------------------
      */
 
-    const notifications =
-      input.notifications
-        .map(
-          (notification) => ({
-            ...notification,
+    const notifications = input.notifications
+      .map((notification) => ({
+        ...notification,
 
-            userId:
-              notification.userId.trim(),
+        userId: notification.userId.trim(),
 
-            notificationId:
-              notification.notificationId.trim(),
+        notificationId: notification.notificationId.trim(),
 
-            title:
-              notification.title.trim(),
+        title: notification.title.trim(),
 
-            message:
-              notification.message.trim(),
+        message: notification.message.trim(),
 
-            href:
-              notification.href?.trim() ||
-              null,
-          })
-        )
-        .filter(
-          (notification) =>
-            Boolean(
-              notification.userId &&
-              notification.notificationId &&
-              notification.title &&
-              notification.message
-            )
-        );
+        href: notification.href?.trim() || null,
+      }))
+      .filter((notification) =>
+        Boolean(
+          notification.userId &&
+          notification.notificationId &&
+          notification.title &&
+          notification.message,
+        ),
+      );
 
     /**
      * --------------------------------------------------------
@@ -217,6 +211,14 @@ class PushDeliveryService {
         failed: 0,
 
         removed: 0,
+
+        oneSignal: {
+          enabled: oneSignalDeliveryService.isEnabled(),
+          attempted: 0,
+          sent: 0,
+          failed: 0,
+          noSubscription: 0,
+        },
       };
     }
 
@@ -227,12 +229,7 @@ class PushDeliveryService {
      */
 
     const userIds = [
-      ...new Set(
-        notifications.map(
-          (notification) =>
-            notification.userId
-        )
-      ),
+      ...new Set(notifications.map((notification) => notification.userId)),
     ];
 
     /**
@@ -244,14 +241,48 @@ class PushDeliveryService {
      */
 
     const subscriptions =
-      await pushSubscriptionRepository.findManyByUserIds(
-        userIds
+      await pushSubscriptionRepository.findManyByUserIds(userIds);
+
+    /**
+     * --------------------------------------------------------
+     * ONESIGNAL DELIVERY
+     * --------------------------------------------------------
+     *
+     * OneSignal is independent from the browser PushSubscription
+     * table. A native Median Android device does not create a
+     * PushSubscription record here.
+     *
+     * Therefore OneSignal must run even when browser
+     * subscriptions.length === 0.
+     */
+    let oneSignalResult = {
+      enabled: oneSignalDeliveryService.isEnabled(),
+      totalNotifications: notifications.length,
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      noSubscription: 0,
+    };
+
+    try {
+      oneSignalResult = await oneSignalDeliveryService.deliver(
+        notifications.map((notification) => ({
+          userId: notification.userId,
+          title: notification.title,
+          message: notification.message,
+          href: notification.href,
+          notificationId: notification.notificationId,
+          type: notification.type,
+          createdAt: notification.createdAt,
+        })),
       );
+    } catch (error) {
+      console.error("[ONESIGNAL_DELIVERY_FATAL_ERROR]", error);
+    }
 
     if (subscriptions.length === 0) {
       return {
-        totalNotifications:
-          notifications.length,
+        totalNotifications: notifications.length,
 
         totalSubscriptions: 0,
 
@@ -260,6 +291,8 @@ class PushDeliveryService {
         failed: 0,
 
         removed: 0,
+
+        oneSignal: oneSignalResult,
       };
     }
 
@@ -272,19 +305,13 @@ class PushDeliveryService {
      * sendiri.
      */
 
-    const notificationByUserId =
-      new Map<
-        string,
-        PushNotificationDeliveryItem
-      >();
+    const notificationByUserId = new Map<
+      string,
+      PushNotificationDeliveryItem
+    >();
 
-    for (
-      const notification of notifications
-    ) {
-      notificationByUserId.set(
-        notification.userId,
-        notification
-      );
+    for (const notification of notifications) {
+      notificationByUserId.set(notification.userId, notification);
     }
 
     let sent = 0;
@@ -308,13 +335,8 @@ class PushDeliveryService {
      * tetapi notificationId tetap milik user tersebut.
      */
 
-    for (
-      const subscription of subscriptions
-    ) {
-      const notification =
-        notificationByUserId.get(
-          subscription.userId
-        );
+    for (const subscription of subscriptions) {
+      const notification = notificationByUserId.get(subscription.userId);
 
       /**
        * Subscription user yang tidak memiliki notification
@@ -325,43 +347,32 @@ class PushDeliveryService {
         continue;
       }
 
-      const webPushSubscription:
-        WebPushSubscription = {
-        endpoint:
-          subscription.endpoint,
+      const webPushSubscription: WebPushSubscription = {
+        endpoint: subscription.endpoint,
 
         keys: {
-          p256dh:
-            subscription.p256dh,
+          p256dh: subscription.p256dh,
 
-          auth:
-            subscription.auth,
+          auth: subscription.auth,
         },
       };
 
       try {
         await webPushService.sendNotification({
-          subscription:
-            webPushSubscription,
+          subscription: webPushSubscription,
 
-          title:
-            notification.title,
+          title: notification.title,
 
-          message:
-            notification.message,
+          message: notification.message,
 
-          href:
-            notification.href,
+          href: notification.href,
 
-          notificationId:
-            notification.notificationId,
+          notificationId: notification.notificationId,
 
-          type:
-            notification.type,
+          type: notification.type,
 
           createdAt:
-            notification.createdAt instanceof
-            Date
+            notification.createdAt instanceof Date
               ? notification.createdAt.toISOString()
               : notification.createdAt,
         });
@@ -370,10 +381,7 @@ class PushDeliveryService {
       } catch (error) {
         failed++;
 
-        const statusCode =
-          getWebPushStatusCode(
-            error
-          );
+        const statusCode = getWebPushStatusCode(error);
 
         /**
          * ----------------------------------------------------
@@ -386,40 +394,25 @@ class PushDeliveryService {
          * Subscription tersebut aman untuk dihapus.
          */
 
-        if (
-          statusCode === 404 ||
-          statusCode === 410
-        ) {
+        if (statusCode === 404 || statusCode === 410) {
           try {
-            const result =
-              await pushSubscriptionRepository.deleteByEndpoint(
-                subscription.userId,
+            const result = await pushSubscriptionRepository.deleteByEndpoint(
+              subscription.userId,
 
-                subscription.endpoint
-              );
-
-            if (
-              result.count > 0
-            ) {
-              removed +=
-                result.count;
-            }
-          } catch (
-            deleteError
-          ) {
-            console.error(
-              "[PUSH_INVALID_SUBSCRIPTION_DELETE_ERROR]",
-              {
-                userId:
-                  subscription.userId,
-
-                endpoint:
-                  subscription.endpoint,
-
-                error:
-                  deleteError,
-              }
+              subscription.endpoint,
             );
+
+            if (result.count > 0) {
+              removed += result.count;
+            }
+          } catch (deleteError) {
+            console.error("[PUSH_INVALID_SUBSCRIPTION_DELETE_ERROR]", {
+              userId: subscription.userId,
+
+              endpoint: subscription.endpoint,
+
+              error: deleteError,
+            });
           }
 
           continue;
@@ -435,43 +428,36 @@ class PushDeliveryService {
          * subscription.
          */
 
-        console.error(
-          "[PUSH_DELIVERY_ERROR]",
-          {
-            userId:
-              subscription.userId,
+        console.error("[PUSH_DELIVERY_ERROR]", {
+          userId: subscription.userId,
 
-            endpoint:
-              subscription.endpoint,
+          endpoint: subscription.endpoint,
 
-            notificationId:
-              notification.notificationId,
+          notificationId: notification.notificationId,
 
-            statusCode,
+          statusCode,
 
-            error,
-          }
-        );
+          error,
+        });
       }
     }
 
     return {
-      totalNotifications:
-        notifications.length,
+      totalNotifications: notifications.length,
 
-      totalSubscriptions:
-        subscriptions.length,
+      totalSubscriptions: subscriptions.length,
 
       sent,
 
       failed,
 
       removed,
+
+      oneSignal: oneSignalResult,
     };
   }
 }
 
-const pushDeliveryService =
-  new PushDeliveryService();
+const pushDeliveryService = new PushDeliveryService();
 
 export default pushDeliveryService;

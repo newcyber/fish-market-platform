@@ -12,9 +12,7 @@ function required(name: string): string {
   const value = process.env[name];
 
   if (!value) {
-    throw new Error(
-      `Missing required environment variable: ${name}`
-    );
+    throw new Error(`Missing required environment variable: ${name}`);
   }
 
   return value;
@@ -41,6 +39,18 @@ export const env = {
   AUTH_SECRET: required("AUTH_SECRET"),
 
   AUTH_URL: optional("AUTH_URL"),
+
+  APP_URL: optional("APP_URL"),
+
+  /**
+   * OneSignal
+   *
+   * REST API key must stay server-side.
+   * Never expose it through NEXT_PUBLIC_*.
+   */
+  ONESIGNAL_APP_ID: optional("ONESIGNAL_APP_ID"),
+
+  ONESIGNAL_REST_API_KEY: optional("ONESIGNAL_REST_API_KEY"),
 
   /**
    * Upload (Future)
