@@ -105,6 +105,46 @@ function resolveCanonicalUrl(baseUrl: string, slug: string): string {
   return new URL(`/products/${encodeURIComponent(slug)}`, baseUrl).toString();
 }
 
+function buildBreadcrumbJsonLd(
+  product: ProductJsonLdInput,
+  options: ProductJsonLdOptions,
+): Record<string, unknown> | null {
+  const name = normalizeText(product.name);
+
+  if (!name) {
+    return null;
+  }
+
+  const baseUrl = options.baseUrl.replace(/\/+$/, "");
+  const productUrl = resolveCanonicalUrl(baseUrl, product.slug);
+  const productsUrl = new URL("/products", baseUrl).toString();
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Beranda",
+        item: baseUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Produk",
+        item: productsUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name,
+        item: productUrl,
+      },
+    ],
+  };
+}
+
 export function buildProductJsonLd(
   product: ProductJsonLdInput,
   options: ProductJsonLdOptions,
@@ -181,17 +221,32 @@ export function ProductJsonLd({
   options: ProductJsonLdOptions;
 }) {
   const jsonLd = buildProductJsonLd(product, options);
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd(product, options);
 
   if (!jsonLd) {
     return null;
   }
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
-      }}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+
+      {breadcrumbJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(breadcrumbJsonLd).replace(
+              /</g,
+              "\\u003c",
+            ),
+          }}
+        />
+      ) : null}
+    </>
   );
 }
