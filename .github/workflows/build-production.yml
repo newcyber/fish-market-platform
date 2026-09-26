@@ -1,4 +1,4 @@
-name: Linux Production Build
+name: Linux Production Build & Deploy
 
 on:
   workflow_dispatch:
@@ -6,9 +6,16 @@ on:
     branches:
       - ci/linux-production-build
 
+permissions:
+  contents: read
+
+concurrency:
+  group: pisjo-production-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
-    name: Build Next.js on Linux
+  build-and-deploy:
+    name: Build, Validate & Deploy to VPS
     runs-on: ubuntu-latest
 
     services:
@@ -25,6 +32,16 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+
+    env:
+      CI_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      DEPLOY_DIR: /var/www/fish-market-platform
+      PM2_APP_NAME: fish-market-platform
+      PRODUCTION_URL: https://app.pusatikansegar.com
 
     steps:
       - name: Checkout
@@ -47,12 +64,12 @@ jobs:
 
       - name: Generate Prisma Client
         env:
-          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
         run: pnpm exec prisma generate
 
       - name: Apply Prisma migrations
         env:
-          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
         run: pnpm exec prisma migrate deploy
 
       - name: Validate VAPID configuration
@@ -68,49 +85,27 @@ jobs:
           const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
           const subject = process.env.VAPID_SUBJECT?.trim();
 
-          console.log(
-            "VAPID_PUBLIC_KEY:",
-            publicKey ? `SET (${publicKey.length} chars)` : "MISSING"
-          );
-
-          console.log(
-            "VAPID_PRIVATE_KEY:",
-            privateKey ? `SET (${privateKey.length} chars)` : "MISSING"
-          );
-
-          console.log(
-            "VAPID_SUBJECT:",
-            subject ? "SET" : "MISSING"
-          );
+          console.log("VAPID_PUBLIC_KEY:", publicKey ? `SET (${publicKey.length} chars)` : "MISSING");
+          console.log("VAPID_PRIVATE_KEY:", privateKey ? `SET (${privateKey.length} chars)` : "MISSING");
+          console.log("VAPID_SUBJECT:", subject ? "SET" : "MISSING");
 
           if (!publicKey || !privateKey || !subject) {
             throw new Error("VAPID environment variable is missing");
           }
 
-          webpush.setVapidDetails(
-            subject,
-            publicKey,
-            privateKey
-          );
-
+          webpush.setVapidDetails(subject, publicKey, privateKey);
           console.log("VAPID_CONFIG_OK");
           NODE
 
       - name: Build production
         env:
-          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-
-          # Next.js Server Actions
           NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
           DEPLOYMENT_VERSION: ${{ github.sha }}
-
-          # VAPID
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
-
-          # OneSignal
           NEXT_PUBLIC_ONESIGNAL_APP_ID: ${{ vars.NEXT_PUBLIC_ONESIGNAL_APP_ID }}
         run: pnpm build
 
@@ -118,255 +113,90 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           echo "========================================"
           echo "PRODUCTION BUILD VERIFICATION"
           echo "========================================"
 
-          if [ ! -f ".next/BUILD_ID" ]; then
-            echo "ERROR: .next/BUILD_ID not found"
-            exit 1
-          fi
-
+          test -s ".next/BUILD_ID"
           BUILD_ID="$(cat .next/BUILD_ID)"
-
           echo "Commit SHA : $GITHUB_SHA"
           echo "Build ID   : $BUILD_ID"
           echo "Branch     : $GITHUB_REF_NAME"
 
-          echo
-          echo "=== Product JSON-LD ==="
+          count_marker() {
+            local marker="$1"
+            grep -R --include='*.js' -o "$marker" .next/server 2>/dev/null \
+              | wc -l | tr -d ' '
+          }
 
-          PRODUCT_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -o '"@type":"Product"' \
-              .next/server 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
-          )"
+          PRODUCT_COUNT="$(count_marker '"@type":"Product"')"
+          OFFER_COUNT="$(count_marker '"@type":"AggregateOffer"')"
+          BREADCRUMB_COUNT="$(count_marker '"@type":"BreadcrumbList"')"
+          PRODUCTION_DOMAIN_COUNT="$(count_marker 'https://app\.pusatikansegar\.com')"
 
-          echo "Product count: $PRODUCT_COUNT"
+          echo "Product count            : $PRODUCT_COUNT"
+          echo "AggregateOffer count     : $OFFER_COUNT"
+          echo "BreadcrumbList count     : $BREADCRUMB_COUNT"
+          echo "Production domain count  : $PRODUCTION_DOMAIN_COUNT"
 
-          if [ "$PRODUCT_COUNT" -lt 1 ]; then
-            echo "ERROR: Product JSON-LD not found"
-            exit 1
-          fi
-
-          echo
-          echo "=== AggregateOffer JSON-LD ==="
-
-          OFFER_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -o '"@type":"AggregateOffer"' \
-              .next/server 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "AggregateOffer count: $OFFER_COUNT"
-
-          if [ "$OFFER_COUNT" -lt 1 ]; then
-            echo "ERROR: AggregateOffer JSON-LD not found"
-            exit 1
-          fi
-
-          echo
-          echo "=== BreadcrumbList JSON-LD ==="
-
-          BREADCRUMB_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -o '"@type":"BreadcrumbList"' \
-              .next/server 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "BreadcrumbList count: $BREADCRUMB_COUNT"
-
-          if [ "$BREADCRUMB_COUNT" -lt 1 ]; then
-            echo "ERROR: BreadcrumbList JSON-LD not found"
-            exit 1
-          fi
-
-          echo
-          echo "=== Production domain ==="
-
-          PRODUCTION_DOMAIN_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -o 'https://app\.pusatikansegar\.com' \
-              .next/server 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Production domain references: $PRODUCTION_DOMAIN_COUNT"
-
-          if [ "$PRODUCTION_DOMAIN_COUNT" -lt 1 ]; then
-            echo "ERROR: Production domain not found in server build"
-            exit 1
-          fi
-
-          echo
-          echo "=== Localhost reference audit ==="
+          test "$PRODUCT_COUNT" -ge 1 || { echo "ERROR: Product JSON-LD not found"; exit 1; }
+          test "$OFFER_COUNT" -ge 1 || { echo "ERROR: AggregateOffer JSON-LD not found"; exit 1; }
+          test "$BREADCRUMB_COUNT" -ge 1 || { echo "ERROR: BreadcrumbList JSON-LD not found"; exit 1; }
+          test "$PRODUCTION_DOMAIN_COUNT" -ge 1 || { echo "ERROR: Production domain not found"; exit 1; }
 
           LOCALHOST_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -oE 'https?://localhost:[0-9]+' \
-              .next/server 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
+            grep -R --include='*.js' -oE 'https?://localhost(:[0-9]+)?' .next/server 2>/dev/null \
+              | wc -l | tr -d ' '
           )"
-
-          echo "Localhost references in Next.js server bundle: $LOCALHOST_COUNT"
-
+          echo "Localhost references    : $LOCALHOST_COUNT"
           if [ "$LOCALHOST_COUNT" -gt 0 ]; then
-            echo "WARNING: localhost references exist inside the Next.js server bundle."
-            echo "This is informational only because Next.js internal runtime code may contain localhost references."
-          else
-            echo "No localhost references detected."
+            echo "WARNING: localhost references exist in the server bundle."
           fi
 
-          echo
-          echo "========================================"
-          echo "BUILD VERIFICATION PASSED"
-          echo "========================================"
-
-          echo "BUILD_ID=$BUILD_ID"
-          echo "COMMIT_SHA=$GITHUB_SHA"
-          echo "PRODUCT_COUNT=$PRODUCT_COUNT"
-          echo "OFFER_COUNT=$OFFER_COUNT"
-          echo "BREADCRUMB_COUNT=$BREADCRUMB_COUNT"
-          echo "PRODUCTION_DOMAIN_COUNT=$PRODUCTION_DOMAIN_COUNT"
-          echo "LOCALHOST_COUNT=$LOCALHOST_COUNT"
+          echo "BUILD_VERIFICATION=PASS"
 
       - name: Package Prisma Client for production artifact
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "Searching generated Prisma Client..."
+          echo "========================================"
+          echo "PACKAGE PRISMA CLIENT"
+          echo "========================================"
 
           PRISMA_CLIENT_DIR="$(
-            find node_modules/.pnpm \
-              -type d \
-              -path '*/node_modules/.prisma/client' \
-              -print -quit
+            find node_modules/.pnpm -type d \
+              -path '*/node_modules/.prisma/client' -print -quit
           )"
 
-          if [ -z "$PRISMA_CLIENT_DIR" ]; then
-            echo "ERROR: Generated Prisma Client not found"
-            exit 1
-          fi
+          test -n "$PRISMA_CLIENT_DIR" || { echo "ERROR: Generated Prisma Client not found"; exit 1; }
+          echo "Generated Prisma Client: $PRISMA_CLIENT_DIR"
 
-          echo ""
-          echo "Generated Prisma Client:"
-          echo "$PRISMA_CLIENT_DIR"
-
-          echo ""
-          echo "Checking Linux Prisma query engine..."
-
-          if [ ! -f "$PRISMA_CLIENT_DIR/libquery_engine-debian-openssl-3.0.x.so.node" ]; then
+          test -f "$PRISMA_CLIENT_DIR/libquery_engine-debian-openssl-3.0.x.so.node" || {
             echo "ERROR: Linux Prisma query engine not found"
             exit 1
-          fi
-
-          echo "Linux Prisma query engine found."
-
-          echo ""
-          echo "Packaging Prisma Client..."
+          }
 
           mkdir -p .next/node_modules/.prisma/client
+          cp -a "$PRISMA_CLIENT_DIR"/. .next/node_modules/.prisma/client/
 
-          cp -a "$PRISMA_CLIENT_DIR"/. \
-            .next/node_modules/.prisma/client/
+          test -f ".next/node_modules/.prisma/client/default.js"
+          test -f ".next/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
 
-          echo ""
-          echo "Validating root packaged Prisma Client..."
-
-          if [ ! -f ".next/node_modules/.prisma/client/default.js" ]; then
-            echo "ERROR: Root Prisma default.js missing"
-            exit 1
-          fi
-
-          if [ ! -f ".next/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node" ]; then
-            echo "ERROR: Root Linux Prisma engine missing"
-            exit 1
-          fi
-
-          node -e "
-            const p = require('./.next/node_modules/.prisma/client/default.js');
-
-            if (typeof p.PrismaClient !== 'function') {
-              throw new Error('PrismaClient export is not available');
-            }
-
-            console.log('ROOT_PACKAGED_PRISMA_CLIENT_OK');
-            console.log('PrismaClient:', typeof p.PrismaClient);
-          "
-
-          echo ""
-          echo "Searching hashed @prisma/client packages..."
+          node -e '
+            const p = require("./.next/node_modules/.prisma/client/default.js");
+            if (typeof p.PrismaClient !== "function") throw new Error("PrismaClient export is not available");
+            console.log("ROOT_PACKAGED_PRISMA_CLIENT_OK");
+          '
 
           FOUND_PRISMA_PACKAGE=false
-
           for PKG in .next/node_modules/@prisma/client-*; do
-            if [ ! -d "$PKG" ]; then
-              continue
-            fi
-
+            if [ ! -d "$PKG" ]; then continue; fi
             FOUND_PRISMA_PACKAGE=true
-
-            echo ""
-            echo "Found Prisma package:"
-            echo "  $PKG"
-
-            echo "Packaging Prisma runtime into:"
-            echo "  $PKG/node_modules/.prisma/client"
-
             mkdir -p "$PKG/node_modules/.prisma"
-
             rm -rf "$PKG/node_modules/.prisma/client"
-
-            cp -a .next/node_modules/.prisma/client \
-              "$PKG/node_modules/.prisma/"
-
-            if [ ! -f "$PKG/node_modules/.prisma/client/default.js" ]; then
-              echo "ERROR: Prisma default.js missing in:"
-              echo "  $PKG/node_modules/.prisma/client/default.js"
-              exit 1
-            fi
-
-            if [ ! -f "$PKG/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node" ]; then
-              echo "ERROR: Linux Prisma engine missing in:"
-              echo "  $PKG/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
-              exit 1
-            fi
-
-            echo "Validating Prisma package runtime..."
-
-            node -e "
-              const path = require('path');
-              const pkg = path.resolve('$PKG');
-              const p = require(path.join(
-                pkg,
-                'node_modules/.prisma/client/default.js'
-              ));
-
-              if (typeof p.PrismaClient !== 'function') {
-                throw new Error(
-                  'PrismaClient export is not available from ' + pkg
-                );
-              }
-
-              console.log('HASHED_PRISMA_CLIENT_OK');
-              console.log('Package:', pkg);
-              console.log('PrismaClient:', typeof p.PrismaClient);
-            "
+            cp -a .next/node_modules/.prisma/client "$PKG/node_modules/.prisma/"
+            test -f "$PKG/node_modules/.prisma/client/default.js"
+            test -f "$PKG/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
           done
 
           if [ "$FOUND_PRISMA_PACKAGE" = false ]; then
@@ -374,31 +204,14 @@ jobs:
             exit 1
           fi
 
-          echo ""
-          echo "Inspecting packaged Prisma paths..."
-
-          find .next/node_modules \
-            -type f \
-            \( \
-              -path '*/@prisma/*' \
-              -o -path '*/.prisma/*' \
-            \) \
-            -print \
-            | sort \
-            | head -500
-
-          echo ""
-          echo "Prisma production packaging validation PASSED."
+          echo "PRISMA_PACKAGING=PASS"
 
       - name: Create artifact metadata
         shell: bash
         run: |
           set -euo pipefail
-
           BUILD_ID="$(cat .next/BUILD_ID)"
-
           mkdir -p .next/deploy-meta
-
           cat > .next/deploy-meta/build-info.txt <<EOF
           COMMIT_SHA=$GITHUB_SHA
           BRANCH=$GITHUB_REF_NAME
@@ -408,288 +221,67 @@ jobs:
           REPOSITORY=$GITHUB_REPOSITORY
           BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           EOF
-
-          echo "========================================"
-          echo "ARTIFACT METADATA"
-          echo "========================================"
-
           cat .next/deploy-meta/build-info.txt
 
       - name: Package production artifact
         shell: bash
         run: |
           set -euo pipefail
-
           rm -f next-production-build.zip
-
-          echo "========================================"
-          echo "PACKAGING PRODUCTION ARTIFACT"
-          echo "========================================"
-
           cd .next
-
           zip -qr ../next-production-build.zip .
-
           cd ..
 
-          echo
-          echo "Artifact:"
           ls -lh next-production-build.zip
-
-          echo
-          echo "Artifact BUILD_ID:"
+          echo "=== BUILD ID ==="
           unzip -p next-production-build.zip BUILD_ID
-
-          echo
-          echo "Artifact metadata:"
+          echo "=== METADATA ==="
           unzip -p next-production-build.zip deploy-meta/build-info.txt
-
-          echo
-          echo "Testing ZIP..."
-
+          echo "=== ZIP TEST ==="
           unzip -t next-production-build.zip >/tmp/next-artifact-test.log
-
           tail -5 /tmp/next-artifact-test.log
-
-          echo
-          echo "SHA256:"
+          echo "=== SHA256 ==="
           sha256sum next-production-build.zip
 
       - name: Validate production artifact
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "========================================"
-          echo "FINAL ARTIFACT VALIDATION"
-          echo "========================================"
-
-          if [ ! -f "next-production-build.zip" ]; then
-            echo "ERROR: next-production-build.zip not found"
-            exit 1
-          fi
-
-          echo
-          echo "=== ZIP integrity ==="
-
+          test -s next-production-build.zip
           unzip -t next-production-build.zip >/tmp/next-artifact-final-test.log
 
-          tail -5 /tmp/next-artifact-final-test.log
-
-          echo
-          echo "=== BUILD ID ==="
-
           ARTIFACT_BUILD_ID="$(unzip -p next-production-build.zip BUILD_ID)"
+          ARTIFACT_COMMIT="$(
+            unzip -p next-production-build.zip deploy-meta/build-info.txt \
+              | awk -F= '$1=="COMMIT_SHA"{print $2}'
+          )"
 
           echo "Artifact BUILD_ID: $ARTIFACT_BUILD_ID"
+          echo "Artifact COMMIT  : $ARTIFACT_COMMIT"
+          test -n "$ARTIFACT_BUILD_ID"
+          test "$ARTIFACT_COMMIT" = "$GITHUB_SHA"
 
-          if [ -z "$ARTIFACT_BUILD_ID" ]; then
-            echo "ERROR: Artifact BUILD_ID is empty"
-            exit 1
-          fi
+          TMP_ARTIFACT="/tmp/pisjo-artifact-validation"
+          rm -rf "$TMP_ARTIFACT"
+          mkdir -p "$TMP_ARTIFACT"
+          unzip -q next-production-build.zip -d "$TMP_ARTIFACT"
 
-          echo
-          echo "=== Metadata ==="
+          test -s "$TMP_ARTIFACT/BUILD_ID"
+          test -s "$TMP_ARTIFACT/deploy-meta/build-info.txt"
+          test -f "$TMP_ARTIFACT/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
 
-          unzip -p \
-            next-production-build.zip \
-            deploy-meta/build-info.txt
+          for marker in Product AggregateOffer BreadcrumbList; do
+            case "$marker" in
+              Product) pattern='"@type":"Product"' ;;
+              AggregateOffer) pattern='"@type":"AggregateOffer"' ;;
+              BreadcrumbList) pattern='"@type":"BreadcrumbList"' ;;
+            esac
+            count="$(grep -R --include='*.js' -o "$pattern" "$TMP_ARTIFACT/server" 2>/dev/null | wc -l | tr -d ' ')"
+            echo "$marker: $count"
+            test "$count" -ge 1 || { echo "ERROR: $marker JSON-LD missing"; exit 1; }
+          done
 
-          echo
-          echo "=== Product JSON-LD ==="
-
-          ARTIFACT_PRODUCT_COUNT="$(
-            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
-              | grep -o '"@type":"Product"' \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Artifact Product count: $ARTIFACT_PRODUCT_COUNT"
-
-          if [ "$ARTIFACT_PRODUCT_COUNT" -lt 1 ]; then
-            echo "ERROR: Product JSON-LD missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "=== AggregateOffer JSON-LD ==="
-
-          ARTIFACT_OFFER_COUNT="$(
-            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
-              | grep -o '"@type":"AggregateOffer"' \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Artifact AggregateOffer count: $ARTIFACT_OFFER_COUNT"
-
-          if [ "$ARTIFACT_OFFER_COUNT" -lt 1 ]; then
-            echo "ERROR: AggregateOffer missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "=== BreadcrumbList JSON-LD ==="
-
-          ARTIFACT_BREADCRUMB_COUNT="$(
-            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
-              | grep -o '"@type":"BreadcrumbList"' \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Artifact BreadcrumbList count: $ARTIFACT_BREADCRUMB_COUNT"
-
-          if [ "$ARTIFACT_BREADCRUMB_COUNT" -lt 1 ]; then
-            echo "ERROR: BreadcrumbList missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "=== Prisma Linux engine ==="
-
-          PRISMA_ENGINE_COUNT="$(
-            unzip -l next-production-build.zip \
-              | grep -c 'libquery_engine-debian-openssl-3.0.x.so.node' \
-              || true
-          )"
-
-          echo "Prisma Linux engine count: $PRISMA_ENGINE_COUNT"
-
-          if [ "$PRISMA_ENGINE_COUNT" -lt 1 ]; then
-            echo "ERROR: Linux Prisma query engine missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "========================================"
-          echo "FINAL ARTIFACT VALIDATION PASSED"
-          echo "========================================"
-
-          echo "BUILD_ID=$ARTIFACT_BUILD_ID"
-          echo "PRODUCT_COUNT=$ARTIFACT_PRODUCT_COUNT"
-          echo "OFFER_COUNT=$ARTIFACT_OFFER_COUNT"
-          echo "BREADCRUMB_COUNT=$ARTIFACT_BREADCRUMB_COUNT"
-          echo "PRISMA_ENGINE_COUNT=$PRISMA_ENGINE_COUNT"
-
-      - name: Validate production artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "========================================"
-          echo "FINAL ARTIFACT VALIDATION"
-          echo "========================================"
-
-          if [ ! -f "next-production-build.zip" ]; then
-            echo "ERROR: next-production-build.zip not found"
-            exit 1
-          fi
-
-          echo
-          echo "=== ZIP integrity ==="
-
-          unzip -t next-production-build.zip >/tmp/next-artifact-final-test.log
-
-          tail -5 /tmp/next-artifact-final-test.log
-
-          echo
-          echo "=== BUILD ID ==="
-
-          ARTIFACT_BUILD_ID="$(unzip -p next-production-build.zip BUILD_ID)"
-
-          echo "Artifact BUILD_ID: $ARTIFACT_BUILD_ID"
-
-          if [ -z "$ARTIFACT_BUILD_ID" ]; then
-            echo "ERROR: Artifact BUILD_ID is empty"
-            exit 1
-          fi
-
-          echo
-          echo "=== Metadata ==="
-
-          unzip -p \
-            next-production-build.zip \
-            deploy-meta/build-info.txt
-
-          echo
-          echo "=== Product JSON-LD ==="
-
-          ARTIFACT_PRODUCT_COUNT="$(
-            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
-              | grep -o '"@type":"Product"' \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Artifact Product count: $ARTIFACT_PRODUCT_COUNT"
-
-          if [ "$ARTIFACT_PRODUCT_COUNT" -lt 1 ]; then
-            echo "ERROR: Product JSON-LD missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "=== AggregateOffer JSON-LD ==="
-
-          ARTIFACT_OFFER_COUNT="$(
-            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
-              | grep -o '"@type":"AggregateOffer"' \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Artifact AggregateOffer count: $ARTIFACT_OFFER_COUNT"
-
-          if [ "$ARTIFACT_OFFER_COUNT" -lt 1 ]; then
-            echo "ERROR: AggregateOffer missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "=== BreadcrumbList JSON-LD ==="
-
-          ARTIFACT_BREADCRUMB_COUNT="$(
-            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
-              | grep -o '"@type":"BreadcrumbList"' \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Artifact BreadcrumbList count: $ARTIFACT_BREADCRUMB_COUNT"
-
-          if [ "$ARTIFACT_BREADCRUMB_COUNT" -lt 1 ]; then
-            echo "ERROR: BreadcrumbList missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "=== Prisma Linux engine ==="
-
-          PRISMA_ENGINE_COUNT="$(
-            unzip -l next-production-build.zip \
-              | grep -c 'libquery_engine-debian-openssl-3.0.x.so.node' \
-              || true
-          )"
-
-          echo "Prisma Linux engine count: $PRISMA_ENGINE_COUNT"
-
-          if [ "$PRISMA_ENGINE_COUNT" -lt 1 ]; then
-            echo "ERROR: Linux Prisma query engine missing from artifact"
-            exit 1
-          fi
-
-          echo
-          echo "========================================"
-          echo "FINAL ARTIFACT VALIDATION PASSED"
-          echo "========================================"
-
-          echo "BUILD_ID=$ARTIFACT_BUILD_ID"
-          echo "PRODUCT_COUNT=$ARTIFACT_PRODUCT_COUNT"
-          echo "OFFER_COUNT=$ARTIFACT_OFFER_COUNT"
-          echo "BREADCRUMB_COUNT=$ARTIFACT_BREADCRUMB_COUNT"
-          echo "PRISMA_ENGINE_COUNT=$PRISMA_ENGINE_COUNT"
+          echo "ARTIFACT_VALIDATION=PASS"
 
       - name: Upload production artifact
         uses: actions/upload-artifact@v4
@@ -697,4 +289,192 @@ jobs:
           name: next-production-build-${{ github.sha }}
           path: next-production-build.zip
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${VPS_HOST:-}" || { echo "ERROR: VPS_HOST secret is missing"; exit 1; }
+          test -n "${VPS_USER:-}" || { echo "ERROR: VPS_USER secret is missing"; exit 1; }
+          test -n "${VPS_PORT:-}" || { echo "ERROR: VPS_PORT secret is missing"; exit 1; }
+          test -n "${VPS_SSH_KEY:-}" || { echo "ERROR: VPS_SSH_KEY secret is missing"; exit 1; }
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+          echo "SSH configuration ready."
+
+      - name: Test VPS SSH connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "$VPS_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "echo SSH_CONNECTION=PASS && hostname && whoami"
+
+      - name: Upload production artifact to VPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp \
+            -i "$HOME/.ssh/deploy_key" \
+            -P "$VPS_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            ./next-production-build.zip \
+            "$VPS_USER@$VPS_HOST:/tmp/next-production-build.zip"
+          echo "UPLOAD=PASS"
+
+      - name: Deploy production artifact to VPS
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEPLOY_ID="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_RUN_ID}"
+          REMOTE_TMP="/tmp/pisjo-deploy-${DEPLOY_ID}"
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "$VPS_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "DEPLOY_ID='$DEPLOY_ID' REMOTE_TMP='$REMOTE_TMP' EXPECTED_COMMIT='$GITHUB_SHA' DEPLOY_DIR='$DEPLOY_DIR' PM2_APP_NAME='$PM2_APP_NAME' PRODUCTION_URL='$PRODUCTION_URL' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          cd "$DEPLOY_DIR"
+          REMOTE_ZIP="/tmp/next-production-build.zip"
+          test -s "$REMOTE_ZIP"
+
+          rm -rf "$REMOTE_TMP"
+          mkdir -p "$REMOTE_TMP/next"
+
+          echo "=== ZIP TEST ==="
+          unzip -t "$REMOTE_ZIP" >/tmp/pisjo-remote-zip-test.log
+          tail -5 /tmp/pisjo-remote-zip-test.log
+
+          echo "=== EXTRACT ==="
+          unzip -q "$REMOTE_ZIP" -d "$REMOTE_TMP/next"
+
+          test -s "$REMOTE_TMP/next/BUILD_ID"
+          test -s "$REMOTE_TMP/next/deploy-meta/build-info.txt"
+
+          echo "=== BUILD ID ==="
+          cat "$REMOTE_TMP/next/BUILD_ID"
+
+          echo "=== METADATA ==="
+          cat "$REMOTE_TMP/next/deploy-meta/build-info.txt"
+
+          REMOTE_COMMIT="$(awk -F= '$1=="COMMIT_SHA"{print $2}' "$REMOTE_TMP/next/deploy-meta/build-info.txt")"
+          if [ "$REMOTE_COMMIT" != "$EXPECTED_COMMIT" ]; then
+            echo "ERROR: Artifact commit mismatch"
+            echo "Expected: $EXPECTED_COMMIT"
+            echo "Actual  : $REMOTE_COMMIT"
+            exit 1
+          fi
+
+          echo "=== PRISMA VALIDATION ==="
+          test -f "$REMOTE_TMP/next/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
+          echo "Prisma Linux engine: PASS"
+
+          echo "=== SEO VALIDATION ==="
+          for marker in Product AggregateOffer BreadcrumbList; do
+            case "$marker" in
+              Product) pattern='"@type":"Product"' ;;
+              AggregateOffer) pattern='"@type":"AggregateOffer"' ;;
+              BreadcrumbList) pattern='"@type":"BreadcrumbList"' ;;
+            esac
+            count="$(grep -R --include='*.js' -o "$pattern" "$REMOTE_TMP/next/server" 2>/dev/null | wc -l | tr -d ' ')"
+            echo "$marker: $count"
+            test "$count" -ge 1 || { echo "ERROR: $marker missing"; exit 1; }
+          done
+
+          BACKUP_DIR="$DEPLOY_DIR/.next-backup-${DEPLOY_ID}"
+
+          if [ -d "$DEPLOY_DIR/.next" ]; then
+            mv "$DEPLOY_DIR/.next" "$BACKUP_DIR"
+            echo "Backup: $BACKUP_DIR"
+          fi
+
+          mv "$REMOTE_TMP/next" "$DEPLOY_DIR/.next"
+          echo "Active BUILD_ID: $(cat "$DEPLOY_DIR/.next/BUILD_ID")"
+
+          pm2 restart "$PM2_APP_NAME" --update-env
+          sleep 8
+
+          pm2 show "$PM2_APP_NAME" | grep -E 'status|pid|script path|exec cwd' || true
+
+          echo "=== LOCAL HEALTH CHECK ==="
+          HTTP_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 http://127.0.0.1:3000/products/ikan-bandeng-fresh-frozen)"
+          echo "Local HTTP: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR: Local health check failed"
+            if [ -d "$BACKUP_DIR" ]; then
+              rm -rf "$DEPLOY_DIR/.next"
+              mv "$BACKUP_DIR" "$DEPLOY_DIR/.next"
+              pm2 restart "$PM2_APP_NAME" --update-env || true
+            fi
+            exit 1
+          fi
+
+          echo "=== PUBLIC HEALTH CHECK ==="
+          PUBLIC_CODE="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time 30 "$PRODUCTION_URL/products/ikan-bandeng-fresh-frozen")"
+          echo "Public HTTP: $PUBLIC_CODE"
+
+          if [ "$PUBLIC_CODE" != "200" ]; then
+            echo "ERROR: Public health check failed"
+            if [ -d "$BACKUP_DIR" ]; then
+              rm -rf "$DEPLOY_DIR/.next"
+              mv "$BACKUP_DIR" "$DEPLOY_DIR/.next"
+              pm2 restart "$PM2_APP_NAME" --update-env || true
+            fi
+            exit 1
+          fi
+
+          echo "=== PRODUCTION SEO CHECK ==="
+          curl -k -sS --max-time 30 "$PRODUCTION_URL/products/ikan-bandeng-fresh-frozen" > /tmp/pisjo-final-production.html
+          grep -q '<title>Ikan Bandeng Fresh Frozen | Pisjo Market</title>' /tmp/pisjo-final-production.html
+          grep -q 'rel="canonical"' /tmp/pisjo-final-production.html
+          grep -q '"@type":"Product"' /tmp/pisjo-final-production.html
+          grep -q '"@type":"AggregateOffer"' /tmp/pisjo-final-production.html
+          grep -q '"@type":"BreadcrumbList"' /tmp/pisjo-final-production.html
+          echo "Production SEO check: PASS"
+
+          rm -f "$REMOTE_ZIP"
+          rm -rf "$REMOTE_TMP"
+
+          echo "========================================"
+          echo "DEPLOYMENT SUCCESS"
+          echo "========================================"
+          echo "BUILD_ID=$(cat "$DEPLOY_DIR/.next/BUILD_ID")"
+          echo "COMMIT_SHA=$EXPECTED_COMMIT"
+          echo "URL=$PRODUCTION_URL"
+          REMOTE_SCRIPT
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "========================================"
+          echo "PISJO MARKET DEPLOYMENT COMPLETE"
+          echo "========================================"
+          echo "Commit : $GITHUB_SHA"
+          echo "Branch : $GITHUB_REF_NAME"
+          echo "URL    : $PRODUCTION_URL"
+
+      - name: Cleanup SSH key
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/deploy_key"
