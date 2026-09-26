@@ -5,6 +5,8 @@ import PromotionService from "@/services/promotion/promotion.service";
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
 import { getSiteUrls } from "@/services/site/site-url.service";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, promotions, flashSales, siteUrls] = await Promise.all([
     ProductService.getPublishedProductsForSitemap(),
