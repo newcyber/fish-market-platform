@@ -55,6 +55,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/products`, changeFrequency: "daily", priority: 0.9 },
     { url: `${baseUrl}/flash-sale`, changeFrequency: "daily", priority: 0.8 },
     { url: `${baseUrl}/promotions`, changeFrequency: "daily", priority: 0.8 },
+    {
+      url: `${baseUrl}/tentang-kami`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/kontak-kami`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
     { url: `${baseUrl}/help`, changeFrequency: "monthly", priority: 0.5 },
     {
       url: `${baseUrl}/privacy-policy`,
