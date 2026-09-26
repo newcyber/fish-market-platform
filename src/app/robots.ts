@@ -1,18 +1,11 @@
 import type { MetadataRoute } from "next";
 
-import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
-  const settings =
-    await settingsService.getSettings();
+  const siteUrls = await getSiteUrls();
 
-  const canonicalBase =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const baseUrl =
-    canonicalBase.replace(/\/+$/, "");
+  const baseUrl = siteUrls.storefrontUrl.replace(/\/+$/, "");
 
   return {
     rules: {

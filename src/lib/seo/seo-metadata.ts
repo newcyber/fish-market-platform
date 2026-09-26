@@ -45,33 +45,30 @@ export type SeoPageOverrides = {
 
 export function buildSeoMetadata(
   settings: SeoSettings,
-  overrides: SeoPageOverrides = {}
+  overrides: SeoPageOverrides = {},
 ): Metadata {
   const storeName =
     normalizeSeoText(settings.storeName) || "Pisjo Market Platform";
 
-  const globalTitle = resolveSeoTitle(
-    settings.seoTitle,
-    storeName
-  );
+  const globalTitle = resolveSeoTitle(settings.seoTitle, storeName);
 
   const globalDescription = resolveSeoDescription(
     settings.seoDescription,
-    settings.storeDescription?.trim() || undefined
+    settings.storeDescription?.trim() || undefined,
   );
 
   const baseUrl = resolveSeoBaseUrl(
-  overrides.baseUrl || settings.seoCanonicalUrl,
-);
-
-  const title = resolveSeoTitle(
-    overrides.title,
-    globalTitle
+    overrides.baseUrl ||
+      settings.seoCanonicalUrl ||
+      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      "https://app.pusatikansegar.com",
   );
+
+  const title = resolveSeoTitle(overrides.title, globalTitle);
 
   const description = resolveSeoDescription(
     overrides.description,
-    globalDescription
+    globalDescription,
   );
 
   const pathname = overrides.pathname ?? "/";
@@ -89,21 +86,17 @@ export function buildSeoMetadata(
 
   const image = resolveSeoImageUrl(
     overrides.image || settings.seoOgImage,
-    baseUrl
+    baseUrl,
   );
 
   const twitterCard =
     settings.seoTwitterCard?.trim() || SEO_DEFAULT_TWITTER_CARD;
 
   const robotsIndex =
-    overrides.noIndex === true
-      ? false
-      : settings.seoRobotsIndex;
+    overrides.noIndex === true ? false : settings.seoRobotsIndex;
 
   const robotsFollow =
-    overrides.noFollow === true
-      ? false
-      : settings.seoRobotsFollow;
+    overrides.noFollow === true ? false : settings.seoRobotsFollow;
 
   const metadata: Metadata = {
     metadataBase: new URL(baseUrl),
@@ -126,7 +119,7 @@ export function buildSeoMetadata(
       siteName: storeName,
       locale: SEO_DEFAULT_LOCALE,
       type: SEO_DEFAULT_TYPE,
-            ...(image
+      ...(image
         ? {
             images: [
               {
@@ -138,18 +131,14 @@ export function buildSeoMetadata(
         : {}),
     },
     twitter: {
-      card:
-        twitterCard === "summary"
-          ? "summary"
-          : "summary_large_image",
+      card: twitterCard === "summary" ? "summary" : "summary_large_image",
       title: ogTitle,
       description: ogDescription,
       ...(image ? { images: [image] } : {}),
     },
   };
 
-  const googleVerification =
-    normalizeSeoText(settings.seoGoogleVerification);
+  const googleVerification = normalizeSeoText(settings.seoGoogleVerification);
 
   if (googleVerification) {
     metadata.verification = {

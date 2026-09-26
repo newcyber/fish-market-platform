@@ -5,6 +5,7 @@ import Image from "next/image";
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
   Eye,
   Fish,
   Gift,
@@ -18,7 +19,8 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useState, useTransition } from "react";
+import type { ReactNode } from "react";
 
 import { updateLandingPageAction } from "@/actions/admin/landing-page/update-landing-page";
 
@@ -79,6 +81,52 @@ function getString(value: string | null | undefined, fallback = "") {
 
 function getNumber(value: number | null | undefined, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function AccordionSection({
+  title,
+  description,
+  children,
+  icon,
+  defaultOpen = false,
+  badge,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  icon?: ReactNode;
+  defaultOpen?: boolean;
+  badge?: ReactNode;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group overflow-hidden rounded-2xl border bg-card shadow-sm"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 items-start gap-3">
+          {icon ? (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              {icon}
+            </div>
+          ) : null}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold sm:text-lg">{title}</h2>
+              {badge}
+            </div>
+            {description ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <div className="border-t">{children}</div>
+    </details>
+  );
 }
 
 export default function LandingPageContentForm({
@@ -429,6 +477,21 @@ export default function LandingPageContentForm({
   const [error, setError] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!message) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      document
+        .getElementById("landing-page-save-notification")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    });
+  }, [message]);
 
   const updateBenefit = (
     index: number,
@@ -906,7 +969,12 @@ export default function LandingPageContentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {message && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+        <div
+          id="landing-page-save-notification"
+          role="status"
+          aria-live="polite"
+          className="scroll-mt-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700"
+        >
           <CheckCircle2 className="h-5 w-5 shrink-0" />
           <span>{message}</span>
         </div>
@@ -921,23 +989,12 @@ export default function LandingPageContentForm({
 
       {/* STATUS */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Eye className="h-5 w-5" />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold">Status Landing Page</h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Tentukan apakah Landing Page publik dapat ditampilkan.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Status Landing Page"
+        description="Tentukan apakah Landing Page publik dapat ditampilkan."
+        icon={<Eye className="h-5 w-5" />}
+        defaultOpen
+      >
         <div className="p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -956,27 +1013,16 @@ export default function LandingPageContentForm({
             />
           </label>
         </div>
-      </section>
+      </AccordionSection>
 
       {/* HERO */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Store className="h-5 w-5" />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold">Hero Section</h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Konten utama yang pertama kali dilihat pengunjung.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Hero Section"
+        description="Konten utama yang pertama kali dilihat pengunjung."
+        icon={<Store className="h-5 w-5" />}
+        defaultOpen
+      >
         <div className="grid gap-6 p-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Field
@@ -1042,22 +1088,15 @@ export default function LandingPageContentForm({
             </p>
           </div>
         </div>
-      </section>
+      </AccordionSection>
 
       {/* BENEFITS HEADER */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div>
-            <h2 className="text-lg font-semibold">Header Section</h2>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Judul dan pengantar yang tampil sebelum daftar benefit pada
-              Landing Page.
-            </p>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Header Section"
+        description="Judul dan pengantar yang tampil sebelum daftar benefit pada Landing Page."
+        icon={<Store className="h-5 w-5" />}
+      >
         <div className="grid gap-5 p-6">
           <Field
             label="Eyebrow"
@@ -1080,22 +1119,15 @@ export default function LandingPageContentForm({
             rows={3}
           />
         </div>
-      </section>
+      </AccordionSection>
 
       {/* VALUE PROPOSITION */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div>
-            <h2 className="text-lg font-semibold">Value Proposition</h2>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Kelola alasan utama dan keunggulan PISJO Market yang ditampilkan
-              kepada pelanggan.
-            </p>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Value Proposition"
+        description="Kelola alasan utama dan keunggulan PISJO Market yang ditampilkan kepada pelanggan."
+        icon={<Fish className="h-5 w-5" />}
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -1139,22 +1171,22 @@ export default function LandingPageContentForm({
             />
           </div>
         </div>
-      </section>
+      </AccordionSection>
 
       {/* VALUE PROPOSITION ITEMS */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Value Proposition Items</h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Kelola keunggulan yang ditampilkan pada Value Proposition.
-                Maksimal 12 item.
-              </p>
-            </div>
-
+      <AccordionSection
+        title="Value Proposition Items"
+        description="Kelola keunggulan yang ditampilkan pada Value Proposition."
+        icon={<PackageCheck className="h-5 w-5" />}
+        badge={
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+            {valuePropositionItems.length} item
+          </span>
+        }
+      >
+        <div className="border-b p-4">
+          <div className="flex items-center justify-end">
             <button
               type="button"
               onClick={addValueProposition}
@@ -1168,66 +1200,77 @@ export default function LandingPageContentForm({
             </button>
           </div>
         </div>
-
         <div className="grid gap-5 p-6">
           {valuePropositionItems.map((item, index) => (
-            <div
+            <details
               key={`value-proposition-${index}`}
-              className="rounded-xl border p-5"
+              className="group overflow-hidden rounded-xl border"
+              open={index === 0}
             >
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Item {index + 1}
-                </p>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="mt-1 truncate text-sm font-semibold">
+                    {item.title || "Value Proposition baru"}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
 
-                <button
-                  type="button"
-                  onClick={() => removeValueProposition(index)}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10"
-                  title="Hapus item"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Hapus
-                </button>
-              </div>
-
-              <div className="grid gap-5">
-                <Field
-                  label="Title"
-                  value={item.title}
-                  onChange={(value) =>
-                    updateValueProposition(index, "title", value)
-                  }
-                />
-
-                <TextareaField
-                  label="Description"
-                  value={item.description}
-                  onChange={(value) =>
-                    updateValueProposition(index, "description", value)
-                  }
-                  rows={3}
-                />
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Icon</label>
-
-                  <select
-                    value={item.icon ?? "fish"}
-                    onChange={(event) =>
-                      updateValueProposition(index, "icon", event.target.value)
-                    }
-                    className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+              <div className="border-t p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => removeValueProposition(index)}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10"
+                    title="Hapus item"
                   >
-                    {BENEFIT_ICON_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    <Trash2 className="h-4 w-4" />
+                    Hapus
+                  </button>
+                </div>
+
+                <div className="grid gap-5">
+                  <Field
+                    label="Title"
+                    value={item.title}
+                    onChange={(value) =>
+                      updateValueProposition(index, "title", value)
+                    }
+                  />
+
+                  <TextareaField
+                    label="Description"
+                    value={item.description}
+                    onChange={(value) =>
+                      updateValueProposition(index, "description", value)
+                    }
+                    rows={3}
+                  />
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Icon</label>
+
+                    <select
+                      value={item.icon ?? "fish"}
+                      onChange={(event) =>
+                        updateValueProposition(
+                          index,
+                          "icon",
+                          event.target.value,
+                        )
+                      }
+                      className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                    >
+                      {BENEFIT_ICON_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
+            </details>
           ))}
 
           {valuePropositionItems.length === 0 && (
@@ -1247,22 +1290,22 @@ export default function LandingPageContentForm({
             </div>
           )}
         </div>
-      </section>
+      </AccordionSection>
 
       {/* BENEFITS */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Benefits</h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Alasan utama pelanggan memilih Pisjo Market. Kelola 3 sampai 6
-                benefit.
-              </p>
-            </div>
-
+      <AccordionSection
+        title="Benefits"
+        description="Alasan utama pelanggan memilih Pisjo Market. Kelola 3 sampai 6 benefit."
+        icon={<Gift className="h-5 w-5" />}
+        badge={
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+            {benefits.length} benefit
+          </span>
+        }
+      >
+        <div className="border-b p-4">
+          <div className="flex items-center justify-end">
             <button
               type="button"
               onClick={addBenefit}
@@ -1274,66 +1317,76 @@ export default function LandingPageContentForm({
             </button>
           </div>
         </div>
-
         <div className="grid gap-5 p-6">
           {benefits.map((benefit, index) => (
-            <div key={`benefit-${index}`} className="rounded-xl border p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Benefit {index + 1}
-                </p>
+            <details
+              key={`benefit-${index}`}
+              className="group overflow-hidden rounded-xl border"
+              open={index === 0}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="mt-1 truncate text-sm font-semibold">
+                    {benefit.title || "Benefit baru"}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
 
-                <button
-                  type="button"
-                  onClick={() => removeBenefit(index)}
-                  disabled={benefits.length <= MIN_LANDING_PAGE_ITEMS}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  title={
-                    benefits.length <= MIN_LANDING_PAGE_ITEMS
-                      ? "Minimal 3 benefit"
-                      : "Hapus benefit"
-                  }
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Hapus
-                </button>
-              </div>
-
-              <div className="grid gap-5">
-                <Field
-                  label="Title"
-                  value={benefit.title}
-                  onChange={(value) => updateBenefit(index, "title", value)}
-                />
-
-                <TextareaField
-                  label="Description"
-                  value={benefit.description}
-                  onChange={(value) =>
-                    updateBenefit(index, "description", value)
-                  }
-                  rows={3}
-                />
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Icon</label>
-
-                  <select
-                    value={benefit.icon ?? "fish"}
-                    onChange={(event) =>
-                      updateBenefit(index, "icon", event.target.value)
+              <div className="border-t p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => removeBenefit(index)}
+                    disabled={benefits.length <= MIN_LANDING_PAGE_ITEMS}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    title={
+                      benefits.length <= MIN_LANDING_PAGE_ITEMS
+                        ? "Minimal 3 benefit"
+                        : "Hapus benefit"
                     }
-                    className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                   >
-                    {BENEFIT_ICON_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    <Trash2 className="h-4 w-4" />
+                    Hapus
+                  </button>
+                </div>
+
+                <div className="grid gap-5">
+                  <Field
+                    label="Title"
+                    value={benefit.title}
+                    onChange={(value) => updateBenefit(index, "title", value)}
+                  />
+
+                  <TextareaField
+                    label="Description"
+                    value={benefit.description}
+                    onChange={(value) =>
+                      updateBenefit(index, "description", value)
+                    }
+                    rows={3}
+                  />
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Icon</label>
+
+                    <select
+                      value={benefit.icon ?? "fish"}
+                      onChange={(event) =>
+                        updateBenefit(index, "icon", event.target.value)
+                      }
+                      className="h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                    >
+                      {BENEFIT_ICON_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
+            </details>
           ))}
 
           {benefits.length === 0 && (
@@ -1353,18 +1406,20 @@ export default function LandingPageContentForm({
             </div>
           )}
         </div>
-      </section>
+      </AccordionSection>
 
       {/* TESTIMONIALS */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <h2 className="text-lg font-semibold">Testimonials</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Kelola cerita pelanggan yang ditampilkan pada Landing Page.
-          </p>
-        </div>
-
+      <AccordionSection
+        title="Testimonials"
+        description="Kelola cerita pelanggan yang ditampilkan pada Landing Page."
+        icon={<CheckCircle2 className="h-5 w-5" />}
+        badge={
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+            {testimonials.length} testimonial
+          </span>
+        }
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -1418,105 +1473,103 @@ export default function LandingPageContentForm({
           </div>
 
           {testimonials.map((item, index) => (
-            <div
+            <details
               key={`testimonial-${index}`}
-              className="grid gap-5 rounded-xl border p-5"
+              className="group overflow-hidden rounded-xl border"
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Testimonial {index + 1}
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="mt-1 truncate text-sm font-semibold">
+                    {item.name || "Testimonial baru"}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+
+              <div className="border-t p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => removeTestimonial(index)}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Hapus
+                  </button>
+                </div>
+
+                <Field
+                  label="Nama"
+                  value={item.name}
+                  onChange={(value) => updateTestimonial(index, "name", value)}
+                />
+
+                <Field
+                  label="Role / Keterangan"
+                  value={item.role ?? ""}
+                  onChange={(value) => updateTestimonial(index, "role", value)}
+                />
+
+                <Field
+                  label="URL Gambar / Avatar"
+                  value={item.avatar ?? ""}
+                  onChange={(value) =>
+                    updateTestimonial(index, "avatar", value)
+                  }
+                  placeholder="https://contoh.com/foto-pelanggan.webp"
+                />
+
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Opsional. Masukkan URL gambar pelanggan. Jika dikosongkan,
+                  placeholder ikan bawaan akan tetap ditampilkan.
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => removeTestimonial(index)}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Hapus
-                </button>
+                <Field
+                  label="URL Gambar Produk"
+                  value={item.productImage ?? ""}
+                  onChange={(value) =>
+                    updateTestimonial(index, "productImage", value)
+                  }
+                  placeholder="https://contoh.com/produk-ikan.webp"
+                />
+
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Opsional. Masukkan URL gambar produk yang berkaitan dengan
+                  testimonial ini. Jika dikosongkan, gambar produk tidak
+                  ditampilkan.
+                </p>
+
+                <TextareaField
+                  label="Pesan"
+                  value={item.message}
+                  onChange={(value) =>
+                    updateTestimonial(index, "message", value)
+                  }
+                  rows={4}
+                />
+
+                <NumberField
+                  label="Rating"
+                  value={item.rating ?? 5}
+                  min={1}
+                  max={5}
+                  onChange={(value) =>
+                    updateTestimonial(index, "rating", value)
+                  }
+                />
               </div>
-
-              <Field
-                label="Nama"
-                value={item.name}
-                onChange={(value) => updateTestimonial(index, "name", value)}
-              />
-
-              <Field
-                label="Role / Keterangan"
-                value={item.role ?? ""}
-                onChange={(value) => updateTestimonial(index, "role", value)}
-              />
-
-              <Field
-                label="URL Gambar / Avatar"
-                value={item.avatar ?? ""}
-                onChange={(value) => updateTestimonial(index, "avatar", value)}
-                placeholder="https://contoh.com/foto-pelanggan.webp"
-              />
-
-              <p className="text-xs leading-5 text-muted-foreground">
-                Opsional. Masukkan URL gambar pelanggan. Jika dikosongkan,
-                placeholder ikan bawaan akan tetap ditampilkan.
-              </p>
-
-              <Field
-                label="URL Gambar Produk"
-                value={item.productImage ?? ""}
-                onChange={(value) =>
-                  updateTestimonial(index, "productImage", value)
-                }
-                placeholder="https://contoh.com/produk-ikan.webp"
-              />
-
-              <p className="text-xs leading-5 text-muted-foreground">
-                Opsional. Masukkan URL gambar produk yang berkaitan dengan
-                testimonial ini. Jika dikosongkan, gambar produk tidak
-                ditampilkan.
-              </p>
-
-
-              <TextareaField
-                label="Pesan"
-                value={item.message}
-                onChange={(value) => updateTestimonial(index, "message", value)}
-                rows={4}
-              />
-
-              <NumberField
-                label="Rating"
-                value={item.rating ?? 5}
-                min={1}
-                max={5}
-                onChange={(value) => updateTestimonial(index, "rating", value)}
-              />
-            </div>
+            </details>
           ))}
         </div>
-      </section>
+      </AccordionSection>
 
       {/* REWARD POINT */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Gift className="h-5 w-5" />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold">Reward Point</h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Atur section hadiah poin yang ditampilkan pada Landing Page.
-                Data hadiah diambil otomatis dari Reward Catalog yang aktif dan
-                masih memiliki stok.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Reward Point"
+        description="Atur section hadiah poin yang ditampilkan pada Landing Page."
+        icon={<Gift className="h-5 w-5" />}
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -1606,28 +1659,15 @@ export default function LandingPageContentForm({
             </p>
           </div>
         </div>
-      </section>
+      </AccordionSection>
 
       {/* TUTORIAL INSTALASI */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Smartphone className="h-5 w-5" />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold">
-                Tutorial Instalasi iPhone
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Atur panduan pemasangan PISJO ke Home Screen iPhone.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Tutorial Instalasi iPhone"
+        description="Atur panduan pemasangan PISJO ke Home Screen iPhone."
+        icon={<Smartphone className="h-5 w-5" />}
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -1764,27 +1804,15 @@ export default function LandingPageContentForm({
             placeholder="Tidak perlu App Store"
           />
         </div>
-      </section>
+      </AccordionSection>
 
       {/* APP */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Smartphone className="h-5 w-5" />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold">Android App Showcase</h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Konten promosi aplikasi Android.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Android App Showcase"
+        description="Konten promosi aplikasi Android."
+        icon={<Smartphone className="h-5 w-5" />}
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -1818,22 +1846,15 @@ export default function LandingPageContentForm({
             onChange={setAppButtonLabel}
           />
         </div>
-      </section>
+      </AccordionSection>
 
       {/* HOW IT WORKS */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div>
-            <h2 className="text-lg font-semibold">How It Works</h2>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Konfigurasi judul dan deskripsi section Cara Belanja pada Landing
-              Page.
-            </p>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="How It Works"
+        description="Konfigurasi judul dan deskripsi section Cara Belanja pada Landing Page."
+        icon={<Truck className="h-5 w-5" />}
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -1878,22 +1899,15 @@ export default function LandingPageContentForm({
             placeholder="https://example.com/how-it-works-background.webp"
           />
         </div>
-      </section>
+      </AccordionSection>
 
       {/* FEATURED PRODUCTS */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div>
-            <h2 className="text-lg font-semibold">Featured Products</h2>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Konfigurasi section produk unggulan yang ditampilkan pada Landing
-              Page.
-            </p>
-          </div>
-        </div>
-
+      <AccordionSection
+        title="Featured Products"
+        description="Konfigurasi section produk unggulan yang ditampilkan pada Landing Page."
+        icon={<ShoppingBag className="h-5 w-5" />}
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -1977,22 +1991,22 @@ export default function LandingPageContentForm({
             </p>
           </div>
         </div>
-      </section>
+      </AccordionSection>
 
       {/* STEPS */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Cara Belanja</h2>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Langkah yang ditampilkan pada Landing Page. Kelola 3 sampai 6
-                langkah.
-              </p>
-            </div>
-
+      <AccordionSection
+        title="Cara Belanja"
+        description="Langkah yang ditampilkan pada Landing Page. Kelola 3 sampai 6 langkah."
+        icon={<ShoppingBag className="h-5 w-5" />}
+        badge={
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+            {steps.length} langkah
+          </span>
+        }
+      >
+        <div className="border-b p-4">
+          <div className="flex items-center justify-end">
             <button
               type="button"
               onClick={addStep}
@@ -2004,46 +2018,58 @@ export default function LandingPageContentForm({
             </button>
           </div>
         </div>
-
         <div className="grid gap-5 p-6">
           {steps.map((step, index) => (
-            <div key={`step-${index}`} className="rounded-xl border p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Langkah {index + 1}
-                </p>
+            <details
+              key={`step-${index}`}
+              className="group overflow-hidden rounded-xl border"
+              open={index === 0}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="mt-1 truncate text-sm font-semibold">
+                    {step.title || "Langkah baru"}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
 
-                <button
-                  type="button"
-                  onClick={() => removeStep(index)}
-                  disabled={steps.length <= MIN_LANDING_PAGE_ITEMS}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
-                  title={
-                    steps.length <= MIN_LANDING_PAGE_ITEMS
-                      ? "Minimal 3 langkah"
-                      : "Hapus langkah"
-                  }
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Hapus
-                </button>
+              <div className="border-t p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => removeStep(index)}
+                    disabled={steps.length <= MIN_LANDING_PAGE_ITEMS}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    title={
+                      steps.length <= MIN_LANDING_PAGE_ITEMS
+                        ? "Minimal 3 langkah"
+                        : "Hapus langkah"
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Hapus
+                  </button>
+                </div>
+
+                <div className="grid gap-5">
+                  <Field
+                    label="Title"
+                    value={step.title}
+                    onChange={(value) => updateStep(index, "title", value)}
+                  />
+
+                  <TextareaField
+                    label="Description"
+                    value={step.description}
+                    onChange={(value) =>
+                      updateStep(index, "description", value)
+                    }
+                    rows={3}
+                  />
+                </div>
               </div>
-
-              <div className="grid gap-5">
-                <Field
-                  label="Title"
-                  value={step.title}
-                  onChange={(value) => updateStep(index, "title", value)}
-                />
-
-                <TextareaField
-                  label="Description"
-                  value={step.description}
-                  onChange={(value) => updateStep(index, "description", value)}
-                  rows={3}
-                />
-              </div>
-            </div>
+            </details>
           ))}
 
           {steps.length === 0 && (
@@ -2063,18 +2089,20 @@ export default function LandingPageContentForm({
             </div>
           )}
         </div>
-      </section>
+      </AccordionSection>
 
       {/* FAQ */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <h2 className="text-lg font-semibold">FAQ</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Kelola pertanyaan dan jawaban yang ditampilkan pada Landing Page.
-          </p>
-        </div>
-
+      <AccordionSection
+        title="FAQ"
+        description="Kelola pertanyaan dan jawaban yang ditampilkan pada Landing Page."
+        icon={<AlertCircle className="h-5 w-5" />}
+        badge={
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+            {faqItems.length} FAQ
+          </span>
+        }
+      >
         <div className="grid gap-6 p-6">
           <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4">
             <div>
@@ -2209,53 +2237,56 @@ export default function LandingPageContentForm({
           </div>
 
           {faqItems.map((item, index) => (
-            <div
+            <details
               key={`faq-${index}`}
-              className="grid gap-5 rounded-xl border p-5"
+              className="group overflow-hidden rounded-xl border"
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  FAQ {index + 1}
-                </p>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="mt-1 truncate text-sm font-semibold">
+                    {item.question || "Pertanyaan baru"}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
 
-                <button
-                  type="button"
-                  onClick={() => removeFaqItem(index)}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Hapus
-                </button>
+              <div className="border-t p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => removeFaqItem(index)}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Hapus
+                  </button>
+                </div>
+
+                <Field
+                  label="Pertanyaan"
+                  value={item.question}
+                  onChange={(value) => updateFaqItem(index, "question", value)}
+                />
+
+                <TextareaField
+                  label="Jawaban"
+                  value={item.answer}
+                  onChange={(value) => updateFaqItem(index, "answer", value)}
+                  rows={4}
+                />
               </div>
-
-              <Field
-                label="Pertanyaan"
-                value={item.question}
-                onChange={(value) => updateFaqItem(index, "question", value)}
-              />
-
-              <TextareaField
-                label="Jawaban"
-                value={item.answer}
-                onChange={(value) => updateFaqItem(index, "answer", value)}
-                rows={4}
-              />
-            </div>
+            </details>
           ))}
         </div>
-      </section>
+      </AccordionSection>
 
       {/* CTA */}
 
-      <section className="rounded-2xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <h2 className="text-lg font-semibold">Final CTA</h2>
-
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ajakan terakhir sebelum pengunjung meninggalkan Landing Page.
-          </p>
-        </div>
-
+      <AccordionSection
+        title="Final CTA"
+        description="Ajakan terakhir sebelum pengunjung meninggalkan Landing Page."
+        icon={<Save className="h-5 w-5" />}
+      >
         <div className="grid gap-6 p-6">
           <Field label="Eyebrow" value={ctaEyebrow} onChange={setCtaEyebrow} />
 
@@ -2281,7 +2312,7 @@ export default function LandingPageContentForm({
             placeholder="https://example.com/seafood-banner.webp"
           />
         </div>
-      </section>
+      </AccordionSection>
 
       {/* ACTION */}
 

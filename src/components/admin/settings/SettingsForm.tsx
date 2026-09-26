@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -20,16 +15,16 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  ChevronDown,
   Navigation,
   LocateFixed,
   Truck,
+  ShoppingBag,
   ImagePlus,
   Trash2,
 } from "lucide-react";
 
-import {
-  updateSettingsAction,
-} from "@/actions/admin/settings/update-settings";
+import { updateSettingsAction } from "@/actions/admin/settings/update-settings";
 
 /**
  * ============================================================
@@ -40,13 +35,10 @@ import {
  */
 
 const StoreLocationMapPreview = dynamic(
-  () =>
-    import(
-      "@/components/admin/settings/StoreLocationMapPreview"
-    ),
+  () => import("@/components/admin/settings/StoreLocationMapPreview"),
   {
     ssr: false,
-  }
+  },
 );
 
 /**
@@ -160,14 +152,9 @@ interface SettingsFormProps {
  * ============================================================
  */
 
-const MAX_LOGO_SIZE =
-  2 * 1024 * 1024;
+const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 
-const ALLOWED_LOGO_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-];
+const ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /**
  * ============================================================
@@ -175,139 +162,108 @@ const ALLOWED_LOGO_TYPES = [
  * ============================================================
  */
 
-export default function SettingsForm({
-  settings,
-}: SettingsFormProps) {
-  const [isPending, startTransition] =
-    useTransition();
+export default function SettingsForm({ settings }: SettingsFormProps) {
+  const [isPending, startTransition] = useTransition();
 
-  const [message, setMessage] =
-    useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const [isSuccess, setIsSuccess] =
-    useState<boolean | null>(null);
+  const [isSuccess, setIsSuccess] = useState<boolean | null>(null);
 
-/**
- * ==========================================================
- * NOTIFICATION REF
- * ==========================================================
- */
+  /**
+   * ==========================================================
+   * NOTIFICATION REF
+   * ==========================================================
+   */
 
-const notificationRef =
-  useRef<HTMLDivElement | null>(null);
+  const notificationRef = useRef<HTMLDivElement | null>(null);
 
-useEffect(() => {
-  if (
-    isSuccess !== true ||
-    message !==
-      "Pengaturan toko berhasil diperbarui."
-  ) {
-    return;
-  }
+  useEffect(() => {
+    if (
+      isSuccess !== true ||
+      message !== "Pengaturan toko berhasil diperbarui."
+    ) {
+      return;
+    }
 
-  requestAnimationFrame(() => {
-    notificationRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
+    requestAnimationFrame(() => {
+      notificationRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     });
-  });
-}, [isSuccess, message]);
+  }, [isSuccess, message]);
 
+  /**
+   * ==========================================================
+   * SITE LOGO STATE
+   * ==========================================================
+   */
 
-/**
- * ==========================================================
- * SITE LOGO STATE
- * ==========================================================
- */
+  const [siteLogo, setSiteLogo] = useState<string | null>(settings.siteLogo);
 
-const [siteLogo, setSiteLogo] =
-  useState<string | null>(
-    settings.siteLogo
-  );
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
-const [
-  isUploadingLogo,
-  setIsUploadingLogo,
-] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
-const logoInputRef =
-  useRef<HTMLInputElement | null>(null);
+  /**
+   * ==========================================================
+   * STORE GPS STATE
+   * ==========================================================
+   */
 
-/**
- * ==========================================================
- * STORE GPS STATE
- * ==========================================================
- */
-
-const [latitude, setLatitude] =
-  useState<string>(
-    settings.latitude !== null &&
-    settings.latitude !== undefined
+  const [latitude, setLatitude] = useState<string>(
+    settings.latitude !== null && settings.latitude !== undefined
       ? String(settings.latitude)
-      : ""
+      : "",
   );
 
-const [longitude, setLongitude] =
-  useState<string>(
-    settings.longitude !== null &&
-    settings.longitude !== undefined
+  const [longitude, setLongitude] = useState<string>(
+    settings.longitude !== null && settings.longitude !== undefined
       ? String(settings.longitude)
-      : ""
+      : "",
   );
 
-const [isLocating, setIsLocating] =
-  useState(false);
+  const [isLocating, setIsLocating] = useState(false);
 
+  /**
+   * ==========================================================
+   * INTERNAL SHIPPING STATE
+   * ==========================================================
+   */
 
-/**
- * ==========================================================
- * INTERNAL SHIPPING STATE
- * ==========================================================
- */
+  const [internalShippingEnabled, setInternalShippingEnabled] = useState(
+    settings.internalShippingEnabled,
+  );
 
-const [
-  internalShippingEnabled,
-  setInternalShippingEnabled,
-] = useState(
-  settings.internalShippingEnabled
-);
+  /**
+   * ==========================================================
+   * ORDER SETTINGS STATE
+   * ==========================================================
+   */
 
+  const [paymentTimeoutHours, setPaymentTimeoutHours] = useState<string>(
+    String(settings.paymentTimeoutHours),
+  );
 
-/**
- * ==========================================================
- * ORDER SETTINGS STATE
- * ==========================================================
- */
+  /**
+   * ==========================================================
+   * MAP PREVIEW COORDINATES
+   * ==========================================================
+   */
 
-const [
-  paymentTimeoutHours,
-  setPaymentTimeoutHours,
-] = useState<string>(
-  String(settings.paymentTimeoutHours)
-);
+  const previewLatitude = Number(latitude);
 
+  const previewLongitude = Number(longitude);
 
-/**
- * ==========================================================
- * MAP PREVIEW COORDINATES
- * ==========================================================
- */
-
-const previewLatitude =
-  Number(latitude);
-
-const previewLongitude =
-  Number(longitude);
-
-const hasValidLocation =
-  latitude.trim() !== "" &&
-  longitude.trim() !== "" &&
-  Number.isFinite(previewLatitude) &&
-  Number.isFinite(previewLongitude) &&
-  previewLatitude >= -90 &&
-  previewLatitude <= 90 &&
-  previewLongitude >= -180 &&
-  previewLongitude <= 180;
+  const hasValidLocation =
+    latitude.trim() !== "" &&
+    longitude.trim() !== "" &&
+    Number.isFinite(previewLatitude) &&
+    Number.isFinite(previewLongitude) &&
+    previewLatitude >= -90 &&
+    previewLatitude <= 90 &&
+    previewLongitude >= -180 &&
+    previewLongitude <= 180;
 
   /**
    * ==========================================================
@@ -315,11 +271,8 @@ const hasValidLocation =
    * ==========================================================
    */
 
-  async function handleLogoChange(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file =
-      event.target.files?.[0];
+  async function handleLogoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
 
     /**
      * Reset input agar file yang sama tetap
@@ -341,14 +294,8 @@ const hasValidLocation =
      * --------------------------------------------------------
      */
 
-    if (
-      !ALLOWED_LOGO_TYPES.includes(
-        file.type
-      )
-    ) {
-      setMessage(
-        "Format logo harus PNG, JPG, JPEG, atau WEBP."
-      );
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      setMessage("Format logo harus PNG, JPG, JPEG, atau WEBP.");
 
       setIsSuccess(false);
 
@@ -361,13 +308,8 @@ const hasValidLocation =
      * --------------------------------------------------------
      */
 
-    if (
-      file.size <= 0 ||
-      file.size > MAX_LOGO_SIZE
-    ) {
-      setMessage(
-        "Ukuran logo maksimal 2 MB."
-      );
+    if (file.size <= 0 || file.size > MAX_LOGO_SIZE) {
+      setMessage("Ukuran logo maksimal 2 MB.");
 
       setIsSuccess(false);
 
@@ -377,35 +319,19 @@ const hasValidLocation =
     try {
       setIsUploadingLogo(true);
 
-      const formData =
-        new FormData();
+      const formData = new FormData();
 
-      formData.append(
-        "file",
-        file
-      );
+      formData.append("file", file);
 
-      const response =
-        await fetch(
-          "/api/settings/logo",
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
+      const response = await fetch("/api/settings/logo", {
+        method: "POST",
+        body: formData,
+      });
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
-      if (
-        !response.ok ||
-        !result.success ||
-        !result.url
-      ) {
-        throw new Error(
-          result.message ||
-            "Gagal mengupload logo."
-        );
+      if (!response.ok || !result.success || !result.url) {
+        throw new Error(result.message || "Gagal mengupload logo.");
       }
 
       /**
@@ -415,25 +341,18 @@ const hasValidLocation =
        * setelah admin klik Simpan Pengaturan.
        */
 
-      setSiteLogo(
-        result.url
-      );
+      setSiteLogo(result.url);
 
-      setMessage(
-        "Logo berhasil diupload. Jangan lupa klik Simpan Pengaturan."
-      );
+      setMessage("Logo berhasil diupload. Jangan lupa klik Simpan Pengaturan.");
 
       setIsSuccess(true);
     } catch (error) {
-      console.error(
-        "Failed to upload site logo:",
-        error
-      );
+      console.error("Failed to upload site logo:", error);
 
       setMessage(
         error instanceof Error
           ? error.message
-          : "Terjadi kesalahan saat mengupload logo."
+          : "Terjadi kesalahan saat mengupload logo.",
       );
 
       setIsSuccess(false);
@@ -460,9 +379,7 @@ const hasValidLocation =
   function handleRemoveLogo() {
     setSiteLogo(null);
 
-    setMessage(
-      "Logo akan dihapus setelah Anda menyimpan pengaturan."
-    );
+    setMessage("Logo akan dihapus setelah Anda menyimpan pengaturan.");
 
     setIsSuccess(true);
   }
@@ -479,7 +396,7 @@ const hasValidLocation =
 
     if (!navigator.geolocation) {
       setMessage(
-        "Browser atau perangkat ini tidak mendukung akses lokasi GPS."
+        "Browser atau perangkat ini tidak mendukung akses lokasi GPS.",
       );
 
       setIsSuccess(false);
@@ -491,22 +408,16 @@ const hasValidLocation =
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const nextLatitude =
-          position.coords.latitude;
+        const nextLatitude = position.coords.latitude;
 
-        const nextLongitude =
-          position.coords.longitude;
+        const nextLongitude = position.coords.longitude;
 
-        setLatitude(
-          nextLatitude.toFixed(7)
-        );
+        setLatitude(nextLatitude.toFixed(7));
 
-        setLongitude(
-          nextLongitude.toFixed(7)
-        );
+        setLongitude(nextLongitude.toFixed(7));
 
         setMessage(
-          "Lokasi toko berhasil diperoleh. Jangan lupa menyimpan pengaturan."
+          "Lokasi toko berhasil diperoleh. Jangan lupa menyimpan pengaturan.",
         );
 
         setIsSuccess(true);
@@ -514,36 +425,21 @@ const hasValidLocation =
         setIsLocating(false);
       },
       (error) => {
-        console.error(
-          "Failed to get store location:",
-          error
-        );
+        console.error("Failed to get store location:", error);
 
-        let errorMessage =
-          "Gagal mengambil lokasi saat ini.";
+        let errorMessage = "Gagal mengambil lokasi saat ini.";
 
-        if (
-          error.code ===
-          error.PERMISSION_DENIED
-        ) {
+        if (error.code === error.PERMISSION_DENIED) {
           errorMessage =
             "Izin akses lokasi ditolak. Silakan izinkan akses lokasi terlebih dahulu.";
         }
 
-        if (
-          error.code ===
-          error.POSITION_UNAVAILABLE
-        ) {
-          errorMessage =
-            "Lokasi perangkat tidak tersedia.";
+        if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = "Lokasi perangkat tidak tersedia.";
         }
 
-        if (
-          error.code ===
-          error.TIMEOUT
-        ) {
-          errorMessage =
-            "Waktu pengambilan lokasi habis. Silakan coba lagi.";
+        if (error.code === error.TIMEOUT) {
+          errorMessage = "Waktu pengambilan lokasi habis. Silakan coba lagi.";
         }
 
         setMessage(errorMessage);
@@ -554,7 +450,7 @@ const hasValidLocation =
         enableHighAccuracy: true,
         timeout: 15000,
         maximumAge: 0,
-      }
+      },
     );
   }
 
@@ -564,22 +460,16 @@ const hasValidLocation =
    * ==========================================================
    */
 
-  function parseCoordinate(
-    value: string
-  ): number | null {
-    const trimmed =
-      value.trim();
+  function parseCoordinate(value: string): number | null {
+    const trimmed = value.trim();
 
     if (!trimmed) {
       return null;
     }
 
-    const parsed =
-      Number(trimmed);
+    const parsed = Number(trimmed);
 
-    return Number.isFinite(parsed)
-      ? parsed
-      : null;
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   /**
@@ -590,21 +480,15 @@ const hasValidLocation =
 
   function parseNumber(
     value: FormDataEntryValue | null,
-    fallback: number
+    fallback: number,
   ): number {
-    if (
-      value === null ||
-      String(value).trim() === ""
-    ) {
+    if (value === null || String(value).trim() === "") {
       return fallback;
     }
 
-    const parsed =
-      Number(value);
+    const parsed = Number(value);
 
-    return Number.isFinite(parsed)
-      ? parsed
-      : fallback;
+    return Number.isFinite(parsed) ? parsed : fallback;
   }
 
   /**
@@ -614,21 +498,15 @@ const hasValidLocation =
    */
 
   function parseOptionalNumber(
-    value: FormDataEntryValue | null
+    value: FormDataEntryValue | null,
   ): number | null {
-    if (
-      value === null ||
-      String(value).trim() === ""
-    ) {
+    if (value === null || String(value).trim() === "") {
       return null;
     }
 
-    const parsed =
-      Number(value);
+    const parsed = Number(value);
 
-    return Number.isFinite(parsed)
-      ? parsed
-      : null;
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   /**
@@ -637,46 +515,32 @@ const hasValidLocation =
    * ==========================================================
    */
 
-  function handleSubmit(
-    formData: FormData
-  ) {
+  function handleSubmit(formData: FormData) {
     setMessage(null);
     setIsSuccess(null);
 
     if (isUploadingLogo) {
-  setMessage(
-    "Tunggu hingga proses upload logo selesai."
-  );
+      setMessage("Tunggu hingga proses upload logo selesai.");
 
-  setIsSuccess(false);
+      setIsSuccess(false);
 
-  return;
-}
+      return;
+    }
 
     const input = {
       /**
        * STORE INFORMATION
        */
 
-      storeName: String(
-        formData.get("storeName") ?? ""
-      ),
+      storeName: String(formData.get("storeName") ?? ""),
 
-      storeDescription: String(
-        formData.get("storeDescription") ?? ""
-      ),
+      storeDescription: String(formData.get("storeDescription") ?? ""),
 
-      footerDescription: String(
-        formData.get("footerDescription") ?? ""
-      ),
+      footerDescription: String(formData.get("footerDescription") ?? ""),
 
-      landingPageUrl: String(
-        formData.get("landingPageUrl") ?? "",
-      ),
+      landingPageUrl: String(formData.get("landingPageUrl") ?? ""),
 
-      storefrontUrl: String(
-        formData.get("storefrontUrl") ?? "",
-      ),
+      storefrontUrl: String(formData.get("storefrontUrl") ?? ""),
 
       seoTitle: String(formData.get("seoTitle") ?? ""),
       seoDescription: String(formData.get("seoDescription") ?? ""),
@@ -691,53 +555,39 @@ const hasValidLocation =
       seoRobotsIndex: formData.get("seoRobotsIndex") === "on",
       seoRobotsFollow: formData.get("seoRobotsFollow") === "on",
       seoGoogleVerification: String(
-      formData.get("seoGoogleVerification") ?? "",
+        formData.get("seoGoogleVerification") ?? "",
       ),
       seoAiEnabled: formData.get("seoAiEnabled") === "on",
 
-            /**
+      /**
        * SITE LOGO
        */
 
       siteLogo,
 
-      email: String(
-        formData.get("email") ?? ""
-      ),
+      email: String(formData.get("email") ?? ""),
 
-      whatsapp: String(
-        formData.get("whatsapp") ?? ""
-      ),
+      whatsapp: String(formData.get("whatsapp") ?? ""),
 
       /**
        * STORE ADDRESS
        */
 
-      address: String(
-        formData.get("address") ?? ""
-      ),
+      address: String(formData.get("address") ?? ""),
 
-      city: String(
-        formData.get("city") ?? ""
-      ),
+      city: String(formData.get("city") ?? ""),
 
-      province: String(
-        formData.get("province") ?? ""
-      ),
+      province: String(formData.get("province") ?? ""),
 
-      postalCode: String(
-        formData.get("postalCode") ?? ""
-      ),
+      postalCode: String(formData.get("postalCode") ?? ""),
 
       /**
        * STORE LOCATION / SHIPPING ORIGIN
        */
 
-      latitude:
-        parseCoordinate(latitude),
+      latitude: parseCoordinate(latitude),
 
-      longitude:
-        parseCoordinate(longitude),
+      longitude: parseCoordinate(longitude),
 
       /**
        * INTERNAL SHIPPING
@@ -745,72 +595,46 @@ const hasValidLocation =
 
       internalShippingEnabled,
 
-      internalShippingName: String(
-        formData.get(
-          "internalShippingName"
-        ) ?? ""
+      internalShippingName: String(formData.get("internalShippingName") ?? ""),
+
+      internalShippingBaseFee: parseNumber(
+        formData.get("internalShippingBaseFee"),
+        0,
       ),
 
-      internalShippingBaseFee:
-        parseNumber(
-          formData.get(
-            "internalShippingBaseFee"
-          ),
-          0
-        ),
+      internalShippingPerKmFee: parseNumber(
+        formData.get("internalShippingPerKmFee"),
+        0,
+      ),
 
-      internalShippingPerKmFee:
-        parseNumber(
-          formData.get(
-            "internalShippingPerKmFee"
-          ),
-          0
-        ),
+      internalShippingMinFee: parseNumber(
+        formData.get("internalShippingMinFee"),
+        0,
+      ),
 
-      internalShippingMinFee:
-        parseNumber(
-          formData.get(
-            "internalShippingMinFee"
-          ),
-          0
-        ),
+      internalShippingMaxDistance: parseNumber(
+        formData.get("internalShippingMaxDistance"),
+        10,
+      ),
 
-      internalShippingMaxDistance:
-        parseNumber(
-          formData.get(
-            "internalShippingMaxDistance"
-          ),
-          10
-        ),
+      internalShippingFreeThreshold: parseOptionalNumber(
+        formData.get("internalShippingFreeThreshold"),
+      ),
 
-      internalShippingFreeThreshold:
-        parseOptionalNumber(
-          formData.get(
-            "internalShippingFreeThreshold"
-          )
-        ),
+      internalShippingFreeMaxDiscount: parseNumber(
+        formData.get("internalShippingFreeMaxDiscount"),
+        0,
+      ),
 
-      internalShippingFreeMaxDiscount:
-        parseNumber(
-          formData.get(
-            "internalShippingFreeMaxDiscount"
-          ),
-        0
-        ),
-
-            /**
+      /**
        * --------------------------------------------------------
        * OPERATIONAL
        * --------------------------------------------------------
        */
 
-      openingTime: String(
-        formData.get("openingTime") ?? ""
-      ),
+      openingTime: String(formData.get("openingTime") ?? ""),
 
-      closingTime: String(
-        formData.get("closingTime") ?? ""
-      ),
+      closingTime: String(formData.get("closingTime") ?? ""),
 
       /**
        * --------------------------------------------------------
@@ -818,28 +642,19 @@ const hasValidLocation =
        * --------------------------------------------------------
        */
 
-      paymentTimeoutHours:
-        Number(paymentTimeoutHours),
+      paymentTimeoutHours: Number(paymentTimeoutHours),
     };
 
     startTransition(async () => {
       try {
-        const result =
-          await updateSettingsAction(
-            input
-          );
+        const result = await updateSettingsAction(input);
 
         setMessage(result.message);
         setIsSuccess(result.success);
       } catch (error) {
-        console.error(
-          "Failed to update store settings:",
-          error
-        );
+        console.error("Failed to update store settings:", error);
 
-        setMessage(
-          "Terjadi kesalahan saat menyimpan pengaturan toko."
-        );
+        setMessage("Terjadi kesalahan saat menyimpan pengaturan toko.");
 
         setIsSuccess(false);
       }
@@ -847,17 +662,17 @@ const hasValidLocation =
   }
 
   return (
-    <form
-      action={handleSubmit}
-      className="space-y-6"
-    >
+    <form action={handleSubmit} className="space-y-6">
       {/* ====================================================== */}
       {/* FEEDBACK */}
       {/* ====================================================== */}
 
       {message && (
         <div
-        ref={notificationRef}
+          ref={notificationRef}
+          id="settings-save-notification"
+          role="status"
+          aria-live="polite"
           className={[
             "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm",
             isSuccess
@@ -879,1102 +694,1060 @@ const hasValidLocation =
       {/* INFORMASI TOKO */}
       {/* ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Store className="h-5 w-5" />
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={true}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <Store className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">
+                Informasi Toko
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Kelola informasi utama toko dan identitas brand.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Informasi Toko
-            </h2>
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Kelola informasi utama toko dan identitas brand.
-            </p>
-          </div>
-        </div>
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="grid gap-5">
+            {/* ================================================== */}
+            {/* SITE LOGO */}
+            {/* ================================================== */}
 
-        <div className="grid gap-5">
-          {/* ================================================== */}
-          {/* SITE LOGO */}
-          {/* ================================================== */}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Logo Situs
+              </label>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-700">
-              Logo Situs
-            </label>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    {siteLogo ? (
+                      <Image
+                        src={siteLogo}
+                        alt="Logo situs"
+                        width={96}
+                        height={96}
+                        unoptimized
+                        className="h-full w-full object-contain p-2"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
+                        <ImagePlus className="h-7 w-7" />
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  {siteLogo ? (
-                    <Image
-                      src={siteLogo}
-                      alt="Logo situs"
-                      width={96}
-                      height={96}
-                      unoptimized
-                      className="h-full w-full object-contain p-2"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
-                      <ImagePlus className="h-7 w-7" />
+                        <span className="text-[10px] font-medium">
+                          Belum ada logo
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
-                      <span className="text-[10px] font-medium">
-                        Belum ada logo
-                      </span>
-                    </div>
-                  )}
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-900">
+                      Identitas Logo Situs
+                    </p>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Identitas Logo Situs
-                  </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Upload logo yang akan digunakan sebagai identitas utama
+                      situs. Format PNG, JPG, JPEG, atau WEBP dengan ukuran
+                      maksimal 2 MB.
+                    </p>
 
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Upload logo yang akan digunakan sebagai identitas utama situs.
-                    Format PNG, JPG, JPEG, atau WEBP dengan ukuran maksimal 2 MB.
-                  </p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                        onChange={handleLogoChange}
+                        className="hidden"
+                      />
 
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                      onChange={
-                        handleLogoChange
-                      }
-                      className="hidden"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        logoInputRef.current?.click()
-                      }
-                      disabled={
-                        isPending ||
-                        isUploadingLogo
-                      }
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isUploadingLogo ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Mengupload...
-                        </>
-                      ) : (
-                        <>
-                          <ImagePlus className="h-4 w-4" />
-
-                          {siteLogo
-                            ? "Ganti Logo"
-                            : "Upload Logo"}
-                        </>
-                      )}
-                    </button>
-
-                    {siteLogo && (
                       <button
                         type="button"
-                        onClick={
-                          handleRemoveLogo
-                        }
-                        disabled={
-                          isPending ||
-                          isUploadingLogo
-                        }
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={isPending || isUploadingLogo}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Hapus
+                        {isUploadingLogo ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Mengupload...
+                          </>
+                        ) : (
+                          <>
+                            <ImagePlus className="h-4 w-4" />
+
+                            {siteLogo ? "Ganti Logo" : "Upload Logo"}
+                          </>
+                        )}
                       </button>
-                    )}
+
+                      {siteLogo && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveLogo}
+                          disabled={isPending || isUploadingLogo}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Hapus
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* ================================================== */}
-          {/* STORE NAME */}
-          {/* ================================================== */}
+            {/* ================================================== */}
+            {/* STORE NAME */}
+            {/* ================================================== */}
 
-          <div>
-            <label
-              htmlFor="storeName"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Nama Toko
-            </label>
+            <div>
+              <label
+                htmlFor="storeName"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Nama Toko
+              </label>
 
-            <input
-              id="storeName"
-              name="storeName"
-              type="text"
-              required
-              defaultValue={settings.storeName}
-              disabled={isPending}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="Contoh: Pisjo Market"
-            />
-          </div>
+              <input
+                id="storeName"
+                name="storeName"
+                type="text"
+                required
+                defaultValue={settings.storeName}
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="Contoh: Pisjo Market"
+              />
+            </div>
 
-          <div>
-            <label
-              htmlFor="storeDescription"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Deskripsi Toko
-            </label>
+            <div>
+              <label
+                htmlFor="storeDescription"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Deskripsi Toko
+              </label>
 
-            <textarea
-              id="storeDescription"
-              name="storeDescription"
-              rows={4}
-              defaultValue={
-                settings.storeDescription ?? ""
-              }
-              disabled={isPending}
-              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="Tuliskan deskripsi singkat tentang toko..."
-            />
-          </div>
+              <textarea
+                id="storeDescription"
+                name="storeDescription"
+                rows={4}
+                defaultValue={settings.storeDescription ?? ""}
+                disabled={isPending}
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="Tuliskan deskripsi singkat tentang toko..."
+              />
+            </div>
 
-          <div>
-            <label
-              htmlFor="footerDescription"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Deskripsi Footer
-            </label>
+            <div>
+              <label
+                htmlFor="footerDescription"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Deskripsi Footer
+              </label>
 
-            <textarea
-              id="footerDescription"
-              name="footerDescription"
-              rows={4}
-              defaultValue={
-                settings.footerDescription ?? ""
-              }
-              disabled={isPending}
-              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="Masukkan deskripsi yang ingin ditampilkan pada bagian footer..."
-            />
+              <textarea
+                id="footerDescription"
+                name="footerDescription"
+                rows={4}
+                defaultValue={settings.footerDescription ?? ""}
+                disabled={isPending}
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="Masukkan deskripsi yang ingin ditampilkan pada bagian footer..."
+              />
 
-            <p className="mt-2 text-xs text-slate-500">
-              Deskripsi ini akan ditampilkan pada bagian footer halaman customer.
-            </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Deskripsi ini akan ditampilkan pada bagian footer halaman
+                customer.
+              </p>
+            </div>
           </div>
         </div>
-      </section>
+      </details>
 
       {/* ====================================================== */}
       {/* DOMAIN & URL */}
       {/* ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Navigation className="h-5 w-5" />
-          </div>
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={false}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <Navigation className="h-5 w-5" />
+            </div>
 
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Domain & URL
-            </h2>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">
+                Domain & URL
+              </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Atur alamat utama Landing Page dan Storefront.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          {/* LANDING PAGE URL */}
-
-          <div>
-            <label
-              htmlFor="landingPageUrl"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Landing Page URL
-            </label>
-
-            <input
-              id="landingPageUrl"
-              name="landingPageUrl"
-              type="url"
-              required
-              defaultValue={
-                settings.landingPageUrl ??
-                "https://pusatikansegar.com"
-              }
-              disabled={isPending}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="https://pusatikansegar.com"
-            />
-
-            <p className="mt-2 text-xs leading-5 text-slate-500">
-              URL utama halaman marketing atau landing page.
-            </p>
-          </div>
-
-          {/* STOREFRONT URL */}
-
-          <div>
-            <label
-              htmlFor="storefrontUrl"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Storefront URL
-            </label>
-
-            <input
-              id="storefrontUrl"
-              name="storefrontUrl"
-              type="url"
-              required
-              defaultValue={
-                settings.storefrontUrl ??
-                "https://app.pusatikansegar.com"
-              }
-              disabled={isPending}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="https://app.pusatikansegar.com"
-            />
-
-            <p className="mt-2 text-xs leading-5 text-slate-500">
-              URL utama toko yang digunakan customer untuk
-              melihat produk dan melakukan pemesanan.
-            </p>
-          </div>
-
-          {/* INFO */}
-
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-xs leading-5 text-blue-800">
-              Host Landing Page dan Storefront harus berbeda.
-              Host seperti <strong>www</strong> akan diturunkan
-              otomatis dari Landing Page URL dan tidak perlu
-              disimpan sebagai pengaturan terpisah.
-            </p>
-          </div>
-        </div>
-      </section>
-
-{/* ====================================================== */}
-{/* KONTAK */}
-{/* ====================================================== */}
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Phone className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Kontak
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Informasi kontak yang dapat digunakan pelanggan.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-5 md:grid-cols-2">
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Email
-            </label>
-
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-              <input
-                id="email"
-                name="email"
-                type="email"
-                defaultValue={
-                  settings.email ?? ""
-                }
-                disabled={isPending}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-                placeholder="email@example.com"
-              />
+              <p className="mt-1 text-sm text-slate-500">
+                Atur alamat utama Landing Page dan Storefront.
+              </p>
             </div>
           </div>
 
-          <div>
-            <label
-              htmlFor="whatsapp"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              WhatsApp
-            </label>
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
 
-            <div className="relative">
-              <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="space-y-5">
+            {/* LANDING PAGE URL */}
+
+            <div>
+              <label
+                htmlFor="landingPageUrl"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Landing Page URL
+              </label>
 
               <input
-                id="whatsapp"
-                name="whatsapp"
-                type="text"
+                id="landingPageUrl"
+                name="landingPageUrl"
+                type="url"
+                required
                 defaultValue={
-                  settings.whatsapp ?? ""
+                  settings.landingPageUrl ?? "https://pusatikansegar.com"
                 }
                 disabled={isPending}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-                placeholder="081234567890"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="https://pusatikansegar.com"
               />
+
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                URL utama halaman marketing atau landing page.
+              </p>
+            </div>
+
+            {/* STOREFRONT URL */}
+
+            <div>
+              <label
+                htmlFor="storefrontUrl"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Storefront URL
+              </label>
+
+              <input
+                id="storefrontUrl"
+                name="storefrontUrl"
+                type="url"
+                required
+                defaultValue={
+                  settings.storefrontUrl ?? "https://app.pusatikansegar.com"
+                }
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="https://app.pusatikansegar.com"
+              />
+
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                URL utama toko yang digunakan customer untuk melihat produk dan
+                melakukan pemesanan.
+              </p>
+            </div>
+
+            {/* INFO */}
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-xs leading-5 text-blue-800">
+                Host Landing Page dan Storefront harus berbeda. Host seperti{" "}
+                <strong>www</strong> akan diturunkan otomatis dari Landing Page
+                URL dan tidak perlu disimpan sebagai pengaturan terpisah.
+              </p>
             </div>
           </div>
         </div>
-      </section>
+      </details>
+
+      {/* ====================================================== */}
+      {/* KONTAK */}
+      {/* ====================================================== */}
+
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={false}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <Phone className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">Kontak</h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Informasi kontak yang dapat digunakan pelanggan.
+              </p>
+            </div>
+          </div>
+
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
+
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Email
+              </label>
+
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  defaultValue={settings.email ?? ""}
+                  disabled={isPending}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  placeholder="email@example.com"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="whatsapp"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                WhatsApp
+              </label>
+
+              <div className="relative">
+                <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <input
+                  id="whatsapp"
+                  name="whatsapp"
+                  type="text"
+                  defaultValue={settings.whatsapp ?? ""}
+                  disabled={isPending}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  placeholder="081234567890"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
 
       {/* ====================================================== */}
       {/* ALAMAT TOKO */}
       {/* ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <MapPin className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Alamat Toko
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Tentukan alamat dan lokasi origin untuk pengiriman.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-5">
-          <div>
-            <label
-              htmlFor="address"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Alamat Lengkap
-            </label>
-
-            <textarea
-              id="address"
-              name="address"
-              rows={3}
-              defaultValue={
-                settings.address ?? ""
-              }
-              disabled={isPending}
-              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="Masukkan alamat lengkap toko..."
-            />
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-3">
-            <div>
-              <label
-                htmlFor="city"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Kota
-              </label>
-
-              <input
-                id="city"
-                name="city"
-                type="text"
-                defaultValue={
-                  settings.city ?? ""
-                }
-                disabled={isPending}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-                placeholder="Jakarta"
-              />
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={false}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <MapPin className="h-5 w-5" />
             </div>
 
-            <div>
-              <label
-                htmlFor="province"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Provinsi
-              </label>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">
+                Alamat Toko
+              </h2>
 
-              <input
-                id="province"
-                name="province"
-                type="text"
-                defaultValue={
-                  settings.province ?? ""
-                }
-                disabled={isPending}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-                placeholder="DKI Jakarta"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="postalCode"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Kode Pos
-              </label>
-
-              <input
-                id="postalCode"
-                name="postalCode"
-                type="text"
-                defaultValue={
-                  settings.postalCode ?? ""
-                }
-                disabled={isPending}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-                placeholder="12345"
-              />
+              <p className="mt-1 text-sm text-slate-500">
+                Tentukan alamat dan lokasi origin untuk pengiriman.
+              </p>
             </div>
           </div>
 
-          {/* ================================================== */}
-          {/* STORE GPS / SHIPPING ORIGIN */}
-          {/* ================================================== */}
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-                  <Navigation className="h-5 w-5" />
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="grid gap-5">
+            <div>
+              <label
+                htmlFor="address"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Alamat Lengkap
+              </label>
+
+              <textarea
+                id="address"
+                name="address"
+                rows={3}
+                defaultValue={settings.address ?? ""}
+                disabled={isPending}
+                className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="Masukkan alamat lengkap toko..."
+              />
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-3">
+              <div>
+                <label
+                  htmlFor="city"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Kota
+                </label>
+
+                <input
+                  id="city"
+                  name="city"
+                  type="text"
+                  defaultValue={settings.city ?? ""}
+                  disabled={isPending}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  placeholder="Jakarta"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="province"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Provinsi
+                </label>
+
+                <input
+                  id="province"
+                  name="province"
+                  type="text"
+                  defaultValue={settings.province ?? ""}
+                  disabled={isPending}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  placeholder="DKI Jakarta"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="postalCode"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Kode Pos
+                </label>
+
+                <input
+                  id="postalCode"
+                  name="postalCode"
+                  type="text"
+                  defaultValue={settings.postalCode ?? ""}
+                  disabled={isPending}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  placeholder="12345"
+                />
+              </div>
+            </div>
+
+            {/* ================================================== */}
+            {/* STORE GPS / SHIPPING ORIGIN */}
+            {/* ================================================== */}
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+              <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                    <Navigation className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Lokasi Origin Toko
+                    </h3>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Digunakan sebagai titik awal perhitungan jarak dan ongkos
+                      kirim kurir internal.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGetCurrentLocation}
+                  disabled={isPending || isLocating}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLocating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Mengambil...
+                    </>
+                  ) : (
+                    <>
+                      <LocateFixed className="h-4 w-4" />
+                      Ambil Lokasi
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="latitude"
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    Latitude
+                  </label>
+
+                  <input
+                    id="latitude"
+                    name="latitude"
+                    type="number"
+                    step="any"
+                    value={latitude}
+                    onChange={(event) => setLatitude(event.target.value)}
+                    disabled={isPending}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="-6.2000000"
+                  />
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Lokasi Origin Toko
-                  </h3>
+                  <label
+                    htmlFor="longitude"
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    Longitude
+                  </label>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Digunakan sebagai titik awal perhitungan jarak dan ongkos kirim kurir internal.
-                  </p>
+                  <input
+                    id="longitude"
+                    name="longitude"
+                    type="number"
+                    step="any"
+                    value={longitude}
+                    onChange={(event) => setLongitude(event.target.value)}
+                    disabled={isPending}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="106.8166667"
+                  />
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={
-                  handleGetCurrentLocation
-                }
-                disabled={
-                  isPending ||
-                  isLocating
-                }
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLocating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Mengambil...
-                  </>
-                ) : (
-                  <>
-                    <LocateFixed className="h-4 w-4" />
-                    Ambil Lokasi
-                  </>
-                )}
-              </button>
-            </div>
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                Klik <strong>Ambil Lokasi</strong> saat Anda berada di lokasi
+                toko, atau masukkan koordinat secara manual. Lokasi ini akan
+                digunakan sebagai origin pengiriman.
+              </p>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="latitude"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
-                >
-                  Latitude
-                </label>
+              {hasValidLocation && (
+                <div className="mt-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-900">
+                        Preview Lokasi Origin
+                      </h4>
 
-                <input
-                  id="latitude"
-                  name="latitude"
-                  type="number"
-                  step="any"
-                  value={latitude}
-                  onChange={(event) =>
-                    setLatitude(
-                      event.target.value
-                    )
-                  }
-                  disabled={isPending}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  placeholder="-6.2000000"
-                />
-              </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Pastikan titik pada peta sesuai dengan lokasi toko.
+                      </p>
+                    </div>
 
-              <div>
-                <label
-                  htmlFor="longitude"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
-                >
-                  Longitude
-                </label>
-
-                <input
-                  id="longitude"
-                  name="longitude"
-                  type="number"
-                  step="any"
-                  value={longitude}
-                  onChange={(event) =>
-                    setLongitude(
-                      event.target.value
-                    )
-                  }
-                  disabled={isPending}
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  placeholder="106.8166667"
-                />
-              </div>
-            </div>
-
-            <p className="mt-4 text-xs leading-5 text-slate-500">
-              Klik <strong>Ambil Lokasi</strong> saat Anda berada di lokasi toko, atau masukkan koordinat secara manual.
-              Lokasi ini akan digunakan sebagai origin pengiriman.
-            </p>
-
-            {hasValidLocation && (
-              <div className="mt-5">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900">
-                      Preview Lokasi Origin
-                    </h4>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      Pastikan titik pada peta sesuai dengan lokasi toko.
-                    </p>
+                    <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      Lokasi Valid
+                    </div>
                   </div>
 
-                  <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Lokasi Valid
-                  </div>
+                  <StoreLocationMapPreview
+                    latitude={previewLatitude}
+                    longitude={previewLongitude}
+                    label={settings.storeName || "Lokasi Origin Toko"}
+                  />
                 </div>
-
-                <StoreLocationMapPreview
-                  latitude={
-                    previewLatitude
-                  }
-                  longitude={
-                    previewLongitude
-                  }
-                  label={
-                    settings.storeName ||
-                    "Lokasi Origin Toko"
-                  }
-                />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </section>
+      </details>
 
       {/* ====================================================== */}
       {/* INTERNAL SHIPPING CONFIGURATION */}
       {/* ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Truck className="h-5 w-5" />
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={false}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <Truck className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">
+                Konfigurasi Pengiriman
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Atur layanan dan perhitungan ongkos kirim kurir internal.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Konfigurasi Pengiriman
-            </h2>
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Atur layanan dan perhitungan ongkos kirim kurir internal.
-            </p>
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">
+                Aktifkan Kurir Internal
+              </h3>
+
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Jika dinonaktifkan, layanan kurir internal tidak akan tersedia
+                pada checkout.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={internalShippingEnabled}
+              onClick={() =>
+                setInternalShippingEnabled((previous) => !previous)
+              }
+              disabled={isPending}
+              className={[
+                "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition",
+                internalShippingEnabled ? "bg-emerald-600" : "bg-slate-300",
+                isPending ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition",
+                  internalShippingEnabled ? "translate-x-6" : "translate-x-1",
+                ].join(" ")}
+              />
+            </button>
           </div>
-        </div>
 
-        <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              Aktifkan Kurir Internal
-            </h3>
-
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Jika dinonaktifkan, layanan kurir internal tidak akan tersedia pada checkout.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            role="switch"
-            aria-checked={
-              internalShippingEnabled
-            }
-            onClick={() =>
-              setInternalShippingEnabled(
-                (previous) => !previous
-              )
-            }
-            disabled={isPending}
+          <div
             className={[
-              "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition",
-              internalShippingEnabled
-                ? "bg-emerald-600"
-                : "bg-slate-300",
-              isPending
-                ? "cursor-not-allowed opacity-60"
-                : "cursor-pointer",
+              "grid gap-5 transition",
+              !internalShippingEnabled ? "pointer-events-none opacity-50" : "",
             ].join(" ")}
           >
-            <span
-              className={[
-                "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition",
-                internalShippingEnabled
-                  ? "translate-x-6"
-                  : "translate-x-1",
-              ].join(" ")}
-            />
-          </button>
-        </div>
-
-        <div
-          className={[
-            "grid gap-5 transition",
-            !internalShippingEnabled
-              ? "pointer-events-none opacity-50"
-              : "",
-          ].join(" ")}
-        >
-          <div>
-            <label
-              htmlFor="internalShippingName"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Nama Layanan
-            </label>
-
-            <input
-              id="internalShippingName"
-              name="internalShippingName"
-              type="text"
-              defaultValue={
-                settings.internalShippingName ||
-                "Kurir Internal"
-              }
-              disabled={
-                isPending ||
-                !internalShippingEnabled
-              }
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-              placeholder="Contoh: Pisjo Market Express"
-            />
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2">
             <div>
               <label
-                htmlFor="internalShippingBaseFee"
+                htmlFor="internalShippingName"
                 className="mb-2 block text-sm font-semibold text-slate-700"
               >
-                Biaya Dasar
+                Nama Layanan
               </label>
 
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-                  Rp
-                </span>
+              <input
+                id="internalShippingName"
+                name="internalShippingName"
+                type="text"
+                defaultValue={settings.internalShippingName || "Kurir Internal"}
+                disabled={isPending || !internalShippingEnabled}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                placeholder="Contoh: Pisjo Market Express"
+              />
+            </div>
 
-                <input
-                  id="internalShippingBaseFee"
-                  name="internalShippingBaseFee"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={
-                    settings.internalShippingBaseFee
-                  }
-                  disabled={
-                    isPending ||
-                    !internalShippingEnabled
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  placeholder="0"
-                />
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="internalShippingBaseFee"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Biaya Dasar
+                </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                    Rp
+                  </span>
+
+                  <input
+                    id="internalShippingBaseFee"
+                    name="internalShippingBaseFee"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={settings.internalShippingBaseFee}
+                    disabled={isPending || !internalShippingEnabled}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="internalShippingPerKmFee"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Biaya per KM
+                </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                    Rp
+                  </span>
+
+                  <input
+                    id="internalShippingPerKmFee"
+                    name="internalShippingPerKmFee"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={settings.internalShippingPerKmFee}
+                    disabled={isPending || !internalShippingEnabled}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="0"
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="internalShippingPerKmFee"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Biaya per KM
-              </label>
+            <div className="grid gap-5 md:grid-cols-2">
+              {/* MINIMUM ONGKIR */}
+              <div>
+                <label
+                  htmlFor="internalShippingMinFee"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Minimum Ongkir
+                </label>
 
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-                  Rp
-                </span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                    Rp
+                  </span>
 
-                <input
-                  id="internalShippingPerKmFee"
-                  name="internalShippingPerKmFee"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={
-                    settings.internalShippingPerKmFee
-                  }
-                  disabled={
-                    isPending ||
-                    !internalShippingEnabled
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  placeholder="0"
-                />
+                  <input
+                    id="internalShippingMinFee"
+                    name="internalShippingMinFee"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={settings.internalShippingMinFee}
+                    disabled={isPending || !internalShippingEnabled}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="5000"
+                  />
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Batas minimum ongkir kotor sebelum subsidi gratis ongkir
+                  diterapkan.
+                </p>
+              </div>
+
+              {/* JARAK MAKSIMUM */}
+              <div>
+                <label
+                  htmlFor="internalShippingMaxDistance"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Jarak Maksimum Pengiriman
+                </label>
+
+                <div className="relative">
+                  <input
+                    id="internalShippingMaxDistance"
+                    name="internalShippingMaxDistance"
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    defaultValue={settings.internalShippingMaxDistance}
+                    disabled={isPending || !internalShippingEnabled}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="20"
+                  />
+
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                    KM
+                  </span>
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Pesanan di luar jarak ini tidak dapat menggunakan kurir
+                  internal.
+                </p>
+              </div>
+
+              {/* MINIMUM BELANJA GRATIS ONGKIR */}
+              <div>
+                <label
+                  htmlFor="internalShippingFreeThreshold"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Minimum Belanja untuk Subsidi Ongkir
+                </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                    Rp
+                  </span>
+
+                  <input
+                    id="internalShippingFreeThreshold"
+                    name="internalShippingFreeThreshold"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={settings.internalShippingFreeThreshold ?? ""}
+                    disabled={isPending || !internalShippingEnabled}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="250000"
+                  />
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Minimum subtotal agar customer mendapatkan subsidi ongkir.
+                </p>
+              </div>
+
+              {/* MAKSIMUM SUBSIDI */}
+              <div>
+                <label
+                  htmlFor="internalShippingFreeMaxDiscount"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Maksimum Subsidi Gratis Ongkir
+                </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                    Rp
+                  </span>
+
+                  <input
+                    id="internalShippingFreeMaxDiscount"
+                    name="internalShippingFreeMaxDiscount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={settings.internalShippingFreeMaxDiscount}
+                    disabled={isPending || !internalShippingEnabled}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                    placeholder="10000"
+                  />
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Batas maksimal subsidi yang ditanggung toko untuk satu
+                  transaksi.
+                </p>
               </div>
             </div>
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <p className="text-xs leading-5 text-blue-700">
+                Ongkir dihitung dari lokasi toko ke alamat customer berdasarkan
+                <strong> biaya dasar + (jarak × biaya per KM)</strong>. Hasilnya
+                memiliki batas minimum sesuai pengaturan Minimum Ongkir. Jika
+                subtotal mencapai minimum belanja subsidi, toko memberikan
+                subsidi ongkir maksimal sesuai Maksimum Subsidi Gratis Ongkir.
+                Customer membayar sisa ongkir setelah subsidi.
+              </p>
+            </div>
           </div>
-
-<div className="grid gap-5 md:grid-cols-2">
-  {/* MINIMUM ONGKIR */}
-  <div>
-    <label
-      htmlFor="internalShippingMinFee"
-      className="mb-2 block text-sm font-semibold text-slate-700"
-    >
-      Minimum Ongkir
-    </label>
-
-    <div className="relative">
-      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-        Rp
-      </span>
-
-      <input
-        id="internalShippingMinFee"
-        name="internalShippingMinFee"
-        type="number"
-        min="0"
-        step="1"
-        defaultValue={settings.internalShippingMinFee}
-        disabled={
-          isPending ||
-          !internalShippingEnabled
-        }
-        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-        placeholder="5000"
-      />
-    </div>
-
-    <p className="mt-2 text-xs leading-5 text-slate-500">
-      Batas minimum ongkir kotor sebelum subsidi gratis ongkir diterapkan.
-    </p>
-  </div>
-
-  {/* JARAK MAKSIMUM */}
-  <div>
-    <label
-      htmlFor="internalShippingMaxDistance"
-      className="mb-2 block text-sm font-semibold text-slate-700"
-    >
-      Jarak Maksimum Pengiriman
-    </label>
-
-    <div className="relative">
-      <input
-        id="internalShippingMaxDistance"
-        name="internalShippingMaxDistance"
-        type="number"
-        min="0.1"
-        step="0.1"
-        defaultValue={settings.internalShippingMaxDistance}
-        disabled={
-          isPending ||
-          !internalShippingEnabled
-        }
-        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-        placeholder="20"
-      />
-
-      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-        KM
-      </span>
-    </div>
-
-    <p className="mt-2 text-xs leading-5 text-slate-500">
-      Pesanan di luar jarak ini tidak dapat menggunakan kurir internal.
-    </p>
-  </div>
-
-  {/* MINIMUM BELANJA GRATIS ONGKIR */}
-  <div>
-    <label
-      htmlFor="internalShippingFreeThreshold"
-      className="mb-2 block text-sm font-semibold text-slate-700"
-    >
-      Minimum Belanja untuk Subsidi Ongkir
-    </label>
-
-    <div className="relative">
-      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-        Rp
-      </span>
-
-      <input
-        id="internalShippingFreeThreshold"
-        name="internalShippingFreeThreshold"
-        type="number"
-        min="0"
-        step="1"
-        defaultValue={
-          settings.internalShippingFreeThreshold ?? ""
-        }
-        disabled={
-          isPending ||
-          !internalShippingEnabled
-        }
-        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-        placeholder="250000"
-      />
-    </div>
-
-    <p className="mt-2 text-xs leading-5 text-slate-500">
-      Minimum subtotal agar customer mendapatkan subsidi ongkir.
-    </p>
-  </div>
-
-  {/* MAKSIMUM SUBSIDI */}
-  <div>
-    <label
-      htmlFor="internalShippingFreeMaxDiscount"
-      className="mb-2 block text-sm font-semibold text-slate-700"
-    >
-      Maksimum Subsidi Gratis Ongkir
-    </label>
-
-    <div className="relative">
-      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-        Rp
-      </span>
-
-      <input
-        id="internalShippingFreeMaxDiscount"
-        name="internalShippingFreeMaxDiscount"
-        type="number"
-        min="0"
-        step="1"
-        defaultValue={
-          settings.internalShippingFreeMaxDiscount
-        }
-        disabled={
-          isPending ||
-          !internalShippingEnabled
-        }
-        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-        placeholder="10000"
-      />
-    </div>
-
-    <p className="mt-2 text-xs leading-5 text-slate-500">
-      Batas maksimal subsidi yang ditanggung toko untuk satu transaksi.
-    </p>
-  </div>
-</div>
-
-<div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-  <p className="text-xs leading-5 text-blue-700">
-    Ongkir dihitung dari lokasi toko ke alamat customer berdasarkan
-    <strong> biaya dasar + (jarak × biaya per KM)</strong>.
-    Hasilnya memiliki batas minimum sesuai pengaturan Minimum Ongkir.
-    Jika subtotal mencapai minimum belanja subsidi, toko memberikan
-    subsidi ongkir maksimal sesuai Maksimum Subsidi Gratis Ongkir.
-    Customer membayar sisa ongkir setelah subsidi.
-  </p>
-</div>
         </div>
-      </section>
+      </details>
 
       {/* ====================================================== */}
       {/* JAM OPERASIONAL */}
       {/* ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Clock className="h-5 w-5" />
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={false}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <Clock className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">
+                Jam Operasional
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Tentukan jam buka dan jam tutup toko.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Jam Operasional
-            </h2>
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Tentukan jam buka dan jam tutup toko.
-            </p>
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label
+                htmlFor="openingTime"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Jam Buka
+              </label>
+
+              <input
+                id="openingTime"
+                name="openingTime"
+                type="time"
+                defaultValue={settings.openingTime ?? ""}
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="closingTime"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Jam Tutup
+              </label>
+
+              <input
+                id="closingTime"
+                name="closingTime"
+                type="time"
+                defaultValue={settings.closingTime ?? ""}
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              />
+            </div>
           </div>
         </div>
-
-        <div className="grid gap-5 md:grid-cols-2">
-          <div>
-            <label
-              htmlFor="openingTime"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Jam Buka
-            </label>
-
-            <input
-              id="openingTime"
-              name="openingTime"
-              type="time"
-              defaultValue={
-                settings.openingTime ?? ""
-              }
-              disabled={isPending}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="closingTime"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Jam Tutup
-            </label>
-
-            <input
-              id="closingTime"
-              name="closingTime"
-              type="time"
-              defaultValue={
-                settings.closingTime ?? ""
-              }
-              disabled={isPending}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-            />
-          </div>
-                </div>
-      </section>
+      </details>
 
       {/* ====================================================== */}
       {/* PENGATURAN ORDER */}
       {/* ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white">
-            <Clock className="h-5 w-5" />
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={false}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <ShoppingBag className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">
+                Pengaturan Order
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Atur batas waktu pembayaran order sebelum sistem membatalkannya
+                secara otomatis.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Pengaturan Order
-            </h2>
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Atur batas waktu pembayaran order sebelum
-              sistem membatalkannya secara otomatis.
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="max-w-md">
+            <label
+              htmlFor="paymentTimeoutHours"
+              className="mb-2 block text-sm font-semibold text-slate-700"
+            >
+              Batas Waktu Pembayaran
+            </label>
+
+            <div className="relative">
+              <input
+                id="paymentTimeoutHours"
+                name="paymentTimeoutHours"
+                type="number"
+                min="1"
+                step="1"
+                value={paymentTimeoutHours}
+                onChange={(event) => setPaymentTimeoutHours(event.target.value)}
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 pr-14 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                placeholder="24"
+              />
+
+              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                jam
+              </span>
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              Order dengan status menunggu pembayaran akan dianggap expired
+              setelah melewati batas waktu ini. Nilai default adalah 24 jam.
+            </p>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+            <p className="text-xs leading-5 text-amber-700">
+              Pengaturan ini digunakan oleh sistem expiration order. Jangan
+              mengatur nilai terlalu pendek karena customer membutuhkan waktu
+              untuk menyelesaikan pembayaran.
             </p>
           </div>
         </div>
-
-        <div className="max-w-md">
-          <label
-            htmlFor="paymentTimeoutHours"
-            className="mb-2 block text-sm font-semibold text-slate-700"
-          >
-            Batas Waktu Pembayaran
-          </label>
-
-          <div className="relative">
-            <input
-              id="paymentTimeoutHours"
-              name="paymentTimeoutHours"
-              type="number"
-              min="1"
-              step="1"
-              value={paymentTimeoutHours}
-              onChange={(event) =>
-                setPaymentTimeoutHours(
-                  event.target.value
-                )
-              }
-              disabled={isPending}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 pr-14 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-              placeholder="24"
-            />
-
-            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-              jam
-            </span>
-          </div>
-
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            Order dengan status menunggu pembayaran akan
-            dianggap expired setelah melewati batas waktu ini.
-            Nilai default adalah 24 jam.
-          </p>
-        </div>
-
-        <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-          <p className="text-xs leading-5 text-amber-700">
-            Pengaturan ini digunakan oleh sistem expiration
-            order. Jangan mengatur nilai terlalu pendek karena
-            customer membutuhkan waktu untuk menyelesaikan
-            pembayaran.
-          </p>
-        </div>
-      </section>
+      </details>
 
       {/* ====================================================== */}
       {/* SUBMIT */}
       {/* ====================================================== */}
 
-<div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-  <button
-    type="submit"
-disabled={
-  isPending ||
-  isLocating ||
-  isUploadingLogo
-}
-    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-  >
-{isPending ? (
-  <>
-    <Loader2 className="h-4 w-4 animate-spin" />
-    Menyimpan...
-  </>
-) : isUploadingLogo ? (
-  <>
-    <Loader2 className="h-4 w-4 animate-spin" />
-    Mengupload Logo...
-  </>
-) : (
-  <>
-    <Save className="h-4 w-4" />
-    Simpan Pengaturan
-  </>
-)}
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button
+          type="submit"
+          disabled={isPending || isLocating || isUploadingLogo}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Menyimpan...
+            </>
+          ) : isUploadingLogo ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Mengupload Logo...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Simpan Pengaturan
+            </>
+          )}
         </button>
       </div>
     </form>

@@ -22,10 +22,7 @@ import settingsService from "@/services/settings/settings.service";
 
 import { getSiteUrls } from "@/services/site/site-url.service";
 
-import {
-  buildSeoMetadata,
-  type SeoSettings,
-} from "@/lib/seo/seo-metadata";
+import { buildSeoMetadata, type SeoSettings } from "@/lib/seo/seo-metadata";
 
 /**
  * ==========================================================
@@ -45,8 +42,32 @@ const geist = Geist({
  */
 
 export async function generateMetadata(): Promise<Metadata> {
-  const settings =
-    await settingsService.getSettings();
+  const [settings, siteUrls] = await Promise.all([
+    settingsService.getSettings(),
+    getSiteUrls(),
+  ]);
+
+  const requestHeaders = await headers();
+
+  const requestHost =
+    requestHeaders.get("host")?.split(":")[0].trim().toLowerCase() || "";
+
+  const isLandingHost = siteUrls.landingHosts.includes(requestHost);
+
+  /**
+   * ========================================================
+   * SEO CANONICAL HOST
+   * ========================================================
+   *
+   * Landing    -> https://pusatikansegar.com
+   * Storefront -> https://app.pusatikansegar.com
+   *
+   * Canonical mengikuti host yang sedang dilayani.
+   * ========================================================
+   */
+  const canonicalBaseUrl = isLandingHost
+    ? siteUrls.landingPageUrl
+    : siteUrls.storefrontUrl;
 
   const seoSettings: SeoSettings = {
     seoTitle: settings.seoTitle,
@@ -59,20 +80,16 @@ export async function generateMetadata(): Promise<Metadata> {
     seoTwitterCard: settings.seoTwitterCard,
     seoRobotsIndex: settings.seoRobotsIndex,
     seoRobotsFollow: settings.seoRobotsFollow,
-    seoGoogleVerification:
-      settings.seoGoogleVerification,
+    seoGoogleVerification: settings.seoGoogleVerification,
     seoAiEnabled: settings.seoAiEnabled,
     storeName: settings.storeName,
-    storeDescription:
-      settings.storeDescription,
+    storeDescription: settings.storeDescription,
   };
 
-  return buildSeoMetadata(
-    seoSettings,
-    {
-      pathname: "/",
-    },
-  );
+  return buildSeoMetadata(seoSettings, {
+    pathname: "/",
+    baseUrl: canonicalBaseUrl,
+  });
 }
 
 /**
@@ -100,8 +117,7 @@ export default async function RootLayout({
    * ========================================================
    */
 
-  const settings =
-    await settingsService.getSettings();
+  const settings = await settingsService.getSettings();
 
   /**
    * ========================================================
@@ -124,15 +140,10 @@ export default async function RootLayout({
    * ========================================================
    */
 
-  const requestHeaders =
-    await headers();
+  const requestHeaders = await headers();
 
   const requestHost =
-    requestHeaders
-      .get("host")
-      ?.split(":")[0]
-      .trim()
-      .toLowerCase() || "";
+    requestHeaders.get("host")?.split(":")[0].trim().toLowerCase() || "";
 
   /**
    * ========================================================
@@ -140,8 +151,7 @@ export default async function RootLayout({
    * ========================================================
    */
 
-  const siteUrls =
-    await getSiteUrls();
+  const siteUrls = await getSiteUrls();
 
   /**
    * ========================================================
@@ -156,18 +166,12 @@ export default async function RootLayout({
    * ========================================================
    */
 
-  const isLandingHost =
-    siteUrls.landingHosts.includes(
-      requestHost,
-    );
+  const isLandingHost = siteUrls.landingHosts.includes(requestHost);
 
   return (
     <html
       lang="id"
-      className={cn(
-        "font-sans",
-        geist.variable,
-      )}
+      className={cn("font-sans", geist.variable)}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
@@ -176,13 +180,9 @@ export default async function RootLayout({
 
           {children}
 
-          <FloatingCustomerService
-            whatsapp={settings.whatsapp}
-          />
+          <FloatingCustomerService whatsapp={settings.whatsapp} />
 
-          <MobileBottomNavigation
-            isLandingHost={isLandingHost}
-          />
+          <MobileBottomNavigation isLandingHost={isLandingHost} />
 
           <Toaster
             position="top-right"

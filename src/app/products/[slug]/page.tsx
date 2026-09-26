@@ -5,8 +5,6 @@ import Link from "next/link";
 
 import { buildSeoMetadata, type SeoSettings } from "@/lib/seo/seo-metadata";
 
-import { resolveSeoBaseUrl } from "@/lib/seo/seo.utils";
-
 import { notFound } from "next/navigation";
 
 import { ProductJsonLd } from "@/lib/seo/product-jsonld";
@@ -30,6 +28,7 @@ import {
 
 import ProductService from "@/services/product/product.service";
 import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 import AddToCartButton from "@/components/customer/products/AddToCartButton";
 import ProductShareButton from "@/components/customer/products/ProductShareButton";
@@ -74,9 +73,10 @@ export async function generateMetadata({
 }: ProductDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
 
-  const [product, settings] = await Promise.all([
+  const [product, settings, siteUrls] = await Promise.all([
     ProductService.getPublishedProductBySlug(slug),
     settingsService.getSettings(),
+    getSiteUrls(),
   ]);
 
   const seoSettings: SeoSettings = {
@@ -99,6 +99,7 @@ export async function generateMetadata({
   if (!product) {
     return buildSeoMetadata(seoSettings, {
       pathname: `/products/${encodeURIComponent(slug)}`,
+      baseUrl: siteUrls.storefrontUrl,
       title: "Produk Tidak Ditemukan",
       noIndex: true,
       noFollow: true,
@@ -131,6 +132,7 @@ export async function generateMetadata({
 
   return buildSeoMetadata(seoSettings, {
     pathname: `/products/${product.slug}`,
+    baseUrl: siteUrls.storefrontUrl,
     title: `${productName} | ${storeName}`,
     description: productDescription,
     ogTitle,
@@ -152,7 +154,10 @@ export default async function ProductDetailPage({
   const { slug } = await params;
   const { preview } = await searchParams;
 
-  const settings = await settingsService.getSettings();
+  const [settings, siteUrls] = await Promise.all([
+    settingsService.getSettings(),
+    getSiteUrls(),
+  ]);
 
   /**
    * ==========================================================
@@ -184,12 +189,6 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-const seoBaseUrl = resolveSeoBaseUrl(
-  settings.seoCanonicalUrl,
-  process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    "https://app.pusatikansegar.com"
-);
-
   const productJsonLd = (
     <ProductJsonLd
       product={{
@@ -206,7 +205,7 @@ const seoBaseUrl = resolveSeoBaseUrl(
         isPreOrder: product.isPreOrder,
       }}
       options={{
-        baseUrl: seoBaseUrl,
+        baseUrl: siteUrls.storefrontUrl,
         storeName: settings.storeName?.trim() || "Pisjo Market Platform",
         currency: "IDR",
       }}
@@ -623,14 +622,14 @@ const seoBaseUrl = resolveSeoBaseUrl(
    */
 
   return (
-  <>
-    {productJsonLd}
+    <>
+      {productJsonLd}
 
-    {/* ====================================================== */}
-    {/* PUBLIC SITE HEADER                                     */}
-    {/* ====================================================== */}
+      {/* ====================================================== */}
+      {/* PUBLIC SITE HEADER                                     */}
+      {/* ====================================================== */}
 
-    <DynamicSiteHeader activePage="products" />
+      <DynamicSiteHeader activePage="products" />
 
       <main className="min-h-screen bg-[#f5f5f5]">
         {isAdminPreview && (

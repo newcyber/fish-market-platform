@@ -3,23 +3,20 @@ import type { MetadataRoute } from "next";
 import ProductService from "@/services/product/product.service";
 import PromotionService from "@/services/promotion/promotion.service";
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
-import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [settings, products, promotions, flashSales] =
-    await Promise.all([
-      settingsService.getSettings(),
-      ProductService.getPublishedProductsForSitemap(),
-      PromotionService.getActiveForCustomer(),
-      FlashSaleService.getActiveForCustomer(),
-    ]);
+  const [products, promotions, flashSales, siteUrls] = await Promise.all([
+    ProductService.getPublishedProductsForSitemap(),
+    PromotionService.getActiveForCustomer(),
+    FlashSaleService.getActiveForCustomer(),
+    getSiteUrls(),
+  ]);
 
-  const canonicalBase =
-    settings.seoCanonicalUrl?.trim() ||
-    process.env.APP_URL?.trim() ||
-    "https://app.pusatikansegar.com";
-
-  const baseUrl = canonicalBase.replace(/\/+$/, "");
+  /**
+   * Sitemap marketplace selalu menggunakan storefront host.
+   */
+  const baseUrl = siteUrls.storefrontUrl.replace(/\/+$/, "");
 
   const staticPages: MetadataRoute.Sitemap = [
     {
@@ -59,30 +56,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const productPages: MetadataRoute.Sitemap = products.map(
-    (product) => ({
-      url: `${baseUrl}/products/${product.slug}`,
-      lastModified: product.updatedAt,
-      changeFrequency: "weekly",
-      priority: 0.7,
-    })
-  );
+  const productPages: MetadataRoute.Sitemap = products.map((product) => ({
+    url: `${baseUrl}/products/${product.slug}`,
+    lastModified: product.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
 
-  const promotionPages: MetadataRoute.Sitemap =
-    promotions.map((promotion) => ({
-      url: `${baseUrl}/promotions/${promotion.slug}`,
-      lastModified: promotion.updatedAt,
-      changeFrequency: "daily",
-      priority: 0.7,
-    }));
+  const promotionPages: MetadataRoute.Sitemap = promotions.map((promotion) => ({
+    url: `${baseUrl}/promotions/${promotion.slug}`,
+    lastModified: promotion.updatedAt,
+    changeFrequency: "daily",
+    priority: 0.7,
+  }));
 
-  const flashSalePages: MetadataRoute.Sitemap =
-    flashSales.map((flashSale) => ({
-      url: `${baseUrl}/flash-sale/${flashSale.slug}`,
-      lastModified: flashSale.updatedAt,
-      changeFrequency: "daily",
-      priority: 0.8,
-    }));
+  const flashSalePages: MetadataRoute.Sitemap = flashSales.map((flashSale) => ({
+    url: `${baseUrl}/flash-sale/${flashSale.slug}`,
+    lastModified: flashSale.updatedAt,
+    changeFrequency: "daily",
+    priority: 0.8,
+  }));
 
   return [
     ...staticPages,
