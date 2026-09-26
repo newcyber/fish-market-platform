@@ -36,8 +36,7 @@ export default async function DynamicSiteFooter() {
    * ==========================================================
    */
 
-  const settings =
-    await settingsService.getSettings();
+  const settings = await settingsService.getSettings();
 
   /**
    * ==========================================================
@@ -45,13 +44,9 @@ export default async function DynamicSiteFooter() {
    * ==========================================================
    */
 
-  const storeName =
-    settings.storeName?.trim() ||
-    "Pisjo Market";
+  const storeName = settings.storeName?.trim() || "Pisjo Market";
 
-  const storeDescription =
-    settings.storeDescription?.trim() ||
-    "Fresh Seafood";
+  const storeDescription = settings.storeDescription?.trim() || "Fresh Seafood";
 
   const footerDescription =
     settings.footerDescription?.trim() ||
@@ -66,9 +61,7 @@ export default async function DynamicSiteFooter() {
    * ==========================================================
    */
 
-  const siteLogo =
-    settings.siteLogo?.trim() ||
-    null;
+  const siteLogo = settings.siteLogo?.trim() || null;
 
   /**
    * ==========================================================
@@ -76,13 +69,9 @@ export default async function DynamicSiteFooter() {
    * ==========================================================
    */
 
-  const storeEmail =
-    settings.email?.trim() ||
-    "";
+  const storeEmail = settings.email?.trim() || "";
 
-  const storeWhatsapp =
-    settings.whatsapp?.trim() ||
-    "";
+  const storeWhatsapp = settings.whatsapp?.trim() || "";
 
   /**
    * ==========================================================
@@ -90,15 +79,9 @@ export default async function DynamicSiteFooter() {
    * ==========================================================
    */
 
-  const whatsappNumber =
-    storeWhatsapp
-      .replace(/\D/g, "")
-      .replace(/^0/, "62");
+  const whatsappNumber = storeWhatsapp.replace(/\D/g, "").replace(/^0/, "62");
 
-  const whatsappUrl =
-    whatsappNumber
-      ? `https://wa.me/${whatsappNumber}`
-      : null;
+  const whatsappUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : null;
 
   /**
    * ==========================================================
@@ -112,10 +95,7 @@ export default async function DynamicSiteFooter() {
     settings.province,
     settings.postalCode,
   ]
-    .filter(
-      (value): value is string =>
-        Boolean(value?.trim())
-    )
+    .filter((value): value is string => Boolean(value?.trim()))
     .join(", ");
 
   /**
@@ -124,22 +104,15 @@ export default async function DynamicSiteFooter() {
    * ==========================================================
    */
 
-  const openingTime =
-    settings.openingTime?.trim() ||
-    "";
+  const openingTime = settings.openingTime?.trim() || "";
 
-  const closingTime =
-    settings.closingTime?.trim() ||
-    "";
+  const closingTime = settings.closingTime?.trim() || "";
 
-  const hasOperatingHours =
-    Boolean(openingTime) &&
-    Boolean(closingTime);
+  const hasOperatingHours = Boolean(openingTime) && Boolean(closingTime);
 
-  const operatingHours =
-    hasOperatingHours
-      ? `${openingTime} - ${closingTime}`
-      : "Jam operasional belum tersedia";
+  const operatingHours = hasOperatingHours
+    ? `${openingTime} - ${closingTime}`
+    : "Jam operasional belum tersedia";
 
   /**
    * ==========================================================
@@ -153,36 +126,26 @@ export default async function DynamicSiteFooter() {
     storeName
       .split(/\s+/)
       .filter(Boolean)
-      .map((word) =>
-        word.charAt(0)
-      )
+      .map((word) => word.charAt(0))
       .join("")
       .slice(0, 2)
-      .toUpperCase() ||
-    "FM";
+      .toUpperCase() || "FM";
 
   return (
     <footer className="hidden mt-12 border-t border-slate-200 bg-white sm:mt-16 md:block">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-14">
-
         {/* ================================================== */}
         {/* TOP FOOTER */}
         {/* ================================================== */}
 
         <div className="grid gap-8 lg:grid-cols-12 lg:gap-x-8 lg:gap-y-10">
-
           {/* ================================================= */}
           {/* BRAND */}
           {/* ================================================= */}
 
           <div className="lg:col-span-4">
-
-            <Link
-              href="/"
-              className="inline-flex items-center gap-3"
-            >
+            <Link href="/" className="inline-flex items-center gap-3">
               <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-900 text-sm font-bold text-white shadow-sm">
-
                 {siteLogo ? (
                   <Image
                     src={siteLogo}
@@ -193,17 +156,12 @@ export default async function DynamicSiteFooter() {
                     unoptimized
                   />
                 ) : (
-                  <span>
-                    {storeInitial}
-                  </span>
+                  <span>{storeInitial}</span>
                 )}
-
               </div>
 
               <div className="min-w-0">
-                <div className="truncate text-base font-bold">
-                  {storeName}
-                </div>
+                <div className="truncate text-base font-bold">{storeName}</div>
 
                 <div className="mt-0.5 truncate text-xs text-slate-400">
                   {storeDescription}
@@ -280,7 +238,6 @@ export default async function DynamicSiteFooter() {
                 </div>
               </a>
             </div>
-
           </div>
 
           {/* ================================================= */}
@@ -288,13 +245,10 @@ export default async function DynamicSiteFooter() {
           {/* ================================================= */}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-2">
-
             {/* EMAIL */}
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition sm:p-5">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
                   <Mail className="h-5 w-5" />
                 </div>
@@ -308,11 +262,9 @@ export default async function DynamicSiteFooter() {
                     Hubungi kami melalui email
                   </p>
                 </div>
-
               </div>
 
               <div className="mt-4">
-
                 {storeEmail ? (
                   <a
                     href={`mailto:${storeEmail}`}
@@ -325,17 +277,13 @@ export default async function DynamicSiteFooter() {
                     Email belum tersedia.
                   </p>
                 )}
-
               </div>
-
             </div>
 
             {/* WHATSAPP */}
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition sm:p-5">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
                   <MessageCircle className="h-5 w-5" />
                 </div>
@@ -349,11 +297,9 @@ export default async function DynamicSiteFooter() {
                     Chat langsung dengan toko
                   </p>
                 </div>
-
               </div>
 
               <div className="mt-4">
-
                 {storeWhatsapp && whatsappUrl ? (
                   <a
                     href={whatsappUrl}
@@ -368,17 +314,13 @@ export default async function DynamicSiteFooter() {
                     WhatsApp belum tersedia.
                   </p>
                 )}
-
               </div>
-
             </div>
 
             {/* LOCATION */}
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition sm:p-5">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
                   <MapPin className="h-5 w-5" />
                 </div>
@@ -392,22 +334,17 @@ export default async function DynamicSiteFooter() {
                     Alamat toko kami
                   </p>
                 </div>
-
               </div>
 
               <p className="mt-4 wrap-break-word text-sm leading-6 text-slate-500">
-                {storeAddress ||
-                  "Alamat toko belum tersedia."}
+                {storeAddress || "Alamat toko belum tersedia."}
               </p>
-
             </div>
 
             {/* OPERATING HOURS */}
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition sm:p-5">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm">
                   <Clock3 className="h-5 w-5" />
                 </div>
@@ -421,11 +358,9 @@ export default async function DynamicSiteFooter() {
                     Waktu pelayanan toko
                   </p>
                 </div>
-
               </div>
 
               <div className="mt-4">
-
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                   Setiap Hari
                 </p>
@@ -433,18 +368,13 @@ export default async function DynamicSiteFooter() {
                 <p
                   className={[
                     "mt-1 text-sm font-semibold leading-6",
-                    hasOperatingHours
-                      ? "text-slate-700"
-                      : "text-slate-500",
+                    hasOperatingHours ? "text-slate-700" : "text-slate-500",
                   ].join(" ")}
                 >
                   {operatingHours}
                 </p>
-
               </div>
-
             </div>
-
           </div>
 
           {/* ================================================= */}
@@ -452,13 +382,11 @@ export default async function DynamicSiteFooter() {
           {/* ================================================= */}
 
           <div>
-
             <h3 className="mb-4 text-sm font-semibold text-foreground">
               Belanja
             </h3>
 
             <ul className="space-y-3">
-
               <li>
                 <Link
                   href="/products"
@@ -494,6 +422,17 @@ export default async function DynamicSiteFooter() {
 
               <li>
                 <Link
+                  href="/tentang-kami"
+                  className="group flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <MessageCircle className="h-4 w-4 shrink-0" />
+
+                  <span>Tentang Kami</span>
+                </Link>
+              </li>
+
+              <li>
+                <Link
                   href="/kontak-kami"
                   className="group flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
@@ -503,19 +442,17 @@ export default async function DynamicSiteFooter() {
                 </Link>
               </li>
 
-<li>
-  <Link
-    href="/changelog"
-    className="group flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-  >
-    <Sparkles className="h-4 w-4 shrink-0" />
+              <li>
+                <Link
+                  href="/changelog"
+                  className="group flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Sparkles className="h-4 w-4 shrink-0" />
 
-    <span>Changelog</span>
-  </Link>
-</li>
-
+                  <span>Changelog</span>
+                </Link>
+              </li>
             </ul>
-
           </div>
 
           {/* ================================================= */}
@@ -523,13 +460,9 @@ export default async function DynamicSiteFooter() {
           {/* ================================================= */}
 
           <div className="lg:col-span-2">
-
-            <h3 className="text-sm font-semibold text-slate-900">
-              Akun
-            </h3>
+            <h3 className="text-sm font-semibold text-slate-900">Akun</h3>
 
             <div className="mt-4 space-y-3">
-
               <Link
                 href="/customer/account"
                 className="flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-900"
@@ -556,11 +489,8 @@ export default async function DynamicSiteFooter() {
 
                 <span>Pesanan Saya</span>
               </Link>
-
             </div>
-
           </div>
-
         </div>
 
         {/* =================================================== */}
@@ -568,13 +498,10 @@ export default async function DynamicSiteFooter() {
         {/* =================================================== */}
 
         <div className="mt-10 border-t border-slate-200 pt-6 sm:mt-12">
-
           <p className="text-center text-xs leading-6 text-slate-400">
             © {new Date().getFullYear()} {storeName}. All rights reserved.
           </p>
-
         </div>
-
       </div>
     </footer>
   );

@@ -23,6 +23,7 @@ import settingsService from "@/services/settings/settings.service";
 import { getSiteUrls } from "@/services/site/site-url.service";
 
 import { buildSeoMetadata, type SeoSettings } from "@/lib/seo/seo-metadata";
+import SiteJsonLd from "@/components/seo/SiteJsonLd";
 
 /**
  * ==========================================================
@@ -177,6 +178,8 @@ export default async function RootLayout({
       <body suppressHydrationWarning>
         <SessionProvider>
           <OneSignalProvider />
+
+          <SiteJsonLd settings={settings} siteUrls={siteUrls} />
 
           {children}
 

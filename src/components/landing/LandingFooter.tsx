@@ -63,6 +63,22 @@ export default function LandingFooter({
             Store
           </a>
 
+          {/* About */}
+          <Link
+            href="/tentang-kami"
+            className="transition hover:text-[var(--pisjo-primary)]"
+          >
+            Tentang Kami
+          </Link>
+
+          {/* Contact */}
+          <Link
+            href="/kontak-kami"
+            className="transition hover:text-[var(--pisjo-primary)]"
+          >
+            Kontak Kami
+          </Link>
+
           {/* Privacy */}
           <Link
             href="/privacy-policy"

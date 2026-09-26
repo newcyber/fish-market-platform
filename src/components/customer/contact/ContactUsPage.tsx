@@ -10,6 +10,7 @@ import {
 
 import LandingFooter from "@/components/landing/LandingFooter";
 import LandingHeader from "@/components/landing/LandingHeader";
+import { getSiteUrls } from "@/services/site/site-url.service";
 import landingPageService from "@/repositories/landing-page/landing-page.service";
 import settingsService from "@/services/settings/settings.service";
 
@@ -32,9 +33,10 @@ function normalizeWhatsappNumber(value?: string | null) {
 }
 
 export default async function ContactUsPage() {
-  const [settings, landing] = await Promise.all([
+  const [settings, landing, siteUrls] = await Promise.all([
     settingsService.getSettings(),
     landingPageService.getPublicLandingPage(),
+    getSiteUrls(),
   ]);
 
   const storeName =
@@ -48,12 +50,7 @@ export default async function ContactUsPage() {
     "";
 
   const siteLogo =
-    landing.brand.siteLogo?.trim() ||
-    settings.siteLogo?.trim() ||
-    null;
-
-  const androidUrl =
-    landing.urls.android || landing.urls.store;
+    landing.brand.siteLogo?.trim() || settings.siteLogo?.trim() || null;
 
   const storeUrl = landing.urls.store;
 
@@ -66,56 +63,50 @@ export default async function ContactUsPage() {
       .slice(0, 2)
       .toUpperCase() || "PM";
 
-  const email =
-    settings.email?.trim() || "";
+  const email = settings.email?.trim() || "";
+  const whatsapp = settings.whatsapp?.trim() || "";
+  const whatsappNumber = normalizeWhatsappNumber(whatsapp);
 
-  const whatsapp =
-    settings.whatsapp?.trim() || "";
-
-  const whatsappNumber =
-    normalizeWhatsappNumber(whatsapp);
-
-  const whatsappUrl =
-    whatsappNumber
-      ? `https://wa.me/${whatsappNumber}`
-      : null;
+  const whatsappUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : null;
 
   const addressParts = [
     settings.address,
     settings.city,
     settings.province,
     settings.postalCode,
-  ].filter(
-    (value): value is string =>
-      Boolean(value?.trim()),
-  );
+  ].filter((value): value is string => Boolean(value?.trim()));
 
-  const fullAddress =
-    addressParts.join(", ");
+  const fullAddress = addressParts.join(", ");
 
-  const openingTime =
-    settings.openingTime?.trim() || "";
-
-  const closingTime =
-    settings.closingTime?.trim() || "";
+  const openingTime = settings.openingTime?.trim() || "";
+  const closingTime = settings.closingTime?.trim() || "";
 
   const operatingHours =
     openingTime && closingTime
       ? `${openingTime} - ${closingTime}`
       : "Jam operasional belum tersedia";
 
-const latitude =
-  settings.latitude?.toString().trim() || "";
+  const latitude =
+    settings.latitude !== null && settings.latitude !== undefined
+      ? Number(settings.latitude)
+      : null;
 
-const longitude =
-  settings.longitude?.toString().trim() || "";
+  const longitude =
+    settings.longitude !== null && settings.longitude !== undefined
+      ? Number(settings.longitude)
+      : null;
 
-const hasCoordinates =
-  Boolean(latitude) && Boolean(longitude);
+  const hasCoordinates =
+    latitude !== null &&
+    longitude !== null &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude);
 
-const googleMapsUrl = hasCoordinates
-  ? `https://www.google.com/maps?q=${latitude},${longitude}`
-  : null;
+  const googleMapsUrl = hasCoordinates
+    ? `https://www.google.com/maps?q=${latitude},${longitude}`
+    : null;
+
+  const seoDescription = `Hubungi ${storeName} untuk informasi produk, pemesanan, pengiriman, pembayaran, dan layanan pelanggan.`;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f4fbff] text-[var(--pisjo-navy)]">
@@ -139,8 +130,8 @@ const googleMapsUrl = hasCoordinates
             </h1>
 
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-              Kami siap membantu Anda untuk informasi produk,
-              pemesanan, pengiriman, dan kebutuhan seafood segar.
+              Kami siap membantu Anda untuk informasi produk, pemesanan,
+              pengiriman, dan kebutuhan seafood segar.
             </p>
           </div>
         </div>
@@ -148,7 +139,6 @@ const googleMapsUrl = hasCoordinates
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* WHATSAPP */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
               <MessageCircle className="h-5 w-5" />
@@ -179,15 +169,12 @@ const googleMapsUrl = hasCoordinates
             )}
           </div>
 
-          {/* EMAIL */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
               <Mail className="h-5 w-5" />
             </div>
 
-            <h2 className="mt-5 text-lg font-semibold text-slate-950">
-              Email
-            </h2>
+            <h2 className="mt-5 text-lg font-semibold text-slate-950">Email</h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Kirim pertanyaan atau kebutuhan Anda melalui email.
@@ -207,7 +194,6 @@ const googleMapsUrl = hasCoordinates
             )}
           </div>
 
-          {/* JAM OPERASIONAL */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
               <Clock3 className="h-5 w-5" />
@@ -227,7 +213,6 @@ const googleMapsUrl = hasCoordinates
           </div>
         </div>
 
-        {/* LOKASI */}
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="grid lg:grid-cols-2">
             <div className="p-6 sm:p-8">
@@ -240,8 +225,8 @@ const googleMapsUrl = hasCoordinates
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Kunjungi lokasi {storeName} atau gunakan Google Maps
-                untuk mendapatkan petunjuk arah.
+                Kunjungi lokasi {storeName} atau gunakan Google Maps untuk
+                mendapatkan petunjuk arah.
               </p>
 
               <div className="mt-6 rounded-xl bg-slate-50 p-4">
@@ -288,7 +273,6 @@ const googleMapsUrl = hasCoordinates
           </div>
         </div>
 
-        {/* CTA */}
         <div className="mt-6 rounded-2xl bg-slate-950 px-6 py-8 text-white sm:px-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -297,8 +281,7 @@ const googleMapsUrl = hasCoordinates
               </h2>
 
               <p className="mt-1 text-sm leading-6 text-slate-300">
-                Temukan berbagai pilihan ikan dan seafood segar di
-                {` ${storeName}`}.
+                Temukan berbagai pilihan ikan dan seafood segar di {storeName}.
               </p>
             </div>
 
