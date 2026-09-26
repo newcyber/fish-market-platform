@@ -128,7 +128,7 @@ export async function generateMetadata({
     ? `${productName} | ${settings.seoOgTitle.trim()}`
     : productName;
 
-  const ogDescription = settings.seoOgDescription?.trim() || productDescription;
+  const ogDescription = productDescription;
 
   return buildSeoMetadata(seoSettings, {
     pathname: `/products/${product.slug}`,
@@ -165,15 +165,30 @@ export default async function ProductDetailPage({
    * ==========================================================
    */
 
-  const product = await ProductService.getProductBySlug(slug);
+const session = await auth();
 
-  const session = await auth();
+const isAdminPreview =
+  preview === "1" &&
+  !!session?.user?.id &&
+  session.user.isActive &&
+  isAdmin(session.user.role);
 
-  const isAdminPreview =
-    preview === "1" &&
-    !!session?.user?.id &&
-    session.user.isActive &&
-    isAdmin(session.user.role);
+/**
+ * ==========================================================
+ * GET PRODUCT
+ * ==========================================================
+ *
+ * Public storefront:
+ *   hanya produk yang published.
+ *
+ * Admin preview:
+ *   boleh membaca produk unpublished.
+ *
+ * Ini dibuat konsisten dengan generateMetadata().
+ */
+const product = isAdminPreview
+  ? await ProductService.getProductBySlug(slug)
+  : await ProductService.getPublishedProductBySlug(slug);
 
   /**
    * ==========================================================
