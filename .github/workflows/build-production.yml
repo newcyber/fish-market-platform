@@ -114,6 +114,139 @@ jobs:
           NEXT_PUBLIC_ONESIGNAL_APP_ID: ${{ vars.NEXT_PUBLIC_ONESIGNAL_APP_ID }}
         run: pnpm build
 
+      - name: Verify production build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "========================================"
+          echo "PRODUCTION BUILD VERIFICATION"
+          echo "========================================"
+
+          if [ ! -f ".next/BUILD_ID" ]; then
+            echo "ERROR: .next/BUILD_ID not found"
+            exit 1
+          fi
+
+          BUILD_ID="$(cat .next/BUILD_ID)"
+
+          echo "Commit SHA : $GITHUB_SHA"
+          echo "Build ID   : $BUILD_ID"
+          echo "Branch     : $GITHUB_REF_NAME"
+
+          echo
+          echo "=== Product JSON-LD ==="
+
+          PRODUCT_COUNT="$(
+            grep -R \
+              --include='*.js' \
+              -o '"@type":"Product"' \
+              .next/server 2>/dev/null \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Product count: $PRODUCT_COUNT"
+
+          if [ "$PRODUCT_COUNT" -lt 1 ]; then
+            echo "ERROR: Product JSON-LD not found"
+            exit 1
+          fi
+
+          echo
+          echo "=== AggregateOffer JSON-LD ==="
+
+          OFFER_COUNT="$(
+            grep -R \
+              --include='*.js' \
+              -o '"@type":"AggregateOffer"' \
+              .next/server 2>/dev/null \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "AggregateOffer count: $OFFER_COUNT"
+
+          if [ "$OFFER_COUNT" -lt 1 ]; then
+            echo "ERROR: AggregateOffer JSON-LD not found"
+            exit 1
+          fi
+
+          echo
+          echo "=== BreadcrumbList JSON-LD ==="
+
+          BREADCRUMB_COUNT="$(
+            grep -R \
+              --include='*.js' \
+              -o '"@type":"BreadcrumbList"' \
+              .next/server 2>/dev/null \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "BreadcrumbList count: $BREADCRUMB_COUNT"
+
+          if [ "$BREADCRUMB_COUNT" -lt 1 ]; then
+            echo "ERROR: BreadcrumbList JSON-LD not found"
+            exit 1
+          fi
+
+          echo
+          echo "=== Production domain ==="
+
+          PRODUCTION_DOMAIN_COUNT="$(
+            grep -R \
+              --include='*.js' \
+              -o 'https://app\.pusatikansegar\.com' \
+              .next/server 2>/dev/null \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Production domain references: $PRODUCTION_DOMAIN_COUNT"
+
+          if [ "$PRODUCTION_DOMAIN_COUNT" -lt 1 ]; then
+            echo "ERROR: Production domain not found in server build"
+            exit 1
+          fi
+
+          echo
+          echo "=== Localhost leak ==="
+
+          LOCALHOST_COUNT="$(
+            grep -R \
+              --include='*.js' \
+              -E -o 'https?://localhost(:[0-9]+)?' \
+              .next/server 2>/dev/null \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Localhost references: $LOCALHOST_COUNT"
+
+          if [ "$LOCALHOST_COUNT" -ne 0 ]; then
+            echo "ERROR: localhost URL detected in production build"
+            grep -R \
+              --include='*.js' \
+              -n -E 'https?://localhost(:[0-9]+)?' \
+              .next/server 2>/dev/null \
+              | head -20 || true
+            exit 1
+          fi
+
+          echo
+          echo "========================================"
+          echo "BUILD VERIFICATION PASSED"
+          echo "========================================"
+
+          echo "BUILD_ID=$BUILD_ID"
+          echo "COMMIT_SHA=$GITHUB_SHA"
+          echo "PRODUCT_COUNT=$PRODUCT_COUNT"
+          echo "OFFER_COUNT=$OFFER_COUNT"
+          echo "BREADCRUMB_COUNT=$BREADCRUMB_COUNT"
+          echo "PRODUCTION_DOMAIN_COUNT=$PRODUCTION_DOMAIN_COUNT"
+          echo "LOCALHOST_COUNT=$LOCALHOST_COUNT"
+
       - name: Package Prisma Client for production artifact
         shell: bash
         run: |
@@ -260,10 +393,311 @@ jobs:
           echo ""
           echo "Prisma production packaging validation PASSED."
 
-      - name: Upload production build
+      - name: Create artifact metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUILD_ID="$(cat .next/BUILD_ID)"
+
+          mkdir -p .next/deploy-meta
+
+          cat > .next/deploy-meta/build-info.txt <<EOF
+          COMMIT_SHA=$GITHUB_SHA
+          BRANCH=$GITHUB_REF_NAME
+          BUILD_ID=$BUILD_ID
+          WORKFLOW_RUN_ID=$GITHUB_RUN_ID
+          WORKFLOW_RUN_NUMBER=$GITHUB_RUN_NUMBER
+          REPOSITORY=$GITHUB_REPOSITORY
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          EOF
+
+          echo "========================================"
+          echo "ARTIFACT METADATA"
+          echo "========================================"
+
+          cat .next/deploy-meta/build-info.txt
+
+      - name: Package production artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -f next-production-build.zip
+
+          echo "========================================"
+          echo "PACKAGING PRODUCTION ARTIFACT"
+          echo "========================================"
+
+          cd .next
+
+          zip -qr ../next-production-build.zip .
+
+          cd ..
+
+          echo
+          echo "Artifact:"
+          ls -lh next-production-build.zip
+
+          echo
+          echo "Artifact BUILD_ID:"
+          unzip -p next-production-build.zip BUILD_ID
+
+          echo
+          echo "Artifact metadata:"
+          unzip -p next-production-build.zip deploy-meta/build-info.txt
+
+          echo
+          echo "Testing ZIP..."
+
+          unzip -t next-production-build.zip >/tmp/next-artifact-test.log
+
+          tail -5 /tmp/next-artifact-test.log
+
+          echo
+          echo "SHA256:"
+          sha256sum next-production-build.zip
+
+      - name: Validate production artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "========================================"
+          echo "FINAL ARTIFACT VALIDATION"
+          echo "========================================"
+
+          if [ ! -f "next-production-build.zip" ]; then
+            echo "ERROR: next-production-build.zip not found"
+            exit 1
+          fi
+
+          echo
+          echo "=== ZIP integrity ==="
+
+          unzip -t next-production-build.zip >/tmp/next-artifact-final-test.log
+
+          tail -5 /tmp/next-artifact-final-test.log
+
+          echo
+          echo "=== BUILD ID ==="
+
+          ARTIFACT_BUILD_ID="$(unzip -p next-production-build.zip BUILD_ID)"
+
+          echo "Artifact BUILD_ID: $ARTIFACT_BUILD_ID"
+
+          if [ -z "$ARTIFACT_BUILD_ID" ]; then
+            echo "ERROR: Artifact BUILD_ID is empty"
+            exit 1
+          fi
+
+          echo
+          echo "=== Metadata ==="
+
+          unzip -p \
+            next-production-build.zip \
+            deploy-meta/build-info.txt
+
+          echo
+          echo "=== Product JSON-LD ==="
+
+          ARTIFACT_PRODUCT_COUNT="$(
+            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
+              | grep -o '"@type":"Product"' \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Artifact Product count: $ARTIFACT_PRODUCT_COUNT"
+
+          if [ "$ARTIFACT_PRODUCT_COUNT" -lt 1 ]; then
+            echo "ERROR: Product JSON-LD missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "=== AggregateOffer JSON-LD ==="
+
+          ARTIFACT_OFFER_COUNT="$(
+            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
+              | grep -o '"@type":"AggregateOffer"' \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Artifact AggregateOffer count: $ARTIFACT_OFFER_COUNT"
+
+          if [ "$ARTIFACT_OFFER_COUNT" -lt 1 ]; then
+            echo "ERROR: AggregateOffer missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "=== BreadcrumbList JSON-LD ==="
+
+          ARTIFACT_BREADCRUMB_COUNT="$(
+            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
+              | grep -o '"@type":"BreadcrumbList"' \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Artifact BreadcrumbList count: $ARTIFACT_BREADCRUMB_COUNT"
+
+          if [ "$ARTIFACT_BREADCRUMB_COUNT" -lt 1 ]; then
+            echo "ERROR: BreadcrumbList missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "=== Prisma Linux engine ==="
+
+          PRISMA_ENGINE_COUNT="$(
+            unzip -l next-production-build.zip \
+              | grep -c 'libquery_engine-debian-openssl-3.0.x.so.node' \
+              || true
+          )"
+
+          echo "Prisma Linux engine count: $PRISMA_ENGINE_COUNT"
+
+          if [ "$PRISMA_ENGINE_COUNT" -lt 1 ]; then
+            echo "ERROR: Linux Prisma query engine missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "========================================"
+          echo "FINAL ARTIFACT VALIDATION PASSED"
+          echo "========================================"
+
+          echo "BUILD_ID=$ARTIFACT_BUILD_ID"
+          echo "PRODUCT_COUNT=$ARTIFACT_PRODUCT_COUNT"
+          echo "OFFER_COUNT=$ARTIFACT_OFFER_COUNT"
+          echo "BREADCRUMB_COUNT=$ARTIFACT_BREADCRUMB_COUNT"
+          echo "PRISMA_ENGINE_COUNT=$PRISMA_ENGINE_COUNT"
+
+      - name: Validate production artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "========================================"
+          echo "FINAL ARTIFACT VALIDATION"
+          echo "========================================"
+
+          if [ ! -f "next-production-build.zip" ]; then
+            echo "ERROR: next-production-build.zip not found"
+            exit 1
+          fi
+
+          echo
+          echo "=== ZIP integrity ==="
+
+          unzip -t next-production-build.zip >/tmp/next-artifact-final-test.log
+
+          tail -5 /tmp/next-artifact-final-test.log
+
+          echo
+          echo "=== BUILD ID ==="
+
+          ARTIFACT_BUILD_ID="$(unzip -p next-production-build.zip BUILD_ID)"
+
+          echo "Artifact BUILD_ID: $ARTIFACT_BUILD_ID"
+
+          if [ -z "$ARTIFACT_BUILD_ID" ]; then
+            echo "ERROR: Artifact BUILD_ID is empty"
+            exit 1
+          fi
+
+          echo
+          echo "=== Metadata ==="
+
+          unzip -p \
+            next-production-build.zip \
+            deploy-meta/build-info.txt
+
+          echo
+          echo "=== Product JSON-LD ==="
+
+          ARTIFACT_PRODUCT_COUNT="$(
+            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
+              | grep -o '"@type":"Product"' \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Artifact Product count: $ARTIFACT_PRODUCT_COUNT"
+
+          if [ "$ARTIFACT_PRODUCT_COUNT" -lt 1 ]; then
+            echo "ERROR: Product JSON-LD missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "=== AggregateOffer JSON-LD ==="
+
+          ARTIFACT_OFFER_COUNT="$(
+            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
+              | grep -o '"@type":"AggregateOffer"' \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Artifact AggregateOffer count: $ARTIFACT_OFFER_COUNT"
+
+          if [ "$ARTIFACT_OFFER_COUNT" -lt 1 ]; then
+            echo "ERROR: AggregateOffer missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "=== BreadcrumbList JSON-LD ==="
+
+          ARTIFACT_BREADCRUMB_COUNT="$(
+            unzip -p next-production-build.zip 'server/**/*.js' 2>/dev/null \
+              | grep -o '"@type":"BreadcrumbList"' \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Artifact BreadcrumbList count: $ARTIFACT_BREADCRUMB_COUNT"
+
+          if [ "$ARTIFACT_BREADCRUMB_COUNT" -lt 1 ]; then
+            echo "ERROR: BreadcrumbList missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "=== Prisma Linux engine ==="
+
+          PRISMA_ENGINE_COUNT="$(
+            unzip -l next-production-build.zip \
+              | grep -c 'libquery_engine-debian-openssl-3.0.x.so.node' \
+              || true
+          )"
+
+          echo "Prisma Linux engine count: $PRISMA_ENGINE_COUNT"
+
+          if [ "$PRISMA_ENGINE_COUNT" -lt 1 ]; then
+            echo "ERROR: Linux Prisma query engine missing from artifact"
+            exit 1
+          fi
+
+          echo
+          echo "========================================"
+          echo "FINAL ARTIFACT VALIDATION PASSED"
+          echo "========================================"
+
+          echo "BUILD_ID=$ARTIFACT_BUILD_ID"
+          echo "PRODUCT_COUNT=$ARTIFACT_PRODUCT_COUNT"
+          echo "OFFER_COUNT=$ARTIFACT_OFFER_COUNT"
+          echo "BREADCRUMB_COUNT=$ARTIFACT_BREADCRUMB_COUNT"
+          echo "PRISMA_ENGINE_COUNT=$PRISMA_ENGINE_COUNT"
+
+      - name: Upload production artifact
         uses: actions/upload-artifact@v4
         with:
-          name: next-production-build
-          path: .next
-          include-hidden-files: true
-          retention-days: 7
+          name: next-production-build-${{ github.sha }}
+          path: next-production-build.zip
+          if-no-files-found: error
+          retention-days: 14
