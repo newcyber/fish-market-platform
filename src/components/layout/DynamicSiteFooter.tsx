@@ -563,7 +563,7 @@ export default async function DynamicSiteFooter() {
    */
 
   return (
-    <footer className="mt-12 border-t border-slate-200 bg-white sm:mt-16">
+    <footer className="hidden sm:block mt-12 border-t border-slate-200 bg-white sm:mt-16">
       <div
         className="
           mx-auto
