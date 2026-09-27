@@ -28,8 +28,6 @@ jobs:
   deploy:
     name: Deploy Production Artifact
     runs-on: ubuntu-latest
-
-    # Jangan deploy build yang gagal.
     if: >
       github.event_name == 'workflow_dispatch' ||
       (
@@ -43,12 +41,10 @@ jobs:
       PUBLIC_URL: https://app.pusatikansegar.com
 
     steps:
-      # ============================================================
-      # 1. RESOLVE BUILD RUN
-      # ============================================================
-
       - name: Resolve build run
         id: resolve-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -59,72 +55,59 @@ jobs:
             RUN_ID="${{ github.event.workflow_run.id }}"
           fi
 
+          RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
+
+          WORKFLOW_NAME="$(printf '%s' "$RUN_JSON" | jq -r '.name')"
+          CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion')"
+          BRANCH="$(printf '%s' "$RUN_JSON" | jq -r '.head_branch')"
+          HEAD_SHA="$(printf '%s' "$RUN_JSON" | jq -r '.head_sha')"
+          RUN_REPO="$(printf '%s' "$RUN_JSON" | jq -r '.repository.full_name')"
+
+          test "$WORKFLOW_NAME" = "Linux Production Build & Deploy"
+          test "$CONCLUSION" = "success"
+          test "$BRANCH" = "ci/linux-production-build"
+          test "$RUN_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_SHA" != "null"
+          test "$HEAD_SHA" != ""
+
           echo "BUILD_RUN_ID=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "HEAD_SHA=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
-          echo "========================================"
-          echo "BUILD RUN"
-          echo "========================================"
-          echo "Run ID: $RUN_ID"
-
-      # ============================================================
-      # 2. DOWNLOAD BUILD ARTIFACT
-      # ============================================================
+          echo "Build workflow : $WORKFLOW_NAME"
+          echo "Build run ID    : $RUN_ID"
+          echo "Build branch    : $BRANCH"
+          echo "Build commit    : $HEAD_SHA"
+          echo "Build conclusion: $CONCLUSION"
 
       - name: Download production artifact
         uses: actions/download-artifact@v4
         with:
-          name: next-production-build-${{ github.event.workflow_run.head_sha }}
+          name: next-production-build-${{ steps.resolve-run.outputs.HEAD_SHA }}
           path: ./artifact
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
-
-      # ============================================================
-      # 3. INSPECT ARTIFACT
-      # ============================================================
+          run-id: ${{ steps.resolve-run.outputs.BUILD_RUN_ID }}
 
       - name: Prepare deployment package
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "========================================"
-          echo "PREPARE DEPLOYMENT PACKAGE"
-          echo "========================================"
-
-          echo
-          echo "=== DOWNLOADED FILES ==="
+          echo "=== DOWNLOADED ARTIFACT ==="
           find ./artifact -maxdepth 3 -type f -print
 
-          OUTER_ZIP="$(find ./artifact -maxdepth 2 -type f -name '*.zip' | head -1)"
-
-          if [ -z "$OUTER_ZIP" ]; then
-            echo "ERROR: GitHub artifact ZIP not found"
-            exit 1
-          fi
-
-          echo
-          echo "Outer artifact:"
-          echo "$OUTER_ZIP"
-
-          rm -rf ./artifact-extracted
-          mkdir -p ./artifact-extracted
-
-          unzip -q "$OUTER_ZIP" -d ./artifact-extracted
-
-          INNER_ZIP="$(find ./artifact-extracted -maxdepth 2 -type f -name 'next-production-build.zip' | head -1)"
+          INNER_ZIP="$(find ./artifact -type f -name 'next-production-build.zip' -print -quit)"
 
           if [ -z "$INNER_ZIP" ]; then
-            echo "ERROR: Inner production ZIP not found"
+            echo "ERROR: next-production-build.zip not found in downloaded artifact."
             exit 1
           fi
 
-          echo
-          echo "Inner production artifact:"
-          echo "$INNER_ZIP"
-
           mkdir -p ./deploy-package
-
           cp "$INNER_ZIP" ./deploy-package/next-production-build.zip
+
+          test -s ./deploy-package/next-production-build.zip
+          unzip -t ./deploy-package/next-production-build.zip >/tmp/production-artifact-test.log
+          tail -5 /tmp/production-artifact-test.log
 
           echo
           echo "=== BUILD ID ==="
@@ -132,124 +115,139 @@ jobs:
 
           echo
           echo "=== DEPLOY METADATA ==="
-          unzip -p \
-            ./deploy-package/next-production-build.zip \
-            deploy-meta/build-info.txt
-
-          echo
-          echo "=== ZIP TEST ==="
-
-          unzip -t \
-            ./deploy-package/next-production-build.zip \
-            >/tmp/production-artifact-test.log
-
-          tail -5 /tmp/production-artifact-test.log
+          unzip -p ./deploy-package/next-production-build.zip deploy-meta/build-info.txt
 
           echo
           echo "=== SHA256 ==="
           sha256sum ./deploy-package/next-production-build.zip
 
-      # ============================================================
-      # 4. CONFIGURE SSH
-      # ============================================================
+      - name: Validate artifact identity
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.resolve-run.outputs.HEAD_SHA }}
+          EXPECTED_RUN_ID: ${{ steps.resolve-run.outputs.BUILD_RUN_ID }}
+        run: |
+          set -euo pipefail
+
+          META="./deploy-package/next-production-build.zip"
+
+          COMMIT_SHA="$(
+            unzip -p "$META" deploy-meta/build-info.txt |
+              awk -F= '$1=="COMMIT_SHA"{print $2}'
+          )"
+
+          BRANCH="$(
+            unzip -p "$META" deploy-meta/build-info.txt |
+              awk -F= '$1=="BRANCH"{print $2}'
+          )"
+
+          BUILD_RUN_ID="$(
+            unzip -p "$META" deploy-meta/build-info.txt |
+              awk -F= '$1=="WORKFLOW_RUN_ID"{print $2}'
+          )"
+
+          echo "Artifact commit : $COMMIT_SHA"
+          echo "Expected commit : $EXPECTED_SHA"
+          echo "Artifact branch : $BRANCH"
+          echo "Artifact run ID : $BUILD_RUN_ID"
+          echo "Expected run ID : $EXPECTED_RUN_ID"
+
+          test "$COMMIT_SHA" = "$EXPECTED_SHA"
+          test "$BRANCH" = "ci/linux-production-build"
+          test "$BUILD_RUN_ID" = "$EXPECTED_RUN_ID"
+
+          echo "ARTIFACT_IDENTITY=PASS"
 
       - name: Configure SSH
         shell: bash
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           set -euo pipefail
 
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          test -n "$VPS_HOST"
+          test -n "$VPS_SSH_KEY"
 
           PORT="${VPS_PORT:-22}"
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
 
           ssh-keyscan \
             -p "$PORT" \
             -H "$VPS_HOST" \
-            >> ~/.ssh/known_hosts
+            >> "$HOME/.ssh/known_hosts"
 
-          chmod 644 ~/.ssh/known_hosts
+          chmod 644 "$HOME/.ssh/known_hosts"
 
-          echo "SSH configuration ready."
-
-      # ============================================================
-      # 5. UPLOAD ARTIFACT TO VPS
-      # ============================================================
-
-      - name: Upload production artifact
+      - name: Deploy production artifact
         shell: bash
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          EXPECTED_SHA: ${{ steps.resolve-run.outputs.HEAD_SHA }}
+          EXPECTED_RUN_ID: ${{ steps.resolve-run.outputs.BUILD_RUN_ID }}
         run: |
           set -euo pipefail
 
           PORT="${VPS_PORT:-22}"
+          DEPLOY_ID="$(date -u +%Y%m%d-%H%M%S)"
+          REMOTE_TMP="/tmp/pisjo-deploy-${DEPLOY_ID}"
+          REMOTE_ZIP="${REMOTE_TMP}/next-production-build.zip"
 
-          echo "========================================"
-          echo "UPLOAD PRODUCTION ARTIFACT"
-          echo "========================================"
+          SSH_OPTS=(
+            -i "$HOME/.ssh/deploy_key"
+            -p "$PORT"
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=15
+          )
 
-          scp \
-            -i ~/.ssh/deploy_key \
-            -P "$PORT" \
-            -o StrictHostKeyChecking=yes \
-            ./deploy-package/next-production-build.zip \
-            "${VPS_USER}@${VPS_HOST}:/tmp/next-production-build.zip"
+          trap 'rm -f "$HOME/.ssh/deploy_key"' EXIT
+
+          echo "=== TEST SSH ==="
+          ssh "${SSH_OPTS[@]}" \
+            "$VPS_USER@$VPS_HOST" \
+            'echo SSH_CONNECTION_OK; hostname; whoami'
 
           echo
-          echo "Upload completed."
+          echo "=== PREPARE REMOTE TMP ==="
 
-      # ============================================================
-      # 6. DEPLOY + HEALTH CHECK + ROLLBACK
-      # ============================================================
+          ssh "${SSH_OPTS[@]}" \
+            "$VPS_USER@$VPS_HOST" \
+            "set -euo pipefail
+             test -d '$DEPLOY_PATH'
+             rm -rf '$REMOTE_TMP'
+             mkdir -p '$REMOTE_TMP'"
 
-      - name: Activate production artifact
-        shell: bash
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: |
-          set -euo pipefail
+          echo
+          echo "=== UPLOAD ARTIFACT ==="
 
-          PORT="${VPS_PORT:-22}"
+          scp "${SSH_OPTS[@]}" \
+            ./deploy-package/next-production-build.zip \
+            "$VPS_USER@$VPS_HOST:$REMOTE_ZIP"
 
-          ssh \
-            -i ~/.ssh/deploy_key \
-            -p "$PORT" \
-            -o StrictHostKeyChecking=yes \
-            "${VPS_USER}@${VPS_HOST}" \
-            'bash -s' <<'REMOTE_SCRIPT'
+          echo
+          echo "=== ACTIVATE + MIGRATE + HEALTH CHECK ==="
 
+          ssh "${SSH_OPTS[@]}" \
+            "$VPS_USER@$VPS_HOST" \
+            "EXPECTED_SHA='$EXPECTED_SHA' EXPECTED_RUN_ID='$EXPECTED_RUN_ID' REMOTE_TMP='$REMOTE_TMP' REMOTE_ZIP='$REMOTE_ZIP' DEPLOY_ID='$DEPLOY_ID' PM2_APP='$PM2_APP' bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
 
           DEPLOY_PATH="/var/www/fish-market-platform"
-          PM2_APP="fish-market-platform"
+          PM2_APP="${PM2_APP:-fish-market-platform}"
           PUBLIC_URL="https://app.pusatikansegar.com"
+          NEW_NEXT="${REMOTE_TMP}/next"
+          BACKUP_NEXT="${DEPLOY_PATH}/.next-backup-${DEPLOY_ID}"
 
           cd "$DEPLOY_PATH"
-
-          DEPLOY_ID="$(date +%Y%m%d-%H%M%S)"
-
-          NEW_NEXT="/tmp/pisjo-next-${DEPLOY_ID}"
-          BACKUP_NEXT="${DEPLOY_PATH}/.next-backup-${DEPLOY_ID}"
-          INNER_ZIP="/tmp/next-production-build.zip"
-
-          ROLLBACK_REQUIRED=false
-
-          cleanup() {
-            rm -rf "$NEW_NEXT"
-          }
 
           rollback() {
             echo
@@ -257,43 +255,19 @@ jobs:
             echo "ROLLBACK"
             echo "========================================"
 
+            pm2 stop "$PM2_APP" || true
+            rm -rf "$DEPLOY_PATH/.next"
+
             if [ -d "$BACKUP_NEXT" ]; then
-              rm -rf "${DEPLOY_PATH}/.next"
-              mv "$BACKUP_NEXT" "${DEPLOY_PATH}/.next"
-
-              echo "Previous .next restored."
-
-              pm2 restart "$PM2_APP" || true
-
+              mv "$BACKUP_NEXT" "$DEPLOY_PATH/.next"
+              pm2 restart "$PM2_APP" --update-env || true
               sleep 8
-
-              echo
-              echo "=== ROLLBACK BUILD ID ==="
-
-              if [ -f "${DEPLOY_PATH}/.next/BUILD_ID" ]; then
-                cat "${DEPLOY_PATH}/.next/BUILD_ID"
-              fi
-
-              echo
-              echo "=== ROLLBACK HEALTH ==="
-
-              curl \
-                -sS \
-                -o /dev/null \
-                -w "Local HTTP %{http_code}\n" \
-                --max-time 20 \
-                "http://localhost:3000/products/ikan-bandeng-fresh-frozen" \
-                || true
-
-              curl \
-                -sS \
-                -o /dev/null \
-                -w "Public HTTP %{http_code}\n" \
-                --max-time 20 \
-                "$PUBLIC_URL/products/ikan-bandeng-fresh-frozen" \
-                || true
             else
               echo "WARNING: Backup directory not found."
+            fi
+
+            if [ -f "$DEPLOY_PATH/.next/BUILD_ID" ]; then
+              echo "Rollback BUILD_ID: $(cat "$DEPLOY_PATH/.next/BUILD_ID")"
             fi
           }
 
@@ -308,6 +282,8 @@ jobs:
 
             rollback
 
+            rm -rf "$REMOTE_TMP"
+
             exit "$STATUS"
           }
 
@@ -318,206 +294,179 @@ jobs:
           echo "========================================"
 
           echo
-          echo "=== SERVER ==="
-          hostname
-
-          echo
-          echo "=== CURRENT BUILD ==="
-
-          if [ -f ".next/BUILD_ID" ]; then
-            cat .next/BUILD_ID
-          else
-            echo "No current BUILD_ID found."
-          fi
-
-          echo
-          echo "=== ARTIFACT ==="
-          ls -lh "$INNER_ZIP"
-
-          # --------------------------------------------------------
-          # EXTRACT NEW ARTIFACT
-          # --------------------------------------------------------
+          echo "=== EXTRACT ARTIFACT ==="
 
           rm -rf "$NEW_NEXT"
           mkdir -p "$NEW_NEXT"
 
-          unzip -q "$INNER_ZIP" -d "$NEW_NEXT"
+          unzip -q "$REMOTE_ZIP" -d "$NEW_NEXT"
 
-          echo
-          echo "=== NEW BUILD ID ==="
-          cat "$NEW_NEXT/BUILD_ID"
-
-          echo
-          echo "=== NEW METADATA ==="
-          cat "$NEW_NEXT/deploy-meta/build-info.txt"
-
-          # --------------------------------------------------------
-          # VALIDATE REQUIRED FILES
-          # --------------------------------------------------------
-
-          test -f "$NEW_NEXT/BUILD_ID"
-          test -f "$NEW_NEXT/deploy-meta/build-info.txt"
+          test -s "$NEW_NEXT/BUILD_ID"
+          test -s "$NEW_NEXT/deploy-meta/build-info.txt"
           test -f "$NEW_NEXT/deploy-meta/prisma/schema.prisma"
           test -d "$NEW_NEXT/deploy-meta/prisma/migrations"
 
-          echo
-          echo "Required files: PASS"
+          BUILD_ID="$(cat "$NEW_NEXT/BUILD_ID")"
 
-          # --------------------------------------------------------
-          # VALIDATE SEO MARKERS
-          # --------------------------------------------------------
-
-          BREADCRUMB_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -o '"BreadcrumbList"' \
-              "$NEW_NEXT/server" 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
+          COMMIT_SHA="$(
+            awk -F= '$1=="COMMIT_SHA"{print $2}' \
+              "$NEW_NEXT/deploy-meta/build-info.txt"
           )"
 
-          PRODUCT_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -o '"@type":"Product"' \
-              "$NEW_NEXT/server" 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
+          BRANCH="$(
+            awk -F= '$1=="BRANCH"{print $2}' \
+              "$NEW_NEXT/deploy-meta/build-info.txt"
           )"
 
-          OFFER_COUNT="$(
-            grep -R \
-              --include='*.js' \
-              -o '"@type":"AggregateOffer"' \
-              "$NEW_NEXT/server" 2>/dev/null \
-              | wc -l \
-              | tr -d ' '
+          BUILD_RUN_ID="$(
+            awk -F= '$1=="WORKFLOW_RUN_ID"{print $2}' \
+              "$NEW_NEXT/deploy-meta/build-info.txt"
           )"
 
-          echo
-          echo "=== SEO MARKERS ==="
-          echo "BreadcrumbList : $BREADCRUMB_COUNT"
-          echo "Product        : $PRODUCT_COUNT"
-          echo "AggregateOffer : $OFFER_COUNT"
+          echo "Artifact BUILD_ID : $BUILD_ID"
+          echo "Artifact COMMIT   : $COMMIT_SHA"
+          echo "Artifact BRANCH   : $BRANCH"
+          echo "Artifact RUN ID   : $BUILD_RUN_ID"
 
-          if [ "$BREADCRUMB_COUNT" -lt 1 ]; then
-            echo "ERROR: BreadcrumbList missing."
-            exit 1
+          test "$COMMIT_SHA" = "$EXPECTED_SHA"
+          test "$BRANCH" = "ci/linux-production-build"
+          test "$BUILD_RUN_ID" = "$EXPECTED_RUN_ID"
+
+          echo "ARTIFACT_IDENTITY=PASS"
+
+          echo
+          echo "=== VALIDATE PRISMA ENGINE ==="
+
+          test -f \
+            "$NEW_NEXT/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
+
+          echo "Prisma Linux engine: PASS"
+
+          echo
+          echo "=== VALIDATE SEO BUNDLES ==="
+
+          for marker in Product AggregateOffer BreadcrumbList; do
+            case "$marker" in
+              Product)
+                pattern='"@type":"Product"'
+                ;;
+              AggregateOffer)
+                pattern='"@type":"AggregateOffer"'
+                ;;
+              BreadcrumbList)
+                pattern='"@type":"BreadcrumbList"'
+                ;;
+            esac
+
+            count="$(
+              grep -R \
+                --include='*.js' \
+                -o "$pattern" \
+                "$NEW_NEXT/server" 2>/dev/null |
+                wc -l |
+                tr -d ' '
+            )"
+
+            echo "$marker: $count"
+
+            test "$count" -ge 1
+          done
+
+          echo
+          echo "=== CREATE BACKUP ==="
+
+          if [ -d "$DEPLOY_PATH/.next" ]; then
+            mv "$DEPLOY_PATH/.next" "$BACKUP_NEXT"
+            echo "Backup: $BACKUP_NEXT"
+          else
+            echo "No existing .next directory."
           fi
 
-          if [ "$PRODUCT_COUNT" -lt 1 ]; then
-            echo "ERROR: Product JSON-LD missing."
-            exit 1
-          fi
-
-          if [ "$OFFER_COUNT" -lt 1 ]; then
-            echo "ERROR: AggregateOffer missing."
-            exit 1
-          fi
-
           echo
-          echo "Artifact validation: PASS"
+          echo "=== ACTIVATE NEW BUILD ==="
 
-          # --------------------------------------------------------
-          # VALIDATE + APPLY PRISMA MIGRATIONS
-          # --------------------------------------------------------
+          mv "$NEW_NEXT" "$DEPLOY_PATH/.next"
 
-          echo
-          echo "========================================"
-          echo "PRISMA MIGRATION VALIDATION"
-          echo "========================================"
-
-          MIGRATION_ROOT="$NEW_NEXT/deploy-meta/prisma"
-          test -f "$MIGRATION_ROOT/schema.prisma"
-          test -d "$MIGRATION_ROOT/migrations"
-
-          MIGRATION_COUNT="$(
-            find "$MIGRATION_ROOT/migrations" \
-              -mindepth 1 -maxdepth 1 -type d \
-              | wc -l \
-              | tr -d ' '
-          )"
-
-          echo "Packaged migrations: $MIGRATION_COUNT"
-          test "$MIGRATION_COUNT" -ge 1
-
-          echo
-          echo "========================================"
-          echo "PRISMA MIGRATE DEPLOY"
-          echo "========================================"
-
-          # Apply DB migrations while the previous application build is still
-          # untouched. If a migration fails, set -e exits here and rollback()
-          # restores the previous .next build.
-          pnpm exec prisma migrate deploy \
-            --schema "$MIGRATION_ROOT/schema.prisma"
-
-          echo "Prisma migrations: PASS"
-
-          # --------------------------------------------------------
-          # BACKUP CURRENT BUILD
-          # --------------------------------------------------------
-
-          if [ -d ".next" ]; then
-            echo
-            echo "========================================"
-            echo "BACKUP CURRENT BUILD"
-            echo "========================================"
-
-            mv .next "$BACKUP_NEXT"
-
-            echo "Backup:"
-            echo "$BACKUP_NEXT"
-
-            echo
-            echo "Backup BUILD_ID:"
-            cat "$BACKUP_NEXT/BUILD_ID"
-          fi
-
-          # --------------------------------------------------------
-          # ACTIVATE NEW BUILD
-          # --------------------------------------------------------
-
-          echo
-          echo "========================================"
-          echo "ACTIVATE NEW BUILD"
-          echo "========================================"
-
-          mv "$NEW_NEXT" .next
-
-          echo
           echo "Active BUILD_ID:"
-          cat .next/BUILD_ID
+          cat "$DEPLOY_PATH/.next/BUILD_ID"
 
           echo
-          echo "Active commit:"
-          grep '^COMMIT_SHA=' .next/deploy-meta/build-info.txt
+          echo "=== PRISMA MIGRATION ==="
 
-          # --------------------------------------------------------
-          # RESTART PM2
-          # --------------------------------------------------------
+          PRISMA_DATABASE_URL="$(
+            node -e '
+              const fs = require("fs");
+
+              const candidates = [".env", ".env.production"];
+
+              for (const file of candidates) {
+                if (!fs.existsSync(file)) continue;
+
+                const line = fs
+                  .readFileSync(file, "utf8")
+                  .split(/\r?\n/)
+                  .find((value) => /^DATABASE_URL=/.test(value));
+
+                if (line) {
+                  const value = line
+                    .slice("DATABASE_URL=".length)
+                    .trim()
+                    .replace(/^["'\'']|["'\'']$/g, "");
+
+                  if (value) {
+                    process.stdout.write(value);
+                    process.exit(0);
+                  }
+                }
+              }
+
+              process.exit(1);
+            '
+          )" || {
+            echo "ERROR: Could not resolve DATABASE_URL from .env or .env.production"
+            exit 1
+          }
+
+          PRISMA_RUN="/tmp/pisjo-prisma-${DEPLOY_ID}"
+
+          rm -rf "$PRISMA_RUN"
+          mkdir -p "$PRISMA_RUN"
+
+          cp \
+            "$DEPLOY_PATH/.next/deploy-meta/prisma/schema.prisma" \
+            "$PRISMA_RUN/schema.prisma"
+
+          cp -a \
+            "$DEPLOY_PATH/.next/deploy-meta/prisma/migrations" \
+            "$PRISMA_RUN/migrations"
+
+          DATABASE_URL="$PRISMA_DATABASE_URL" \
+            pnpm exec prisma migrate deploy \
+            --schema "$PRISMA_RUN/schema.prisma"
+
+          rm -rf "$PRISMA_RUN"
 
           echo
-          echo "========================================"
-          echo "RESTART PM2"
-          echo "========================================"
+          echo "=== RESTART PM2 ==="
 
-          pm2 restart "$PM2_APP"
+          pm2 restart "$PM2_APP" --update-env
 
           sleep 8
 
-          pm2 show "$PM2_APP" \
-            | grep -E 'status|pid|script path|exec cwd'
-
           PM2_STATUS="$(
-            pm2 jlist \
-              | node -e '
+            PM2_APP="$PM2_APP" pm2 jlist |
+              node -e '
                 let input = "";
-                process.stdin.on("data", d => input += d);
+
+                process.stdin.on("data", (d) => {
+                  input += d;
+                });
+
                 process.stdin.on("end", () => {
                   const apps = JSON.parse(input);
+
                   const app = apps.find(
-                    x => x.name === process.env.PM2_APP
+                    (x) => x.name === process.env.PM2_APP
                   );
 
                   process.stdout.write(
@@ -527,21 +476,12 @@ jobs:
               '
           )"
 
-          if [ "$PM2_STATUS" != "online" ]; then
-            echo "ERROR: PM2 application is not online."
-            exit 1
-          fi
+          echo "PM2 status: $PM2_STATUS"
 
-          echo "PM2 status: online"
-
-          # --------------------------------------------------------
-          # LOCAL HEALTH CHECK
-          # --------------------------------------------------------
+          test "$PM2_STATUS" = "online"
 
           echo
-          echo "========================================"
-          echo "LOCAL HEALTH CHECK"
-          echo "========================================"
+          echo "=== LOCAL HEALTH CHECK ==="
 
           LOCAL_HTTP="$(
             curl \
@@ -554,19 +494,10 @@ jobs:
 
           echo "Local HTTP: $LOCAL_HTTP"
 
-          if [ "$LOCAL_HTTP" != "200" ]; then
-            echo "ERROR: Local health check failed."
-            exit 1
-          fi
-
-          # --------------------------------------------------------
-          # PUBLIC HEALTH CHECK
-          # --------------------------------------------------------
+          test "$LOCAL_HTTP" = "200"
 
           echo
-          echo "========================================"
-          echo "PUBLIC HEALTH CHECK"
-          echo "========================================"
+          echo "=== PUBLIC HEALTH CHECK ==="
 
           PUBLIC_HTTP="$(
             curl \
@@ -579,95 +510,71 @@ jobs:
 
           echo "Public HTTP: $PUBLIC_HTTP"
 
-          if [ "$PUBLIC_HTTP" != "200" ]; then
-            echo "ERROR: Public health check failed."
-            exit 1
-          fi
-
-          # --------------------------------------------------------
-          # PUBLIC SEO CHECK
-          # --------------------------------------------------------
+          test "$PUBLIC_HTTP" = "200"
 
           echo
-          echo "========================================"
-          echo "PUBLIC SEO VERIFICATION"
-          echo "========================================"
+          echo "=== PUBLIC SEO VERIFICATION ==="
 
           PRODUCT_PUBLIC="$(
             grep \
               -o \
               '"@type":"Product"' \
-              /tmp/pisjo-public-health.html \
-              | wc -l \
-              | tr -d ' '
+              /tmp/pisjo-public-health.html |
+              wc -l |
+              tr -d ' '
           )"
 
           OFFER_PUBLIC="$(
             grep \
               -o \
               '"@type":"AggregateOffer"' \
-              /tmp/pisjo-public-health.html \
-              | wc -l \
-              | tr -d ' '
+              /tmp/pisjo-public-health.html |
+              wc -l |
+              tr -d ' '
           )"
 
           BREADCRUMB_PUBLIC="$(
             grep \
               -o \
               '"@type":"BreadcrumbList"' \
-              /tmp/pisjo-public-health.html \
-              | wc -l \
-              | tr -d ' '
+              /tmp/pisjo-public-health.html |
+              wc -l |
+              tr -d ' '
           )"
 
-          echo "Product       : $PRODUCT_PUBLIC"
-          echo "AggregateOffer: $OFFER_PUBLIC"
-          echo "Breadcrumb    : $BREADCRUMB_PUBLIC"
+          echo "Product JSON-LD        : $PRODUCT_PUBLIC"
+          echo "AggregateOffer JSON-LD : $OFFER_PUBLIC"
+          echo "Breadcrumb JSON-LD     : $BREADCRUMB_PUBLIC"
 
-          if [ "$PRODUCT_PUBLIC" -lt 1 ]; then
-            echo "ERROR: Public Product JSON-LD missing."
-            exit 1
-          fi
+          test "$PRODUCT_PUBLIC" -ge 1
+          test "$OFFER_PUBLIC" -ge 1
+          test "$BREADCRUMB_PUBLIC" -ge 1
 
-          if [ "$OFFER_PUBLIC" -lt 1 ]; then
-            echo "ERROR: Public AggregateOffer missing."
-            exit 1
-          fi
+          echo
+          echo "=== CLEANUP ==="
 
-          if [ "$BREADCRUMB_PUBLIC" -lt 1 ]; then
-            echo "ERROR: Public Breadcrumb JSON-LD missing."
-            exit 1
-          fi
-
-          # --------------------------------------------------------
-          # FINAL SUCCESS
-          # --------------------------------------------------------
+          rm -f "$REMOTE_ZIP"
+          rm -rf "$REMOTE_TMP"
 
           echo
           echo "========================================"
-          echo "DEPLOYMENT SUCCESS"
+          echo "PRODUCTION DEPLOYMENT SUCCESS"
           echo "========================================"
 
-          echo "BUILD_ID=$(cat .next/BUILD_ID)"
-          grep '^COMMIT_SHA=' .next/deploy-meta/build-info.txt
-          grep '^BRANCH=' .next/deploy-meta/build-info.txt
-
-          echo
-          echo "Local HTTP       : $LOCAL_HTTP"
-          echo "Public HTTP      : $PUBLIC_HTTP"
-          echo "Product JSON-LD  : $PRODUCT_PUBLIC"
-          echo "AggregateOffer   : $OFFER_PUBLIC"
-          echo "Breadcrumb JSONLD: $BREADCRUMB_PUBLIC"
-
-          # --------------------------------------------------------
-          # CLEAN OLD TEMP ARTIFACT
-          # --------------------------------------------------------
-
-          rm -f "$INNER_ZIP"
-
-          # Keep the backup for manual recovery.
-          echo
-          echo "Backup retained:"
-          echo "$BACKUP_NEXT"
-
+          echo "BUILD_ID=$BUILD_ID"
+          echo "COMMIT_SHA=$COMMIT_SHA"
+          echo "BRANCH=$BRANCH"
+          echo "BUILD_RUN_ID=$BUILD_RUN_ID"
+          echo "LOCAL_HTTP=$LOCAL_HTTP"
+          echo "PUBLIC_HTTP=$PUBLIC_HTTP"
+          echo "PRODUCT_JSONLD=$PRODUCT_PUBLIC"
+          echo "AGGREGATEOFFER_JSONLD=$OFFER_PUBLIC"
+          echo "BREADCRUMB_JSONLD=$BREADCRUMB_PUBLIC"
+          echo "BACKUP=$BACKUP_NEXT"
           REMOTE_SCRIPT
+
+      - name: Cleanup SSH key
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/deploy_key"
