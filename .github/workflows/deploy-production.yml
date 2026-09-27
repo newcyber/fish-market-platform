@@ -1,0 +1,580 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: "GitHub Actions Build Run ID to deploy"
+        required: true
+        type: string
+
+  workflow_run:
+    workflows:
+      - Linux Production Build & Deploy
+    types:
+      - completed
+    branches:
+      - ci/linux-production-build
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Production Artifact
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success'
+      )
+
+    env:
+      DEPLOY_PATH: /var/www/fish-market-platform
+      PM2_APP: fish-market-platform
+      PUBLIC_URL: https://app.pusatikansegar.com
+
+    steps:
+      - name: Resolve build run
+        id: resolve-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RUN_ID="${{ inputs.build_run_id }}"
+          else
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          fi
+
+          RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
+
+          WORKFLOW_NAME="$(printf '%s' "$RUN_JSON" | jq -r '.name')"
+          CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion')"
+          BRANCH="$(printf '%s' "$RUN_JSON" | jq -r '.head_branch')"
+          HEAD_SHA="$(printf '%s' "$RUN_JSON" | jq -r '.head_sha')"
+          RUN_REPO="$(printf '%s' "$RUN_JSON" | jq -r '.repository.full_name')"
+
+          test "$WORKFLOW_NAME" = "Linux Production Build & Deploy"
+          test "$CONCLUSION" = "success"
+          test "$BRANCH" = "ci/linux-production-build"
+          test "$RUN_REPO" = "$GITHUB_REPOSITORY"
+          test "$HEAD_SHA" != "null"
+          test "$HEAD_SHA" != ""
+
+          echo "BUILD_RUN_ID=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "HEAD_SHA=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+          echo "Build workflow : $WORKFLOW_NAME"
+          echo "Build run ID    : $RUN_ID"
+          echo "Build branch    : $BRANCH"
+          echo "Build commit    : $HEAD_SHA"
+          echo "Build conclusion: $CONCLUSION"
+
+      - name: Download production artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: next-production-build-${{ steps.resolve-run.outputs.HEAD_SHA }}
+          path: ./artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ steps.resolve-run.outputs.BUILD_RUN_ID }}
+
+      - name: Prepare deployment package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== DOWNLOADED ARTIFACT ==="
+          find ./artifact -maxdepth 3 -type f -print
+
+          INNER_ZIP="$(find ./artifact -type f -name 'next-production-build.zip' -print -quit)"
+
+          if [ -z "$INNER_ZIP" ]; then
+            echo "ERROR: next-production-build.zip not found in downloaded artifact."
+            exit 1
+          fi
+
+          mkdir -p ./deploy-package
+          cp "$INNER_ZIP" ./deploy-package/next-production-build.zip
+
+          test -s ./deploy-package/next-production-build.zip
+          unzip -t ./deploy-package/next-production-build.zip >/tmp/production-artifact-test.log
+          tail -5 /tmp/production-artifact-test.log
+
+          echo
+          echo "=== BUILD ID ==="
+          unzip -p ./deploy-package/next-production-build.zip BUILD_ID
+
+          echo
+          echo "=== DEPLOY METADATA ==="
+          unzip -p ./deploy-package/next-production-build.zip deploy-meta/build-info.txt
+
+          echo
+          echo "=== SHA256 ==="
+          sha256sum ./deploy-package/next-production-build.zip
+
+      - name: Validate artifact identity
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.resolve-run.outputs.HEAD_SHA }}
+          EXPECTED_RUN_ID: ${{ steps.resolve-run.outputs.BUILD_RUN_ID }}
+        run: |
+          set -euo pipefail
+
+          META="./deploy-package/next-production-build.zip"
+
+          COMMIT_SHA="$(
+            unzip -p "$META" deploy-meta/build-info.txt |
+              awk -F= '$1=="COMMIT_SHA"{print $2}'
+          )"
+
+          BRANCH="$(
+            unzip -p "$META" deploy-meta/build-info.txt |
+              awk -F= '$1=="BRANCH"{print $2}'
+          )"
+
+          BUILD_RUN_ID="$(
+            unzip -p "$META" deploy-meta/build-info.txt |
+              awk -F= '$1=="WORKFLOW_RUN_ID"{print $2}'
+          )"
+
+          echo "Artifact commit : $COMMIT_SHA"
+          echo "Expected commit : $EXPECTED_SHA"
+          echo "Artifact branch : $BRANCH"
+          echo "Artifact run ID : $BUILD_RUN_ID"
+          echo "Expected run ID : $EXPECTED_RUN_ID"
+
+          test "$COMMIT_SHA" = "$EXPECTED_SHA"
+          test "$BRANCH" = "ci/linux-production-build"
+          test "$BUILD_RUN_ID" = "$EXPECTED_RUN_ID"
+
+          echo "ARTIFACT_IDENTITY=PASS"
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          test -n "$VPS_HOST"
+          test -n "$VPS_SSH_KEY"
+
+          PORT="${VPS_PORT:-22}"
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+          ssh-keyscan \
+            -p "$PORT" \
+            -H "$VPS_HOST" \
+            >> "$HOME/.ssh/known_hosts"
+
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy production artifact
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          EXPECTED_SHA: ${{ steps.resolve-run.outputs.HEAD_SHA }}
+          EXPECTED_RUN_ID: ${{ steps.resolve-run.outputs.BUILD_RUN_ID }}
+        run: |
+          set -euo pipefail
+
+          PORT="${VPS_PORT:-22}"
+          DEPLOY_ID="$(date -u +%Y%m%d-%H%M%S)"
+          REMOTE_TMP="/tmp/pisjo-deploy-${DEPLOY_ID}"
+          REMOTE_ZIP="${REMOTE_TMP}/next-production-build.zip"
+
+          SSH_OPTS=(
+            -i "$HOME/.ssh/deploy_key"
+            -p "$PORT"
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=15
+          )
+
+          trap 'rm -f "$HOME/.ssh/deploy_key"' EXIT
+
+          echo "=== TEST SSH ==="
+          ssh "${SSH_OPTS[@]}" \
+            "$VPS_USER@$VPS_HOST" \
+            'echo SSH_CONNECTION_OK; hostname; whoami'
+
+          echo
+          echo "=== PREPARE REMOTE TMP ==="
+
+          ssh "${SSH_OPTS[@]}" \
+            "$VPS_USER@$VPS_HOST" \
+            "set -euo pipefail
+             test -d '$DEPLOY_PATH'
+             rm -rf '$REMOTE_TMP'
+             mkdir -p '$REMOTE_TMP'"
+
+          echo
+          echo "=== UPLOAD ARTIFACT ==="
+
+          scp "${SSH_OPTS[@]}" \
+            ./deploy-package/next-production-build.zip \
+            "$VPS_USER@$VPS_HOST:$REMOTE_ZIP"
+
+          echo
+          echo "=== ACTIVATE + MIGRATE + HEALTH CHECK ==="
+
+          ssh "${SSH_OPTS[@]}" \
+            "$VPS_USER@$VPS_HOST" \
+            "EXPECTED_SHA='$EXPECTED_SHA' EXPECTED_RUN_ID='$EXPECTED_RUN_ID' REMOTE_TMP='$REMOTE_TMP' REMOTE_ZIP='$REMOTE_ZIP' DEPLOY_ID='$DEPLOY_ID' PM2_APP='$PM2_APP' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          DEPLOY_PATH="/var/www/fish-market-platform"
+          PM2_APP="${PM2_APP:-fish-market-platform}"
+          PUBLIC_URL="https://app.pusatikansegar.com"
+          NEW_NEXT="${REMOTE_TMP}/next"
+          BACKUP_NEXT="${DEPLOY_PATH}/.next-backup-${DEPLOY_ID}"
+
+          cd "$DEPLOY_PATH"
+
+          rollback() {
+            echo
+            echo "========================================"
+            echo "ROLLBACK"
+            echo "========================================"
+
+            pm2 stop "$PM2_APP" || true
+            rm -rf "$DEPLOY_PATH/.next"
+
+            if [ -d "$BACKUP_NEXT" ]; then
+              mv "$BACKUP_NEXT" "$DEPLOY_PATH/.next"
+              pm2 restart "$PM2_APP" --update-env || true
+              sleep 8
+            else
+              echo "WARNING: Backup directory not found."
+            fi
+
+            if [ -f "$DEPLOY_PATH/.next/BUILD_ID" ]; then
+              echo "Rollback BUILD_ID: $(cat "$DEPLOY_PATH/.next/BUILD_ID")"
+            fi
+          }
+
+          on_error() {
+            STATUS=$?
+
+            echo
+            echo "========================================"
+            echo "DEPLOYMENT FAILED"
+            echo "========================================"
+            echo "Exit code: $STATUS"
+
+            rollback
+
+            rm -rf "$REMOTE_TMP"
+
+            exit "$STATUS"
+          }
+
+          trap on_error ERR
+
+          echo "========================================"
+          echo "PRODUCTION DEPLOYMENT"
+          echo "========================================"
+
+          echo
+          echo "=== EXTRACT ARTIFACT ==="
+
+          rm -rf "$NEW_NEXT"
+          mkdir -p "$NEW_NEXT"
+
+          unzip -q "$REMOTE_ZIP" -d "$NEW_NEXT"
+
+          test -s "$NEW_NEXT/BUILD_ID"
+          test -s "$NEW_NEXT/deploy-meta/build-info.txt"
+          test -f "$NEW_NEXT/deploy-meta/prisma/schema.prisma"
+          test -d "$NEW_NEXT/deploy-meta/prisma/migrations"
+
+          BUILD_ID="$(cat "$NEW_NEXT/BUILD_ID")"
+
+          COMMIT_SHA="$(
+            awk -F= '$1=="COMMIT_SHA"{print $2}' \
+              "$NEW_NEXT/deploy-meta/build-info.txt"
+          )"
+
+          BRANCH="$(
+            awk -F= '$1=="BRANCH"{print $2}' \
+              "$NEW_NEXT/deploy-meta/build-info.txt"
+          )"
+
+          BUILD_RUN_ID="$(
+            awk -F= '$1=="WORKFLOW_RUN_ID"{print $2}' \
+              "$NEW_NEXT/deploy-meta/build-info.txt"
+          )"
+
+          echo "Artifact BUILD_ID : $BUILD_ID"
+          echo "Artifact COMMIT   : $COMMIT_SHA"
+          echo "Artifact BRANCH   : $BRANCH"
+          echo "Artifact RUN ID   : $BUILD_RUN_ID"
+
+          test "$COMMIT_SHA" = "$EXPECTED_SHA"
+          test "$BRANCH" = "ci/linux-production-build"
+          test "$BUILD_RUN_ID" = "$EXPECTED_RUN_ID"
+
+          echo "ARTIFACT_IDENTITY=PASS"
+
+          echo
+          echo "=== VALIDATE PRISMA ENGINE ==="
+
+          test -f \
+            "$NEW_NEXT/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
+
+          echo "Prisma Linux engine: PASS"
+
+          echo
+          echo "=== VALIDATE SEO BUNDLES ==="
+
+          for marker in Product AggregateOffer BreadcrumbList; do
+            case "$marker" in
+              Product)
+                pattern='"@type":"Product"'
+                ;;
+              AggregateOffer)
+                pattern='"@type":"AggregateOffer"'
+                ;;
+              BreadcrumbList)
+                pattern='"@type":"BreadcrumbList"'
+                ;;
+            esac
+
+            count="$(
+              grep -R \
+                --include='*.js' \
+                -o "$pattern" \
+                "$NEW_NEXT/server" 2>/dev/null |
+                wc -l |
+                tr -d ' '
+            )"
+
+            echo "$marker: $count"
+
+            test "$count" -ge 1
+          done
+
+          echo
+          echo "=== CREATE BACKUP ==="
+
+          if [ -d "$DEPLOY_PATH/.next" ]; then
+            mv "$DEPLOY_PATH/.next" "$BACKUP_NEXT"
+            echo "Backup: $BACKUP_NEXT"
+          else
+            echo "No existing .next directory."
+          fi
+
+          echo
+          echo "=== ACTIVATE NEW BUILD ==="
+
+          mv "$NEW_NEXT" "$DEPLOY_PATH/.next"
+
+          echo "Active BUILD_ID:"
+          cat "$DEPLOY_PATH/.next/BUILD_ID"
+
+          echo
+          echo "=== PRISMA MIGRATION ==="
+
+          PRISMA_DATABASE_URL="$(
+            node -e '
+              const fs = require("fs");
+
+              const candidates = [".env", ".env.production"];
+
+              for (const file of candidates) {
+                if (!fs.existsSync(file)) continue;
+
+                const line = fs
+                  .readFileSync(file, "utf8")
+                  .split(/\r?\n/)
+                  .find((value) => /^DATABASE_URL=/.test(value));
+
+                if (line) {
+                  const value = line
+                    .slice("DATABASE_URL=".length)
+                    .trim()
+                    .replace(/^["'\'']|["'\'']$/g, "");
+
+                  if (value) {
+                    process.stdout.write(value);
+                    process.exit(0);
+                  }
+                }
+              }
+
+              process.exit(1);
+            '
+          )" || {
+            echo "ERROR: Could not resolve DATABASE_URL from .env or .env.production"
+            exit 1
+          }
+
+          PRISMA_RUN="/tmp/pisjo-prisma-${DEPLOY_ID}"
+
+          rm -rf "$PRISMA_RUN"
+          mkdir -p "$PRISMA_RUN"
+
+          cp \
+            "$DEPLOY_PATH/.next/deploy-meta/prisma/schema.prisma" \
+            "$PRISMA_RUN/schema.prisma"
+
+          cp -a \
+            "$DEPLOY_PATH/.next/deploy-meta/prisma/migrations" \
+            "$PRISMA_RUN/migrations"
+
+          DATABASE_URL="$PRISMA_DATABASE_URL" \
+            pnpm exec prisma migrate deploy \
+            --schema "$PRISMA_RUN/schema.prisma"
+
+          rm -rf "$PRISMA_RUN"
+
+          echo
+          echo "=== RESTART PM2 ==="
+
+          pm2 restart "$PM2_APP" --update-env
+
+          sleep 8
+
+          PM2_STATUS="$(
+            PM2_APP="$PM2_APP" pm2 jlist |
+              node -e '
+                let input = "";
+
+                process.stdin.on("data", (d) => {
+                  input += d;
+                });
+
+                process.stdin.on("end", () => {
+                  const apps = JSON.parse(input);
+
+                  const app = apps.find(
+                    (x) => x.name === process.env.PM2_APP
+                  );
+
+                  process.stdout.write(
+                    app?.pm2_env?.status || "unknown"
+                  );
+                });
+              '
+          )"
+
+          echo "PM2 status: $PM2_STATUS"
+
+          test "$PM2_STATUS" = "online"
+
+          echo
+          echo "=== LOCAL HEALTH CHECK ==="
+
+          LOCAL_HTTP="$(
+            curl \
+              -sS \
+              -o /tmp/pisjo-local-health.html \
+              -w "%{http_code}" \
+              --max-time 20 \
+              "http://localhost:3000/products/ikan-bandeng-fresh-frozen"
+          )"
+
+          echo "Local HTTP: $LOCAL_HTTP"
+
+          test "$LOCAL_HTTP" = "200"
+
+          echo
+          echo "=== PUBLIC HEALTH CHECK ==="
+
+          PUBLIC_HTTP="$(
+            curl \
+              -sS \
+              -o /tmp/pisjo-public-health.html \
+              -w "%{http_code}" \
+              --max-time 20 \
+              "$PUBLIC_URL/products/ikan-bandeng-fresh-frozen"
+          )"
+
+          echo "Public HTTP: $PUBLIC_HTTP"
+
+          test "$PUBLIC_HTTP" = "200"
+
+          echo
+          echo "=== PUBLIC SEO VERIFICATION ==="
+
+          PRODUCT_PUBLIC="$(
+            grep \
+              -o \
+              '"@type":"Product"' \
+              /tmp/pisjo-public-health.html |
+              wc -l |
+              tr -d ' '
+          )"
+
+          OFFER_PUBLIC="$(
+            grep \
+              -o \
+              '"@type":"AggregateOffer"' \
+              /tmp/pisjo-public-health.html |
+              wc -l |
+              tr -d ' '
+          )"
+
+          BREADCRUMB_PUBLIC="$(
+            grep \
+              -o \
+              '"@type":"BreadcrumbList"' \
+              /tmp/pisjo-public-health.html |
+              wc -l |
+              tr -d ' '
+          )"
+
+          echo "Product JSON-LD        : $PRODUCT_PUBLIC"
+          echo "AggregateOffer JSON-LD : $OFFER_PUBLIC"
+          echo "Breadcrumb JSON-LD     : $BREADCRUMB_PUBLIC"
+
+          test "$PRODUCT_PUBLIC" -ge 1
+          test "$OFFER_PUBLIC" -ge 1
+          test "$BREADCRUMB_PUBLIC" -ge 1
+
+          echo
+          echo "=== CLEANUP ==="
+
+          rm -f "$REMOTE_ZIP"
+          rm -rf "$REMOTE_TMP"
+
+          echo
+          echo "========================================"
+          echo "PRODUCTION DEPLOYMENT SUCCESS"
+          echo "========================================"
+
+          echo "BUILD_ID=$BUILD_ID"
+          echo "COMMIT_SHA=$COMMIT_SHA"
+          echo "BRANCH=$BRANCH"
+          echo "BUILD_RUN_ID=$BUILD_RUN_ID"
+          echo "LOCAL_HTTP=$LOCAL_HTTP"
+          echo "PUBLIC_HTTP=$PUBLIC_HTTP"
+          echo "PRODUCT_JSONLD=$PRODUCT_PUBLIC"
+          echo "AGGREGATEOFFER_JSONLD=$OFFER_PUBLIC"
+          echo "BREADCRUMB_JSONLD=$BREADCRUMB_PUBLIC"
+          echo "BACKUP=$BACKUP_NEXT"
+          REMOTE_SCRIPT
+
+      - name: Cleanup SSH key
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/deploy_key"
