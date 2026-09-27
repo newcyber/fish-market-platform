@@ -794,6 +794,81 @@ function VerifyEmailContent() {
         </p>
       </div>
 
+            {/* ======================================================
+          EMAIL DELIVERY NOTICE
+      ====================================================== */}
+      <div
+        className="
+          mt-3
+          flex
+          items-start
+          gap-2.5
+          rounded-xl
+          border
+          border-amber-200
+          bg-amber-50
+          px-3.5
+          py-3
+          text-left
+
+          sm:mt-4
+          sm:px-4
+          sm:py-3.5
+        "
+        role="note"
+      >
+        <div
+          className="
+            mt-0.5
+            flex
+            h-7
+            w-7
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            bg-amber-100
+            text-sm
+          "
+          aria-hidden="true"
+        >
+          📩
+        </div>
+
+        <div className="min-w-0">
+          <p
+            className="
+              text-xs
+              font-semibold
+              leading-5
+              text-amber-900
+
+              sm:text-sm
+            "
+          >
+            Belum menemukan kode verifikasi?
+          </p>
+
+          <p
+            className="
+              mt-0.5
+              text-[11px]
+              leading-4
+              text-amber-800
+
+              sm:text-xs
+              sm:leading-5
+            "
+          >
+            Jika kode belum terlihat di Inbox, coba cek folder{" "}
+            <span className="font-semibold">
+              Spam, Junk, atau Promosi
+            </span>{" "}
+            pada email Anda. Pastikan juga alamat email di atas sudah benar.
+          </p>
+        </div>
+      </div>
+
       {/* ======================================================
           OTP FORM
       ====================================================== */}
