@@ -297,7 +297,43 @@ jobs:
             echo "========================================"
             echo "DEPLOYMENT FAILED"
             echo "========================================"
-            echo "Exit code: $STATUS"
+            echo "Exit code       : $STATUS"
+            echo "Deploy ID       : ${DEPLOY_ID:-unknown}"
+            echo "Expected SHA    : ${EXPECTED_SHA:-unknown}"
+            echo "Expected Run ID : ${EXPECTED_RUN_ID:-unknown}"
+            echo "Remote TMP      : ${REMOTE_TMP:-unknown}"
+            echo "Remote ZIP      : ${REMOTE_ZIP:-unknown}"
+            echo "New NEXT        : ${NEW_NEXT:-unknown}"
+            echo "Backup NEXT     : ${BACKUP_NEXT:-unknown}"
+            echo "Current PWD     : $(pwd)"
+            echo "Last command    : ${BASH_COMMAND:-unknown}"
+
+            echo
+            echo "=== REMOTE DEPLOY DEBUG ==="
+
+            if [ -n "${DEPLOY_PATH:-}" ] && [ -d "$DEPLOY_PATH" ]; then
+              echo "DEPLOY_PATH exists: PASS"
+            else
+              echo "DEPLOY_PATH exists: FAIL"
+            fi
+
+            if [ -n "${REMOTE_TMP:-}" ]; then
+              echo
+              echo "--- REMOTE TMP ---"
+              ls -lah "$REMOTE_TMP" 2>/dev/null || true
+            fi
+
+            if [ -n "${REMOTE_ZIP:-}" ]; then
+              echo
+              echo "--- REMOTE ZIP ---"
+              ls -lh "$REMOTE_ZIP" 2>/dev/null || true
+            fi
+
+            if [ -n "${DEPLOY_PATH:-}" ] && [ -f "$DEPLOY_PATH/.next/BUILD_ID" ]; then
+              echo
+              echo "--- ACTIVE BUILD ---"
+              cat "$DEPLOY_PATH/.next/BUILD_ID" || true
+            fi
 
             rollback
 
