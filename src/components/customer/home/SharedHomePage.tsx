@@ -20,6 +20,9 @@ import HomeHeroCarousel from
 import HomeNewestProducts from
   "@/components/customer/home/HomeNewestProducts";
 
+import HomeAllProducts from
+  "@/components/customer/home/HomeAllProducts";
+
 import HomePromoBanner from
   "@/components/customer/home/HomePromoBanner";
 
@@ -459,6 +462,7 @@ const [
   featuredProducts,
   bestSellingGroups,
   newestProducts,
+  allProducts,
   categories,
   repeatPurchaseItems,
   customerHomeSummary,
@@ -661,8 +665,70 @@ const [
             "desc",
         },
 
-        take:
+          take:
           10,
+      }),
+
+      /**
+       * ========================================================
+       * ALL PRODUCTS
+       * ========================================================
+       *
+       * Section katalog produk umum pada homepage.
+       *
+       * Hanya mengambil 12 produk awal agar homepage tidak
+       * melakukan query/render seluruh katalog sekaligus.
+       *
+       * Tombol "Lihat Semua" tetap mengarah ke halaman katalog
+       * melalui productsHref.
+       * ========================================================
+       */
+      prisma.product.findMany({
+        where: {
+          deletedAt: null,
+          isPublished: true,
+        },
+
+        include: {
+          images: {
+            orderBy: {
+              sortOrder: "asc",
+            },
+          },
+
+          variantGroups: {
+            where: {
+              isActive: true,
+            },
+
+            select: {
+              id: true,
+            },
+
+            take: 1,
+          },
+
+          skus: {
+            where: {
+              isActive: true,
+            },
+
+            orderBy: {
+              price: "asc",
+            },
+
+            select: {
+              price: true,
+              stock: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        take: 12,
       }),
 
       /**
@@ -1097,6 +1163,20 @@ customerUserId
         )
     );
 
+  /**
+   * ============================================================
+   * SERIALIZE ALL PRODUCTS
+   * ============================================================
+   */
+
+  const serializedAllProducts =
+    allProducts.map(
+      (product) =>
+        serializeHomepageProduct(
+          product
+        )
+    );
+
 /**
  * ============================================================
  * SERIALIZE BELANJA LAGI
@@ -1457,6 +1537,20 @@ const serializedRepeatPurchaseProducts =
         <HomeNewestProducts
           products={
             serializedNewestProducts
+          }
+
+          productsHref={
+            productsHref
+          }
+        />
+
+        {/* ====================================================
+            ALL PRODUCTS
+        ==================================================== */}
+
+        <HomeAllProducts
+          products={
+            serializedAllProducts
           }
 
           productsHref={

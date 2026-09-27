@@ -3328,6 +3328,65 @@ model StoreSettings {
 }
 
 // ============================================================
+// SOCIAL & STORE LINKS
+// ============================================================
+//
+// Konfigurasi link eksternal storefront.
+//
+// Berbeda dari StoreSettings karena:
+// - StoreSettings = identitas dan operasional toko
+// - SocialStoreLinks = kanal distribusi / social presence
+//
+// Digunakan oleh:
+// - Footer storefront
+// - CTA Google Play
+// - Marketplace links
+// - Social media links
+//
+// ============================================================
+
+model SocialStoreLinks {
+  id String @id @default(uuid())
+
+  /**
+   * ==========================================================
+   * APPLICATION / GOOGLE PLAY
+   * ==========================================================
+   */
+
+  googlePlayUrl String?
+
+  /**
+   * ==========================================================
+   * MARKETPLACE
+   * ==========================================================
+   */
+
+  shopeeUrl    String?
+  tokopediaUrl String?
+
+  /**
+   * ==========================================================
+   * SOCIAL MEDIA
+   * ==========================================================
+   */
+
+  tiktokUrl    String?
+  instagramUrl String?
+
+  /**
+   * ==========================================================
+   * TIMESTAMPS
+   * ==========================================================
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("social_store_links")
+}
+
+// ============================================================
 // LANDING PAGE SETTINGS
 // ============================================================
 //

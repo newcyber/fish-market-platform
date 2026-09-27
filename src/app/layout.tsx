@@ -169,6 +169,30 @@ export default async function RootLayout({
 
   const isLandingHost = siteUrls.landingHosts.includes(requestHost);
 
+  /**
+  * ========================================================
+  * SEO SCHEMA BASE URL
+  * ========================================================
+  *
+  * JSON-LD harus mengikuti host yang sedang dilayani.
+  *
+  * Landing:
+  * https://pusatikansegar.com
+  *
+  * Storefront:
+  * https://app.pusatikansegar.com
+  *
+  * Jangan selalu menggunakan landingPageUrl karena
+  * storefront memiliki entity WebSite / Organization
+  * pada host yang berbeda.
+  *
+  * ========================================================
+  */
+
+  const schemaBaseUrl = isLandingHost
+    ? siteUrls.landingPageUrl
+    : siteUrls.storefrontUrl;
+
   return (
     <html
       lang="id"
@@ -179,7 +203,11 @@ export default async function RootLayout({
         <SessionProvider>
           <OneSignalProvider />
 
-          <SiteJsonLd settings={settings} siteUrls={siteUrls} />
+          <SiteJsonLd
+            settings={settings}
+            siteUrls={siteUrls}
+            baseUrl={schemaBaseUrl}
+          />
 
           {children}
 

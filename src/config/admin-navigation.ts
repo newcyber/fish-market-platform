@@ -359,6 +359,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         roles: SUPER_ADMIN_ONLY,
         order: 8,
       },
+
+      {
+        id: "social-store-links",
+        title: "Social & Store Links",
+        href: "/admin/social-store-links",
+        icon: "settings",
+        roles: SUPER_ADMIN_ONLY,
+        order: 99,
+      },
     ],
   },
 
