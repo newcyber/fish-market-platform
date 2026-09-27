@@ -208,6 +208,14 @@ jobs:
             -o StrictHostKeyChecking=yes
             -o ConnectTimeout=15
           )
+          SCP_OPTS=(
+            -i "$HOME/.ssh/deploy_key"
+            -P "$PORT"
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=15
+          )
+
 
           trap 'rm -f "$HOME/.ssh/deploy_key"' EXIT
 
@@ -248,7 +256,7 @@ jobs:
 
           echo "Artifact size   : $(du -h "$LOCAL_ARTIFACT" | cut -f1)"
 
-          scp "${SSH_OPTS[@]}" \
+          scp "${SCP_OPTS[@]}" \
             "$LOCAL_ARTIFACT" \
             "$VPS_USER@$VPS_HOST:$REMOTE_ZIP"
 
