@@ -516,6 +516,8 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const checkoutSubmissionLockRef = useRef(false);
+
   /**
 
    * ==========================================================
@@ -799,108 +801,231 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
    */
 
   async function handleCheckout() {
-    if (isSubmitting) {
-      return;
-    }
+  /**
+   * ==========================================================
+   * SYNCHRONOUS SUBMISSION LOCK
+   * ==========================================================
+   *
+   * Mencegah dua event checkout berjalan bersamaan.
+   *
+   * Jangan menggunakan useRef di dalam function ini.
+   * Ref sudah dibuat di level component.
+   */
+  if (checkoutSubmissionLockRef.current) {
+    return;
+  }
 
-    if (!validateChecklistSections()) {
-      return;
-    }
+  /**
+   * ==========================================================
+   * VALIDATION
+   * ==========================================================
+   */
 
-    if (!selectedAddressId) {
-      setErrorMessage("Silakan pilih alamat pengiriman terlebih dahulu.");
+  if (!validateChecklistSections()) {
+    return;
+  }
 
-      return;
-    }
+  if (!selectedAddressId) {
+    setErrorMessage(
+      "Silakan pilih alamat pengiriman terlebih dahulu.",
+    );
 
-    if (!selectedShippingProvider) {
-      setErrorMessage("Silakan pilih metode pengiriman terlebih dahulu.");
+    return;
+  }
 
-      return;
-    }
+  if (!selectedShippingProvider) {
+    setErrorMessage(
+      "Silakan pilih metode pengiriman terlebih dahulu.",
+    );
 
-    if (
-      selectedShippingProvider === "INTERNAL" &&
-      !internalShippingResult.available
-    ) {
-      setErrorMessage(
-        internalShippingResult.reason ||
-          "Kurir internal tidak tersedia untuk alamat ini.",
-      );
+    return;
+  }
 
-      return;
-    }
+  if (
+    selectedShippingProvider === "INTERNAL" &&
+    !internalShippingResult.available
+  ) {
+    setErrorMessage(
+      internalShippingResult.reason ||
+        "Kurir internal tidak tersedia untuk alamat ini.",
+    );
 
-    if (!selectedPaymentChannelId) {
-      setErrorMessage("Silakan pilih metode pembayaran terlebih dahulu.");
+    return;
+  }
 
-      return;
-    }
+  if (!selectedPaymentChannelId) {
+    setErrorMessage(
+      "Silakan pilih metode pembayaran terlebih dahulu.",
+    );
 
-    if (items.length === 0) {
-      setErrorMessage("Keranjang belanja Anda kosong.");
+    return;
+  }
 
-      return;
-    }
+  if (items.length === 0) {
+    setErrorMessage(
+      "Keranjang belanja Anda kosong.",
+    );
 
-    if (!checkoutConfirmed) {
-      setErrorMessage(
-        "Silakan centang konfirmasi pesanan sebelum melanjutkan.",
-      );
+    return;
+  }
 
-      scrollToCheckoutSection(checkoutConfirmationRef);
+  if (!checkoutConfirmed) {
+    setErrorMessage(
+      "Silakan centang konfirmasi pesanan sebelum melanjutkan.",
+    );
 
-      return;
-    }
+    scrollToCheckoutSection(
+      checkoutConfirmationRef,
+    );
 
-    try {
-      setIsSubmitting(true);
+    return;
+  }
 
-      setErrorMessage(null);
+  /**
+   * ==========================================================
+   * ACQUIRE SUBMISSION LOCK
+   * ==========================================================
+   *
+   * Lock dipasang setelah semua validation berhasil.
+   */
+  checkoutSubmissionLockRef.current = true;
 
-      const result = await createCheckoutOrderAction({
+  setIsSubmitting(true);
+  setErrorMessage(null);
+
+  try {
+    /**
+     * ========================================================
+     * CREATE ORDER
+     * ========================================================
+     */
+
+    const result =
+      await createCheckoutOrderAction({
         addressId: selectedAddressId,
 
-        paymentChannelId: selectedPaymentChannelId,
+        paymentChannelId:
+          selectedPaymentChannelId,
 
-        shippingProvider: selectedShippingProvider,
+        shippingProvider:
+          selectedShippingProvider,
 
-        notes: notes.trim() || null,
+        notes:
+          notes.trim() || null,
 
-        voucherCode: appliedVoucher?.code ?? null,
+        voucherCode:
+          appliedVoucher?.code ?? null,
 
-        checkoutConfirmed: checkoutConfirmed,
+        checkoutConfirmed:
+          checkoutConfirmed,
 
-        selectedItemIds: selectedItemIds,
+        selectedItemIds:
+          selectedItemIds,
       });
 
-      if (!result.success) {
-        setErrorMessage(result.message || "Gagal membuat pesanan.");
+    /**
+     * ========================================================
+     * SERVER ACTION FAILURE
+     * ========================================================
+     */
 
-        return;
-      }
+    if (!result.success) {
+      checkoutSubmissionLockRef.current = false;
 
-      if (!result.orderId) {
-        setErrorMessage(
-          "Pesanan berhasil dibuat, tetapi ID pesanan tidak ditemukan.",
-        );
-
-        return;
-      }
-
-      router.push(`/customer/orders/${result.orderId}/payment`);
-
-      router.refresh();
-    } catch (error) {
-      console.error("[CHECKOUT_FORM_ERROR]", error);
+      setIsSubmitting(false);
 
       setErrorMessage(
-        "Terjadi kesalahan saat memproses pesanan. Silakan coba lagi.",
+        result.message ||
+          "Gagal membuat pesanan.",
       );
-    } finally {
-      setIsSubmitting(false);
+
+      return;
     }
+
+    /**
+     * ========================================================
+     * ORDER ID VALIDATION
+     * ========================================================
+     *
+     * Server menyatakan checkout sukses, tetapi orderId
+     * WAJIB tersedia sebelum melakukan navigation.
+     */
+
+    if (!result.orderId) {
+      console.error(
+        "[CHECKOUT_REDIRECT_ERROR] Checkout succeeded without orderId.",
+        result,
+      );
+
+      checkoutSubmissionLockRef.current = false;
+
+      setIsSubmitting(false);
+
+      setErrorMessage(
+        "Pesanan berhasil dibuat, tetapi ID pesanan tidak ditemukan. Silakan buka daftar pesanan Anda.",
+      );
+
+      return;
+    }
+
+    /**
+     * ========================================================
+     * CHECKOUT SUCCESS
+     * ========================================================
+     */
+
+    console.info(
+      "[CHECKOUT_SUCCESS] Redirecting to payment.",
+      {
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+      },
+    );
+
+    /**
+     * ========================================================
+     * NAVIGATE TO PAYMENT
+     * ========================================================
+     *
+     * IMPORTANT:
+     *
+     * Gunakan router.replace(), bukan router.push().
+     *
+     * JANGAN tambahkan router.refresh() setelah ini.
+     *
+     * Checkout sudah selesai dan user harus langsung masuk
+     * ke halaman pembayaran.
+     */
+    router.replace(
+      `/customer/orders/${result.orderId}/payment`,
+    );
+
+    /**
+     * Jangan reset checkoutSubmissionLockRef di sini.
+     *
+     * Navigation sedang berlangsung.
+     */
+  } catch (error) {
+    /**
+     * ========================================================
+     * UNEXPECTED ERROR
+     * ========================================================
+     */
+
+    console.error(
+      "[CHECKOUT_FORM_ERROR]",
+      error,
+    );
+
+    checkoutSubmissionLockRef.current = false;
+
+    setIsSubmitting(false);
+
+    setErrorMessage(
+      "Terjadi kesalahan saat memproses pesanan. Silakan coba lagi.",
+    );
   }
+}
 
   /**
 

@@ -301,6 +301,15 @@ const result =
     const order =
       result.data;
 
+    console.info(
+      "[CREATE_CHECKOUT_ORDER_SUCCESS]",
+      {
+        userId: session.user.id,
+        orderId: order?.id,
+        orderNumber: order?.orderNumber,
+      },
+    );
+
     /**
      * ==========================================================
      * REVALIDATE CACHE
