@@ -939,86 +939,6 @@ try {
                     <CreditCard className="h-5 w-5 text-slate-700" />
                   )}
 
-                  {order.paymentProof && (
-  <div className="mt-4 rounded-xl border border-slate-200 p-4">
-    <p className="text-sm font-semibold text-slate-900">
-      Informasi Bukti Pembayaran
-    </p>
-
-    <div className="mt-3 space-y-3 text-sm">
-      {order.paymentProof.bankName && (
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-slate-500">
-            Bank
-          </span>
-
-          <span className="text-right font-medium text-slate-900">
-            {order.paymentProof.bankName}
-          </span>
-        </div>
-      )}
-
-      {order.paymentProof.accountName && (
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-slate-500">
-            Nama Pengirim
-          </span>
-
-          <span className="text-right font-medium text-slate-900">
-            {order.paymentProof.accountName}
-          </span>
-        </div>
-      )}
-
-      {order.paymentProof.accountNumber && (
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-slate-500">
-            Nomor Rekening
-          </span>
-
-          <span className="text-right font-mono font-medium text-slate-900">
-            {order.paymentProof.accountNumber}
-          </span>
-        </div>
-      )}
-
-      <div className="flex items-start justify-between gap-4">
-        <span className="text-slate-500">
-          Diunggah
-        </span>
-
-        <span className="text-right text-slate-700">
-          {formatDate(order.paymentProof.createdAt)}
-        </span>
-      </div>
-
-      {order.paymentProof.verifiedAt && (
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-slate-500">
-            Diverifikasi
-          </span>
-
-          <span className="text-right text-slate-700">
-            {formatDate(order.paymentProof.verifiedAt)}
-          </span>
-        </div>
-      )}
-    </div>
-
-    {isPaymentRejected && order.paymentProof.rejectionReason && (
-      <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
-          Alasan Penolakan
-        </p>
-
-        <p className="mt-1 text-sm leading-6 text-red-800">
-          {order.paymentProof.rejectionReason}
-        </p>
-      </div>
-    )}
-  </div>
-)}
-
                 </div>
 
                 <div>
@@ -1032,6 +952,103 @@ try {
                 </div>
 
               </div>
+
+              {order.paymentProof && (
+                <div className="mt-4 rounded-xl border border-slate-200 p-4">
+
+                  <p className="text-sm font-semibold text-slate-900">
+                    Informasi Bukti Pembayaran
+                  </p>
+
+                  <div className="mt-3 space-y-3 text-sm">
+
+                    {order.paymentProof.bankName && (
+                      <div className="flex items-start justify-between gap-4">
+
+                        <span className="text-slate-500">
+                          Bank
+                        </span>
+
+                        <span className="text-right font-medium text-slate-900">
+                          {order.paymentProof.bankName}
+                        </span>
+
+                      </div>
+                    )}
+
+                    {order.paymentProof.accountName && (
+                      <div className="flex items-start justify-between gap-4">
+
+                        <span className="text-slate-500">
+                          Nama Pengirim
+                        </span>
+
+                        <span className="text-right font-medium text-slate-900">
+                          {order.paymentProof.accountName}
+                        </span>
+
+                      </div>
+                    )}
+
+                    {order.paymentProof.accountNumber && (
+                      <div className="flex items-start justify-between gap-4">
+
+                        <span className="text-slate-500">
+                          Nomor Rekening
+                        </span>
+
+                        <span className="text-right font-mono font-medium text-slate-900">
+                          {order.paymentProof.accountNumber}
+                        </span>
+
+                      </div>
+                    )}
+
+                    <div className="flex items-start justify-between gap-4">
+
+                      <span className="text-slate-500">
+                        Diunggah
+                      </span>
+
+                      <span className="text-right text-slate-700">
+                        {formatDate(order.paymentProof.createdAt)}
+                      </span>
+
+                    </div>
+
+                    {order.paymentProof.verifiedAt && (
+                      <div className="flex items-start justify-between gap-4">
+
+                        <span className="text-slate-500">
+                          Diverifikasi
+                        </span>
+
+                        <span className="text-right text-slate-700">
+                          {formatDate(order.paymentProof.verifiedAt)}
+                        </span>
+
+                      </div>
+                    )}
+
+                  </div>
+
+                  {isPaymentRejected &&
+                    order.paymentProof.rejectionReason && (
+                      <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                          Alasan Penolakan
+                        </p>
+
+                        <p className="mt-1 text-sm leading-6 text-red-800">
+                          {order.paymentProof.rejectionReason}
+                        </p>
+
+                      </div>
+                    )}
+
+                </div>
+              )}
 
               {/* ============================================== */}
               {/* QRIS */}
