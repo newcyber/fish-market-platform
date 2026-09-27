@@ -4549,10 +4549,7 @@ export default class OrderService {
             paymentProof.proof.confirmationEventId ?? undefined,
         });
       } catch (notificationError) {
-        console.error(
-          "[PAYMENT_PROOF_NOTIFICATION_ERROR]",
-          notificationError,
-        );
+        console.error("[PAYMENT_PROOF_NOTIFICATION_ERROR]", notificationError);
       }
       /**
        * ========================================================
@@ -5890,75 +5887,75 @@ export default class OrderService {
        * Admin tetap wajib memverifikasi pembayaran.
        * ========================================================
        */
-const confirmationEventId = randomUUID();
+      const confirmationEventId = randomUUID();
 
-const paymentProof = await prisma.$transaction(async (tx) => {
-  const proof = await tx.paymentProof.upsert({
-    where: {
-      orderId: order.id,
-    },
-    create: {
-      orderId: order.id,
-      image: null,
-      bankName: "QRIS",
-      accountName: null,
-      accountNumber: null,
-      status: PaymentStatus.PENDING,
-      verifiedAt: null,
-      verifiedById: null,
-      rejectionReason: null,
-      confirmationEventId,
-    },
-    update: {
-      image: null,
-      bankName: "QRIS",
-      accountName: null,
-      accountNumber: null,
-      status: PaymentStatus.PENDING,
-      verifiedAt: null,
-      verifiedById: null,
-      rejectionReason: null,
-      confirmationEventId,
-    },
-  });
+      const paymentProof = await prisma.$transaction(async (tx) => {
+        const proof = await tx.paymentProof.upsert({
+          where: {
+            orderId: order.id,
+          },
+          create: {
+            orderId: order.id,
+            image: null,
+            bankName: "QRIS",
+            accountName: null,
+            accountNumber: null,
+            status: PaymentStatus.PENDING,
+            verifiedAt: null,
+            verifiedById: null,
+            rejectionReason: null,
+            confirmationEventId,
+          },
+          update: {
+            image: null,
+            bankName: "QRIS",
+            accountName: null,
+            accountNumber: null,
+            status: PaymentStatus.PENDING,
+            verifiedAt: null,
+            verifiedById: null,
+            rejectionReason: null,
+            confirmationEventId,
+          },
+        });
 
-  await tx.order.update({
-    where: {
-      id: order.id,
-    },
-    data: {
-      paymentStatus: PaymentStatus.PENDING,
-    },
-  });
+        await tx.order.update({
+          where: {
+            id: order.id,
+          },
+          data: {
+            paymentStatus: PaymentStatus.PENDING,
+          },
+        });
 
-  return proof;
-});
+        return proof;
+      });
 
-/**
- * ========================================================
- * CREATE ADMIN NOTIFICATION
- * ========================================================
- */
-try {
-await notificationService.createPaymentProofNotification({
-  orderId: order.id,
-  orderNumber: order.orderNumber,
-  paymentProofId: paymentProof.id,
-  confirmationEventId:
-    paymentProof.confirmationEventId ?? confirmationEventId,
-});
-} catch (notificationError) {
-  console.error(
-    "[CONFIRM_QRIS_PAYMENT_NOTIFICATION_ERROR]",
-    notificationError,
-  );
-}
+      /**
+       * ========================================================
+       * CREATE ADMIN NOTIFICATION
+       * ========================================================
+       */
+      try {
+        await notificationService.createPaymentProofNotification({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          paymentProofId: paymentProof.id,
+          confirmationEventId:
+            paymentProof.confirmationEventId ?? confirmationEventId,
+        });
+      } catch (notificationError) {
+        console.error(
+          "[CONFIRM_QRIS_PAYMENT_NOTIFICATION_ERROR]",
+          notificationError,
+        );
+      }
 
-/**
- * ========================================================
- * SUCCESS
- * ========================================================
- */
+      /**
+       * ========================================================
+       * SUCCESS
+       * ========================================================
+       */
       return {
         success: true,
         message:
