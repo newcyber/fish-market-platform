@@ -1,20 +1,21 @@
 name: Deploy Production
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       build_run_id:
-        description: "GitHub Actions Build Run ID to deploy"
+        description: "GitHub Actions Build Run ID containing the production artifact"
         required: true
         type: string
-
-  workflow_run:
-    workflows:
-      - Linux Production Build & Deploy
-    types:
-      - completed
-    branches:
-      - ci/linux-production-build
+    secrets:
+      VPS_HOST:
+        required: true
+      VPS_USER:
+        required: true
+      VPS_PORT:
+        required: false
+      VPS_SSH_KEY:
+        required: true
 
 permissions:
   actions: read
@@ -28,13 +29,6 @@ jobs:
   deploy:
     name: Deploy Production Artifact
     runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success'
-      )
-
     env:
       DEPLOY_PATH: /var/www/fish-market-platform
       PM2_APP: fish-market-platform
@@ -43,48 +37,30 @@ jobs:
     steps:
       - name: Resolve build run
         id: resolve-run
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RUN_ID="${{ inputs.build_run_id }}"
-          else
-            RUN_ID="${{ github.event.workflow_run.id }}"
-          fi
+          RUN_ID="${{ inputs.build_run_id }}"
+          HEAD_SHA="${{ github.sha }}"
 
-          RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
-
-          WORKFLOW_NAME="$(printf '%s' "$RUN_JSON" | jq -r '.name')"
-          CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion')"
-          BRANCH="$(printf '%s' "$RUN_JSON" | jq -r '.head_branch')"
-          HEAD_SHA="$(printf '%s' "$RUN_JSON" | jq -r '.head_sha')"
-          RUN_REPO="$(printf '%s' "$RUN_JSON" | jq -r '.repository.full_name')"
-
-          test "$WORKFLOW_NAME" = "Linux Production Build & Deploy"
-          test "$CONCLUSION" = "success"
-          test "$BRANCH" = "ci/linux-production-build"
-          test "$RUN_REPO" = "$GITHUB_REPOSITORY"
+          test -n "$RUN_ID"
+          test "$RUN_ID" != "null"
+          test -n "$HEAD_SHA"
           test "$HEAD_SHA" != "null"
-          test "$HEAD_SHA" != ""
 
           echo "BUILD_RUN_ID=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "HEAD_SHA=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
-          echo "Build workflow : $WORKFLOW_NAME"
-          echo "Build run ID    : $RUN_ID"
-          echo "Build branch    : $BRANCH"
-          echo "Build commit    : $HEAD_SHA"
-          echo "Build conclusion: $CONCLUSION"
+          echo "Build run ID : $RUN_ID"
+          echo "Build commit : $HEAD_SHA"
 
       - name: Download production artifact
         uses: actions/download-artifact@v4
         with:
           name: next-production-build-${{ steps.resolve-run.outputs.HEAD_SHA }}
           path: ./artifact
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           run-id: ${{ steps.resolve-run.outputs.BUILD_RUN_ID }}
 
       - name: Prepare deployment package
@@ -208,6 +184,14 @@ jobs:
             -o StrictHostKeyChecking=yes
             -o ConnectTimeout=15
           )
+          SCP_OPTS=(
+            -i "$HOME/.ssh/deploy_key"
+            -P "$PORT"
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=15
+          )
+
 
           trap 'rm -f "$HOME/.ssh/deploy_key"' EXIT
 
@@ -227,10 +211,29 @@ jobs:
              mkdir -p '$REMOTE_TMP'"
 
           echo
+          echo
           echo "=== UPLOAD ARTIFACT ==="
 
-          scp "${SSH_OPTS[@]}" \
-            ./deploy-package/next-production-build.zip \
+          LOCAL_ARTIFACT="$GITHUB_WORKSPACE/deploy-package/next-production-build.zip"
+
+          echo "Workspace       : $GITHUB_WORKSPACE"
+          echo "Local artifact  : $LOCAL_ARTIFACT"
+
+          if [ ! -f "$LOCAL_ARTIFACT" ]; then
+            echo "ERROR: Production artifact not found."
+            echo
+            echo "=== DEPLOY PACKAGE ==="
+            find "$GITHUB_WORKSPACE/deploy-package" \
+              -maxdepth 2 \
+              -type f \
+              -ls 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "Artifact size   : $(du -h "$LOCAL_ARTIFACT" | cut -f1)"
+
+          scp "${SCP_OPTS[@]}" \
+            "$LOCAL_ARTIFACT" \
             "$VPS_USER@$VPS_HOST:$REMOTE_ZIP"
 
           echo
@@ -278,7 +281,43 @@ jobs:
             echo "========================================"
             echo "DEPLOYMENT FAILED"
             echo "========================================"
-            echo "Exit code: $STATUS"
+            echo "Exit code       : $STATUS"
+            echo "Deploy ID       : ${DEPLOY_ID:-unknown}"
+            echo "Expected SHA    : ${EXPECTED_SHA:-unknown}"
+            echo "Expected Run ID : ${EXPECTED_RUN_ID:-unknown}"
+            echo "Remote TMP      : ${REMOTE_TMP:-unknown}"
+            echo "Remote ZIP      : ${REMOTE_ZIP:-unknown}"
+            echo "New NEXT        : ${NEW_NEXT:-unknown}"
+            echo "Backup NEXT     : ${BACKUP_NEXT:-unknown}"
+            echo "Current PWD     : $(pwd)"
+            echo "Last command    : ${BASH_COMMAND:-unknown}"
+
+            echo
+            echo "=== REMOTE DEPLOY DEBUG ==="
+
+            if [ -n "${DEPLOY_PATH:-}" ] && [ -d "$DEPLOY_PATH" ]; then
+              echo "DEPLOY_PATH exists: PASS"
+            else
+              echo "DEPLOY_PATH exists: FAIL"
+            fi
+
+            if [ -n "${REMOTE_TMP:-}" ]; then
+              echo
+              echo "--- REMOTE TMP ---"
+              ls -lah "$REMOTE_TMP" 2>/dev/null || true
+            fi
+
+            if [ -n "${REMOTE_ZIP:-}" ]; then
+              echo
+              echo "--- REMOTE ZIP ---"
+              ls -lh "$REMOTE_ZIP" 2>/dev/null || true
+            fi
+
+            if [ -n "${DEPLOY_PATH:-}" ] && [ -f "$DEPLOY_PATH/.next/BUILD_ID" ]; then
+              echo
+              echo "--- ACTIVE BUILD ---"
+              cat "$DEPLOY_PATH/.next/BUILD_ID" || true
+            fi
 
             rollback
 

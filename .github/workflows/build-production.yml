@@ -8,14 +8,15 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: pisjo-production-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    name: Build, Validate & Deploy to VPS
+  build:
+    name: Build & Validate Production
     runs-on: ubuntu-latest
 
     services:
@@ -35,13 +36,6 @@ jobs:
 
     env:
       CI_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
-      VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_USER: ${{ secrets.VPS_USER }}
-      VPS_PORT: ${{ secrets.VPS_PORT }}
-      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      DEPLOY_DIR: /var/www/fish-market-platform
-      PM2_APP_NAME: fish-market-platform
-      PRODUCTION_URL: https://app.pusatikansegar.com
 
     steps:
       - name: Checkout
@@ -314,13 +308,23 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+
       - name: Build artifact summary
         if: success()
         run: |
           echo "========================================"
           echo "PISJO MARKET BUILD COMPLETE"
           echo "========================================"
-          echo "Commit : $GITHUB_SHA"
-          echo "Branch : $GITHUB_REF_NAME"
+          echo "Commit  : $GITHUB_SHA"
+          echo "Branch  : $GITHUB_REF_NAME"
           echo "Artifact: next-production-build-$GITHUB_SHA"
-          echo "Deployment is handled by deploy-production.yml."
+          echo "Next    : deploy-production.yml"
+
+
+  deploy-production:
+    name: Deploy Production Artifact
+    needs: build
+    uses: ./.github/workflows/deploy-production.yml
+    with:
+      build_run_id: ${{ github.run_id }}
+    secrets: inherit
