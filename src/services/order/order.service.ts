@@ -4443,6 +4443,21 @@ export default class OrderService {
          * ====================================================
          */
         const oldImagePath = order.paymentProof?.image ?? null;
+
+        /**
+         * ====================================================
+         * 5.1 CREATE PAYMENT CONFIRMATION EVENT ID
+         * ====================================================
+         *
+         * Setiap upload atau upload ulang bukti pembayaran
+         * merupakan event pembayaran baru.
+         *
+         * Event ID disimpan pada PaymentProof dan digunakan
+         * sebagai idempotency key notification.
+         * ====================================================
+         */
+        const confirmationEventId = randomUUID();
+
         /**
          * ====================================================
          * 6. CREATE OR UPDATE PAYMENT PROOF
@@ -4462,6 +4477,7 @@ export default class OrderService {
             verifiedAt: null,
             verifiedById: null,
             rejectionReason: null,
+            confirmationEventId,
           },
           update: {
             image: uploadedImagePath!,
@@ -4476,6 +4492,7 @@ export default class OrderService {
             verifiedAt: null,
             verifiedById: null,
             rejectionReason: null,
+            confirmationEventId,
           },
         });
         /**
@@ -4513,6 +4530,7 @@ export default class OrderService {
           proof,
           oldImagePath,
           orderNumber: order.orderNumber,
+          confirmationEventId,
         };
       });
       /**
@@ -4545,8 +4563,7 @@ export default class OrderService {
           orderId: input.orderId,
           orderNumber: paymentProof.orderNumber,
           paymentProofId: paymentProof.proof.id,
-          confirmationEventId:
-            paymentProof.proof.confirmationEventId ?? undefined,
+          confirmationEventId: paymentProof.confirmationEventId,
         });
       } catch (notificationError) {
         console.error("[PAYMENT_PROOF_NOTIFICATION_ERROR]", notificationError);
@@ -5928,7 +5945,10 @@ export default class OrderService {
           },
         });
 
-        return proof;
+        return {
+          proof,
+          confirmationEventId,
+        };
       });
 
       /**
@@ -5940,9 +5960,8 @@ export default class OrderService {
         await notificationService.createPaymentProofNotification({
           orderId: order.id,
           orderNumber: order.orderNumber,
-          paymentProofId: paymentProof.id,
-          confirmationEventId:
-            paymentProof.confirmationEventId ?? confirmationEventId,
+          paymentProofId: paymentProof.proof.id,
+          confirmationEventId: paymentProof.confirmationEventId,
         });
       } catch (notificationError) {
         console.error(
