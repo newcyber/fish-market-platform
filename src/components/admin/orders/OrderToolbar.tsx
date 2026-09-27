@@ -4,22 +4,11 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import {
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 
-import {
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import {
-  OrderStatus,
-  PaymentStatus,
-} from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 
@@ -112,10 +101,7 @@ const STATUS_TABS: Array<{
  * ==========================================================
  */
 
-function getStatusCount(
-  value: "all" | OrderStatus,
-  counts: OrderStatusCounts
-) {
+function getStatusCount(value: "all" | OrderStatus, counts: OrderStatusCounts) {
   if (value === "all") {
     return counts.total;
   }
@@ -139,8 +125,7 @@ export default function OrderToolbar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [searchValue, setSearchValue] =
-    useState(search);
+  const [searchValue, setSearchValue] = useState(search);
 
   /**
    * ==========================================================
@@ -158,19 +143,48 @@ export default function OrderToolbar({
    */
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      const params = new URLSearchParams(
-        searchParams.toString()
-      );
+    const normalizedSearch = searchValue.trim();
 
-      const normalizedSearch =
-        searchValue.trim();
+    const currentSearch = searchParams.get("search")?.trim() ?? "";
+
+    /**
+     * ==========================================================
+     * NO-OP GUARD
+     * ==========================================================
+     *
+     * Jangan melakukan navigation ketika nilai search
+     * sebenarnya belum berubah.
+     *
+     * Ini penting karena effect berjalan ketika component
+     * pertama kali mount.
+     *
+     * Sebelumnya:
+     *
+     * /admin/orders
+     *      ↓
+     * router.replace("/admin/orders")
+     *      ↓
+     * server navigation / refresh
+     *
+     * Sekarang:
+     *
+     * currentSearch === normalizedSearch
+     *      ↓
+     * return
+     *
+     * sehingga visit pertama tidak menyebabkan navigation.
+     * ==========================================================
+     */
+
+    if (currentSearch === normalizedSearch) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
 
       if (normalizedSearch) {
-        params.set(
-          "search",
-          normalizedSearch
-        );
+        params.set("search", normalizedSearch);
       } else {
         params.delete("search");
       }
@@ -183,25 +197,15 @@ export default function OrderToolbar({
 
       const queryString = params.toString();
 
-      router.replace(
-        queryString
-          ? `${pathname}?${queryString}`
-          : pathname,
-        {
-          scroll: false,
-        }
-      );
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+        scroll: false,
+      });
     }, 400);
 
     return () => {
       clearTimeout(timeout);
     };
-  }, [
-    searchValue,
-    pathname,
-    router,
-    searchParams,
-  ]);
+  }, [searchValue, pathname, router, searchParams]);
 
   /**
    * ==========================================================
@@ -209,23 +213,13 @@ export default function OrderToolbar({
    * ==========================================================
    */
 
-  function handleStatusChange(
-    nextStatus: string
-  ) {
-    const params = new URLSearchParams(
-      searchParams.toString()
-    );
+  function handleStatusChange(nextStatus: string) {
+    const params = new URLSearchParams(searchParams.toString());
 
-    if (
-      !nextStatus ||
-      nextStatus === "all"
-    ) {
+    if (!nextStatus || nextStatus === "all") {
       params.delete("status");
     } else {
-      params.set(
-        "status",
-        nextStatus
-      );
+      params.set("status", nextStatus);
     }
 
     /**
@@ -236,58 +230,38 @@ export default function OrderToolbar({
 
     const queryString = params.toString();
 
-    router.push(
-      queryString
-        ? `${pathname}?${queryString}`
-        : pathname,
-      {
-        scroll: false,
-      }
-    );
-  }
-
-/**
- * ==========================================================
- * PAYMENT STATUS FILTER
- * ==========================================================
- */
-
-function handlePaymentStatusChange(
-  nextPaymentStatus: string | null
-) {
-  const params = new URLSearchParams(
-    searchParams.toString()
-  );
-
-  if (
-    !nextPaymentStatus ||
-    nextPaymentStatus === "all"
-  ) {
-    params.delete("paymentStatus");
-  } else {
-    params.set(
-      "paymentStatus",
-      nextPaymentStatus
-    );
+    router.push(queryString ? `${pathname}?${queryString}` : pathname, {
+      scroll: false,
+    });
   }
 
   /**
-   * Filter berubah →
-   * kembali ke halaman pertama.
+   * ==========================================================
+   * PAYMENT STATUS FILTER
+   * ==========================================================
    */
-  params.delete("page");
 
-  const queryString = params.toString();
+  function handlePaymentStatusChange(nextPaymentStatus: string | null) {
+    const params = new URLSearchParams(searchParams.toString());
 
-  router.push(
-    queryString
-      ? `${pathname}?${queryString}`
-      : pathname,
-    {
-      scroll: false,
+    if (!nextPaymentStatus || nextPaymentStatus === "all") {
+      params.delete("paymentStatus");
+    } else {
+      params.set("paymentStatus", nextPaymentStatus);
     }
-  );
-}
+
+    /**
+     * Filter berubah →
+     * kembali ke halaman pertama.
+     */
+    params.delete("page");
+
+    const queryString = params.toString();
+
+    router.push(queryString ? `${pathname}?${queryString}` : pathname, {
+      scroll: false,
+    });
+  }
 
   /**
    * ==========================================================
@@ -319,24 +293,15 @@ function handlePaymentStatusChange(
         <div className="-mx-1 overflow-x-auto px-1 pb-1">
           <div className="flex min-w-max gap-2">
             {STATUS_TABS.map((tab) => {
-              const isActive =
-                status === tab.value;
+              const isActive = status === tab.value;
 
-              const count =
-                getStatusCount(
-                  tab.value,
-                  statusCounts
-                );
+              const count = getStatusCount(tab.value, statusCounts);
 
               return (
                 <button
                   key={tab.value}
                   type="button"
-                  onClick={() =>
-                    handleStatusChange(
-                      tab.value
-                    )
-                  }
+                  onClick={() => handleStatusChange(tab.value)}
                   className={[
                     "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border px-3.5 text-sm font-medium transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pisjo-primary)]/30",
@@ -345,9 +310,7 @@ function handlePaymentStatusChange(
                       : "border-slate-200 bg-white text-slate-600 hover:border-[var(--pisjo-primary)] hover:bg-[var(--pisjo-soft-blue)] hover:text-[var(--pisjo-ocean)]",
                   ].join(" ")}
                 >
-                  <span>
-                    {tab.label}
-                  </span>
+                  <span>{tab.label}</span>
 
                   <span
                     className={[
@@ -357,9 +320,7 @@ function handlePaymentStatusChange(
                         : "bg-slate-100 text-slate-600",
                     ].join(" ")}
                   >
-                    {count.toLocaleString(
-                      "id-ID"
-                    )}
+                    {count.toLocaleString("id-ID")}
                   </span>
                 </button>
               );
@@ -387,11 +348,7 @@ function handlePaymentStatusChange(
             <input
               type="search"
               value={searchValue}
-              onChange={(event) =>
-                setSearchValue(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setSearchValue(event.target.value)}
               placeholder="Cari nomor order, customer, atau produk..."
               aria-label="Cari pesanan"
               className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[var(--pisjo-primary)] focus:ring-2 focus:ring-[var(--pisjo-primary)]/10"
@@ -404,42 +361,24 @@ function handlePaymentStatusChange(
 
           <Select
             value={paymentStatus}
-            onValueChange={
-              handlePaymentStatusChange
-            }
+            onValueChange={handlePaymentStatusChange}
           >
             <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white text-sm lg:w-[210px]">
               <SelectValue placeholder="Pembayaran" />
             </SelectTrigger>
 
             <SelectContent>
-              <SelectItem value="all">
-                Semua Pembayaran
-              </SelectItem>
+              <SelectItem value="all">Semua Pembayaran</SelectItem>
 
-              <SelectItem
-                value={
-                  PaymentStatus.PENDING
-                }
-              >
+              <SelectItem value={PaymentStatus.PENDING}>
                 Menunggu Pembayaran
               </SelectItem>
 
-              <SelectItem
-                value={
-                  PaymentStatus.VERIFIED
-                }
-              >
+              <SelectItem value={PaymentStatus.VERIFIED}>
                 Terverifikasi
               </SelectItem>
 
-              <SelectItem
-                value={
-                  PaymentStatus.REJECTED
-                }
-              >
-                Ditolak
-              </SelectItem>
+              <SelectItem value={PaymentStatus.REJECTED}>Ditolak</SelectItem>
             </SelectContent>
           </Select>
 
@@ -448,10 +387,7 @@ function handlePaymentStatusChange(
           {/* ================================================== */}
 
           <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
-            <Link
-              href="/admin/orders/trash"
-              className="w-full sm:w-auto"
-            >
+            <Link href="/admin/orders/trash" className="w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -462,10 +398,7 @@ function handlePaymentStatusChange(
               </Button>
             </Link>
 
-            <Link
-              href="/admin/orders/create"
-              className="w-full sm:w-auto"
-            >
+            <Link href="/admin/orders/create" className="w-full sm:w-auto">
               <Button
                 type="button"
                 className="h-11 w-full gap-2 rounded-xl bg-[var(--pisjo-primary)] px-5 text-white shadow-sm hover:bg-[var(--pisjo-ocean)] sm:w-auto"

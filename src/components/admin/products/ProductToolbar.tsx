@@ -56,48 +56,160 @@ export function ProductToolbar({
 
 useEffect(() => {
   const timeout = window.setTimeout(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      searchParams.toString()
+    );
 
-    if (searchValue.trim()) {
-      params.set("search", searchValue.trim());
+    const normalizedSearch =
+      searchValue.trim();
+
+    const normalizedCategory =
+      categoryValue && categoryValue !== "all"
+        ? categoryValue
+        : "";
+
+    const normalizedStatus =
+      statusValue && statusValue !== "all"
+        ? statusValue
+        : "";
+
+    const normalizedStock =
+      stockValue && stockValue !== "all"
+        ? stockValue
+        : "";
+
+    const currentSearch =
+      searchParams.get("search")?.trim() ?? "";
+
+    const currentCategory =
+      searchParams.get("category") ?? "";
+
+    const currentStatus =
+      searchParams.get("status") ?? "";
+
+    const currentStock =
+      searchParams.get("stock") ?? "";
+
+    /**
+     * ==========================================================
+     * CHECK WHETHER FILTER ACTUALLY CHANGED
+     * ==========================================================
+     *
+     * Pagination TIDAK dianggap sebagai perubahan filter.
+     *
+     * Contoh:
+     *
+     * /admin/products?page=2&limit=12
+     *
+     * Search/category/status/stock tetap sama.
+     *
+     * Maka kita TIDAK boleh menghapus page.
+     */
+    const filtersChanged =
+      currentSearch !== normalizedSearch ||
+      currentCategory !== normalizedCategory ||
+      currentStatus !== normalizedStatus ||
+      currentStock !== normalizedStock;
+
+    /**
+     * ==========================================================
+     * UPDATE SEARCH
+     * ==========================================================
+     */
+
+    if (normalizedSearch) {
+      params.set(
+        "search",
+        normalizedSearch
+      );
     } else {
       params.delete("search");
     }
 
-    if (categoryValue && categoryValue !== "all") {
-      params.set("category", categoryValue);
+    /**
+     * ==========================================================
+     * UPDATE CATEGORY
+     * ==========================================================
+     */
+
+    if (normalizedCategory) {
+      params.set(
+        "category",
+        normalizedCategory
+      );
     } else {
       params.delete("category");
     }
 
-    if (statusValue && statusValue !== "all") {
-      params.set("status", statusValue);
+    /**
+     * ==========================================================
+     * UPDATE STATUS
+     * ==========================================================
+     */
+
+    if (normalizedStatus) {
+      params.set(
+        "status",
+        normalizedStatus
+      );
     } else {
       params.delete("status");
     }
 
-    if (stockValue && stockValue !== "all") {
-      params.set("stock", stockValue);
+    /**
+     * ==========================================================
+     * UPDATE STOCK
+     * ==========================================================
+     */
+
+    if (normalizedStock) {
+      params.set(
+        "stock",
+        normalizedStock
+      );
     } else {
       params.delete("stock");
     }
 
-    // Filter/search berubah → kembali ke halaman pertama.
-    params.delete("page");
+    /**
+     * ==========================================================
+     * RESET PAGE ONLY WHEN FILTER CHANGED
+     * ==========================================================
+     */
 
-    const query = params.toString();
-    const nextUrl = query ? `${pathname}?${query}` : pathname;
+    if (filtersChanged) {
+      params.delete("page");
+    }
 
-    // Hindari router.replace() jika URL tidak berubah.
-    const currentUrl = searchParams.toString()
-      ? `${pathname}?${searchParams.toString()}`
-      : pathname;
+    const query =
+      params.toString();
+
+    const nextUrl =
+      query
+        ? `${pathname}?${query}`
+        : pathname;
+
+    const currentUrl =
+      searchParams.toString()
+        ? `${pathname}?${searchParams.toString()}`
+        : pathname;
+
+    /**
+     * ==========================================================
+     * NO-OP GUARD
+     * ==========================================================
+     */
 
     if (nextUrl === currentUrl) {
       return;
     }
 
-    router.replace(nextUrl);
+    router.replace(
+      nextUrl,
+      {
+        scroll: false,
+      }
+    );
   }, 400);
 
   return () => {
