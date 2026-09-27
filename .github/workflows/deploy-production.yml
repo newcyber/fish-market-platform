@@ -209,349 +209,6 @@ jobs:
           echo
           echo "Upload completed."
 
-      - name: Deploy production artifact to VPS
-        shell: bash
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-        run: |
-          set -euo pipefail
-
-          echo "========================================"
-          echo "DEPLOY PRODUCTION TO VPS"
-          echo "========================================"
-
-          if [ -z "$VPS_HOST" ]; then
-            echo "ERROR: VPS_HOST is missing"
-            exit 1
-          fi
-
-          if [ -z "$VPS_USER" ]; then
-            echo "ERROR: VPS_USER is missing"
-            exit 1
-          fi
-
-          if [ -z "$VPS_PORT" ]; then
-            echo "ERROR: VPS_PORT is missing"
-            exit 1
-          fi
-
-          if [ -z "$VPS_SSH_KEY" ]; then
-            echo "ERROR: VPS_SSH_KEY is missing"
-            exit 1
-          fi
-
-          echo
-          echo "=== SSH CONFIGURATION ==="
-          echo "Host : $VPS_HOST"
-          echo "User : $VPS_USER"
-          echo "Port : $VPS_PORT"
-
-          echo
-          echo "=== PREPARE SSH KEY ==="
-
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
-
-          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/deploy_key"
-          chmod 600 "$HOME/.ssh/deploy_key"
-
-          ssh-keyscan \
-            -p "$VPS_PORT" \
-            -H "$VPS_HOST" \
-            >> "$HOME/.ssh/known_hosts"
-
-          chmod 644 "$HOME/.ssh/known_hosts"
-
-          SSH_OPTS=(
-            -i "$HOME/.ssh/deploy_key"
-            -p "$VPS_PORT"
-            -o BatchMode=yes
-            -o StrictHostKeyChecking=yes
-            -o ConnectTimeout=15
-          )
-
-          echo
-          echo "=== TEST SSH CONNECTION ==="
-
-          ssh "${SSH_OPTS[@]}" \
-            "$VPS_USER@$VPS_HOST" \
-            'echo "SSH_CONNECTION_OK"; hostname; whoami'
-
-          echo
-          echo "=== CALCULATE DEPLOYMENT ID ==="
-
-          DEPLOY_ID="$(date -u +%Y%m%d-%H%M%S)"
-          REMOTE_DIR="/var/www/fish-market-platform"
-          REMOTE_TMP="/tmp/pisjo-deploy-${DEPLOY_ID}"
-          REMOTE_ZIP="${REMOTE_TMP}/next-production-build.zip"
-
-          echo "Deploy ID : $DEPLOY_ID"
-          echo "Remote    : $REMOTE_DIR"
-          echo "Temporary : $REMOTE_TMP"
-
-          echo
-          echo "=== PREPARE REMOTE DIRECTORY ==="
-
-          ssh "${SSH_OPTS[@]}" \
-            "$VPS_USER@$VPS_HOST" \
-            "set -euo pipefail
-             rm -rf '$REMOTE_TMP'
-             mkdir -p '$REMOTE_TMP'
-             test -d '$REMOTE_DIR'
-             echo 'REMOTE_DIRECTORY_OK'"
-
-          echo
-          echo "=== UPLOAD PRODUCTION ARTIFACT ==="
-
-          scp \
-            "${SSH_OPTS[@]}" \
-            next-production-build.zip \
-            "$VPS_USER@$VPS_HOST:$REMOTE_ZIP"
-
-          echo
-          echo "=== VERIFY REMOTE ARTIFACT ==="
-
-          ssh "${SSH_OPTS[@]}" \
-            "$VPS_USER@$VPS_HOST" \
-            "set -euo pipefail
-
-             test -f '$REMOTE_ZIP'
-
-             echo 'Remote artifact:'
-             ls -lh '$REMOTE_ZIP'
-
-             echo
-             echo 'Testing ZIP integrity...'
-             unzip -t '$REMOTE_ZIP' >/tmp/pisjo-remote-zip-test-${DEPLOY_ID}.log
-
-             tail -5 /tmp/pisjo-remote-zip-test-${DEPLOY_ID}.log
-
-             echo
-             echo 'Remote artifact integrity: PASS'"
-
-          echo
-          echo "=== DEPLOY TO VPS ==="
-
-          ssh "${SSH_OPTS[@]}" \
-            "$VPS_USER@$VPS_HOST" \
-            "set -euo pipefail
-
-             cd '$REMOTE_DIR'
-
-             INNER='$REMOTE_ZIP'
-             NEW_NEXT='$REMOTE_TMP/next'
-             BACKUP_NEXT='$REMOTE_DIR/.next-backup-${DEPLOY_ID}'
-
-             echo '========================================'
-             echo 'EXTRACT PRODUCTION ARTIFACT'
-             echo '========================================'
-
-             rm -rf \"\$NEW_NEXT\"
-             mkdir -p \"\$NEW_NEXT\"
-
-             unzip -q \"\$INNER\" -d \"\$NEW_NEXT\"
-
-             echo
-             echo '=== NEW BUILD ID ==='
-             cat \"\$NEW_NEXT/BUILD_ID\"
-
-             echo
-             echo '=== NEW METADATA ==='
-             cat \"\$NEW_NEXT/deploy-meta/build-info.txt\"
-
-             echo
-             echo '=== VALIDATE BUILD ID ==='
-
-             test -s \"\$NEW_NEXT/BUILD_ID\"
-             test -s \"\$NEW_NEXT/deploy-meta/build-info.txt\"
-
-             BUILD_ID=\"\$(cat \"\$NEW_NEXT/BUILD_ID\")\"
-
-             echo \"BUILD_ID=\$BUILD_ID\"
-
-             echo
-             echo '=== VALIDATE COMMIT ==='
-
-             grep '^COMMIT_SHA=' \
-               \"\$NEW_NEXT/deploy-meta/build-info.txt\"
-
-             echo
-             echo '=== VALIDATE BRANCH ==='
-
-             grep '^BRANCH=' \
-               \"\$NEW_NEXT/deploy-meta/build-info.txt\"
-
-             echo
-             echo '=== VALIDATE PRISMA ENGINE ==='
-
-             test -f \
-               \"\$NEW_NEXT/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node\"
-
-             echo 'Prisma Linux engine: PASS'
-
-             echo
-             echo '=== VALIDATE SEO BUNDLES ==='
-
-             BREADCRUMB_COUNT=\"\$(
-               grep -R \
-                 --include='*.js' \
-                 -o '\"@type\":\"BreadcrumbList\"' \
-                 \"\$NEW_NEXT/server\" 2>/dev/null \
-                 | wc -l \
-                 | tr -d ' '
-             )\"
-
-             PRODUCT_COUNT=\"\$(
-               grep -R \
-                 --include='*.js' \
-                 -o '\"@type\":\"Product\"' \
-                 \"\$NEW_NEXT/server\" 2>/dev/null \
-                 | wc -l \
-                 | tr -d ' '
-             )\"
-
-             OFFER_COUNT=\"\$(
-               grep -R \
-                 --include='*.js' \
-                 -o '\"@type\":\"AggregateOffer\"' \
-                 \"\$NEW_NEXT/server\" 2>/dev/null \
-                 | wc -l \
-                 | tr -d ' '
-             )\"
-
-             echo \"Product        : \$PRODUCT_COUNT\"
-             echo \"AggregateOffer : \$OFFER_COUNT\"
-             echo \"BreadcrumbList : \$BREADCRUMB_COUNT\"
-
-             test \"\$PRODUCT_COUNT\" -ge 1
-             test \"\$OFFER_COUNT\" -ge 1
-             test \"\$BREADCRUMB_COUNT\" -ge 1
-
-             echo
-             echo '=== CREATE PRODUCTION BACKUP ==='
-
-             if [ -d '.next' ]; then
-               mv '.next' \"\$BACKUP_NEXT\"
-               echo \"Backup: \$BACKUP_NEXT\"
-             else
-               echo 'No existing .next directory.'
-             fi
-
-             echo
-             echo '=== ACTIVATE NEW BUILD ==='
-
-             mv \"\$NEW_NEXT\" '.next'
-
-             echo
-             echo '=== ACTIVE BUILD ==='
-
-             cat '.next/BUILD_ID'
-
-             echo
-             echo '=== RESTART PM2 ==='
-
-             if ! pm2 restart fish-market-platform; then
-               echo 'PM2 restart failed.'
-               echo 'Starting rollback...'
-
-               rm -rf '.next'
-
-               if [ -d \"\$BACKUP_NEXT\" ]; then
-                 mv \"\$BACKUP_NEXT\" '.next'
-                 pm2 restart fish-market-platform || true
-               fi
-
-               exit 1
-             fi
-
-             echo
-             echo 'Waiting for application startup...'
-             sleep 8
-
-             echo
-             echo '=== LOCAL HEALTH CHECK ==='
-
-             LOCAL_HTTP_CODE=\"\$(curl -sS -o /dev/null \
-               -w '%{http_code}' \
-               --max-time 20 \
-               http://localhost:3000/products/ikan-bandeng-fresh-frozen)"
-
-             echo \"Local HTTP: \$LOCAL_HTTP_CODE\"
-
-             if [ \"\$LOCAL_HTTP_CODE\" != '200' ]; then
-               echo 'Local health check FAILED.'
-               echo 'Starting rollback...'
-
-               pm2 stop fish-market-platform || true
-
-               rm -rf '.next'
-
-               if [ -d \"\$BACKUP_NEXT\" ]; then
-                 mv \"\$BACKUP_NEXT\" '.next'
-                 pm2 restart fish-market-platform || true
-               fi
-
-               exit 1
-             fi
-
-             echo
-             echo '=== PUBLIC HEALTH CHECK ==='
-
-             PUBLIC_HTTP_CODE=\"\$(curl -sS -o /dev/null \
-               -w '%{http_code}' \
-               --max-time 20 \
-               https://app.pusatikansegar.com/products/ikan-bandeng-fresh-frozen)"
-
-             echo \"Public HTTP: \$PUBLIC_HTTP_CODE\"
-
-             if [ \"\$PUBLIC_HTTP_CODE\" != '200' ]; then
-               echo 'Public health check FAILED.'
-               echo 'Starting rollback...'
-
-               pm2 stop fish-market-platform || true
-
-               rm -rf '.next'
-
-               if [ -d \"\$BACKUP_NEXT\" ]; then
-                 mv \"\$BACKUP_NEXT\" '.next'
-                 pm2 restart fish-market-platform || true
-               fi
-
-               exit 1
-             fi
-
-             echo
-             echo '=== PM2 STATUS ==='
-
-             pm2 show fish-market-platform \
-               | grep -E 'status|pid|script path|exec cwd' || true
-
-             echo
-             echo '========================================'
-             echo 'PRODUCTION DEPLOYMENT SUCCESS'
-             echo '========================================'
-
-             echo \"BUILD_ID=\$BUILD_ID\"
-             echo \"DEPLOY_ID=$DEPLOY_ID\"
-             echo \"LOCAL_HTTP=\$LOCAL_HTTP_CODE\"
-             echo \"PUBLIC_HTTP=\$PUBLIC_HTTP_CODE\"
-
-             echo
-             echo 'Deployment completed successfully.'"
-
-          echo
-          echo "=== CLEANUP LOCAL SSH MATERIAL ==="
-
-          rm -f "$HOME/.ssh/deploy_key"
-
-          echo
-          echo "========================================"
-          echo "GITHUB ACTIONS DEPLOYMENT COMPLETE"
-          echo "========================================"
-
       # ============================================================
       # 6. DEPLOY + HEALTH CHECK + ROLLBACK
       # ============================================================
@@ -700,6 +357,8 @@ jobs:
 
           test -f "$NEW_NEXT/BUILD_ID"
           test -f "$NEW_NEXT/deploy-meta/build-info.txt"
+          test -f "$NEW_NEXT/deploy-meta/prisma/schema.prisma"
+          test -d "$NEW_NEXT/deploy-meta/prisma/migrations"
 
           echo
           echo "Required files: PASS"
@@ -758,6 +417,42 @@ jobs:
 
           echo
           echo "Artifact validation: PASS"
+
+          # --------------------------------------------------------
+          # VALIDATE + APPLY PRISMA MIGRATIONS
+          # --------------------------------------------------------
+
+          echo
+          echo "========================================"
+          echo "PRISMA MIGRATION VALIDATION"
+          echo "========================================"
+
+          MIGRATION_ROOT="$NEW_NEXT/deploy-meta/prisma"
+          test -f "$MIGRATION_ROOT/schema.prisma"
+          test -d "$MIGRATION_ROOT/migrations"
+
+          MIGRATION_COUNT="$(
+            find "$MIGRATION_ROOT/migrations" \
+              -mindepth 1 -maxdepth 1 -type d \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Packaged migrations: $MIGRATION_COUNT"
+          test "$MIGRATION_COUNT" -ge 1
+
+          echo
+          echo "========================================"
+          echo "PRISMA MIGRATE DEPLOY"
+          echo "========================================"
+
+          # Apply DB migrations while the previous application build is still
+          # untouched. If a migration fails, set -e exits here and rollback()
+          # restores the previous .next build.
+          pnpm exec prisma migrate deploy \
+            --schema "$MIGRATION_ROOT/schema.prisma"
+
+          echo "Prisma migrations: PASS"
 
           # --------------------------------------------------------
           # BACKUP CURRENT BUILD

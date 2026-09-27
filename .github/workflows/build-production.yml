@@ -206,6 +206,26 @@ jobs:
 
           echo "PRISMA_PACKAGING=PASS"
 
+      - name: Package Prisma migrations for production artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "========================================"
+          echo "PACKAGE PRISMA MIGRATIONS"
+          echo "========================================"
+
+          test -f prisma/schema.prisma || { echo "ERROR: prisma/schema.prisma not found"; exit 1; }
+          test -d prisma/migrations || { echo "ERROR: prisma/migrations not found"; exit 1; }
+
+          mkdir -p .next/deploy-meta/prisma
+          cp prisma/schema.prisma .next/deploy-meta/prisma/schema.prisma
+          cp -a prisma/migrations .next/deploy-meta/prisma/
+
+          MIGRATION_COUNT="$(find .next/deploy-meta/prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          echo "Prisma migrations packaged: $MIGRATION_COUNT"
+          test "$MIGRATION_COUNT" -ge 1
+          echo "PRISMA_MIGRATION_PACKAGING=PASS"
+
       - name: Create artifact metadata
         shell: bash
         run: |
@@ -269,6 +289,9 @@ jobs:
           test -s "$TMP_ARTIFACT/BUILD_ID"
           test -s "$TMP_ARTIFACT/deploy-meta/build-info.txt"
           test -f "$TMP_ARTIFACT/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
+          test -f "$TMP_ARTIFACT/deploy-meta/prisma/schema.prisma"
+          test -d "$TMP_ARTIFACT/deploy-meta/prisma/migrations"
+          test "$(find "$TMP_ARTIFACT/deploy-meta/prisma/migrations" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" -ge 1
 
           for marker in Product AggregateOffer BreadcrumbList; do
             case "$marker" in
@@ -291,190 +314,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Configure SSH
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          test -n "${VPS_HOST:-}" || { echo "ERROR: VPS_HOST secret is missing"; exit 1; }
-          test -n "${VPS_USER:-}" || { echo "ERROR: VPS_USER secret is missing"; exit 1; }
-          test -n "${VPS_PORT:-}" || { echo "ERROR: VPS_PORT secret is missing"; exit 1; }
-          test -n "${VPS_SSH_KEY:-}" || { echo "ERROR: VPS_SSH_KEY secret is missing"; exit 1; }
-
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
-          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/deploy_key"
-          chmod 600 "$HOME/.ssh/deploy_key"
-
-          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> "$HOME/.ssh/known_hosts"
-          chmod 644 "$HOME/.ssh/known_hosts"
-
-          echo "SSH configuration ready."
-
-      - name: Test VPS SSH connection
-        shell: bash
-        run: |
-          set -euo pipefail
-          ssh \
-            -i "$HOME/.ssh/deploy_key" \
-            -p "$VPS_PORT" \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes \
-            "$VPS_USER@$VPS_HOST" \
-            "echo SSH_CONNECTION=PASS && hostname && whoami"
-
-      - name: Upload production artifact to VPS
-        shell: bash
-        run: |
-          set -euo pipefail
-          scp \
-            -i "$HOME/.ssh/deploy_key" \
-            -P "$VPS_PORT" \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes \
-            ./next-production-build.zip \
-            "$VPS_USER@$VPS_HOST:/tmp/next-production-build.zip"
-          echo "UPLOAD=PASS"
-
-      - name: Deploy production artifact to VPS
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          DEPLOY_ID="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_RUN_ID}"
-          REMOTE_TMP="/tmp/pisjo-deploy-${DEPLOY_ID}"
-
-          ssh \
-            -i "$HOME/.ssh/deploy_key" \
-            -p "$VPS_PORT" \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes \
-            "$VPS_USER@$VPS_HOST" \
-            "DEPLOY_ID='$DEPLOY_ID' REMOTE_TMP='$REMOTE_TMP' EXPECTED_COMMIT='$GITHUB_SHA' DEPLOY_DIR='$DEPLOY_DIR' PM2_APP_NAME='$PM2_APP_NAME' PRODUCTION_URL='$PRODUCTION_URL' bash -s" <<'REMOTE_SCRIPT'
-          set -euo pipefail
-
-          cd "$DEPLOY_DIR"
-          REMOTE_ZIP="/tmp/next-production-build.zip"
-          test -s "$REMOTE_ZIP"
-
-          rm -rf "$REMOTE_TMP"
-          mkdir -p "$REMOTE_TMP/next"
-
-          echo "=== ZIP TEST ==="
-          unzip -t "$REMOTE_ZIP" >/tmp/pisjo-remote-zip-test.log
-          tail -5 /tmp/pisjo-remote-zip-test.log
-
-          echo "=== EXTRACT ==="
-          unzip -q "$REMOTE_ZIP" -d "$REMOTE_TMP/next"
-
-          test -s "$REMOTE_TMP/next/BUILD_ID"
-          test -s "$REMOTE_TMP/next/deploy-meta/build-info.txt"
-
-          echo "=== BUILD ID ==="
-          cat "$REMOTE_TMP/next/BUILD_ID"
-
-          echo "=== METADATA ==="
-          cat "$REMOTE_TMP/next/deploy-meta/build-info.txt"
-
-          REMOTE_COMMIT="$(awk -F= '$1=="COMMIT_SHA"{print $2}' "$REMOTE_TMP/next/deploy-meta/build-info.txt")"
-          if [ "$REMOTE_COMMIT" != "$EXPECTED_COMMIT" ]; then
-            echo "ERROR: Artifact commit mismatch"
-            echo "Expected: $EXPECTED_COMMIT"
-            echo "Actual  : $REMOTE_COMMIT"
-            exit 1
-          fi
-
-          echo "=== PRISMA VALIDATION ==="
-          test -f "$REMOTE_TMP/next/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node"
-          echo "Prisma Linux engine: PASS"
-
-          echo "=== SEO VALIDATION ==="
-          for marker in Product AggregateOffer BreadcrumbList; do
-            case "$marker" in
-              Product) pattern='"@type":"Product"' ;;
-              AggregateOffer) pattern='"@type":"AggregateOffer"' ;;
-              BreadcrumbList) pattern='"@type":"BreadcrumbList"' ;;
-            esac
-            count="$(grep -R --include='*.js' -o "$pattern" "$REMOTE_TMP/next/server" 2>/dev/null | wc -l | tr -d ' ')"
-            echo "$marker: $count"
-            test "$count" -ge 1 || { echo "ERROR: $marker missing"; exit 1; }
-          done
-
-          BACKUP_DIR="$DEPLOY_DIR/.next-backup-${DEPLOY_ID}"
-
-          if [ -d "$DEPLOY_DIR/.next" ]; then
-            mv "$DEPLOY_DIR/.next" "$BACKUP_DIR"
-            echo "Backup: $BACKUP_DIR"
-          fi
-
-          mv "$REMOTE_TMP/next" "$DEPLOY_DIR/.next"
-          echo "Active BUILD_ID: $(cat "$DEPLOY_DIR/.next/BUILD_ID")"
-
-          pm2 restart "$PM2_APP_NAME" --update-env
-          sleep 8
-
-          pm2 show "$PM2_APP_NAME" | grep -E 'status|pid|script path|exec cwd' || true
-
-          echo "=== LOCAL HEALTH CHECK ==="
-          HTTP_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 http://127.0.0.1:3000/products/ikan-bandeng-fresh-frozen)"
-          echo "Local HTTP: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "ERROR: Local health check failed"
-            if [ -d "$BACKUP_DIR" ]; then
-              rm -rf "$DEPLOY_DIR/.next"
-              mv "$BACKUP_DIR" "$DEPLOY_DIR/.next"
-              pm2 restart "$PM2_APP_NAME" --update-env || true
-            fi
-            exit 1
-          fi
-
-          echo "=== PUBLIC HEALTH CHECK ==="
-          PUBLIC_CODE="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time 30 "$PRODUCTION_URL/products/ikan-bandeng-fresh-frozen")"
-          echo "Public HTTP: $PUBLIC_CODE"
-
-          if [ "$PUBLIC_CODE" != "200" ]; then
-            echo "ERROR: Public health check failed"
-            if [ -d "$BACKUP_DIR" ]; then
-              rm -rf "$DEPLOY_DIR/.next"
-              mv "$BACKUP_DIR" "$DEPLOY_DIR/.next"
-              pm2 restart "$PM2_APP_NAME" --update-env || true
-            fi
-            exit 1
-          fi
-
-          echo "=== PRODUCTION SEO CHECK ==="
-          curl -k -sS --max-time 30 "$PRODUCTION_URL/products/ikan-bandeng-fresh-frozen" > /tmp/pisjo-final-production.html
-          grep -q '<title>Ikan Bandeng Fresh Frozen | Pisjo Market</title>' /tmp/pisjo-final-production.html
-          grep -q 'rel="canonical"' /tmp/pisjo-final-production.html
-          grep -q '"@type":"Product"' /tmp/pisjo-final-production.html
-          grep -q '"@type":"AggregateOffer"' /tmp/pisjo-final-production.html
-          grep -q '"@type":"BreadcrumbList"' /tmp/pisjo-final-production.html
-          echo "Production SEO check: PASS"
-
-          rm -f "$REMOTE_ZIP"
-          rm -rf "$REMOTE_TMP"
-
-          echo "========================================"
-          echo "DEPLOYMENT SUCCESS"
-          echo "========================================"
-          echo "BUILD_ID=$(cat "$DEPLOY_DIR/.next/BUILD_ID")"
-          echo "COMMIT_SHA=$EXPECTED_COMMIT"
-          echo "URL=$PRODUCTION_URL"
-          REMOTE_SCRIPT
-
-      - name: Deployment summary
+      - name: Build artifact summary
         if: success()
         run: |
           echo "========================================"
-          echo "PISJO MARKET DEPLOYMENT COMPLETE"
+          echo "PISJO MARKET BUILD COMPLETE"
           echo "========================================"
           echo "Commit : $GITHUB_SHA"
           echo "Branch : $GITHUB_REF_NAME"
-          echo "URL    : $PRODUCTION_URL"
-
-      - name: Cleanup SSH key
-        if: always()
-        shell: bash
-        run: |
-          rm -f "$HOME/.ssh/deploy_key"
+          echo "Artifact: next-production-build-$GITHUB_SHA"
+          echo "Deployment is handled by deploy-production.yml."
