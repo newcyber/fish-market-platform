@@ -8,6 +8,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import AdminAccessToast from "@/components/admin/dashboard/AdminAccessToast";
 import { DashboardKpiCard } from "@/components/admin/dashboard/cards/DashboardKpiCard";
 import { DashboardTodayCards } from "@/components/admin/dashboard/cards/DashboardTodayCards";
 import { QuickActionCard } from "@/components/admin/dashboard/cards/QuickActionCard";
@@ -54,130 +55,191 @@ function formatFullCurrency(value: number) {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
-  const dashboard = await DashboardService.getDashboard();
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+}) {
+  /**
+   * =========================================================
+   * QUERY PARAMETER
+   * =========================================================
+   */
+
+  const params = await searchParams;
+
+  const showSuperAdminRequired =
+    params.error === "super-admin-required";
+
+  /**
+   * =========================================================
+   * DASHBOARD DATA
+   * =========================================================
+   */
+
+  const dashboard =
+    await DashboardService.getDashboard();
 
   const { stats } = dashboard;
 
+  /**
+   * =========================================================
+   * PAGE
+   * =========================================================
+   */
+
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      <DashboardHeader />
+    <>
+      {/* =====================================================
+       * SUPER ADMIN ACCESS TOAST
+       * ===================================================== */}
 
-      {/* =========================================================
-       * OVERVIEW
-       * ========================================================= */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-        <DashboardKpiCard
-          title="Total Pesanan"
-          value={stats.totalOrders.toLocaleString("id-ID")}
-          description="Seluruh pesanan"
-          icon={ShoppingCart}
-        />
-
-        <DashboardKpiCard
-          title="Total Penjualan"
-          value={formatCompactCurrency(stats.totalSales)}
-          description="Pembayaran terverifikasi"
-          icon={Wallet}
-        />
-
-        <DashboardKpiCard
-          title="Total Poin Customer"
-          value={stats.totalRewardPoints.toLocaleString("id-ID")}
-          description="Saldo poin seluruh customer"
-          icon={Wallet}
-        />
-
-        <DashboardKpiCard
-          title="Total Customer"
-          value={stats.totalCustomers.toLocaleString("id-ID")}
-          description="Customer terdaftar"
-          icon={Users}
-        />
-
-        <DashboardKpiCard
-          title="Total Produk"
-          value={stats.totalProducts.toLocaleString("id-ID")}
-          description="Produk aktif dalam katalog"
-          icon={Boxes}
-        />
-      </section>
-
-      {/* =========================================================
-       * TODAY SUMMARY
-       * ========================================================= */}
-      <DashboardTodayCards
-        orders={dashboard.today.orders}
-        sales={dashboard.today.sales}
-        pendingPayments={stats.pendingPayments}
+      <AdminAccessToast
+        error={params.error}
       />
 
-      {/* =========================================================
-       * QUICK ACTIONS
-       * ========================================================= */}
-      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <QuickActionCard
-          title="Tambah Produk"
-          description="Tambah produk baru"
-          href="/admin/products/create"
-          icon={PackagePlus}
+      <div className="flex min-w-0 flex-col gap-6">
+        <DashboardHeader />
+
+        {/* =========================================================
+         * OVERVIEW
+         * ========================================================= */}
+
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+          <DashboardKpiCard
+            title="Total Pesanan"
+            value={stats.totalOrders.toLocaleString("id-ID")}
+            description="Seluruh pesanan"
+            icon={ShoppingCart}
+          />
+
+          <DashboardKpiCard
+            title="Total Penjualan"
+            value={formatCompactCurrency(stats.totalSales)}
+            description="Pembayaran terverifikasi"
+            icon={Wallet}
+          />
+
+          <DashboardKpiCard
+            title="Total Poin Customer"
+            value={stats.totalRewardPoints.toLocaleString("id-ID")}
+            description="Saldo poin seluruh customer"
+            icon={Wallet}
+          />
+
+          <DashboardKpiCard
+            title="Total Customer"
+            value={stats.totalCustomers.toLocaleString("id-ID")}
+            description="Customer terdaftar"
+            icon={Users}
+          />
+
+          <DashboardKpiCard
+            title="Total Produk"
+            value={stats.totalProducts.toLocaleString("id-ID")}
+            description="Produk aktif dalam katalog"
+            icon={Boxes}
+          />
+        </section>
+
+        {/* =========================================================
+         * TODAY SUMMARY
+         * ========================================================= */}
+
+        <DashboardTodayCards
+          orders={dashboard.today.orders}
+          sales={dashboard.today.sales}
+          pendingPayments={stats.pendingPayments}
         />
 
-        <QuickActionCard
-          title="Kelola Order"
-          description="Lihat seluruh pesanan"
-          href="/admin/orders"
-          icon={ClipboardList}
-        />
+        {/* =========================================================
+         * QUICK ACTIONS
+         * ========================================================= */}
 
-        <QuickActionCard
-          title="Kelola Customer"
-          description="Daftar pelanggan"
-          href="/admin/customers"
-          icon={Users}
-        />
+        <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <QuickActionCard
+            title="Tambah Produk"
+            description="Tambah produk baru"
+            href="/admin/products/create"
+            icon={PackagePlus}
+          />
 
-        <QuickActionCard
-          title="Laporan"
-          description="Lihat statistik penjualan"
-          href="/admin/reports"
-          icon={BarChart3}
-        />
-      </section>
+          <QuickActionCard
+            title="Kelola Order"
+            description="Lihat seluruh pesanan"
+            href="/admin/orders"
+            icon={ClipboardList}
+          />
 
-      {/* =========================================================
-       * SALES & ORDER STATUS
-       * ========================================================= */}
-      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)]">
-        <SalesChart data={dashboard.salesLast7Days} />
+          <QuickActionCard
+            title="Kelola Customer"
+            description="Daftar pelanggan"
+            href="/admin/customers"
+            icon={Users}
+          />
 
-        <OrderStatusDonut data={dashboard.orderStatusSummary} />
-      </section>
+          <QuickActionCard
+            title="Laporan"
+            description="Lihat statistik penjualan"
+            href="/admin/reports"
+            icon={BarChart3}
+          />
+        </section>
 
-      {/* =========================================================
-       * SALES BY CATEGORY
-       * ========================================================= */}
-      <section className="min-w-0">
-        <CategorySalesChart data={dashboard.salesByCategory} />
-      </section>
+        {/* =========================================================
+         * SALES & ORDER STATUS
+         * ========================================================= */}
 
-      {/* =========================================================
-       * RECENT ORDERS & LOW STOCK
-       * ========================================================= */}
-      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
-        <RecentOrders data={dashboard.recentOrders} />
+        <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)]">
+          <SalesChart
+            data={dashboard.salesLast7Days}
+          />
 
-        <LowStockAlert data={dashboard.lowStockSkus} />
-      </section>
+          <OrderStatusDonut
+            data={dashboard.orderStatusSummary}
+          />
+        </section>
 
-      {/* =========================================================
-       * RECENT ACTIVITY & CUSTOMERS
-       * ========================================================= */}
-      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)]">
-        <RecentActivity data={dashboard.recentActivities} />
+        {/* =========================================================
+         * SALES BY CATEGORY
+         * ========================================================= */}
 
-        <RecentCustomers data={dashboard.recentCustomers} />
-      </section>
-    </div>
+        <section className="min-w-0">
+          <CategorySalesChart
+            data={dashboard.salesByCategory}
+          />
+        </section>
+
+        {/* =========================================================
+         * RECENT ORDERS & LOW STOCK
+         * ========================================================= */}
+
+        <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+          <RecentOrders
+            data={dashboard.recentOrders}
+          />
+
+          <LowStockAlert
+            data={dashboard.lowStockSkus}
+          />
+        </section>
+
+        {/* =========================================================
+         * RECENT ACTIVITY & CUSTOMERS
+         * ========================================================= */}
+
+        <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)]">
+          <RecentActivity
+            data={dashboard.recentActivities}
+          />
+
+          <RecentCustomers
+            data={dashboard.recentCustomers}
+          />
+        </section>
+      </div>
+    </>
   );
 }

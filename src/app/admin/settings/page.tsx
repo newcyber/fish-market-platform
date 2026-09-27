@@ -1,192 +1,193 @@
-import { requireSuperAdmin } from "@/lib/auth/admin";
+import {
+  BarChart3,
+  Boxes,
+  ClipboardList,
+  PackagePlus,
+  ShoppingCart,
+  Users,
+  Wallet,
+} from "lucide-react";
 
-import ChangelogSettings from "@/components/admin/settings/ChangelogSettings";
-import SettingsForm from "@/components/admin/settings/SettingsForm";
-import changelogService from "@/services/changelog/changelog.service";
-import settingsService from "@/services/settings/settings.service";
+import { DashboardKpiCard } from "@/components/admin/dashboard/cards/DashboardKpiCard";
+import { DashboardTodayCards } from "@/components/admin/dashboard/cards/DashboardTodayCards";
+import { QuickActionCard } from "@/components/admin/dashboard/cards/QuickActionCard";
+import { CategorySalesChart } from "@/components/admin/dashboard/charts/CategorySalesChart";
+import { OrderStatusDonut } from "@/components/admin/dashboard/charts/OrderStatusDonut";
+import { SalesChart } from "@/components/admin/dashboard/charts/SalesChart";
+import { DashboardHeader } from "@/components/admin/dashboard/sections/DashboardHeader";
+import { LowStockAlert } from "@/components/admin/dashboard/sections/LowStockAlert";
+import { RecentActivity } from "@/components/admin/dashboard/sections/RecentActivity";
+import { RecentCustomers } from "@/components/admin/dashboard/sections/RecentCustomers";
+import { RecentOrders } from "@/components/admin/dashboard/sections/RecentOrders";
 
-/**
- * ============================================================
- * ADMIN STORE SETTINGS PAGE
- * ============================================================
- *
- * Flow:
- *
- * /admin/settings
- *       ↓
- * requireSuperAdmin()
- *       ↓
- * Authorization
- *       ↓
- * SettingsService
- *       ↓
- * Serialize Prisma Data
- *       ↓
- * SettingsForm
- *
- * ============================================================
- */
+import { DashboardService } from "@/services/dashboard/dashboard.service";
 
-export default async function AdminSettingsPage() {
-  /**
-   * ==========================================================
-   * AUTHORIZATION
-   * ==========================================================
-   *
-   * Hanya SUPER_ADMIN yang boleh mengakses
-   * Store Settings.
-   *
-   * Authentication dan authorization ditangani
-   * oleh centralized auth helper.
-   */
+function formatCompactCurrency(value: number) {
+  if (value >= 1_000_000_000) {
+    return `Rp ${(value / 1_000_000_000)
+      .toFixed(2)
+      .replace(".", ",")} M`;
+  }
 
-  await requireSuperAdmin();
+  if (value >= 1_000_000) {
+    return `Rp ${(value / 1_000_000)
+      .toFixed(2)
+      .replace(".", ",")} jt`;
+  }
 
-  /**
-   * ==========================================================
-   * GET SETTINGS
-   * ==========================================================
-   *
-   * getSettings() mengambil StoreSettings dari database.
-   *
-   * Prisma Decimal tidak dapat langsung dikirim dari Server
-   * Component ke Client Component, sehingga field Decimal
-   * dikonversi menjadi number.
-   */
+  if (value >= 1_000) {
+    return `Rp ${(value / 1_000)
+      .toFixed(0)
+      .replace(".", ",")} rb`;
+  }
 
-  const [settings, changelogReleases] =
-    await Promise.all([
-      settingsService.getSettings(),
-      changelogService.getAllReleases(),
-    ]);
+  return `Rp ${value.toLocaleString("id-ID")}`;
+}
 
-  /**
-   * ==========================================================
-   * SERIALIZE SETTINGS FOR CLIENT COMPONENT
-   * ==========================================================
-   *
-   * Prisma Decimal harus dikonversi menjadi number
-   * sebelum dikirim ke SettingsForm.
-   */
+function formatFullCurrency(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
-  const serializedSettings = {
-    ...settings,
+export const dynamic = "force-dynamic";
 
-    /**
-     * ========================================================
-     * STORE LOCATION
-     * ========================================================
-     */
+interface AdminDashboardPageProps {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+}
 
-    latitude:
-      settings.latitude !== null
-        ? Number(settings.latitude)
-        : null,
+export default async function AdminDashboardPage({
+  searchParams,
+}: AdminDashboardPageProps) {
+  const params = await searchParams;
 
-    longitude:
-      settings.longitude !== null
-        ? Number(settings.longitude)
-        : null,
+  const dashboard = await DashboardService.getDashboard();
 
-    /**
-     * ========================================================
-     * INTERNAL SHIPPING
-     * ========================================================
-     *
-     * Semua field Decimal dikonversi ke number.
-     */
-
-    internalShippingBaseFee:
-      Number(settings.internalShippingBaseFee),
-
-    internalShippingPerKmFee:
-      Number(settings.internalShippingPerKmFee),
-
-    internalShippingMinFee:
-      Number(settings.internalShippingMinFee),
-
-    internalShippingMaxDistance:
-      Number(settings.internalShippingMaxDistance),
-
-    internalShippingFreeThreshold:
-      settings.internalShippingFreeThreshold !== null
-        ? Number(
-            settings.internalShippingFreeThreshold
-          )
-        : null,
-
-    internalShippingFreeMaxDiscount:
-      Number(
-        settings.internalShippingFreeMaxDiscount
-      ),
-  };
-
-  /**
-   * ==========================================================
-   * SERIALIZE CHANGELOG FOR CLIENT COMPONENT
-   * ==========================================================
-   *
-   * Date dari Prisma harus dikonversi menjadi string
-   * sebelum dikirim ke Client Component.
-   */
-
-  const serializedChangelogReleases =
-    changelogReleases.map((release) => ({
-      ...release,
-      date: release.date.toISOString(),
-      createdAt:
-        release.createdAt.toISOString(),
-      updatedAt:
-        release.updatedAt.toISOString(),
-      entries: release.entries.map(
-        (entry) => ({
-          ...entry,
-          createdAt:
-            entry.createdAt.toISOString(),
-          updatedAt:
-            entry.updatedAt.toISOString(),
-        }),
-      ),
-    }));
-
-  /**
-   * ==========================================================
-   * PAGE
-   * ==========================================================
-   */
+  const { stats } = dashboard;
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
-      {/* ==================================================== */}
-      {/* PAGE HEADER */}
-      {/* ==================================================== */}
+    <div className="flex min-w-0 flex-col gap-6">
+      <DashboardHeader />
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Pengaturan Toko
-        </h1>
+      {/* =========================================================
+       * OVERVIEW
+       * ========================================================= */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <DashboardKpiCard
+          title="Total Pesanan"
+          value={stats.totalOrders.toLocaleString("id-ID")}
+          description="Seluruh pesanan"
+          icon={ShoppingCart}
+        />
 
-        <p className="mt-2 text-sm text-slate-500">
-          Kelola informasi, kontak, alamat, dan jam operasional
-          Pisjo Market.
-        </p>
-      </div>
+        <DashboardKpiCard
+          title="Total Penjualan"
+          value={formatCompactCurrency(stats.totalSales)}
+          description="Pembayaran terverifikasi"
+          icon={Wallet}
+        />
 
-      {/* ==================================================== */}
-      {/* SETTINGS FORM */}
-      {/* ==================================================== */}
+        <DashboardKpiCard
+          title="Total Poin Customer"
+          value={stats.totalRewardPoints.toLocaleString("id-ID")}
+          description="Saldo poin seluruh customer"
+          icon={Wallet}
+        />
 
-      <SettingsForm
-        settings={serializedSettings}
+        <DashboardKpiCard
+          title="Total Customer"
+          value={stats.totalCustomers.toLocaleString("id-ID")}
+          description="Customer terdaftar"
+          icon={Users}
+        />
+
+        <DashboardKpiCard
+          title="Total Produk"
+          value={stats.totalProducts.toLocaleString("id-ID")}
+          description="Produk aktif dalam katalog"
+          icon={Boxes}
+        />
+      </section>
+
+      {/* =========================================================
+       * TODAY SUMMARY
+       * ========================================================= */}
+      <DashboardTodayCards
+        orders={dashboard.today.orders}
+        sales={dashboard.today.sales}
+        pendingPayments={stats.pendingPayments}
       />
 
-      {/* ==================================================== */}
-      {/* CHANGELOG */}
-      {/* ==================================================== */}
+      {/* =========================================================
+       * QUICK ACTIONS
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <QuickActionCard
+          title="Tambah Produk"
+          description="Tambah produk baru"
+          href="/admin/products/create"
+          icon={PackagePlus}
+        />
 
-      <ChangelogSettings
-        releases={serializedChangelogReleases}
-      />
+        <QuickActionCard
+          title="Kelola Order"
+          description="Lihat seluruh pesanan"
+          href="/admin/orders"
+          icon={ClipboardList}
+        />
+
+        <QuickActionCard
+          title="Kelola Customer"
+          description="Daftar pelanggan"
+          href="/admin/customers"
+          icon={Users}
+        />
+
+        <QuickActionCard
+          title="Laporan"
+          description="Lihat statistik penjualan"
+          href="/admin/reports"
+          icon={BarChart3}
+        />
+      </section>
+
+      {/* =========================================================
+       * SALES & ORDER STATUS
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,1fr)]">
+        <SalesChart data={dashboard.salesLast7Days} />
+
+        <OrderStatusDonut data={dashboard.orderStatusSummary} />
+      </section>
+
+      {/* =========================================================
+       * SALES BY CATEGORY
+       * ========================================================= */}
+      <section className="min-w-0">
+        <CategorySalesChart data={dashboard.salesByCategory} />
+      </section>
+
+      {/* =========================================================
+       * RECENT ORDERS & LOW STOCK
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+        <RecentOrders data={dashboard.recentOrders} />
+
+        <LowStockAlert data={dashboard.lowStockSkus} />
+      </section>
+
+      {/* =========================================================
+       * RECENT ACTIVITY & CUSTOMERS
+       * ========================================================= */}
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)]">
+        <RecentActivity data={dashboard.recentActivities} />
+
+        <RecentCustomers data={dashboard.recentCustomers} />
+      </section>
     </div>
   );
 }

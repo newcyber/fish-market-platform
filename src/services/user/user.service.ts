@@ -10,6 +10,10 @@ import type {
   UpdateUserInput,
 } from "@/validators/users/update-user.validator";
 
+import type {
+  UpdateProfileInput,
+} from "@/validators/users/update-profile.validator";
+
 export default class UserService {
   
 
@@ -128,6 +132,40 @@ static async updateAdmin(
   return UserRepository.update(
     id,
     data
+  );
+}
+
+/**
+ * Update profile milik user yang sedang login.
+ *
+ * Method ini sengaja tidak menerima:
+ * - role
+ * - isActive
+ * - email
+ * - password
+ *
+ * Karena profile hanya boleh mengubah informasi pribadi.
+ */
+static async updateOwnProfile(
+  id: string,
+  input: UpdateProfileInput
+) {
+  await this.assertExists(id);
+
+  const phone =
+    input.phone?.trim() || null;
+
+  await this.assertPhoneUnique(
+    phone,
+    id
+  );
+
+  return UserRepository.update(
+    id,
+    {
+      name: input.name.trim(),
+      phone,
+    }
   );
 }
 

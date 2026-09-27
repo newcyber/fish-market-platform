@@ -71,6 +71,12 @@ export async function requireSuperAdmin() {
     );
   }
 
+  console.log("[AUTH_SUPER_ADMIN_CHECK]", {
+    userId: session.user.id,
+    role: session.user.role,
+    isActive: session.user.isActive,
+  });
+
   if (
     !isSuperAdmin(session.user.role)
   ) {

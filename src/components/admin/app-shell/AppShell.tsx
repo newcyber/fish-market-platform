@@ -41,7 +41,12 @@ export function AppShell({
       />
 
       <div className="min-h-screen lg:pl-72">
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar
+          onMenuClick={() =>
+            setSidebarOpen(true)
+          }
+          user={user}
+        />
 
         <main className="min-w-0 p-3 sm:p-4 md:p-6 lg:p-8">
           <Breadcrumbs />
