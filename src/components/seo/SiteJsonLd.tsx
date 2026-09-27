@@ -215,7 +215,9 @@ export default async function SiteJsonLd({
    */
 
   const organization: Record<string, unknown> = {
-    "@type": "Organization",
+    // Pisjo is a local retail business. Keep one entity/@id while
+    // exposing the more specific LocalBusiness/Store types.
+    "@type": ["Organization", "LocalBusiness", "Store"],
 
     "@id": `${resolvedBaseUrl}/#organization`,
 
@@ -232,6 +234,7 @@ export default async function SiteJsonLd({
     ...(logo
       ? {
           logo,
+          image: logo,
         }
       : {}),
 
@@ -251,6 +254,12 @@ export default async function SiteJsonLd({
     ...(sameAs.length > 0
       ? {
           sameAs,
+        }
+      : {}),
+
+    ...(whatsapp
+      ? {
+          telephone: `+${whatsapp}`,
         }
       : {}),
 
