@@ -227,10 +227,29 @@ jobs:
              mkdir -p '$REMOTE_TMP'"
 
           echo
+          echo
           echo "=== UPLOAD ARTIFACT ==="
 
+          LOCAL_ARTIFACT="$GITHUB_WORKSPACE/deploy-package/next-production-build.zip"
+
+          echo "Workspace       : $GITHUB_WORKSPACE"
+          echo "Local artifact  : $LOCAL_ARTIFACT"
+
+          if [ ! -f "$LOCAL_ARTIFACT" ]; then
+            echo "ERROR: Production artifact not found."
+            echo
+            echo "=== DEPLOY PACKAGE ==="
+            find "$GITHUB_WORKSPACE/deploy-package" \
+              -maxdepth 2 \
+              -type f \
+              -ls 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "Artifact size   : $(du -h "$LOCAL_ARTIFACT" | cut -f1)"
+
           scp "${SSH_OPTS[@]}" \
-            ./deploy-package/next-production-build.zip \
+            "$LOCAL_ARTIFACT" \
             "$VPS_USER@$VPS_HOST:$REMOTE_ZIP"
 
           echo
