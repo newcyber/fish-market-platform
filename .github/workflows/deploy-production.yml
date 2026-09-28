@@ -610,7 +610,7 @@ jobs:
 
           DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma db execute \
-            --config "$PRISMA_CONFIG" \
+            --schema "$PRISMA_RUN/schema.prisma" \
             --stdin <<'SQL'
           SELECT
             migration_name,
@@ -627,7 +627,7 @@ jobs:
 
           DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma db execute \
-            --config "$PRISMA_CONFIG" \
+            --schema "$PRISMA_RUN/schema.prisma" \
             --stdin <<'SQL'
           SELECT
             column_name,
