@@ -479,6 +479,134 @@ jobs:
             "$DEPLOY_PATH/.next/deploy-meta/prisma/migrations" \
             "$PRISMA_RUN/migrations"
 
+          echo
+          echo "========================================"
+          echo "PRISMA PRE-FLIGHT DIAGNOSTICS"
+          echo "========================================"
+
+          echo
+          echo "=== PRISMA RUN ==="
+          echo "PRISMA_RUN=$PRISMA_RUN"
+
+          test -d "$PRISMA_RUN" \
+            || { echo "ERROR: PRISMA_RUN missing"; exit 1; }
+
+          test -f "$PRISMA_RUN/schema.prisma" \
+            || { echo "ERROR: schema.prisma missing"; exit 1; }
+
+          echo
+          echo "=== SCHEMA PRODUCT CONDITION ==="
+
+          grep -n -A5 -B5 \
+            "condition ProductCondition" \
+            "$PRISMA_RUN/schema.prisma" \
+              || {
+              echo "ERROR: ProductCondition not present in schema";
+              exit 1;
+            }
+
+          echo
+          echo "=== PRODUCT CONDITION MIGRATION ==="
+
+          PRODUCT_CONDITION_MIGRATION="$PRISMA_RUN/migrations/20260928070000_add_product_condition/migration.sql"
+
+          test -f "$PRODUCT_CONDITION_MIGRATION" \
+              || {
+              echo "ERROR: Product condition migration missing";
+              exit 1;
+            }
+
+          echo "Product condition migration: FOUND"
+
+          echo
+          echo "=== MIGRATION COUNT ==="
+
+          MIGRATION_COUNT="$(
+            find "$PRISMA_RUN/migrations" \
+              -mindepth 1 \
+              -maxdepth 1 \
+              -type d \
+              | wc -l \
+              | tr -d ' '
+          )"
+
+          echo "Migration count: $MIGRATION_COUNT"
+
+          echo
+          echo "=== LAST 15 MIGRATIONS ==="
+
+          find "$PRISMA_RUN/migrations" \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type d \
+            -printf '%f\n' \
+            | sort \
+            | tail -15
+
+          echo
+          echo "=== DATABASE TARGET ==="
+
+          DATABASE_URL="$PRISMA_DATABASE_URL" node <<'NODE'
+          const u = new URL(process.env.DATABASE_URL);
+
+          console.log("protocol :", u.protocol);
+          console.log("host     :", u.hostname);
+          console.log("port     :", u.port || "5432");
+          console.log("database :", u.pathname.replace(/^\//, ""));
+          console.log("schema   :", u.searchParams.get("schema") || "public");
+          console.log("user     :", decodeURIComponent(u.username));
+          NODE
+
+          echo
+          echo
+          echo "=== PRISMA MIGRATION STATUS ==="
+
+          DATABASE_URL="$PRISMA_DATABASE_URL" \
+            pnpm exec prisma migrate status \
+            --schema "$PRISMA_RUN/schema.prisma"
+
+          echo
+          echo "=== DATABASE MIGRATION HISTORY: PRODUCT CONDITION ==="
+
+          DATABASE_URL="$PRISMA_DATABASE_URL" \
+            pnpm exec prisma db execute \
+            --schema "$PRISMA_RUN/schema.prisma" \
+            --stdin <<'SQL'
+          SELECT
+            migration_name,
+            started_at,
+            finished_at,
+            rolled_back_at,
+            applied_steps_count
+          FROM "_prisma_migrations"
+          WHERE migration_name = '20260928070000_add_product_condition';
+          SQL
+
+          echo
+          echo "=== DATABASE PRODUCT CONDITION COLUMN ==="
+
+          DATABASE_URL="$PRISMA_DATABASE_URL" \
+            pnpm exec prisma db execute \
+            --schema "$PRISMA_RUN/schema.prisma" \
+            --stdin <<'SQL'
+          SELECT
+            column_name,
+            data_type,
+            udt_schema,
+            udt_name,
+            column_default,
+            is_nullable
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'Product'
+            AND column_name = 'condition';
+          SQL
+
+          echo
+          echo "========================================"
+          echo "END PRISMA PRE-FLIGHT"
+          echo "========================================"
+
           DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma migrate deploy \
             --schema "$PRISMA_RUN/schema.prisma"
