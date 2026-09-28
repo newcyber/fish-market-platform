@@ -590,8 +590,19 @@ jobs:
           echo
           echo "=== PRISMA MIGRATION STATUS ==="
 
-          DATABASE_URL="$PRISMA_DATABASE_URL" \
+          if ! DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma migrate status \
+            --config "$PRISMA_CONFIG"; then
+            echo
+            echo "NOTE: Prisma reports pending migrations."
+            echo "This is expected before migrate deploy."
+          fi
+
+          echo
+          echo "=== PRISMA MIGRATION DEPLOY ==="
+
+          DATABASE_URL="$PRISMA_DATABASE_URL" \
+            pnpm exec prisma migrate deploy \
             --config "$PRISMA_CONFIG"
 
           echo
