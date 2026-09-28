@@ -158,6 +158,18 @@ export async function GET(
           description:
             product.description,
 
+          condition:
+            product.condition,
+
+          storageInstructions:
+            product.storageInstructions,
+
+          weightGrams:
+            product.weightGrams,
+
+          isPreOrder:
+            product.isPreOrder,
+
           category:
             product.category
               ? {

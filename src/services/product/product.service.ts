@@ -1,5 +1,5 @@
 import { ProductRepository } from "@/repositories/ProductRepository";
-import { Prisma, ProductDiscountType } from "@prisma/client";
+import { Prisma, ProductCondition, ProductDiscountType } from "@prisma/client";
 import type { NutritionInformationItem } from "@/components/admin/products/ProductForm";
 
 /**
@@ -84,6 +84,9 @@ export interface CreateProductInput {
   }> | null;
   storageInstructions?: string | null;
   usageInstructions?: string | null;
+
+  /** Kondisi produk seafood untuk trust information. */
+  condition?: ProductCondition;
 
   sku?: string | null;
 
@@ -623,6 +626,9 @@ export class ProductService {
                 usageInstructions:
                   input.usageInstructions?.trim() ||
                   null,
+
+                condition:
+                  input.condition ?? ProductCondition.FRESH,
 
                 sku:
                   input.sku?.trim() ||
@@ -1342,6 +1348,10 @@ if (
                 usageInstructions:
                   input.usageInstructions?.trim() ||
                   null,
+              }),
+
+              ...(input.condition !== undefined && {
+                condition: input.condition,
               }),
 
               ...(input.sku !==

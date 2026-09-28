@@ -32,6 +32,7 @@ import { getSiteUrls } from "@/services/site/site-url.service";
 
 import AddToCartButton from "@/components/customer/products/AddToCartButton";
 import ProductShareButton from "@/components/customer/products/ProductShareButton";
+import ProductTrustCard from "@/components/customer/products/ProductTrustCard";
 
 import ProductDetailGallery from "@/components/customer/products/ProductDetailGallery";
 import ProductDescription from "@/components/customer/products/ProductDescription";
@@ -1088,6 +1089,13 @@ const product = isAdminPreview
                       </div>
                     )}
                   </div>
+
+                  <ProductTrustCard
+                    condition={product.condition}
+                    storageInstructions={storageInstructions}
+                    weightGrams={product.weightGrams}
+                    isPreOrder={product.isPreOrder}
+                  />
 
                   {/* ==================================================== */}
                   {/* PRODUCT META */}

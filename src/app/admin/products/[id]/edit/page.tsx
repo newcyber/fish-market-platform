@@ -220,6 +220,9 @@ export default async function EditProductPage({
     usageInstructions:
       product.usageInstructions ?? "",
 
+    condition:
+      product.condition ?? "FRESH",
+
     sku:
       product.sku ?? "",
 
@@ -266,6 +269,9 @@ export default async function EditProductPage({
 
     stock:
       product.stock,
+
+    weightGrams:
+      product.weightGrams ?? null,
 
     /**
      * ====================================================

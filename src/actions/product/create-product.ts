@@ -390,6 +390,9 @@ export async function createProductAction(
         usageInstructions:
           formData.get("usageInstructions"),
 
+        condition:
+          formData.get("condition") ?? "FRESH",
+
         sku:
           formData.get("sku"),
 

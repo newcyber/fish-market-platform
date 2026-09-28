@@ -78,6 +78,12 @@ enum NotificationType {
   SYSTEM
 }
 
+enum ProductCondition {
+  FRESH
+  CHILLED
+  FROZEN
+}
+
 enum ProductDiscountType {
   PERCENTAGE
   FIXED_AMOUNT
@@ -792,6 +798,9 @@ model Product {
 
   /// Cara menggunakan/mengolah produk.
   usageInstructions String?
+
+  /// Kondisi produk untuk transparansi kualitas seafood di storefront.
+  condition ProductCondition @default(FRESH)
 
   sku String? @unique
 

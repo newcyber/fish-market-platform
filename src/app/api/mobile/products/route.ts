@@ -167,6 +167,9 @@ export async function GET(
             description:
               product.description,
 
+            condition:
+              product.condition,
+
             category:
               product.category
                 ? {

@@ -126,6 +126,7 @@ export interface ProductFormValues {
   nutritionInformation: NutritionInformationItem[];
   storageInstructions: string;
   usageInstructions: string;
+  condition: "FRESH" | "CHILLED" | "FROZEN";
   sku: string;
   price: number;
 
@@ -765,6 +766,9 @@ const slugManuallyEditedRef =
 
       usageInstructions:
         defaultValues?.usageInstructions ?? "",
+
+      condition:
+        defaultValues?.condition ?? "FRESH",
 
       sku:
         defaultValues?.sku ??
@@ -1770,6 +1774,34 @@ const totalSkuStock =
                 )
               }
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="condition">
+              Kondisi Produk
+            </Label>
+
+            <select
+              id="condition"
+              name="condition"
+              className="w-full rounded-md border bg-background px-3 py-2"
+              value={form.condition}
+              onChange={(event) =>
+                setForm((previous) => ({
+                  ...previous,
+                  condition:
+                    event.target.value as ProductFormValues["condition"],
+                }))
+              }
+            >
+              <option value="FRESH">Segar</option>
+              <option value="CHILLED">Chilled</option>
+              <option value="FROZEN">Frozen</option>
+            </select>
+
+            <p className="text-xs text-muted-foreground">
+              Kondisi utama produk. Pre-Order tetap mengikuti pengaturan Pre-Order.
+            </p>
           </div>
         </div>
 

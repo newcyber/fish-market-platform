@@ -788,6 +788,11 @@ const imageFiles =
       ) ?? ""
     ).trim(),
 
+  condition:
+    String(
+      formData.get("condition") ?? "FRESH"
+    ).trim(),
+
   sku:
     String(
       formData.get(

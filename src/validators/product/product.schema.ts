@@ -1,4 +1,8 @@
-import { ProductDiscountType } from "@prisma/client";
+import {
+  ProductCondition,
+  ProductDiscountType,
+} from "@prisma/client";
+
 import { z } from "zod";
 
 /**
@@ -210,6 +214,10 @@ usageInstructions: z
   .transform((value) =>
     value && value.length > 0 ? value : null
   ),
+
+  condition: z
+    .nativeEnum(ProductCondition)
+    .default(ProductCondition.FRESH),
 
   /**
    * Parent/product code.
@@ -971,6 +979,7 @@ export const ProductUpdateSchema =
       name: ProductBaseFields.name.optional(),
       slug: ProductBaseFields.slug.optional(),
       description: ProductBaseFields.description,
+      condition: ProductBaseFields.condition.optional(),
       sku: ProductBaseFields.sku,
 
       price: ProductBaseFields.price.optional(),
