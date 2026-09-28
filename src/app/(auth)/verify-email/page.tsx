@@ -862,7 +862,7 @@ function VerifyEmailContent() {
           >
             Jika kode belum terlihat di Inbox, coba cek folder{" "}
             <span className="font-semibold">
-              Spam, Junk, atau Promosi
+              Spam
             </span>{" "}
             pada email Anda. Pastikan juga alamat email di atas sudah benar.
           </p>

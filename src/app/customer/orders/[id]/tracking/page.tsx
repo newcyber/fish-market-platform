@@ -168,18 +168,27 @@ const trackingSteps = [
   {
     key: "created",
     label: "Pesanan dibuat",
+    description: "Pesanan berhasil dibuat.",
+  },
+  {
+    key: "payment",
+    label: "Pembayaran dikonfirmasi",
+    description: "Pembayaran telah dikonfirmasi oleh Pisjo Market.",
   },
   {
     key: "processing",
-    label: "Diproses",
+    label: "Pesanan sedang disiapkan",
+    description: "Pesanan sedang dipersiapkan sebelum dikirim.",
   },
   {
     key: "shipping",
-    label: "Dikirim",
+    label: "Dalam perjalanan",
+    description: "Pesanan telah diserahkan untuk proses pengiriman.",
   },
   {
     key: "completed",
-    label: "Selesai",
+    label: "Pesanan selesai",
+    description: "Pesanan telah selesai.",
   },
 ] as const;
 
@@ -193,23 +202,55 @@ function getCompletedStepIndex(status: OrderStatus) {
   switch (status) {
     case "PENDING":
     case "WAITING_PAYMENT":
-    case "WAITING_VERIFICATION":
       return 0;
 
-    case "PROCESSING":
+    case "WAITING_VERIFICATION":
       return 1;
 
-    case "SHIPPING":
+    case "PROCESSING":
       return 2;
 
-    case "COMPLETED":
+    case "SHIPPING":
       return 3;
+
+    case "COMPLETED":
+      return 4;
 
     case "CANCELLED":
       return -1;
 
     default:
       return 0;
+  }
+}
+
+function getTrackingStepDate(
+  stepKey: (typeof trackingSteps)[number]["key"],
+  order: {
+    createdAt: Date;
+    paidAt: Date | null;
+    shippedAt: Date | null;
+    completedAt: Date | null;
+  }
+) {
+  switch (stepKey) {
+    case "created":
+      return order.createdAt;
+
+    case "payment":
+      return order.paidAt;
+
+    case "shipping":
+      return order.shippedAt;
+
+    case "completed":
+      return order.completedAt;
+
+    case "processing":
+      return null;
+
+    default:
+      return null;
   }
 }
 
@@ -329,206 +370,262 @@ export default async function CustomerOrderTrackingPage({
         : "Transfer Bank"
     );
 
-  /**
-   * ==========================================================
-   * RENDER
-   * ==========================================================
-   */
+ /**
+ * ==========================================================
+ * RENDER
+ * ==========================================================
+ */
 
-  return (
-    <main
+return (
+  <main
+    className="
+      min-h-screen
+      bg-[#eef9ff]
+      pb-24
+      text-slate-900
+    "
+  >
+    {/* ====================================================== */}
+    {/* MOBILE / DESKTOP HEADER                                */}
+    {/* ====================================================== */}
+
+    <header
       className="
-        min-h-screen
-        bg-[#eef9ff]
-        pb-24
-        text-slate-900
+        sticky
+        top-0
+        z-40
+        overflow-hidden
+        border-b
+        border-sky-300/30
+        bg-linear-to-br
+        from-[#0077c8]
+        via-[#078fd0]
+        to-[#0065b3]
+        text-white
+        shadow-lg
       "
     >
-      {/* ====================================================== */}
-      {/* MOBILE / DESKTOP HEADER                                */}
-      {/* ====================================================== */}
-
-      <header
-        className="
-          sticky
-          top-0
-          z-40
-          overflow-hidden
-          border-b
-          border-sky-300/30
-          bg-linear-to-br
-          from-[#0077c8]
-          via-[#078fd0]
-          to-[#0065b3]
-          text-white
-          shadow-lg
-        "
-      >
-        {/* Decorative background */}
-
-        <div
-          className="
-            pointer-events-none
-            absolute
-            inset-0
-            opacity-20
-          "
-        >
-          <div
-            className="
-              absolute
-              -right-16
-              -top-20
-              h-64
-              w-64
-              rounded-full
-              border
-              border-white/40
-            "
-          />
-
-          <div
-            className="
-              absolute
-              -right-4
-              -top-8
-              h-40
-              w-40
-              rounded-full
-              border
-              border-white/30
-            "
-          />
-
-          <div
-            className="
-              absolute
-              bottom-0
-              left-0
-              h-24
-              w-64
-              rounded-full
-              bg-white/10
-              blur-2xl
-            "
-          />
-        </div>
-
-        <div
-          className="
-            relative
-            mx-auto
-            flex
-            min-h-[82px]
-            w-full
-            max-w-6xl
-            items-center
-            gap-3
-            px-4
-            py-3
-            sm:min-h-[92px]
-            sm:px-6
-            lg:px-8
-          "
-        >
-          <Link
-            href={`/customer/orders/${order.id}`}
-            aria-label="Kembali ke detail pesanan"
-            className="
-              flex
-              h-10
-              w-10
-              shrink-0
-              items-center
-              justify-center
-              rounded-full
-              bg-white/10
-              transition
-              hover:bg-white/20
-            "
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-
-          <div className="min-w-0 flex-1">
-            <p
-              className="
-                text-[10px]
-                font-semibold
-                uppercase
-                tracking-[0.18em]
-                text-cyan-100
-                sm:text-xs
-              "
-            >
-              Pisjo Market
-            </p>
-
-            <h1
-              className="
-                mt-0.5
-                truncate
-                text-lg
-                font-bold
-                tracking-tight
-                sm:text-xl
-              "
-            >
-              Lacak Pesanan
-            </h1>
-
-            <p
-              className="
-                mt-0.5
-                truncate
-                text-xs
-                text-white/75
-                sm:text-sm
-              "
-            >
-              #{order.orderNumber}
-            </p>
-          </div>
-
-          <div
-            className="
-              hidden
-              shrink-0
-              text-right
-              sm:block
-            "
-          >
-            <p className="text-xs text-cyan-100">
-              Status Pesanan
-            </p>
-
-            <p className="mt-0.5 text-sm font-bold">
-              {orderStatusLabel}
-            </p>
-          </div>
-        </div>
-      </header>
-
-      {/* ====================================================== */}
-      {/* MAIN CONTENT                                            */}
-      {/* ====================================================== */}
+      {/* DECORATIVE BACKGROUND */}
 
       <div
         className="
+          pointer-events-none
+          absolute
+          inset-0
+          overflow-hidden
+          opacity-20
+        "
+        aria-hidden="true"
+      >
+        <div
+          className="
+            absolute
+            -right-16
+            -top-20
+            h-64
+            w-64
+            rounded-full
+            border
+            border-white/40
+          "
+        />
+
+        <div
+          className="
+            absolute
+            -right-4
+            -top-8
+            h-40
+            w-40
+            rounded-full
+            border
+            border-white/30
+          "
+        />
+
+        <div
+          className="
+            absolute
+            bottom-0
+            left-0
+            h-24
+            w-64
+            rounded-full
+            bg-white/10
+            blur-2xl
+          "
+        />
+
+        <div
+          className="
+            absolute
+            left-1/2
+            top-0
+            h-20
+            w-20
+            -translate-x-1/2
+            rounded-full
+            bg-white/5
+            blur-2xl
+          "
+        />
+      </div>
+
+      {/* HEADER CONTENT */}
+
+      <div
+        className="
+          relative
           mx-auto
+          flex
+          min-h-[82px]
           w-full
           max-w-6xl
-          px-3
-          py-4
+          items-center
+          gap-3
+          px-4
+          py-3
+          sm:min-h-[92px]
           sm:px-6
-          sm:py-6
           lg:px-8
-          lg:py-8
         "
       >
-        {/* ==================================================== */}
-        {/* STATUS SUMMARY                                        */}
-        {/* ==================================================== */}
+        {/* BACK BUTTON */}
+
+        <Link
+          href={`/customer/orders/${order.id}`}
+          aria-label="Kembali ke detail pesanan"
+          className="
+            flex
+            h-10
+            w-10
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            bg-white/10
+            text-white
+            ring-1
+            ring-white/10
+            transition
+            duration-200
+            hover:bg-white/20
+            focus:outline-none
+            focus:ring-2
+            focus:ring-white/60
+            active:scale-95
+          "
+        >
+          <ArrowLeft
+            className="h-5 w-5"
+            aria-hidden="true"
+          />
+        </Link>
+
+        {/* TITLE */}
+
+        <div className="min-w-0 flex-1">
+          <p
+            className="
+              text-[10px]
+              font-semibold
+              uppercase
+              tracking-[0.18em]
+              text-cyan-100
+              sm:text-xs
+            "
+          >
+            Pisjo Market
+          </p>
+
+          <h1
+            className="
+              mt-0.5
+              truncate
+              text-lg
+              font-bold
+              tracking-tight
+              text-white
+              sm:text-xl
+            "
+          >
+            Lacak Pesanan
+          </h1>
+
+          <p
+            className="
+              mt-0.5
+              truncate
+              text-xs
+              text-white/75
+              sm:text-sm
+            "
+          >
+            #{order.orderNumber}
+          </p>
+        </div>
+
+        {/* DESKTOP STATUS */}
+
+        <div
+          className="
+            hidden
+            shrink-0
+            rounded-xl
+            border
+            border-white/10
+            bg-white/10
+            px-4
+            py-2.5
+            text-right
+            backdrop-blur-sm
+            sm:block
+          "
+        >
+          <p
+            className="
+              text-xs
+              font-medium
+              text-cyan-100
+            "
+          >
+            Status Pesanan
+          </p>
+
+          <p
+            className="
+              mt-0.5
+              text-sm
+              font-bold
+              text-white
+            "
+          >
+            {orderStatusLabel}
+          </p>
+        </div>
+      </div>
+    </header>
+
+    {/* ====================================================== */}
+    {/* MAIN CONTENT                                            */}
+    {/* ====================================================== */}
+
+    <div
+      className="
+        mx-auto
+        w-full
+        max-w-6xl
+        px-3
+        py-4
+        sm:px-6
+        sm:py-6
+        lg:px-8
+        lg:py-8
+      "
+    >
+      {/* ==================================================== */}
+      {/* STATUS SUMMARY                                        */}
+      {/* ==================================================== */}
 
         <section
           className="
@@ -965,441 +1062,502 @@ export default async function CustomerOrderTrackingPage({
             </div>
           ) : (
             <div className="px-4 py-6 sm:px-6 sm:py-8">
-              {/* MOBILE TIMELINE */}
+{/* MOBILE TIMELINE */}
 
-              <div className="space-y-0 sm:hidden">
-                {trackingSteps.map(
-                  (step, index) => {
-                    const isCompletedStep =
-                      index <=
-                      completedStepIndex;
+<div className="space-y-0 sm:hidden">
+  {trackingSteps.map((step, index) => {
+    const isCompletedStep =
+      index <= completedStepIndex;
 
-                    const isCurrentStep =
-                      index ===
-                      completedStepIndex;
+    const isCurrentStep =
+      index === completedStepIndex;
 
-                    const isLastStep =
-                      index ===
-                      trackingSteps.length - 1;
+    const isLastStep =
+      index === trackingSteps.length - 1;
 
-                    return (
-                      <div
-                        key={step.key}
-                        className="flex gap-3"
-                      >
-                        <div
-                          className="
-                            flex
-                            w-8
-                            shrink-0
-                            flex-col
-                            items-center
-                          "
-                        >
-                          <div
-                            className={`
-                              flex
-                              h-8
-                              w-8
-                              items-center
-                              justify-center
-                              rounded-full
-                              border-2
-                              ${
-                                isCompletedStep
-                                  ? "border-cyan-600 bg-cyan-600 text-white"
-                                  : "border-slate-200 bg-white text-slate-300"
-                              }
-                            `}
-                          >
-                            {isCompletedStep ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <span
-                                className="
-                                  h-2
-                                  w-2
-                                  rounded-full
-                                  bg-current
-                                "
-                              />
-                            )}
-                          </div>
+    const stepDate = getTrackingStepDate(
+      step.key,
+      order
+    );
 
-                          {!isLastStep && (
-                            <div
-                              className={`
-                                min-h-12
-                                w-0.5
-                                ${
-                                  index <
-                                  completedStepIndex
-                                    ? "bg-cyan-600"
-                                    : "bg-slate-200"
-                                }
-                              `}
-                            />
-                          )}
-                        </div>
-
-                        <div
-                          className={`
-                            min-w-0
-                            flex-1
-                            pb-6
-                            ${
-                              isCurrentStep
-                                ? ""
-                                : ""
-                            }
-                          `}
-                        >
-                          <p
-                            className={`
-                              text-sm
-                              font-bold
-                              ${
-                                isCompletedStep
-                                  ? "text-[var(--ocean-950)]"
-                                  : "text-slate-400"
-                              }
-                            `}
-                          >
-                            {step.label}
-                          </p>
-
-                          {index === 0 && (
-                            <p
-                              className="
-                                mt-1
-                                text-xs
-                                text-slate-500
-                              "
-                            >
-                              {formatDate(
-                                order.createdAt
-                              )}
-                            </p>
-                          )}
-
-                          {index === 2 &&
-                            order.shippedAt && (
-                              <p
-                                className="
-                                  mt-1
-                                  text-xs
-                                  text-slate-500
-                                "
-                              >
-                                {formatDate(
-                                  new Date(
-                                    order.shippedAt
-                                  )
-                                )}
-                              </p>
-                            )}
-
-                          {isCurrentStep &&
-                            !isCompleted && (
-                              <span
-                                className="
-                                  mt-2
-                                  inline-flex
-                                  rounded-full
-                                  bg-cyan-50
-                                  px-2.5
-                                  py-1
-                                  text-[10px]
-                                  font-bold
-                                  text-cyan-700
-                                "
-                              >
-                                Status saat ini
-                              </span>
-                            )}
-                        </div>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-
-              {/* DESKTOP TIMELINE */}
-
-              <div
+    return (
+      <div
+        key={step.key}
+        className="flex gap-3"
+      >
+        {/* TIMELINE INDICATOR */}
+        <div
+          className="
+            flex
+            w-8
+            shrink-0
+            flex-col
+            items-center
+          "
+        >
+          <div
+            className={`
+              flex
+              h-8
+              w-8
+              items-center
+              justify-center
+              rounded-full
+              border-2
+              ${
+                isCompletedStep
+                  ? "border-cyan-600 bg-cyan-600 text-white"
+                  : "border-slate-200 bg-white text-slate-300"
+              }
+            `}
+          >
+            {isCompletedStep ? (
+              <Check
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
+            ) : (
+              <span
                 className="
-                  hidden
-                  sm:block
+                  h-2
+                  w-2
+                  rounded-full
+                  bg-current
                 "
-              >
-                <div
-                  className="
-                    relative
-                    grid
-                    grid-cols-4
-                  "
-                >
-                  {/* CONNECTING LINE */}
+              />
+            )}
+          </div>
 
-                  <div
-                    className="
-                      absolute
-                      left-[12.5%]
-                      right-[12.5%]
-                      top-5
-                      h-1
-                      rounded-full
-                      bg-slate-200
-                    "
-                  />
+          {!isLastStep && (
+            <div
+              className={`
+                min-h-12
+                w-0.5
+                ${
+                  index <
+                  completedStepIndex
+                    ? "bg-cyan-600"
+                    : "bg-slate-200"
+                }
+              `}
+            />
+          )}
+        </div>
+
+        {/* STEP CONTENT */}
+        <div
+          className="
+            min-w-0
+            flex-1
+            pb-6
+          "
+        >
+          <p
+            className={`
+              text-sm
+              font-bold
+              ${
+                isCompletedStep
+                  ? "text-[var(--ocean-950)]"
+                  : "text-slate-400"
+              }
+            `}
+          >
+            {step.label}
+          </p>
+
+          {/* DESKRIPSI */}
+          <p
+            className={`
+              mt-1
+              text-xs
+              leading-5
+              ${
+                isCompletedStep
+                  ? "text-slate-500"
+                  : "text-slate-400"
+              }
+            `}
+          >
+            {step.description}
+          </p>
+
+          {/* TIMESTAMP */}
+          {stepDate && (
+            <p
+              className="
+                mt-1
+                text-xs
+                font-medium
+                text-slate-500
+              "
+            >
+              {formatDate(
+                new Date(stepDate)
+              )}
+            </p>
+          )}
+
+          {/* CURRENT STATUS */}
+          {isCurrentStep && (
+            <span
+              className="
+                mt-2
+                inline-flex
+                rounded-full
+                bg-cyan-50
+                px-2.5
+                py-1
+                text-[10px]
+                font-bold
+                text-cyan-700
+              "
+            >
+              Status saat ini
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  })}
+</div>
+
+{/* DESKTOP TIMELINE */}
 
 <div
   className="
-    absolute
-    left-[12.5%]
-    top-5
-    h-1
-    rounded-full
-    bg-cyan-600
-    transition-all
-    duration-500
+    hidden
+    sm:block
   "
-  style={{
-    width:
-      completedStepIndex <= 0
-        ? "0%"
-        : `calc(${Math.min(
-            completedStepIndex /
-              (trackingSteps.length - 1),
-            1
-          ) * 100}% - ${
-            completedStepIndex ===
-            trackingSteps.length - 1
-              ? "0%"
-              : "0%"
-          })`,
-  }}
-/>
+>
+  <div
+    className="
+      relative
+      grid
+      grid-cols-5
+    "
+  >
+    {/* CONNECTING LINE */}
 
-                  {trackingSteps.map(
-                    (step, index) => {
-                      const isCompletedStep =
-                        index <=
-                        completedStepIndex;
+    <div
+      className="
+        absolute
+        left-[10%]
+        right-[10%]
+        top-5
+        h-1
+        rounded-full
+        bg-slate-200
+      "
+    />
 
-                      const isCurrentStep =
-                        index ===
-                        completedStepIndex;
+    {/* COMPLETED PROGRESS LINE */}
 
-                      return (
-                        <div
-                          key={step.key}
-                          className="
-                            relative
-                            z-10
-                            flex
-                            flex-col
-                            items-center
-                            text-center
-                          "
-                        >
-                          <div
-                            className={`
-                              flex
-                              h-10
-                              w-10
-                              items-center
-                              justify-center
-                              rounded-full
-                              border-2
-                              ${
-                                isCompletedStep
-                                  ? "border-cyan-600 bg-cyan-600 text-white shadow-[0_0_0_5px_rgba(8,145,178,0.10)]"
-                                  : "border-slate-200 bg-white text-slate-300"
-                              }
-                            `}
-                          >
-                            {isCompletedStep ? (
-                              <Check className="h-5 w-5" />
-                            ) : (
-                              <span
-                                className="
-                                  h-2.5
-                                  w-2.5
-                                  rounded-full
-                                  bg-current
-                                "
-                              />
-                            )}
-                          </div>
+    <div
+      className="
+        absolute
+        left-[10%]
+        top-5
+        h-1
+        rounded-full
+        bg-cyan-600
+        transition-all
+        duration-500
+      "
+      style={{
+        width:
+          completedStepIndex <= 0
+            ? "0%"
+            : `calc(
+                ${
+                  (completedStepIndex /
+                    (trackingSteps.length - 1)) *
+                  80
+                }%
+              )`,
+      }}
+    />
 
-                          <p
-                            className={`
-                              mt-3
-                              text-sm
-                              font-bold
-                              ${
-                                isCompletedStep
-                                  ? "text-[var(--ocean-950)]"
-                                  : "text-slate-400"
-                              }
-                            `}
-                          >
-                            {step.label}
-                          </p>
+    {trackingSteps.map((step, index) => {
+      const isCompletedStep =
+        index <= completedStepIndex;
 
-                          {index === 0 && (
-                            <p
-                              className="
-                                mt-1
-                                max-w-32
-                                text-xs
-                                leading-5
-                                text-slate-500
-                              "
-                            >
-                              {formatDate(
-                                order.createdAt
-                              )}
-                            </p>
-                          )}
+      const isCurrentStep =
+        index === completedStepIndex;
 
-                          {index === 2 &&
-                            order.shippedAt && (
-                              <p
-                                className="
-                                  mt-1
-                                  max-w-32
-                                  text-xs
-                                  leading-5
-                                  text-slate-500
-                                "
-                              >
-                                {formatDate(
-                                  new Date(
-                                    order.shippedAt
-                                  )
-                                )}
-                              </p>
-                            )}
+      const stepDate =
+        getTrackingStepDate(
+          step.key,
+          order
+        );
 
-                          {isCurrentStep && (
-                            <span
-                              className="
-                                mt-2
-                                rounded-full
-                                bg-cyan-50
-                                px-2.5
-                                py-1
-                                text-[10px]
-                                font-bold
-                                text-cyan-700
-                              "
-                            >
-                              Status saat ini
-                            </span>
-                          )}
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+      return (
+        <div
+          key={step.key}
+          className="
+            relative
+            z-10
+            flex
+            min-w-0
+            flex-col
+            items-center
+            text-center
+          "
+        >
+          {/* STEP ICON */}
 
-          {/* CURRENT DELIVERY MESSAGE */}
-
-          {!isCancelled && (
-            <div
-              className="
-                mx-4
-                mb-4
-                flex
-                items-start
-                gap-3
-                rounded-2xl
-                bg-sky-50
-                px-4
-                py-4
-                sm:mx-6
-                sm:mb-6
-                sm:px-5
-              "
-            >
-              <div
+          <div
+            className={`
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              border-2
+              ${
+                isCompletedStep
+                  ? "border-cyan-600 bg-cyan-600 text-white shadow-[0_0_0_5px_rgba(8,145,178,0.10)]"
+                  : "border-slate-200 bg-white text-slate-300"
+              }
+            `}
+          >
+            {isCompletedStep ? (
+              <Check
+                className="h-5 w-5"
+                aria-hidden="true"
+              />
+            ) : (
+              <span
                 className="
-                  flex
-                  h-10
-                  w-10
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-white
-                  text-cyan-600
-                  shadow-sm
+                  h-2.5
+                  w-2.5
+                  rounded-full
+                  bg-current
+                "
+              />
+            )}
+          </div>
+
+          {/* STEP INFORMATION */}
+
+          <div
+            className="
+              mt-3
+              flex
+              min-w-0
+              max-w-44
+              flex-col
+              items-center
+            "
+          >
+            {/* STEP TITLE */}
+
+            <div
+              className={`
+                text-sm
+                font-bold
+                leading-5
+                ${
+                  isCompletedStep
+                    ? "text-[var(--ocean-950)]"
+                    : "text-slate-400"
+                }
+              `}
+            >
+              {step.label}
+            </div>
+
+            {/* STEP DESCRIPTION */}
+
+            <p
+              className={`
+                mt-1
+                text-xs
+                leading-5
+                ${
+                  isCompletedStep
+                    ? "text-slate-500"
+                    : "text-slate-400"
+                }
+              `}
+            >
+              {step.description}
+            </p>
+
+            {/* STEP TIMESTAMP */}
+
+            {stepDate && (
+              <p
+                className="
+                  mt-1
+                  max-w-32
+                  text-xs
+                  font-medium
+                  leading-5
+                  text-slate-500
                 "
               >
-                {isShipping ? (
-                  <Truck className="h-5 w-5" />
-                ) : isCompleted ? (
-                  <CheckCircle2 className="h-5 w-5" />
-                ) : (
-                  <Package className="h-5 w-5" />
+                {formatDate(
+                  new Date(stepDate)
                 )}
-              </div>
+              </p>
+            )}
 
-              <div className="min-w-0">
-<h3
-  className="
-    text-sm
-    font-bold
-    text-sky-950
-  "
->
-  {isShipping
-    ? "Pesanan sedang dalam perjalanan"
-    : isCompleted
-      ? "Pesanan telah selesai"
-      : order.status === "PROCESSING"
-        ? "Pesanan sedang diproses"
-        : order.status === "WAITING_VERIFICATION"
-          ? "Pembayaran sedang diverifikasi"
-          : order.status === "WAITING_PAYMENT"
-            ? "Menunggu pembayaran"
-            : "Pesanan baru diterima"}
-</h3>
+            {/* CURRENT STATUS */}
 
-<p
-  className="
-    mt-1
-    text-xs
-    leading-5
-    text-sky-700
-    sm:text-sm
-  "
->
-  {isShipping
-    ? "Pesanan Anda sedang menuju alamat tujuan."
-    : isCompleted
-      ? "Pesanan telah berhasil diselesaikan."
-      : order.status === "PROCESSING"
-        ? "Pesanan Anda sedang dipersiapkan oleh Pisjo Market."
-        : order.status === "WAITING_VERIFICATION"
-          ? "Konfirmasi pembayaran Anda sedang diperiksa oleh admin."
-          : order.status === "WAITING_PAYMENT"
-            ? "Silakan selesaikan pembayaran untuk melanjutkan pesanan."
-            : "Pesanan Anda telah diterima dan menunggu diproses oleh Pisjo Market."}
-</p>
-              </div>
-            </div>
-          )}
+            {isCurrentStep && (
+              <span
+                className="
+                  mt-2
+                  inline-flex
+                  rounded-full
+                  bg-cyan-50
+                  px-2.5
+                  py-1
+                  text-[10px]
+                  font-bold
+                  leading-4
+                  text-cyan-700
+                "
+              >
+                Status saat ini
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
+
+{/* ==================================================== */}
+{/* CURRENT DELIVERY MESSAGE                             */}
+{/* ==================================================== */}
+
+{!isCancelled && (
+  <div
+    className="
+      mx-4
+      mb-4
+      flex
+      items-start
+      gap-3
+      rounded-2xl
+      bg-sky-50
+      px-4
+      py-4
+      sm:mx-6
+      sm:mb-6
+      sm:px-5
+    "
+  >
+    {/* STATUS ICON */}
+
+    <div
+      className="
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        bg-white
+        text-cyan-600
+        shadow-sm
+      "
+    >
+      {isShipping ? (
+        <Truck
+          className="h-5 w-5"
+          aria-hidden="true"
+        />
+      ) : isCompleted ? (
+        <CheckCircle2
+          className="h-5 w-5"
+          aria-hidden="true"
+        />
+      ) : (
+        <Package
+          className="h-5 w-5"
+          aria-hidden="true"
+        />
+      )}
+    </div>
+
+    {/* STATUS CONTENT */}
+
+    <div className="min-w-0">
+      <h3
+        className="
+          text-sm
+          font-bold
+          text-sky-950
+        "
+      >
+        {isShipping
+          ? "Pesanan sedang dalam perjalanan"
+          : isCompleted
+            ? "Pesanan telah selesai"
+            : order.status ===
+                "PROCESSING"
+              ? "Pesanan sedang disiapkan"
+              : order.status ===
+                  "WAITING_VERIFICATION"
+                ? "Pembayaran sedang diverifikasi"
+                : order.status ===
+                    "WAITING_PAYMENT"
+                  ? "Menunggu pembayaran"
+                  : order.status ===
+                      "PENDING"
+                    ? "Pesanan baru diterima"
+                    : "Pesanan sedang diproses"}
+      </h3>
+
+      <p
+        className="
+          mt-1
+          text-xs
+          leading-5
+          text-sky-700
+          sm:text-sm
+        "
+      >
+        {isShipping
+          ? "Pesanan Anda sedang menuju alamat tujuan."
+          : isCompleted
+            ? "Pesanan telah berhasil diselesaikan."
+            : order.status ===
+                "PROCESSING"
+              ? "Pesanan Anda sedang dipersiapkan oleh Pisjo Market sebelum dikirim."
+              : order.status ===
+                  "WAITING_VERIFICATION"
+                ? "Konfirmasi pembayaran Anda sedang diperiksa oleh admin."
+                : order.status ===
+                    "WAITING_PAYMENT"
+                  ? "Silakan selesaikan pembayaran untuk melanjutkan pesanan."
+                  : order.status ===
+                      "PENDING"
+                    ? "Pesanan Anda telah diterima dan menunggu proses selanjutnya."
+                    : "Pesanan Anda sedang diproses oleh Pisjo Market."}
+            </p>
+    </div>
+  </div>
+)}
+
+          </div>
+        )}
+
+        {/* ==================================================== */}
+        {/* END TRACKING TIMELINE CONTENT                       */}
+        {/* ==================================================== */}
         </section>
 
-{/* ==================================================== */}
-{/* SHIPPING INFORMATION                                 */}
-{/* ==================================================== */}
+        {/* ==================================================== */}
+        {/* SHIPPING INFORMATION                                 */}
+        {/* ==================================================== */}
 
 <section
   className="
