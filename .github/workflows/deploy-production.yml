@@ -479,6 +479,35 @@ jobs:
             "$DEPLOY_PATH/.next/deploy-meta/prisma/migrations" \
             "$PRISMA_RUN/migrations"
 
+          PRISMA_CONFIG="$DEPLOY_PATH/.prisma-deploy-${DEPLOY_ID}.config.ts"
+
+          cat > "$PRISMA_CONFIG" <<EOF
+          import { defineConfig } from "prisma/config";
+
+          const databaseUrl = process.env.DATABASE_URL;
+
+          if (!databaseUrl) {
+            throw new Error("DATABASE_URL is not defined.");
+          }
+
+          export default defineConfig({
+            schema: "${PRISMA_RUN}/schema.prisma",
+
+            migrations: {
+              path: "${PRISMA_RUN}/migrations",
+            },
+
+            datasource: {
+              url: databaseUrl,
+            },
+          });
+          EOF
+
+          test -f "$PRISMA_CONFIG"
+
+          echo "Prisma deploy config:"
+          cat "$PRISMA_CONFIG"
+
           echo
           echo "========================================"
           echo "PRISMA PRE-FLIGHT DIAGNOSTICS"
@@ -563,14 +592,14 @@ jobs:
 
           DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma migrate status \
-            --schema "$PRISMA_RUN/schema.prisma"
+            --config "$PRISMA_CONFIG"
 
           echo
           echo "=== DATABASE MIGRATION HISTORY: PRODUCT CONDITION ==="
 
           DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma db execute \
-            --schema "$PRISMA_RUN/schema.prisma" \
+            --config "$PRISMA_CONFIG" \
             --stdin <<'SQL'
           SELECT
             migration_name,
@@ -587,7 +616,7 @@ jobs:
 
           DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma db execute \
-            --schema "$PRISMA_RUN/schema.prisma" \
+            --config "$PRISMA_CONFIG" \
             --stdin <<'SQL'
           SELECT
             column_name,
@@ -609,8 +638,9 @@ jobs:
 
           DATABASE_URL="$PRISMA_DATABASE_URL" \
             pnpm exec prisma migrate deploy \
-            --schema "$PRISMA_RUN/schema.prisma"
+            --config "$PRISMA_CONFIG"
 
+          rm -f "$PRISMA_CONFIG"
           rm -rf "$PRISMA_RUN"
 
           echo
