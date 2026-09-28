@@ -1112,12 +1112,43 @@ setQuantity(
         emitCartUpdated();
 
       if (buyNow) {
-        router.push(
-          "/customer/cart"
-        );
+  /**
+   * ========================================================
+   * BUY NOW
+   * ========================================================
+   *
+   * Customer yang sudah login:
+   * langsung menuju checkout dengan CartItem yang
+   * baru saja dibuat / diperbarui.
+   *
+   * Guest:
+   * tetap menuju cart karena checkout membutuhkan
+   * authenticated customer.
+   */
+  if (
+    !result.isGuest &&
+    result.cartItemId
+  ) {
+    router.push(
+      `/customer/checkout?selected=${encodeURIComponent(
+        result.cartItemId
+      )}`
+    );
 
-        router.refresh();
-      }
+    router.refresh();
+
+    return;
+  }
+
+  /**
+   * Guest tetap masuk ke cart.
+   */
+  router.push(
+    "/customer/cart"
+  );
+
+  router.refresh();
+}
     }
   );
 }

@@ -149,6 +149,25 @@ export default function CartSelection({
     );
 
   /**
+   * Jumlah produk berbeda yang dipilih.
+   *
+   * Ini sengaja dipisahkan dari quantity.
+   *
+   * Contoh:
+   *
+   * Kakap x2
+   * Udang x1
+   *
+   * selectedQuantity = 3
+   * selectedProductCount = 2
+   *
+   * CTA menggunakan selectedProductCount
+   * supaya tidak membingungkan customer.
+   */
+  const selectedProductCount =
+    selectedItems.length;
+
+  /**
    * ==========================================================
    * BUILD CART SELECTION URL
    * ==========================================================
@@ -304,6 +323,17 @@ export default function CartSelection({
 
   /**
    * ==========================================================
+   * CHECKOUT LABEL
+   * ==========================================================
+   */
+
+  const checkoutLabel =
+    selectedProductCount === 1
+      ? "Checkout • 1 produk"
+      : `Checkout • ${selectedProductCount} produk`;
+
+  /**
+   * ==========================================================
    * RENDER
    * ==========================================================
    */
@@ -393,7 +423,14 @@ export default function CartSelection({
       {/* PRODUCT LIST                                       */}
       {/* ================================================== */}
 
-      <div>
+      {/*
+       * Extra bottom padding diberikan karena checkout bar
+       * menggunakan position: fixed.
+       *
+       * Tanpa padding ini, item terakhir dapat tertutup
+       * oleh sticky checkout bar pada mobile maupun desktop.
+       */}
+      <div className="pb-28 sm:pb-24">
         {items.map((item) => (
           <CartItemRow
             key={item.id}
@@ -410,103 +447,135 @@ export default function CartSelection({
       {/* MOBILE / DESKTOP CHECKOUT BAR                      */}
       {/* ================================================== */}
 
-<div
-  className="
-    fixed
-    inset-x-0
-    bottom-0
-    z-50
-    border-t
-    border-slate-200
-    bg-white/95
-    px-4
-    py-3
-    shadow-[0_-4px_16px_rgba(0,0,0,0.06)]
-    backdrop-blur
-    sm:px-5
-  "
->
-  <div className="mx-auto max-w-6xl">
-    <div
-      className="
-        flex
-        items-center
-        justify-between
-        gap-3
-      "
-    >
-          <div className="min-w-0">
-            <p
-              className="
-                text-[11px]
-                text-slate-500
-              "
-            >
-              Total
-            </p>
+      <div
+        className="
+          fixed
+          inset-x-0
+          bottom-0
+          z-50
+          border-t
+          border-slate-200
+          bg-white/95
+          px-4
+          py-3
+          shadow-[0_-4px_16px_rgba(0,0,0,0.06)]
+          backdrop-blur
+          sm:px-5
+        "
+      >
+        <div
+          className="
+            mx-auto
+            max-w-6xl
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              gap-3
+            "
+          >
+            {/* ================================================= */}
+            {/* SELECTED TOTAL                                    */}
+            {/* ================================================= */}
 
-            <p
-              className="
-                truncate
-                text-lg
-                font-bold
-                text-slate-950
-              "
-            >
-              {formatRupiah(
-                selectedSubtotal
+            <div className="min-w-0">
+              <p
+                className="
+                  text-[11px]
+                  font-medium
+                  text-slate-500
+                "
+              >
+                {selectedItems.length > 0
+                  ? "Total dipilih"
+                  : "Belum ada produk"}
+              </p>
+
+              <p
+                className="
+                  truncate
+                  text-lg
+                  font-bold
+                  text-slate-950
+                "
+              >
+                {formatRupiah(
+                  selectedSubtotal
+                )}
+              </p>
+
+              {selectedItems.length > 0 && (
+                <p
+                  className="
+                    mt-0.5
+                    text-[10px]
+                    text-slate-400
+                  "
+                >
+                  Belum termasuk ongkir
+                </p>
               )}
-            </p>
-          </div>
+            </div>
 
-          {selectedItems.length > 0 ? (
-            <Link
-              href={checkoutUrl}
-              className="
-                flex
-                min-h-11
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                bg-emerald-600
-                px-5
-                text-sm
-                font-bold
-                text-white
-                shadow-sm
-                transition
-                hover:bg-emerald-700
-                active:scale-[0.98]
-              "
-            >
-              Checkout ({selectedQuantity})
-            </Link>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="
-                flex
-                min-h-11
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                bg-slate-200
-                px-5
-                text-sm
-                font-bold
-                text-slate-400
-                disabled:cursor-not-allowed
-              "
-            >
-              Checkout
-            </button>
-          )}
-    </div>
-  </div>
-</div>
+            {/* ================================================= */}
+            {/* CHECKOUT CTA                                      */}
+            {/* ================================================= */}
+
+            {selectedItems.length > 0 ? (
+              <Link
+                href={checkoutUrl}
+                aria-label={checkoutLabel}
+                className="
+                  flex
+                  min-h-11
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-emerald-600
+                  px-4
+                  text-sm
+                  font-bold
+                  text-white
+                  shadow-sm
+                  transition
+                  hover:bg-emerald-700
+                  active:scale-[0.98]
+                  sm:px-5
+                "
+              >
+                {checkoutLabel}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="
+                  flex
+                  min-h-11
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-slate-200
+                  px-4
+                  text-xs
+                  font-bold
+                  text-slate-500
+                  disabled:cursor-not-allowed
+                  sm:px-5
+                "
+              >
+                Pilih produk
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

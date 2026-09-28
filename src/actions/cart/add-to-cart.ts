@@ -199,13 +199,14 @@ export async function addToCartAction(
      * customer dan guest menggunakan business logic
      * Cart yang sama.
      */
-    await CartService.addItem({
-      owner,
-      productId,
-      skuId,
-      quantity: input.quantity,
-      customerNote,
-    });
+    const cartItem =
+      await CartService.addItem({
+        owner,
+        productId,
+        skuId,
+        quantity: input.quantity,
+        customerNote,
+      });
 
     /**
      * ==========================================================
@@ -224,7 +225,11 @@ export async function addToCartAction(
       success: true,
       message:
         "Produk berhasil ditambahkan ke keranjang.",
+      cartItemId: cartItem.id,
+      isGuest:
+        owner.type === "guest",
     };
+
   } catch (error) {
     console.error(
       "[ADD_TO_CART_ACTION_ERROR]",
