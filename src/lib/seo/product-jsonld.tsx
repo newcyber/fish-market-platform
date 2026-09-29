@@ -4,6 +4,7 @@ type ProductImage = {
   image: string;
   isThumbnail?: boolean | null;
   sortOrder?: number | null;
+  mediaType?: "IMAGE" | "VIDEO" | null;
 };
 
 type ProductSku = {
@@ -75,6 +76,11 @@ function resolveProductImage(
   }
 
   return images
+    .filter(
+      (image) =>
+        !image.mediaType ||
+        image.mediaType === "IMAGE",
+    )
     .slice()
     .sort(
       (a, b) =>

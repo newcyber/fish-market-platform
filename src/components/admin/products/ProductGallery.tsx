@@ -3,7 +3,7 @@ import Image from "next/image";
 import SetThumbnailButton from "@/components/admin/products/SetThumbnailButton";
 import DeleteImageButton from "@/components/admin/products/DeleteImageButton";
 
-import { Images } from "lucide-react";
+import { Film, Images } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -101,15 +101,32 @@ export default function ProductGallery({
                   {/* IMAGE */}
                   {/* ======================================== */}
 
-                  <div className="relative aspect-square overflow-hidden">
-                    <Image
-                      src={image.image}
-                      alt="Gambar produk"
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1280px) 25vw, 20vw"
-                      className="object-cover transition-transform duration-300 hover:scale-105"
-                      unoptimized
-                    />
+                  <div className="relative aspect-square overflow-hidden bg-muted">
+                    {image.mediaType === "VIDEO" ? (
+                      <div className="relative h-full w-full">
+                        <video
+                          src={image.image}
+                          controls
+                          muted
+                          preload="metadata"
+                          playsInline
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-xs font-medium text-white">
+                          <Film className="h-3 w-3" />
+                          Video
+                        </div>
+                      </div>
+                    ) : (
+                      <Image
+                        src={image.image}
+                        alt="Gambar produk"
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1280px) 25vw, 20vw"
+                        className="object-cover transition-transform duration-300 hover:scale-105"
+                        unoptimized
+                      />
+                    )}
                   </div>
 
                   {/* ======================================== */}
@@ -126,9 +143,11 @@ export default function ProductGallery({
                         }
                         className="max-w-full truncate"
                       >
-                        {image.isThumbnail
-                          ? "Thumbnail"
-                          : `#${image.sortOrder + 1}`}
+                        {image.mediaType === "VIDEO"
+                          ? `Video #${image.sortOrder + 1}`
+                          : image.isThumbnail
+                            ? "Thumbnail"
+                            : `#${image.sortOrder + 1}`}
                       </Badge>
                     </div>
 
@@ -136,19 +155,15 @@ export default function ProductGallery({
                     {/* SET THUMBNAIL */}
                     {/* ====================================== */}
 
-                    <div className="w-full">
-                      <SetThumbnailButton
-                        imageId={
-                          image.id
-                        }
-                        productId={
-                          productId
-                        }
-                        isThumbnail={
-                          image.isThumbnail
-                        }
-                      />
-                    </div>
+                    {image.mediaType !== "VIDEO" && (
+                      <div className="w-full">
+                        <SetThumbnailButton
+                          imageId={image.id}
+                          productId={productId}
+                          isThumbnail={image.isThumbnail}
+                        />
+                      </div>
+                    )}
 
                     {/* ====================================== */}
                     {/* DELETE */}

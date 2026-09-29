@@ -51,6 +51,7 @@ interface FlashSaleProductImage {
   image?: string | null;
   sortOrder?: number | null;
   isThumbnail?: boolean;
+  mediaType?: "IMAGE" | "VIDEO";
 }
 
 interface FlashSaleVariantOption {
@@ -151,13 +152,19 @@ function getProductImage(
     return null;
   }
 
-  const thumbnail = images.find(
+  const imageOnly = images.filter(
+    (item) =>
+      !item.mediaType ||
+      item.mediaType === "IMAGE"
+  );
+
+  const thumbnail = imageOnly.find(
     (item) => item.isThumbnail
   );
 
   return (
     thumbnail?.image ??
-    images.find((item) => item.image)?.image ??
+    imageOnly.find((item) => item.image)?.image ??
     null
   );
 }

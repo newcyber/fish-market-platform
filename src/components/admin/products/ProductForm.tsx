@@ -7,6 +7,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
 } from "react";
 
 import Link from "next/link";
@@ -192,6 +193,8 @@ interface ProductFormProps {
 
   submitLabel?: string;
   showImageUpload?: boolean;
+  /** Optional content rendered immediately after the image upload panel. */
+  afterImageUpload?: ReactNode;
   showPreviewAfterSuccess?: boolean;
 
   action: (
@@ -685,6 +688,7 @@ export function ProductForm({
   submitLabel = "Simpan Produk",
   action,
   showImageUpload = true,
+  afterImageUpload,
   showPreviewAfterSuccess = false,
 }: ProductFormProps) {
   const router =
@@ -1622,6 +1626,109 @@ const totalSkuStock =
           </div>
         )}
 
+      {showImageUpload && (
+        <>
+      {/* ====================================================== */}
+      {/* GAMBAR PRODUK */}
+      {/* ====================================================== */}
+
+      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <ImagePlus className="h-5 w-5" />
+
+            Gambar Produk
+          </h2>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upload satu atau beberapa gambar produk.
+            Format JPG, PNG, atau WEBP dengan ukuran
+            maksimal 5 MB per gambar.
+          </p>
+        </div>
+
+        <input
+          ref={imageInputRef}
+          id="product-images"
+          name="images"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={
+            handleImageChange
+          }
+        />
+
+        <label
+          htmlFor="product-images"
+          className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 transition hover:bg-muted/50"
+        >
+          <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+
+          <span className="text-sm font-medium">
+            Klik untuk memilih gambar
+          </span>
+
+          <span className="mt-1 text-xs text-muted-foreground">
+            Bisa memilih beberapa gambar sekaligus
+          </span>
+        </label>
+
+        {imagePreviews.length >
+          0 && (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {imagePreviews.map(
+              (
+                preview,
+                index
+              ) => (
+                <div
+                  key={`${preview}-${index}`}
+                  className="group relative overflow-hidden rounded-xl border bg-muted"
+                >
+                  <img
+                    src={preview}
+                    alt={`Preview produk ${
+                      index + 1
+                    }`}
+                    className="aspect-square w-full object-cover"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      removeSelectedImage(
+                        index
+                      )
+                    }
+                    className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm transition hover:bg-destructive hover:text-destructive-foreground"
+                    aria-label="Hapus gambar"
+                    title="Hapus gambar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <div className="absolute inset-x-0 bottom-0 bg-background/85 px-2 py-1.5">
+                    <p className="truncate text-xs">
+                      {selectedImages[
+                        index
+                      ]?.name ??
+                        "Gambar produk"}
+                    </p>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        )}
+      </Card>
+
+          {afterImageUpload}
+
+        </>
+      )}
+
       {/* ====================================================== */}
       {/* INFORMASI PRODUK */}
       {/* ====================================================== */}
@@ -2187,107 +2294,6 @@ const totalSkuStock =
           </div>
         </div>
       </Card>
-
-      {showImageUpload && (
-        <>
-      {/* ====================================================== */}
-      {/* GAMBAR PRODUK */}
-      {/* ====================================================== */}
-
-      <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <ImagePlus className="h-5 w-5" />
-
-            Gambar Produk
-          </h2>
-
-          <p className="mt-1 text-sm text-muted-foreground">
-            Upload satu atau beberapa gambar produk.
-            Format JPG, PNG, atau WEBP dengan ukuran
-            maksimal 5 MB per gambar.
-          </p>
-        </div>
-
-        <input
-          ref={imageInputRef}
-          id="product-images"
-          name="images"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          className="hidden"
-          onChange={
-            handleImageChange
-          }
-        />
-
-        <label
-          htmlFor="product-images"
-          className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 transition hover:bg-muted/50"
-        >
-          <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
-
-          <span className="text-sm font-medium">
-            Klik untuk memilih gambar
-          </span>
-
-          <span className="mt-1 text-xs text-muted-foreground">
-            Bisa memilih beberapa gambar sekaligus
-          </span>
-        </label>
-
-        {imagePreviews.length >
-          0 && (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {imagePreviews.map(
-              (
-                preview,
-                index
-              ) => (
-                <div
-                  key={`${preview}-${index}`}
-                  className="group relative overflow-hidden rounded-xl border bg-muted"
-                >
-                  <img
-                    src={preview}
-                    alt={`Preview produk ${
-                      index + 1
-                    }`}
-                    className="aspect-square w-full object-cover"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      removeSelectedImage(
-                        index
-                      )
-                    }
-                    className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm transition hover:bg-destructive hover:text-destructive-foreground"
-                    aria-label="Hapus gambar"
-                    title="Hapus gambar"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-
-                  <div className="absolute inset-x-0 bottom-0 bg-background/85 px-2 py-1.5">
-                    <p className="truncate text-xs">
-                      {selectedImages[
-                        index
-                      ]?.name ??
-                        "Gambar produk"}
-                    </p>
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </Card>
-
-        </>
-      )}
 
       {/* ====================================================== */}
       {/* HARGA DAN STOK */}

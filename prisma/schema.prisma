@@ -84,6 +84,11 @@ enum ProductCondition {
   FROZEN
 }
 
+enum ProductMediaType {
+  IMAGE
+  VIDEO
+}
+
 enum ProductDiscountType {
   PERCENTAGE
   FIXED_AMOUNT
@@ -1724,12 +1729,19 @@ model ProductImage {
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  /// URL media. Untuk IMAGE berisi URL gambar, untuk VIDEO berisi URL video.
   image String
+
+  /// Backward-compatible media discriminator. Existing rows tetap IMAGE.
+  mediaType ProductMediaType @default(IMAGE)
 
   sortOrder   Int     @default(0)
   isThumbnail Boolean @default(false)
 
   createdAt DateTime @default(now())
+
+  @@index([productId, mediaType])
+  @@index([productId, sortOrder])
 }
 
 model Order {

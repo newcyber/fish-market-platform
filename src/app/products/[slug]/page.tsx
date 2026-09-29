@@ -120,6 +120,11 @@ export async function generateMetadata({
     "Modern Pisjo Marketplace";
 
   const productImage = product.images
+    .filter(
+      (image) =>
+        !image.mediaType ||
+        image.mediaType === "IMAGE",
+    )
     .slice()
     .sort(
       (a, b) =>
@@ -738,6 +743,7 @@ const productJsonLd = (
                       image: image.image,
                       isThumbnail: image.isThumbnail,
                       sortOrder: image.sortOrder,
+                      mediaType: image.mediaType,
                     }))}
 
                     shareButton={

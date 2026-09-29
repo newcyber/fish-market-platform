@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 import ProductForm from "@/components/admin/products/ProductForm";
 import ProductGallery from "@/components/admin/products/ProductGallery";
+import ProductVideoUploadPanel from "@/components/admin/products/upload/ProductVideoUploadPanel";
 
 import { ProductService } from "@/services/product/product.service";
 
@@ -166,7 +167,7 @@ export default async function EditProductPage({
 
         <p className="mt-1 text-muted-foreground">
           Perbarui informasi produk, variant group,
-          SKU, harga, stok, dan gallery gambar produk.
+          SKU, harga, stok, dan gallery foto dan video produk.
         </p>
       </div>
 
@@ -188,6 +189,11 @@ export default async function EditProductPage({
   submitLabel="Update Produk"
   action={updateAction}
   showPreviewAfterSuccess
+  afterImageUpload={
+    <ProductVideoUploadPanel
+      productId={product.id}
+    />
+  }
   defaultValues={{
     categoryId: product.categoryId,
 

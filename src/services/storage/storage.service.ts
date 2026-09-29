@@ -79,6 +79,15 @@ const PRODUCT_UPLOAD_DIRECTORY =
     "products"
   );
 
+const PRODUCT_VIDEO_UPLOAD_DIRECTORY =
+  path.join(
+    PROJECT_ROOT,
+    "public",
+    "uploads",
+    "products",
+    "videos"
+  );
+
 const REWARD_UPLOAD_DIRECTORY =
   path.join(
     PROJECT_ROOT,
@@ -370,6 +379,66 @@ static async deleteLandingAndroidApk(
       file,
       PRODUCT_UPLOAD_DIRECTORY,
       "/uploads/products"
+    );
+  }
+
+  /**
+   * Save product video.
+   *
+   * Video disimpan terpisah dari image agar storage cleanup
+   * dan public asset path tetap jelas.
+   */
+  static async saveProductVideo(
+    file: File
+  ): Promise<string> {
+    if (!(file instanceof File) || file.size <= 0) {
+      throw new Error("File video tidak valid.");
+    }
+
+    const extensionByMime: Record<string, string> = {
+      "video/mp4": ".mp4",
+      "video/webm": ".webm",
+    };
+
+    const extension =
+      extensionByMime[file.type?.trim().toLowerCase()];
+
+    if (!extension) {
+      throw new Error(
+        "Format video harus MP4 atau WebM."
+      );
+    }
+
+    await mkdir(
+      PRODUCT_VIDEO_UPLOAD_DIRECTORY,
+      { recursive: true }
+    );
+
+    const filename = `${randomUUID()}${extension}`;
+    const filepath = path.join(
+      PRODUCT_VIDEO_UPLOAD_DIRECTORY,
+      filename
+    );
+
+    const buffer = Buffer.from(
+      await file.arrayBuffer()
+    );
+
+    await writeFile(filepath, buffer);
+
+    return `/uploads/products/videos/${filename}`;
+  }
+
+  /**
+   * Delete product video.
+   */
+  static async deleteProductVideo(
+    videoPath: string
+  ): Promise<void> {
+    await this.deleteFromDirectory(
+      videoPath,
+      "uploads/products/videos/",
+      PRODUCT_VIDEO_UPLOAD_DIRECTORY
     );
   }
 

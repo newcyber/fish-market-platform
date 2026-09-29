@@ -6,6 +6,8 @@ export interface ProductImage {
   sortOrder: number;
 
   isThumbnail: boolean;
+
+  mediaType?: "IMAGE" | "VIDEO";
 }
 
 export interface ProductCategory {

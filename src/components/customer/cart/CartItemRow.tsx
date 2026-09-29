@@ -90,7 +90,7 @@ export default function CartItemRow({
    */
 
   const image =
-    item.product.images?.[0]?.image;
+    item.product.images?.find((image) => !image.mediaType || image.mediaType === "IMAGE")?.image;
 
   /**
    * ==========================================================

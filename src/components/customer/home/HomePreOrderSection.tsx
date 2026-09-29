@@ -27,6 +27,7 @@ interface HomePreOrderProductImage {
   sortOrder: number | null;
 
   isThumbnail: boolean;
+  mediaType?: "IMAGE" | "VIDEO";
 }
 
 export interface HomePreOrderProduct {
@@ -289,13 +290,19 @@ function PreOrderProductCard({
    * ==========================================================
    */
 
+  const imageOnly = product.images.filter(
+    (item) =>
+      !item.mediaType ||
+      item.mediaType === "IMAGE"
+  );
+
   const image =
-    product.images.find(
+    imageOnly.find(
       (item) =>
         item.isThumbnail &&
         Boolean(item.image)
     )?.image ??
-    product.images.find(
+    imageOnly.find(
       (item) =>
         Boolean(item.image)
     )?.image ??

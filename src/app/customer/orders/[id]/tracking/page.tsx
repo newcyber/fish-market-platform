@@ -38,6 +38,7 @@ function getOrderItemImage(
         image: string | null;
         isThumbnail: boolean;
         sortOrder: number;
+        mediaType?: "IMAGE" | "VIDEO";
       }>;
     } | null;
   }
@@ -47,6 +48,7 @@ function getOrderItemImage(
   const thumbnail =
     images.find(
       (image) =>
+        (!image.mediaType || image.mediaType === "IMAGE") &&
         image.isThumbnail &&
         Boolean(image.image)
     ) ??

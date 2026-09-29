@@ -5,13 +5,21 @@ import type React from "react";
 
 import Image from "next/image";
 
-import { ChevronLeft, ChevronRight, ImageOff, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Film,
+  ImageOff,
+  Play,
+  X,
+} from "lucide-react";
 
 export interface ProductDetailImage {
   id: string;
   image: string;
   isThumbnail?: boolean;
   sortOrder?: number;
+  mediaType?: "IMAGE" | "VIDEO";
 }
 
 interface ProductDetailGalleryProps {
@@ -23,20 +31,15 @@ interface ProductDetailGalleryProps {
 
 /**
  * ============================================================
- * PRODUCT DETAIL GALLERY
+ * PRODUCT DETAIL MEDIA GALLERY
  * ============================================================
  *
- * Gallery khusus halaman detail produk customer.
+ * Backward-compatible dengan ProductImage lama:
+ * - mediaType tidak ada => dianggap IMAGE
+ * - IMAGE => image viewer/zoom
+ * - VIDEO => native video player
  *
- * Features:
- * - Main image
- * - Thumbnail navigation
- * - Active thumbnail
- * - Previous / next image
- * - Empty state
- * - Responsive
- *
- * Tidak berhubungan dengan ProductGallery admin.
+ * Urutan media tetap mengikuti thumbnail + sortOrder.
  * ============================================================
  */
 
@@ -63,56 +66,50 @@ export default function ProductDetailGallery({
     });
   }, [images]);
 
-  const [activeIndex, setActiveIndex] =
-    useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
 
-  const activeImage =
-    sortedImages[activeIndex] ??
-    null;
+  const activeMedia =
+    sortedImages[activeIndex] ?? null;
 
-  const hasMultipleImages =
+  const hasMultipleMedia =
     sortedImages.length > 1;
 
+  const isVideo =
+    activeMedia?.mediaType === "VIDEO";
+
   const showPrevious = () => {
-    if (!hasMultipleImages) {
+    if (!hasMultipleMedia) {
       return;
     }
 
     setActiveIndex((current) =>
       current === 0
         ? sortedImages.length - 1
-        : current - 1
+        : current - 1,
     );
   };
 
   const showNext = () => {
-    if (!hasMultipleImages) {
+    if (!hasMultipleMedia) {
       return;
     }
 
     setActiveIndex((current) =>
       current === sortedImages.length - 1
         ? 0
-        : current + 1
+        : current + 1,
     );
   };
 
-  /**
-   * ==========================================================
-   * EMPTY STATE
-   * ==========================================================
-   */
-
-  if (!activeImage) {
+  if (!activeMedia) {
     return (
       <div className="w-full">
         <div className="flex aspect-square w-full items-center justify-center bg-muted">
           <div className="flex flex-col items-center gap-3 text-muted-foreground">
             <ImageOff className="h-10 w-10" />
-
             <span className="text-sm">
-              Belum ada gambar produk
+              Belum ada media produk
             </span>
           </div>
         </div>
@@ -122,44 +119,68 @@ export default function ProductDetailGallery({
 
   return (
     <div className="w-full">
-      {/* ======================================================
-          MAIN IMAGE
-      ====================================================== */}
-
       <div
-        className="group relative mx-auto aspect-square w-full max-w-[calc(100vw-48px)] cursor-zoom-in overflow-hidden rounded-2xl bg-white sm:max-w-none"
-        role="button"
-        tabIndex={0}
-        aria-label="Perbesar foto produk"
-        onClick={() => setIsViewerOpen(true)}
+        className={[
+          "group relative mx-auto aspect-square w-full max-w-[calc(100vw-48px)] overflow-hidden rounded-2xl bg-white sm:max-w-none",
+          !isVideo ? "cursor-zoom-in" : "",
+        ].join(" ")}
+        role={!isVideo ? "button" : undefined}
+        tabIndex={!isVideo ? 0 : undefined}
+        aria-label={
+          !isVideo
+            ? "Perbesar foto produk"
+            : undefined
+        }
+        onClick={() => {
+          if (!isVideo) {
+            setIsViewerOpen(true);
+          }
+        }}
         onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
+          if (
+            !isVideo &&
+            (event.key === "Enter" ||
+              event.key === " ")
+          ) {
             event.preventDefault();
             setIsViewerOpen(true);
           }
         }}
       >
-        <Image
-          src={activeImage.image}
-          alt={productName}
-          fill
-          priority
-          sizes="(max-width: 1024px) calc(100vw - 48px), 480px"
-          className="rounded-2xl object-contain"
-          unoptimized
-        />
+        {isVideo ? (
+          <video
+            key={activeMedia.id}
+            src={activeMedia.image}
+            controls
+            playsInline
+            preload="metadata"
+            className="h-full w-full rounded-2xl object-contain"
+          />
+        ) : (
+          <Image
+            src={activeMedia.image}
+            alt={productName}
+            fill
+            priority
+            sizes="(max-width: 1024px) calc(100vw - 48px), 480px"
+            className="rounded-2xl object-contain"
+            unoptimized
+          />
+        )}
 
         {(favoriteButton || shareButton) && (
           <div
             className="absolute right-3 top-3 z-20 flex items-center gap-2"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
             {favoriteButton}
             {shareButton}
           </div>
         )}
 
-        {hasMultipleImages && (
+        {hasMultipleMedia && (
           <>
             <button
               type="button"
@@ -167,8 +188,8 @@ export default function ProductDetailGallery({
                 event.stopPropagation();
                 showPrevious();
               }}
-              aria-label="Gambar sebelumnya"
-              className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity hover:bg-black/65 group-hover:opacity-100"
+              aria-label="Media sebelumnya"
+              className="absolute left-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity hover:bg-black/65 group-hover:opacity-100"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -179,71 +200,94 @@ export default function ProductDetailGallery({
                 event.stopPropagation();
                 showNext();
               }}
-              aria-label="Gambar berikutnya"
-              className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity hover:bg-black/65 group-hover:opacity-100"
+              aria-label="Media berikutnya"
+              className="absolute right-3 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity hover:bg-black/65 group-hover:opacity-100"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
           </>
         )}
+
+        {isVideo && (
+          <div className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1.5 text-xs font-semibold text-white">
+            <Film className="h-3.5 w-3.5" />
+            Video
+          </div>
+        )}
       </div>
 
-      {/* ======================================================
-          THUMBNAILS
-      ====================================================== */}
-
-      {hasMultipleImages && (
+      {hasMultipleMedia && (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {sortedImages.map(
-            (image, index) => {
-              const isActive =
-                index === activeIndex;
+          {sortedImages.map((media, index) => {
+            const isActive = index === activeIndex;
+            const mediaIsVideo =
+              media.mediaType === "VIDEO";
 
-              return (
-                <button
-                  key={image.id}
-                  type="button"
-                  onClick={() =>
-                    setActiveIndex(index)
-                  }
-                  aria-label={`Lihat gambar ${
-                    index + 1
-                  }`}
-                  className={[
-                    "relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg border transition",
-                    isActive
-                      ? "border-primary"
-                      : "border-transparent opacity-75 hover:opacity-100",
-                  ].join(" ")}
-                >
+            return (
+              <button
+                key={media.id}
+                type="button"
+                onClick={() =>
+                  setActiveIndex(index)
+                }
+                aria-label={
+                  mediaIsVideo
+                    ? `Lihat video ${index + 1}`
+                    : `Lihat gambar ${index + 1}`
+                }
+                className={[
+                  "relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg border bg-white transition",
+                  isActive
+                    ? "border-primary"
+                    : "border-transparent opacity-75 hover:opacity-100",
+                ].join(" ")}
+              >
+                {mediaIsVideo ? (
+                  <>
+                    <video
+                      src={media.image}
+                      muted
+                      preload="metadata"
+                      playsInline
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white">
+                        <Play className="ml-0.5 h-4 w-4 fill-current" />
+                      </span>
+                    </span>
+                  </>
+                ) : (
                   <Image
-                    src={image.image}
-                    alt={`${productName} ${
-                      index + 1
-                    }`}
+                    src={media.image}
+                    alt={`${productName} ${index + 1}`}
                     fill
                     sizes="72px"
-                    className="rounded-lg object-contain bg-white"
+                    className="rounded-lg object-contain"
                     unoptimized
                   />
-                </button>
-              );
-            }
-          )}
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {isViewerOpen && (
+      {isViewerOpen && !isVideo && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-3 sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Foto penuh ${productName}`}
-          onClick={() => setIsViewerOpen(false)}
+          onClick={() =>
+            setIsViewerOpen(false)
+          }
         >
           <button
             type="button"
-            onClick={() => setIsViewerOpen(false)}
+            onClick={() =>
+              setIsViewerOpen(false)
+            }
             aria-label="Tutup foto"
             className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg"
           >
@@ -252,10 +296,12 @@ export default function ProductDetailGallery({
 
           <div
             className="relative h-full w-full max-w-6xl"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
             <Image
-              src={activeImage.image}
+              src={activeMedia.image}
               alt={productName}
               fill
               sizes="100vw"

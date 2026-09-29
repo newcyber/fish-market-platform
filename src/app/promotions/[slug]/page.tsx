@@ -206,6 +206,7 @@ function getProductImage(
     image: string | null;
     isThumbnail: boolean;
     sortOrder: number;
+        mediaType?: "IMAGE" | "VIDEO";
   }>
 ) {
   const thumbnail =

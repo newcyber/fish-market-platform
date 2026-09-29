@@ -20,9 +20,15 @@ function formatRupiah(value: number) {
 }
 
 function getProductImage(product: HomeProductCardProduct) {
-  const thumbnail = product.images.find((image) => image.isThumbnail);
+  const imageOnly = product.images.filter(
+    (image) =>
+      !image.mediaType ||
+      image.mediaType === "IMAGE"
+  );
 
-  return thumbnail?.image ?? product.images[0]?.image ?? null;
+  const thumbnail = imageOnly.find((image) => image.isThumbnail);
+
+  return thumbnail?.image ?? imageOnly[0]?.image ?? null;
 }
 
 type OptionalProductMeta = {

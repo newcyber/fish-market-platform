@@ -21,6 +21,7 @@ export interface ProductRecommendation {
     image: string;
     sortOrder?: number | null;
     isThumbnail?: boolean | null;
+    mediaType?: "IMAGE" | "VIDEO" | null;
   }>;
   hasVariants?: boolean;
   purchaseCount?: number;
@@ -41,9 +42,15 @@ export default function ProductRecommendationCard({
 }: ProductRecommendationCardProps) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
+  const imageOnly = product.images.filter(
+    (item) =>
+      !item.mediaType ||
+      item.mediaType === "IMAGE"
+  );
+
   const image =
-    product.images.find((item) => item.isThumbnail)?.image ??
-    product.images[0]?.image ??
+    imageOnly.find((item) => item.isThumbnail)?.image ??
+    imageOnly[0]?.image ??
     null;
 
 const price = currencyFormatter.format(Number(product.price));

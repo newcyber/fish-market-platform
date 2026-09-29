@@ -129,8 +129,11 @@ export async function GET(
       result.items.map(
         (product) => {
           const thumbnail =
-            product.images?.[0] ??
-            null;
+            product.images?.find(
+              (image) =>
+                !image.mediaType ||
+                image.mediaType === "IMAGE",
+            ) ?? null;
 
           const activeSkus =
             product.skus ?? [];

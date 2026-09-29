@@ -4,7 +4,10 @@ import { StorageService } from "@/services/storage/storage.service";
 
 import {
   ProductImageSchema,
+  ProductVideoSchema,
 } from "@/validators/product/image.schema";
+
+import { ProductMediaType } from "@prisma/client";
 
 export class ProductImageService {
   /**
@@ -80,6 +83,8 @@ export class ProductImageService {
 
             image: imagePath,
 
+            mediaType: ProductMediaType.IMAGE,
+
             sortOrder,
 
             isThumbnail:
@@ -94,6 +99,76 @@ export class ProductImageService {
     }
 
     return uploadedImages;
+  }
+
+  /**
+   * Upload satu atau banyak video ke gallery produk.
+   *
+   * Video memakai endpoint terpisah dari Server Action karena
+   * file video jauh lebih besar daripada image gallery.
+   */
+  static async uploadVideos(
+    productId: string,
+    files: File[]
+  ) {
+    const product =
+      await prisma.product.findUnique({
+        where: { id: productId },
+        select: { id: true },
+      });
+
+    if (!product) {
+      throw new Error("Produk tidak ditemukan.");
+    }
+
+    if (files.length === 0) {
+      throw new Error("Pilih minimal satu video.");
+    }
+
+    if (files.length > 5) {
+      throw new Error("Maksimal upload 5 video sekaligus.");
+    }
+
+    for (const file of files) {
+      const validation =
+        ProductVideoSchema.safeParse(file);
+
+      if (!validation.success) {
+        throw new Error(
+          validation.error.issues[0]?.message ??
+            "File video tidak valid."
+        );
+      }
+    }
+
+    const existingMedia =
+      await prisma.productImage.count({
+        where: { productId },
+      });
+
+    let sortOrder = existingMedia;
+    const uploadedVideos = [];
+
+    for (const file of files) {
+      const videoPath =
+        await StorageService.saveProductVideo(file);
+
+      const media =
+        await prisma.productImage.create({
+          data: {
+            productId,
+            image: videoPath,
+            mediaType: ProductMediaType.VIDEO,
+            sortOrder,
+            isThumbnail: false,
+          },
+        });
+
+      uploadedVideos.push(media);
+      sortOrder++;
+    }
+
+    return uploadedVideos;
   }
 
     /**
@@ -121,6 +196,7 @@ export class ProductImageService {
           productId: true,
           isThumbnail: true,
           sortOrder: true,
+          mediaType: true,
         },
       });
 
@@ -147,6 +223,9 @@ export class ProductImageService {
                 id: {
                   not: image.id,
                 },
+
+                mediaType:
+                  ProductMediaType.IMAGE,
               },
 
               orderBy: {
@@ -190,9 +269,18 @@ export class ProductImageService {
      * database tetap konsisten.
      */
     try {
-      await StorageService.delete(
-        image.image
-      );
+      if (
+        image.mediaType ===
+        ProductMediaType.VIDEO
+      ) {
+        await StorageService.deleteProductVideo(
+          image.image
+        );
+      } else {
+        await StorageService.delete(
+          image.image
+        );
+      }
     } catch (error) {
       console.error(
         "[ProductImageService] Failed to delete image from storage:",
@@ -219,7 +307,16 @@ export class ProductImageService {
 
     if (!image) {
       throw new Error(
-        "Gambar tidak ditemukan."
+        "Media tidak ditemukan."
+      );
+    }
+
+    if (
+      image.mediaType !==
+      ProductMediaType.IMAGE
+    ) {
+      throw new Error(
+        "Video tidak dapat dijadikan thumbnail produk."
       );
     }
 
@@ -343,6 +440,7 @@ export class ProductImageService {
         image: true,
         sortOrder: true,
         isThumbnail: true,
+        mediaType: true,
       },
     });
   }
@@ -369,6 +467,7 @@ export class ProductImageService {
 
         select: {
           image: true,
+          mediaType: true,
         },
       });
 
@@ -393,7 +492,9 @@ export class ProductImageService {
      */
     await Promise.allSettled(
       images.map((image) =>
-        StorageService.delete(image.image)
+        image.mediaType === ProductMediaType.VIDEO
+          ? StorageService.deleteProductVideo(image.image)
+          : StorageService.delete(image.image)
       )
     );
 

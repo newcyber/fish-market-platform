@@ -43,6 +43,7 @@ export interface HomepageProductSerializerInput {
     sortOrder: number | null;
 
     isThumbnail: boolean;
+    mediaType?: "IMAGE" | "VIDEO";
   }>;
 
   variantGroups: Array<{
@@ -147,15 +148,21 @@ export function serializeHomepageProduct(
         ? !hasAvailableSku
         : displayStock !== null && displayStock <= 0),
 
-    images: product.images.map((image) => ({
-      id: image.id,
+    images: product.images
+      .filter(
+        (image) =>
+          !image.mediaType ||
+          image.mediaType === "IMAGE",
+      )
+      .map((image) => ({
+        id: image.id,
 
-      image: image.image,
+        image: image.image,
 
-      sortOrder: image.sortOrder,
+        sortOrder: image.sortOrder,
 
-      isThumbnail: image.isThumbnail,
-    })),
+        isThumbnail: image.isThumbnail,
+      })),
 
     hasVariants,
 

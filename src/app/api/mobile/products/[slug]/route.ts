@@ -75,8 +75,17 @@ export async function GET(
 
           isThumbnail:
             image.isThumbnail,
+
+          mediaType:
+            image.mediaType ?? "IMAGE",
         })
       ) ?? [];
+
+    const productImages =
+      images.filter(
+        (image) =>
+          image.mediaType === "IMAGE",
+      );
 
     const variantGroups =
       product.variantGroups?.map(
@@ -188,11 +197,11 @@ export async function GET(
             product.featured,
 
           image:
-            images.find(
+            productImages.find(
               (image) =>
                 image.isThumbnail
             )?.image ??
-            images[0]?.image ??
+            productImages[0]?.image ??
             null,
 
           images,

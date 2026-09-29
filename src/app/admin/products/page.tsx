@@ -190,7 +190,7 @@ export default async function ProductsPage({
         name: product.name,
 
         image:
-          product.images[0]?.image ??
+          product.images.find((image) => !image.mediaType || image.mediaType === "IMAGE")?.image ??
           null,
 
         category:

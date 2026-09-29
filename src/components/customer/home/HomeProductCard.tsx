@@ -52,6 +52,7 @@ export interface HomeProductImage {
     | null;
 
   isThumbnail?: boolean;
+  mediaType?: "IMAGE" | "VIDEO";
 }
 
 export interface HomeProductCardProduct {
@@ -161,15 +162,21 @@ function getProductImage(
     return null;
   }
 
+  const imageOnly = images.filter(
+    (image) =>
+      !image.mediaType ||
+      image.mediaType === "IMAGE"
+  );
+
   const thumbnail =
-    images.find(
+    imageOnly.find(
       (image) =>
         image.isThumbnail
     );
 
   return (
     thumbnail?.image ??
-    images[0]?.image ??
+    imageOnly[0]?.image ??
     null
   );
 }
