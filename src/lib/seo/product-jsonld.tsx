@@ -5,6 +5,7 @@ type ProductImage = {
   isThumbnail?: boolean | null;
   sortOrder?: number | null;
   mediaType?: "IMAGE" | "VIDEO" | null;
+  createdAt?: string | Date | null;
 };
 
 type ProductSku = {
@@ -89,6 +90,67 @@ function resolveProductImage(
     )
     .map((image) => resolveSeoImageUrl(image.image, baseUrl))
     .filter((image): image is string => Boolean(image));
+}
+
+function resolveVideoObjects(
+  product: ProductJsonLdInput,
+  options: ProductJsonLdOptions,
+): Record<string, unknown>[] {
+  if (!product.images || product.images.length === 0) {
+    return [];
+  }
+
+  const baseUrl = options.baseUrl.replace(/\/+$/, "");
+  const name = normalizeText(product.name);
+
+  if (!name) {
+    return [];
+  }
+
+  const description =
+    normalizeText(product.description) || `${name} dari ${options.storeName}`;
+
+  const thumbnailUrl = resolveProductImage(product.images, baseUrl)[0];
+
+  if (!thumbnailUrl) {
+    return [];
+  }
+
+  return product.images
+    .filter(
+      (media) =>
+        media.mediaType === "VIDEO" &&
+        Boolean(normalizeText(media.image)),
+    )
+    .map((media) => {
+      const contentUrl = normalizeText(media.image);
+
+      if (!contentUrl) {
+        return null;
+      }
+
+      const videoObject: Record<string, unknown> = {
+        "@context": "https://schema.org",
+        "@type": "VideoObject",
+        name: `${name} - Video`,
+        description,
+        thumbnailUrl,
+        contentUrl,
+      };
+
+      const uploadDate = media.createdAt
+        ? resolveReviewDate(media.createdAt)
+        : undefined;
+
+      if (uploadDate) {
+        videoObject.uploadDate = uploadDate;
+      }
+
+      return videoObject;
+    })
+    .filter(
+      (video): video is Record<string, unknown> => video !== null,
+    );
 }
 
 function resolvePrices(product: ProductJsonLdInput): number[] {
@@ -328,6 +390,8 @@ export function ProductJsonLd({
     return null;
   }
 
+  const videoJsonLd = resolveVideoObjects(product, options);
+
   return (
     <>
       <script
@@ -336,6 +400,18 @@ export function ProductJsonLd({
           __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
         }}
       />
+
+      {videoJsonLd.length > 0
+        ? videoJsonLd.map((video, index) => (
+            <script
+              key={`product-video-jsonld-${index}`}
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify(video).replace(/</g, "\\u003c"),
+              }}
+            />
+          ))
+        : null}
 
       {breadcrumbJsonLd ? (
         <script
