@@ -58,8 +58,14 @@ export interface HomepageProductSerializerInput {
   }>;
 }
 
+export interface HomepageProductRating {
+  averageRating: number | null;
+  reviewCount: number;
+}
+
 export function serializeHomepageProduct(
   product: HomepageProductSerializerInput,
+  rating?: HomepageProductRating | null,
 ) {
   const hasVariants = product.variantGroups.length > 0;
 
@@ -90,8 +96,29 @@ export function serializeHomepageProduct(
     ? lowestActiveSku.price.toNumber()
     : product.price.toNumber();
 
-  const displayStock =
-    !hasVariants && lowestActiveSku ? lowestActiveSku.stock : null;
+  /**
+   * Stock yang ditampilkan pada product card.
+   *
+   * Non-variant:
+   * gunakan stock SKU aktif dengan harga terendah.
+   *
+   * Variant:
+   * tampilkan total stock seluruh SKU aktif yang tersedia,
+   * sehingga product card tetap dapat menampilkan `Stok N`.
+   */
+  const variantTotalStock = hasVariants
+    ? product.skus.reduce(
+        (total, sku) =>
+          total + Math.max(0, sku.stock),
+        0,
+      )
+    : null;
+
+  const displayStock = hasVariants
+    ? variantTotalStock
+    : lowestActiveSku
+      ? Math.max(0, lowestActiveSku.stock)
+      : null;
 
   return {
     id: product.id,
@@ -101,6 +128,10 @@ export function serializeHomepageProduct(
     slug: product.slug,
 
     price: displayPrice,
+
+    rating: rating?.averageRating ?? null,
+
+    reviewCount: rating?.reviewCount ?? 0,
 
     stock: displayStock,
 

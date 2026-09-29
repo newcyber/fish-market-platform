@@ -11,6 +11,7 @@ import {
   Package,
   Plus,
   Sparkles,
+  Star,
 } from "lucide-react";
 
 import HomeProductQuickAddSheet from "@/components/customer/home/HomeProductQuickAddSheet";
@@ -61,6 +62,14 @@ export interface HomeProductCardProduct {
   slug: string;
 
   price: number;
+
+  rating?: number | null;
+
+  reviewCount?: number;
+
+  category?: {
+    name: string;
+  } | null;
 
   stock: number | null;
 
@@ -1064,14 +1073,127 @@ export default function HomeProductCard({
               {product.name}
             </h3>
 
+            {/* KATEGORI — tampil hanya jika data kategori tersedia */}
+            {product.category?.name ? (
+              <p
+                className="
+                  mt-0.5
+                  truncate
+                  text-[8px]
+                  font-medium
+                  leading-3
+                  text-(--ink-400)
+
+                  sm:mt-1
+                  sm:text-[11px]
+                  sm:leading-4
+                "
+              >
+                {product.category.name}
+              </p>
+            ) : null}
+
             <div
               className="
                 mt-auto
                 pt-1.5
 
-                sm:pt-3
+                sm:pt-2
               "
             >
+              {/* ================================================== */}
+              {/* META — RATING | STOCK */}
+              {/* ================================================== */}
+
+              <div
+                className="
+                  mt-1
+                  flex
+                  min-h-4
+                  items-center
+                  justify-start
+                  gap-2
+                  pr-10
+
+                  sm:pr-12
+                "
+              >
+                {/* RATING — tidak dirender jika belum ada penilaian */}
+                {typeof product.rating === "number" &&
+                  Number.isFinite(product.rating) &&
+                  product.rating > 0 && (
+                    <>
+                      <div
+                        className="
+                          flex
+                          shrink-0
+                          items-center
+                          gap-0.5
+                          text-[8px]
+
+                          sm:gap-1
+                          sm:text-[11px]
+                        "
+                        aria-label={`Rating ${product.rating.toFixed(1)} dari 5`}
+                      >
+                        <Star
+                          aria-hidden="true"
+                          className="
+                            h-2.5
+                            w-2.5
+                            fill-yellow-400
+                            text-yellow-400
+
+                            sm:h-3
+                            sm:w-3
+                          "
+                        />
+
+                        <span
+                          className="
+                            font-semibold
+                            leading-4
+                            text-(--ink-600)
+                          "
+                        >
+                          {product.rating.toFixed(1)}
+                        </span>
+                      </div>
+
+                      {/* SEPARATOR — hanya ada jika rating tampil */}
+                      {hasStock && (
+                        <span
+                          aria-hidden="true"
+                          className="
+                            h-3
+                            w-px
+                            shrink-0
+                            bg-(--ice-300)
+                          "
+                        />
+                      )}
+                    </>
+                  )}
+
+                {/* STOCK */}
+                {hasStock ? (
+                  <p
+                    className="
+                      shrink-0
+                      truncate
+                      text-[8px]
+                      font-semibold
+                      leading-4
+                      text-(--ink-600)
+
+                      sm:text-[11px]
+                    "
+                  >
+                    Stok {currentStock}
+                  </p>
+                ) : null}
+              </div>
+
               {/* ================================================== */}
               {/* PRICE */}
               {/* ================================================== */}
@@ -1113,68 +1235,6 @@ export default function HomeProductCard({
                     product.price
                   )}
                 </p>
-              </div>
-
-              {/* ================================================== */}
-              {/* META */}
-              {/* ================================================== */}
-
-              <div
-                className="
-                  mt-1
-                  flex
-                  min-h-3
-                  items-center
-                  justify-start
-                  gap-2
-                  pr-10
-
-                  sm:pr-12
-                "
-              >
-                {/* ================================================== */}
-                {/* SOLD */}
-                {/* ================================================== */}
-
-                {false && hasSoldQuantity && (
-                  <p>
-                    {product.soldQuantity}
-                    <span className="hidden sm:inline">
-                      {" "}
-                      terjual
-                    </span>
-                  </p>
-                )}
-
-                {/* ================================================== */}
-                {/* STOCK */}
-                {/* ================================================== */}
-
-                {hasStock ? (
-                  <p
-                    className="
-                      shrink-0
-                      truncate
-                      text-[8px]
-                      text-(--ink-400)
-
-                      sm:text-[11px]
-                    "
-                  >
-                    <span className="hidden sm:inline">
-                      Stok{" "}
-                    </span>
-
-                    <span
-                      className="
-                        font-bold
-                        text-(--ink-600)
-                      "
-                    >
-                      {product.stock}
-                    </span>
-                  </p>
-                ) : null}
               </div>
             </div>
           </div>
