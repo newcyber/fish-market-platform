@@ -26,6 +26,10 @@ export type ProductJsonLdInput = {
   stock?: number | null;
   isPublished?: boolean;
   isPreOrder?: boolean;
+  aggregateRating?: {
+    ratingValue: number;
+    reviewCount: number;
+  } | null;
 };
 
 type ProductJsonLdOptions = {
@@ -193,6 +197,20 @@ export function buildProductJsonLd(
 
   if (categoryName) {
     productSchema.category = categoryName;
+  }
+
+  if (
+    product.aggregateRating &&
+    product.aggregateRating.reviewCount > 0 &&
+    product.aggregateRating.ratingValue > 0
+  ) {
+    productSchema.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: Number(product.aggregateRating.ratingValue.toFixed(1)),
+      bestRating: 5,
+      worstRating: 1,
+      reviewCount: product.aggregateRating.reviewCount,
+    };
   }
 
   if (prices.length > 0) {

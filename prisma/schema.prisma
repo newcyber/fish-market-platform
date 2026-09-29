@@ -89,6 +89,12 @@ enum ProductDiscountType {
   FIXED_AMOUNT
 }
 
+enum ProductReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum VoucherDiscountType {
   PERCENTAGE
   FIXED_AMOUNT
@@ -186,6 +192,8 @@ model User {
   userVouchers UserVoucher[]
 
   rewardClaims RewardClaim[]
+
+  productReviews ProductReview[]
 
   wapiDeliveries WapiDelivery[] @relation("UserWapiDeliveries")
 
@@ -871,6 +879,8 @@ model Product {
 
   wishlistItems WishlistItem[]
 
+  productReviews ProductReview[]
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -882,6 +892,41 @@ model Product {
   @@index([isDiscountActive])
   @@index([discountStartAt])
   @@index([discountEndAt])
+}
+
+/**
+ * ============================================================
+ * PRODUCT REVIEW
+ * ============================================================
+ * Guest review diperbolehkan. userId nullable agar review dapat
+ * dikaitkan ke customer login di masa depan tanpa migrasi ulang.
+ * Semua review guest masuk PENDING terlebih dahulu.
+ */
+model ProductReview {
+  id String @id @default(uuid())
+
+  productId String
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  username String
+  email String
+  rating Int
+  review String?
+
+  status ProductReviewStatus @default(PENDING)
+
+  isVerifiedPurchase Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, status])
+  @@index([productId, rating])
+  @@index([email])
+  @@index([createdAt])
 }
 
 /**

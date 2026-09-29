@@ -39,8 +39,10 @@ import ProductDescription from "@/components/customer/products/ProductDescriptio
 import StickyMobileCartBar from "@/components/customer/cart/StickyMobileCartBar";
 import ProductRecommendationSection from "@/components/customer/products/ProductRecommendationSection";
 import ProductRecommendationService from "@/services/product/product-recommendation.service";
+import ProductReviewService from "@/services/product-review/product-review.service";
 
 import ToggleWishlistButton from "@/components/customer/wishlist/ToggleWishlistButton";
+import ProductReviewSection from "@/components/customer/products/ProductReviewSection";
 
 import { auth } from "@/auth";
 
@@ -205,6 +207,13 @@ const product = isAdminPreview
     notFound();
   }
 
+  const [initialInWishlist, productReviewSummary] = await Promise.all([
+    session?.user?.id
+      ? WishlistService.isInWishlist(session.user.id, product.id)
+      : Promise.resolve(false),
+    ProductReviewService.getPublicSummary(product.id),
+  ]);
+
   const productJsonLd = (
     <ProductJsonLd
       product={{
@@ -219,6 +228,12 @@ const product = isAdminPreview
         stock: product.stock,
         isPublished: product.isPublished,
         isPreOrder: product.isPreOrder,
+        aggregateRating: productReviewSummary.reviewCount > 0
+          ? {
+              ratingValue: productReviewSummary.averageRating,
+              reviewCount: productReviewSummary.reviewCount,
+            }
+          : null,
       }}
       options={{
         baseUrl: siteUrls.storefrontUrl,
@@ -289,16 +304,6 @@ const product = isAdminPreview
       8,
     ),
   ]);
-
-  /**
-   * ==========================================================
-   * AUTH / WISHLIST
-   * ==========================================================
-   */
-
-  const initialInWishlist = session?.user?.id
-    ? await WishlistService.isInWishlist(session.user.id, product.id)
-    : false;
 
   /**
    * ==========================================================
@@ -1832,6 +1837,23 @@ const product = isAdminPreview
                 )}
               </div>
             </section>
+
+            {/* ==================================================== */}
+            {/* PRODUCT REVIEWS */}
+            {/* ==================================================== */}
+
+            <ProductReviewSection
+              productId={product.id}
+              initialSummary={{
+                averageRating: productReviewSummary.averageRating,
+                reviewCount: productReviewSummary.reviewCount,
+                distribution: productReviewSummary.distribution,
+                reviews: productReviewSummary.reviews.map((review) => ({
+                  ...review,
+                  createdAt: review.createdAt.toISOString(),
+                })),
+              }}
+            />
 
             {/* ==================================================== */}
             {/* RECOMMENDATIONS */}

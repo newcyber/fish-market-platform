@@ -39,8 +39,27 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     icon: "products",
     roles: ADMIN_ROLES,
     order: 2,
-  },
 
+    children: [
+      {
+        id: "product-list",
+        title: "Products",
+        href: "/admin/products",
+        icon: "products",
+        roles: ADMIN_ROLES,
+        order: 1,
+      },
+
+      {
+        id: "product-reviews",
+        title: "Product Reviews",
+        href: "/admin/product-reviews",
+        icon: "products",
+        roles: ADMIN_ROLES,
+        order: 2,
+      },
+    ],
+  },
   /**
    * ==========================================================
    * CATEGORIES
