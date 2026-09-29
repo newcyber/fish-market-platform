@@ -45,9 +45,13 @@ function Stars({
   onSelect?: (rating: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-0.5" aria-label={`${value} dari 5 bintang`}>
+    <div
+      className="flex items-center gap-0.5"
+      aria-label={`${value} dari 5 bintang`}
+    >
       {[1, 2, 3, 4, 5].map((star) => {
         const filled = star <= value;
+
         const content = (
           <Star
             className={`h-5 w-5 ${
@@ -82,7 +86,7 @@ export default function ProductReviewSection({
   productId,
   initialSummary,
 }: ProductReviewSectionProps) {
-  const [summary, setSummary] = useState(initialSummary);
+  const summary = initialSummary;
   const [rating, setRating] = useState(0);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -96,21 +100,11 @@ export default function ProductReviewSection({
 
   const distributionMap = useMemo(
     () =>
-      new Map(summary.distribution.map((item) => [item.rating, item.count])),
+      new Map(
+        summary.distribution.map((item) => [item.rating, item.count]),
+      ),
     [summary.distribution],
   );
-
-  async function refreshSummary() {
-    const response = await fetch(`/api/products/${productId}/reviews`, {
-      cache: "no-store",
-    });
-
-    const payload = await response.json();
-
-    if (response.ok && payload?.success && payload?.data) {
-      setSummary(payload.data);
-    }
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,19 +119,22 @@ export default function ProductReviewSection({
     setSubmitting(true);
 
     try {
-      const response = await fetch(`/api/products/${productId}/reviews`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/products/${productId}/reviews`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username,
+            email,
+            rating,
+            review,
+            website,
+          }),
         },
-        body: JSON.stringify({
-          username,
-          email,
-          rating,
-          review,
-          website,
-        }),
-      });
+      );
 
       const payload = await response.json();
 
@@ -150,6 +147,7 @@ export default function ProductReviewSection({
       setMessage(
         "Terima kasih. Penilaian Anda berhasil dikirim dan menunggu moderasi.",
       );
+
       setRating(0);
       setUsername("");
       setEmail("");
@@ -173,6 +171,7 @@ export default function ProductReviewSection({
           <h2 className="text-xl font-bold text-slate-900">
             Penilaian Produk
           </h2>
+
           <p className="mt-1 text-sm text-slate-500">
             Bagikan pengalaman Anda agar pelanggan lain lebih mudah memilih.
           </p>
@@ -208,13 +207,17 @@ export default function ProductReviewSection({
                     key={item.rating}
                     className="grid grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-2 text-xs"
                   >
-                    <span className="text-slate-600">{item.rating}★</span>
+                    <span className="text-slate-600">
+                      {item.rating}★
+                    </span>
+
                     <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                       <div
                         className="h-full rounded-full bg-amber-400 transition-all"
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
+
                     <span className="text-right text-slate-500">
                       {distributionMap.get(item.rating) ?? 0}
                     </span>
@@ -230,16 +233,18 @@ export default function ProductReviewSection({
                 <h3 className="font-semibold text-slate-900">
                   Berikan Penilaian
                 </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Tidak perlu login. Cukup isi nama dan email Anda.
-                </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              <form
+                onSubmit={handleSubmit}
+                className="mt-5 space-y-4"
+              >
                 <div>
                   <label className="text-sm font-medium text-slate-700">
-                    Rating <span className="text-red-500">*</span>
+                    Rating{" "}
+                    <span className="text-red-500">*</span>
                   </label>
+
                   <div className="mt-2">
                     <Stars
                       value={rating}
@@ -255,12 +260,16 @@ export default function ProductReviewSection({
                       htmlFor="product-review-username"
                       className="text-sm font-medium text-slate-700"
                     >
-                      Nama <span className="text-red-500">*</span>
+                      Nama{" "}
+                      <span className="text-red-500">*</span>
                     </label>
+
                     <input
                       id="product-review-username"
                       value={username}
-                      onChange={(event) => setUsername(event.target.value)}
+                      onChange={(event) =>
+                        setUsername(event.target.value)
+                      }
                       required
                       maxLength={50}
                       autoComplete="name"
@@ -274,13 +283,17 @@ export default function ProductReviewSection({
                       htmlFor="product-review-email"
                       className="text-sm font-medium text-slate-700"
                     >
-                      Email <span className="text-red-500">*</span>
+                      Email{" "}
+                      <span className="text-red-500">*</span>
                     </label>
+
                     <input
                       id="product-review-email"
                       type="email"
                       value={email}
-                      onChange={(event) => setEmail(event.target.value)}
+                      onChange={(event) =>
+                        setEmail(event.target.value)
+                      }
                       required
                       maxLength={160}
                       autoComplete="email"
@@ -290,12 +303,20 @@ export default function ProductReviewSection({
                   </div>
                 </div>
 
-                <div className="hidden" aria-hidden="true">
-                  <label htmlFor="product-review-website">Website</label>
+                <div
+                  className="hidden"
+                  aria-hidden="true"
+                >
+                  <label htmlFor="product-review-website">
+                    Website
+                  </label>
+
                   <input
                     id="product-review-website"
                     value={website}
-                    onChange={(event) => setWebsite(event.target.value)}
+                    onChange={(event) =>
+                      setWebsite(event.target.value)
+                    }
                     tabIndex={-1}
                     autoComplete="off"
                   />
@@ -306,12 +327,18 @@ export default function ProductReviewSection({
                     htmlFor="product-review-text"
                     className="text-sm font-medium text-slate-700"
                   >
-                    Ulasan <span className="text-slate-400">(opsional)</span>
+                    Ulasan{" "}
+                    <span className="text-slate-400">
+                      (opsional)
+                    </span>
                   </label>
+
                   <textarea
                     id="product-review-text"
                     value={review}
-                    onChange={(event) => setReview(event.target.value)}
+                    onChange={(event) =>
+                      setReview(event.target.value)
+                    }
                     maxLength={1000}
                     rows={4}
                     className="mt-1.5 w-full resize-y rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
@@ -328,6 +355,7 @@ export default function ProductReviewSection({
                 {message ? (
                   <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+
                     <span>{message}</span>
                   </div>
                 ) : null}
@@ -346,11 +374,6 @@ export default function ProductReviewSection({
                     "Kirim Penilaian"
                   )}
                 </button>
-
-                <p className="text-xs leading-5 text-slate-400">
-                  Penilaian akan ditinjau terlebih dahulu sebelum ditampilkan
-                  secara publik.
-                </p>
               </form>
             </div>
 
@@ -371,12 +394,14 @@ export default function ProductReviewSection({
                           <span className="font-semibold text-slate-900">
                             {item.username}
                           </span>
+
                           {item.isVerifiedPurchase ? (
                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                               Pembelian Terverifikasi
                             </span>
                           ) : null}
                         </div>
+
                         <div className="mt-1">
                           <Stars value={item.rating} />
                         </div>

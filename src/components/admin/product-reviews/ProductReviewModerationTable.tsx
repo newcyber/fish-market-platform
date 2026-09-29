@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Loader2, X } from "lucide-react";
 
@@ -21,6 +21,11 @@ interface AdminReview {
   };
 }
 
+interface ReviewResponse {
+  reviews: AdminReview[];
+  total: number;
+}
+
 const filters = [
   { value: "", label: "Semua" },
   { value: "PENDING", label: "Pending" },
@@ -30,8 +35,15 @@ const filters = [
 
 function maskEmail(email: string) {
   const [local, domain] = email.split("@");
-  if (!local || !domain) return email;
-  if (local.length <= 2) return `•••@${domain}`;
+
+  if (!local || !domain) {
+    return email;
+  }
+
+  if (local.length <= 2) {
+    return `•••@${domain}`;
+  }
+
   return `${local.slice(0, 2)}•••@${domain}`;
 }
 
@@ -52,41 +64,84 @@ export default function ProductReviewModerationTable() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const query = status
-        ? `?status=${encodeURIComponent(status)}`
+  /**
+   * Fetch review data only.
+   *
+   * IMPORTANT:
+   * Function ini tidak boleh melakukan setState.
+   * Ini sengaja dipisahkan dari effect agar tidak terkena
+   * react-hooks/set-state-in-effect.
+   */
+  const fetchReviews = useCallback(
+    async (statusValue: string): Promise<ReviewResponse> => {
+      const query = statusValue
+        ? `?status=${encodeURIComponent(statusValue)}`
         : "";
 
-      const response = await fetch(`/api/admin/product-reviews${query}`, {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `/api/admin/product-reviews${query}`,
+        {
+          cache: "no-store",
+        },
+      );
 
       const payload = await response.json();
 
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.message || "Gagal mengambil review.");
+        throw new Error(
+          payload?.message || "Gagal mengambil review.",
+        );
       }
 
-      setReviews(payload.data.reviews ?? []);
-      setTotal(payload.data.total ?? 0);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Gagal mengambil review.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+      return {
+        reviews: payload.data?.reviews ?? [],
+        total: payload.data?.total ?? 0,
+      };
+    },
+    [],
+  );
 
+  /**
+   * Load review ketika filter berubah.
+   *
+   * Tidak ada setState sebelum asynchronous operation.
+   * Semua update state dilakukan setelah fetch selesai.
+   */
   useEffect(() => {
-    void load();
-  }, [status]);
+    let cancelled = false;
+
+    const loadReviews = async () => {
+      try {
+        const data = await fetchReviews(status);
+
+        if (cancelled) {
+          return;
+        }
+
+        setReviews(data.reviews);
+        setTotal(data.total);
+        setError(null);
+        setLoading(false);
+      } catch (loadError) {
+        if (cancelled) {
+          return;
+        }
+
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Gagal mengambil review.",
+        );
+        setLoading(false);
+      }
+    };
+
+    void loadReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchReviews, status]);
 
   async function updateStatus(
     id: string,
@@ -96,19 +151,32 @@ export default function ProductReviewModerationTable() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/product-reviews/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
+      const response = await fetch(
+        `/api/admin/product-reviews/${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: nextStatus,
+          }),
+        },
+      );
 
       const payload = await response.json();
 
       if (!response.ok || !payload?.success) {
-        throw new Error(payload?.message || "Gagal memperbarui review.");
+        throw new Error(
+          payload?.message || "Gagal memperbarui review.",
+        );
       }
 
-      await load();
+      const data = await fetchReviews(status);
+
+      setReviews(data.reviews);
+      setTotal(data.total);
+      setError(null);
     } catch (updateError) {
       setError(
         updateError instanceof Error
@@ -120,6 +188,12 @@ export default function ProductReviewModerationTable() {
     }
   }
 
+  function handleFilterChange(nextStatus: string) {
+    setLoading(true);
+    setError(null);
+    setStatus(nextStatus);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -127,7 +201,7 @@ export default function ProductReviewModerationTable() {
           <button
             key={filter.value}
             type="button"
-            onClick={() => setStatus(filter.value)}
+            onClick={() => handleFilterChange(filter.value)}
             className={`rounded-full px-4 py-2 text-sm font-medium transition ${
               status === filter.value
                 ? "bg-slate-900 text-white"
@@ -175,6 +249,7 @@ export default function ProductReviewModerationTable() {
                       >
                         {item.product.name}
                       </Link>
+
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                           item.status === "APPROVED"
@@ -192,9 +267,11 @@ export default function ProductReviewModerationTable() {
                       <span className="font-medium text-slate-900">
                         {item.username}
                       </span>
+
                       <span className="text-slate-400">
                         {maskEmail(item.email)}
                       </span>
+
                       <Stars value={item.rating} />
                     </div>
 
@@ -214,16 +291,27 @@ export default function ProductReviewModerationTable() {
                       <button
                         type="button"
                         disabled={updatingId === item.id}
-                        onClick={() => void updateStatus(item.id, "APPROVED")}
+                        onClick={() =>
+                          void updateStatus(
+                            item.id,
+                            "APPROVED",
+                          )
+                        }
                         className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                       >
                         <Check className="h-4 w-4" />
                         Approve
                       </button>
+
                       <button
                         type="button"
                         disabled={updatingId === item.id}
-                        onClick={() => void updateStatus(item.id, "REJECTED")}
+                        onClick={() =>
+                          void updateStatus(
+                            item.id,
+                            "REJECTED",
+                          )
+                        }
                         className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
                         <X className="h-4 w-4" />
