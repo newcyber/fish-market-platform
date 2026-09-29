@@ -46,7 +46,9 @@ export default async function PisjoLandingPage() {
         Math.min(config.featuredProductsSection?.displayLimit ?? 6, 12),
       ),
     )
-  ).map(serializeHomepageProduct);
+ ).map((product) =>
+  serializeHomepageProduct(product)
+);
 
   const storeName = brand.storeName;
   const storeDescription = brand.storeDescription;
