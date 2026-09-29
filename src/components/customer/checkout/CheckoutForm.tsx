@@ -1537,17 +1537,18 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
 
               <textarea
                 value={notes}
-
                 onChange={(event) => setNotes(event.target.value)}
-
                 placeholder="Contoh: Tolong hubungi saya sebelum pengiriman."
-
-                maxLength={500}
-
+                maxLength={120}
                 disabled={isSubmitting}
-
                 className="mt-3 min-h-24 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-50"
-              />
+                />
+
+              <div className="mt-1 flex justify-end">
+                <span className="text-[10px] text-slate-400">
+                  {notes.length}/120
+                </span>
+              </div>
             </section>
 
             {/* =================================================== */}

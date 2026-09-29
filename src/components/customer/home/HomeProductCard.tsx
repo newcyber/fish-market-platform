@@ -1136,19 +1136,9 @@ export default function HomeProductCard({
                 {/* SOLD */}
                 {/* ================================================== */}
 
-                {hasSoldQuantity && (
-                  <p
-                    className="
-                      shrink-0
-                      text-[8px]
-                      font-bold
-                      text-(--ocean-700)
-
-                      sm:text-[11px]
-                    "
-                  >
+                {false && hasSoldQuantity && (
+                  <p>
                     {product.soldQuantity}
-
                     <span className="hidden sm:inline">
                       {" "}
                       terjual

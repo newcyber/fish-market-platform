@@ -217,6 +217,29 @@ export async function createCheckoutOrderAction(
     }
 
     /**
+    * ==========================================================
+    * VALIDATE ORDER NOTES
+    * ==========================================================
+    *
+    * Catatan pesanan maksimal 120 karakter.
+    * Validasi server tetap diperlukan meskipun frontend
+    * sudah menggunakan maxLength={120}.
+    */
+
+    const notes =
+      typeof input.notes === "string"
+        ? input.notes.trim()
+        : "";
+
+    if (notes.length > 120) {
+      return {
+        success: false,
+        message:
+          "Catatan pesanan maksimal 120 karakter.",
+      };
+    }
+
+    /**
      * ==========================================================
      * NORMALIZE VOUCHER CODE
      * ==========================================================
@@ -267,7 +290,7 @@ const result =
 
     paymentChannelId,
 
-    input.notes ?? null,
+    notes || null,
 
     shippingProvider,
 
