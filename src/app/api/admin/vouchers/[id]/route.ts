@@ -5,6 +5,7 @@ import {
 
 import {
   VoucherDiscountType,
+  VoucherType,
 } from "@prisma/client";
 
 import { requireAdmin } from "@/lib/auth/admin";
@@ -33,6 +34,10 @@ import {
  * HELPERS
  * ============================================================
  */
+
+function isVoucherType(value: unknown): value is VoucherType {
+  return value === VoucherType.DISCOUNT || value === VoucherType.FREE_SHIPPING;
+}
 
 function isVoucherDiscountType(
   value: unknown
@@ -373,6 +378,16 @@ export async function PATCH(
         data.name.trim();
     }
 
+    if (data.type !== undefined) {
+      if (!isVoucherType(data.type)) {
+        return NextResponse.json(
+          { success: false, message: "Tipe voucher tidak valid." },
+          { status: 400 }
+        );
+      }
+      input.type = data.type;
+    }
+
     /**
      * ----------------------------------------------------------
      * DESCRIPTION
@@ -531,6 +546,43 @@ export async function PATCH(
 
       input.maximumDiscount =
         maximumDiscount;
+    }
+
+    const maximumShippingDiscount =
+      data.maximumShippingDiscount !== undefined
+        ? parseNullableNumber(data.maximumShippingDiscount)
+        : undefined;
+
+    if (maximumShippingDiscount === undefined && data.maximumShippingDiscount !== undefined) {
+      return NextResponse.json(
+        { success: false, message: "Maksimum subsidi ongkir tidak valid." },
+        { status: 400 }
+      );
+    }
+
+    const claimLimit =
+      data.claimLimit !== undefined
+        ? parseNullableInteger(data.claimLimit)
+        : undefined;
+
+    if (claimLimit === undefined && data.claimLimit !== undefined) {
+      return NextResponse.json(
+        { success: false, message: "Batas klaim tidak valid." },
+        { status: 400 }
+      );
+    }
+
+    if (data.claimable !== undefined && typeof data.claimable !== "boolean") {
+      return NextResponse.json(
+        { success: false, message: "Status claim voucher tidak valid." },
+        { status: 400 }
+      );
+    }
+
+    if (data.claimable !== undefined) input.claimable = data.claimable;
+    if (claimLimit !== undefined) input.claimLimit = claimLimit;
+    if (maximumShippingDiscount !== undefined) {
+      input.maximumShippingDiscount = maximumShippingDiscount;
     }
 
     /**

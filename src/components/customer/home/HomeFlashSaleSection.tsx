@@ -759,9 +759,12 @@ export default function HomeFlashSaleSection({
   const [quickAddItem, setQuickAddItem] =
     useState<FlashSaleItem | null>(null);
 
-  const [remaining, setRemaining] = useState(
-    getRemainingTime(flashSale.endAt)
-  );
+  // Jangan hitung Date.now() saat render awal.
+  // Component ini di-SSR oleh Next.js, sehingga nilai countdown server
+  // dan client bisa berbeda beberapa detik dan menyebabkan hydration mismatch.
+  const [remaining, setRemaining] = useState<
+    ReturnType<typeof getRemainingTime> | null
+  >(null);
 
   useEffect(() => {
     const update = () => {
@@ -792,6 +795,7 @@ export default function HomeFlashSaleSection({
 
   if (
     items.length === 0 ||
+    !remaining ||
     remaining.isExpired
   ) {
     return null;

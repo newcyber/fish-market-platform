@@ -2,6 +2,7 @@ import {
   Prisma,
   Voucher,
   VoucherDiscountType,
+  VoucherType,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -145,7 +146,7 @@ export class VoucherRepository {
 ) {
   const client = this.getClient(tx);
 
-  return client.userVoucher.findUnique({
+  return client.userVoucher.findFirst({
     where: {
       voucherId,
     },
@@ -187,6 +188,8 @@ export class VoucherRepository {
 
       discountType?: VoucherDiscountType;
 
+      type?: VoucherType;
+
       skip?: number;
 
       take?: number;
@@ -200,6 +203,7 @@ export class VoucherRepository {
       isActive,
       search,
       discountType,
+      type,
       skip,
       take,
     } = options ?? {};
@@ -220,6 +224,12 @@ export class VoucherRepository {
       ...(discountType
         ? {
             discountType,
+          }
+        : {}),
+
+      ...(type
+        ? {
+            type,
           }
         : {}),
     };
@@ -456,6 +466,8 @@ export class VoucherRepository {
       search?: string;
 
       discountType?: VoucherDiscountType;
+
+      type?: VoucherType;
     },
     tx?: Prisma.TransactionClient
   ): Promise<number> {
@@ -466,6 +478,7 @@ export class VoucherRepository {
       isActive,
       search,
       discountType,
+      type,
     } = options ?? {};
 
     const where: Prisma.VoucherWhereInput = {
@@ -484,6 +497,12 @@ export class VoucherRepository {
       ...(discountType
         ? {
             discountType,
+          }
+        : {}),
+
+      ...(type
+        ? {
+            type,
           }
         : {}),
     };
@@ -649,6 +668,10 @@ export class VoucherRepository {
       discountAmount:
         | number
         | Prisma.Decimal;
+
+      shippingDiscountAmount?:
+        | number
+        | Prisma.Decimal;
     },
     tx?: Prisma.TransactionClient
   ) {
@@ -669,6 +692,11 @@ export class VoucherRepository {
         discountAmount:
           new Prisma.Decimal(
             data.discountAmount
+          ),
+
+        shippingDiscountAmount:
+          new Prisma.Decimal(
+            data.shippingDiscountAmount ?? 0
           ),
       },
     });
@@ -695,6 +723,72 @@ export class VoucherRepository {
    * tidak dapat ditembus.
    * ============================================================
    */
+
+
+
+  /**
+   * ============================================================
+   * USER CLAIMED VOUCHERS
+   * ============================================================
+   */
+
+  static async findUserVoucherByVoucher(
+    voucherId: string,
+    userId: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = this.getClient(tx);
+
+    return client.userVoucher.findUnique({
+      where: {
+        userId_voucherId: {
+          userId,
+          voucherId,
+        },
+      },
+      include: {
+        voucher: true,
+      },
+    });
+  }
+
+  static async findClaimableVouchers(
+    userId: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = this.getClient(tx);
+    const now = new Date();
+
+    return client.voucher.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        claimable: true,
+        OR: [
+          { startAt: null },
+          { startAt: { lte: now } },
+        ],
+        AND: [
+          {
+            OR: [
+              { endAt: null },
+              { endAt: { gt: now } },
+            ],
+          },
+          {
+            OR: [
+              { claimLimit: null },
+              { claimCount: { lt: 0 } },
+              { claimCount: { lt: 999999999 } },
+            ],
+          },
+        ],
+      },
+      orderBy: [
+        { createdAt: "desc" },
+      ],
+    });
+  }
 
   static async acquireUserVoucherLock(
     voucherId: string,

@@ -28,6 +28,8 @@ type CartSelectionItem =
 
 interface CartSelectionProps {
   items: CartSelectionItem[];
+  voucherDiscount?: number;
+  appliedVoucherId?: string | null;
 }
 
 /**
@@ -70,6 +72,8 @@ function formatRupiah(value: number) {
 
 export default function CartSelection({
   items,
+  voucherDiscount = 0,
+  appliedVoucherId = null,
 }: CartSelectionProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -166,6 +170,17 @@ export default function CartSelection({
    */
   const selectedProductCount =
     selectedItems.length;
+
+  const appliedDiscount = Math.max(
+    0,
+    Math.min(
+      Number(voucherDiscount) || 0,
+      selectedSubtotal,
+    ),
+  );
+
+  const cartTotalAfterVoucher =
+    Math.max(0, selectedSubtotal - appliedDiscount);
 
   /**
    * ==========================================================
@@ -302,7 +317,13 @@ export default function CartSelection({
      * seluruh cart dipilih.
      */
     if (allSelected) {
-      return "/customer/checkout";
+      const voucherId = appliedVoucherId;
+
+      return voucherId
+        ? `/customer/checkout?${new URLSearchParams({
+            voucher: voucherId,
+          }).toString()}`
+        : "/customer/checkout";
     }
 
     const ids =
@@ -318,8 +339,17 @@ export default function CartSelection({
       ids.join(",")
     );
 
+    const voucherId = appliedVoucherId;
+
+    if (voucherId) {
+      params.set(
+        "voucher",
+        voucherId
+      );
+    }
+
     return `/customer/checkout?${params.toString()}`;
-  }, [allSelected, selectedItems]);
+  }, [allSelected, appliedVoucherId, selectedItems]);
 
   /**
    * ==========================================================
@@ -494,27 +524,30 @@ export default function CartSelection({
                   : "Belum ada produk"}
               </p>
 
-              <p
-                className="
-                  truncate
-                  text-lg
-                  font-bold
-                  text-slate-950
-                "
-              >
-                {formatRupiah(
-                  selectedSubtotal
+              <div className="mt-0.5 space-y-0.5">
+                <p className="text-xs text-slate-500">
+                  Subtotal{" "}
+                  <span className="font-semibold text-slate-700">
+                    {formatRupiah(selectedSubtotal)}
+                  </span>
+                </p>
+
+                {appliedDiscount > 0 && (
+                  <p className="text-xs font-semibold text-red-600">
+                    Diskon Voucher{" "}
+                    <span>
+                      -{formatRupiah(appliedDiscount)}
+                    </span>
+                  </p>
                 )}
-              </p>
+
+                <p className="text-lg font-bold text-slate-950">
+                  {formatRupiah(cartTotalAfterVoucher)}
+                </p>
+              </div>
 
               {selectedItems.length > 0 && (
-                <p
-                  className="
-                    mt-0.5
-                    text-[10px]
-                    text-slate-400
-                  "
-                >
+                <p className="mt-0.5 text-[10px] text-slate-400">
                   Belum termasuk ongkir
                 </p>
               )}

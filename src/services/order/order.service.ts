@@ -866,11 +866,28 @@ export default class OrderService {
       const discountedSubtotal = voucherResult?.finalSubtotal ?? subtotal;
       /**
        * ========================================================
-       * 10. SHIPPING + FINAL TOTAL
+       * 10. SHIPPING + VOUCHER SHIPPING + FINAL TOTAL
        * ========================================================
+       *
+       * FREE_SHIPPING voucher hanya mensubsidi ongkir.
+       * Diskon ongkir tidak boleh membuat shipping menjadi negatif.
        */
       const shipping = new Prisma.Decimal(shippingCost);
-      const total = discountedSubtotal.plus(shipping);
+
+      const voucherShippingDiscount =
+        voucherResult
+          ? VoucherService.calculateShippingDiscount(
+              voucherResult.voucher,
+              shipping,
+            )
+          : new Prisma.Decimal(0);
+
+      const finalShipping = Prisma.Decimal.max(
+        new Prisma.Decimal(0),
+        shipping.minus(voucherShippingDiscount),
+      );
+
+      const total = discountedSubtotal.plus(finalShipping);
       /**
        * ========================================================
        * 11. CREATE ORDER
@@ -896,6 +913,7 @@ export default class OrderService {
           voucherCode: voucherResult?.voucher.code ?? null,
           voucherName: voucherResult?.voucher.name ?? null,
           voucherDiscount,
+          voucherShippingDiscount,
           /**
            * Ongkir.
            */
@@ -1041,6 +1059,7 @@ export default class OrderService {
             userId: input.userId,
             orderId: order.id,
             discountAmount: voucherResult.discountAmount,
+            shippingDiscountAmount: voucherShippingDiscount,
           },
           tx,
         );
@@ -5220,6 +5239,21 @@ export default class OrderService {
          * Digunakan untuk seluruh perhitungan finansial.
          */
         const shipping = new Prisma.Decimal(shippingCost);
+
+        const voucherShippingDiscount =
+          voucherResult
+            ? VoucherService.calculateShippingDiscount(
+                voucherResult.voucher,
+                shipping,
+              )
+            : new Prisma.Decimal(0);
+
+        const finalShipping =
+          Prisma.Decimal.max(
+            new Prisma.Decimal(0),
+            shipping.minus(voucherShippingDiscount),
+          );
+
         /**
          * ====================================================
          * FINAL ORDER TOTAL
@@ -5229,9 +5263,9 @@ export default class OrderService {
          *
          * subtotal
          * - voucher discount
-         * + shipping
+         * + final shipping
          */
-        const total = discountedSubtotal.plus(shipping);
+        const total = discountedSubtotal.plus(finalShipping);
         /**
          * ====================================================
          * CREATE ORDER
@@ -5249,6 +5283,7 @@ export default class OrderService {
             voucherCode: voucherResult?.voucher.code ?? null,
             voucherName: voucherResult?.voucher.name ?? null,
             voucherDiscount,
+            voucherShippingDiscount,
             shippingProvider: normalizedShippingProvider,
             shippingCost: shippingCost,
             total,
@@ -5384,6 +5419,7 @@ export default class OrderService {
               userId,
               orderId: createdOrder.id,
               discountAmount: voucherResult.discountAmount,
+              shippingDiscountAmount: voucherShippingDiscount,
             },
             tx,
           );

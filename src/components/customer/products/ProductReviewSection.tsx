@@ -145,7 +145,7 @@ export default function ProductReviewSection({
       }
 
       setMessage(
-        "Terima kasih. Penilaian Anda berhasil dikirim dan menunggu moderasi.",
+        "Terima kasih sudah berbagi pengalaman. Penilaian Anda sangat berarti bagi kami.",
       );
 
       setRating(0);

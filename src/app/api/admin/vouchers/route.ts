@@ -5,6 +5,7 @@ import {
 
 import {
   VoucherDiscountType,
+  VoucherType,
 } from "@prisma/client";
 
 import { requireAdmin } from "@/lib/auth/admin";
@@ -157,6 +158,10 @@ function parseNullableDate(
   }
 
   return date;
+}
+
+function isVoucherType(value: unknown): value is VoucherType {
+  return value === VoucherType.DISCOUNT || value === VoucherType.FREE_SHIPPING;
 }
 
 function isVoucherDiscountType(
@@ -491,6 +496,16 @@ export async function POST(
     }
 
     if (
+      data.type !== undefined &&
+      !isVoucherType(data.type)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Tipe voucher tidak valid." },
+        { status: 400 }
+      );
+    }
+
+    if (
       !isVoucherDiscountType(
         data.discountType
       )
@@ -554,11 +569,19 @@ export async function POST(
         data.perUserLimit
       );
 
+    const maximumShippingDiscount =
+      parseNullableNumber(data.maximumShippingDiscount);
+
+    const claimLimit =
+      parseNullableInteger(data.claimLimit);
+
     if (
       minimumPurchase === undefined ||
       maximumDiscount === undefined ||
       usageLimit === undefined ||
-      perUserLimit === undefined
+      perUserLimit === undefined ||
+      maximumShippingDiscount === undefined ||
+      claimLimit === undefined
     ) {
       return NextResponse.json(
         {
@@ -627,6 +650,16 @@ export async function POST(
       );
     }
 
+    if (
+      data.claimable !== undefined &&
+      typeof data.claimable !== "boolean"
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Status claim voucher tidak valid." },
+        { status: 400 }
+      );
+    }
+
     /**
      * ----------------------------------------------------------
      * DESCRIPTION
@@ -663,6 +696,16 @@ export async function POST(
 
       name:
         data.name.trim(),
+
+      type:
+        data.type as VoucherType | undefined,
+
+      claimable:
+        data.claimable as boolean | undefined,
+
+      claimLimit,
+
+      maximumShippingDiscount,
 
       description:
         data.description === undefined

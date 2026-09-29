@@ -26,6 +26,8 @@ import HomeProductCard, {
 
 import { prisma } from "@/lib/prisma";
 
+import { getProductRatings } from "@/lib/products/get-product-ratings";
+
 import CategoryService from
   "@/services/category/category.service";
 
@@ -294,6 +296,19 @@ const products =
 
   /**
    * ==========================================================
+   * PRODUCT RATINGS
+   * ==========================================================
+   *
+   * Satu query untuk seluruh produk di halaman katalog.
+   */
+
+  const productRatings =
+    await getProductRatings(
+      products.map((product) => product.id),
+    );
+
+  /**
+   * ==========================================================
    * SERIALIZE PRODUCTS
    * ==========================================================
    *
@@ -318,6 +333,14 @@ const products =
             "number"
             ? product.price
             : product.price.toNumber(),
+
+        rating:
+          productRatings.get(product.id)?.averageRating ??
+          null,
+
+        reviewCount:
+          productRatings.get(product.id)?.reviewCount ??
+          0,
 
         stock:
           product.stock ?? 0,

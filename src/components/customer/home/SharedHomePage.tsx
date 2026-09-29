@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { serializeHomepageProduct } from "@/lib/products/serialize-homepage-product";
 
+import { getProductRatings } from "@/lib/products/get-product-ratings";
+
 import { auth } from "@/auth";
 
 import HomeBestSellingProducts from
@@ -999,6 +1001,26 @@ customerUserId
 
   /**
    * ==========================================================
+   * PRODUCT RATINGS
+   * ==========================================================
+   *
+   * Ambil seluruh rating approved untuk product card homepage
+   * dalam satu query. Tidak melakukan query per card (N+1).
+   */
+
+  const homepageProductIds = [
+    ...featuredProducts.map((product) => product.id),
+    ...bestSellingGroups.map((item) => item.productId),
+    ...newestProducts.map((product) => product.id),
+    ...allProducts.map((product) => product.id),
+    ...repeatPurchaseItems.map((item) => item.productId),
+  ];
+
+  const productRatings =
+    await getProductRatings(homepageProductIds);
+
+  /**
+   * ==========================================================
    * SERIALIZE FLASH SALE
    * ==========================================================
    */
@@ -1018,7 +1040,8 @@ customerUserId
     featuredProducts.map(
       (product) =>
         serializeHomepageProduct(
-          product
+          product,
+          productRatings.get(product.id),
         )
     );
 
@@ -1133,7 +1156,8 @@ customerUserId
 
           return {
             ...serializeHomepageProduct(
-              product
+              product,
+              productRatings.get(product.id),
             ),
 
             soldQuantity:
@@ -1161,7 +1185,8 @@ customerUserId
     newestProducts.map(
       (product) =>
         serializeHomepageProduct(
-          product
+          product,
+          productRatings.get(product.id),
         )
     );
 
@@ -1175,7 +1200,8 @@ customerUserId
     allProducts.map(
       (product) =>
         serializeHomepageProduct(
-          product
+          product,
+          productRatings.get(product.id),
         )
     );
 
@@ -1218,7 +1244,10 @@ const serializedRepeatPurchaseProducts =
     repeatPurchaseProductMap.values()
   ).map(
     (product) =>
-      serializeHomepageProduct(product)
+      serializeHomepageProduct(
+      product,
+      productRatings.get(product.id),
+    )
   );
 
 /**

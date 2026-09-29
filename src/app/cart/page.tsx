@@ -10,6 +10,8 @@ import {
 import { auth } from "@/auth";
 
 import CartService from "@/services/cart/cart.service";
+import { VoucherRepository } from "@/repositories/voucher/voucher.repository";
+import { VoucherService } from "@/services/voucher/voucher.service";
 
 import CartSelection from "@/components/customer/cart/CartSelection";
 import CartPromoSection from "@/components/customer/cart/CartPromoSection";
@@ -44,7 +46,14 @@ import {
  * ============================================================
  */
 
-export default async function CartPage() {
+export default async function CartPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    selected?: string;
+    voucher?: string;
+  }>;
+}) {
   /**
    * ==========================================================
    * AUTH / CART OWNER
@@ -113,6 +122,90 @@ export default async function CartPage() {
 
   const items =
     serializedCart?.items ?? [];
+
+  /**
+   * ==========================================================
+   * ACTIVE VOUCHER PREVIEW
+   * ==========================================================
+   *
+   * Voucher pada Cart divalidasi ulang di server berdasarkan
+   * item yang sedang dipilih. Jadi angka diskon yang ditampilkan
+   * di Cart tidak berasal dari query string yang bisa dimanipulasi.
+   *
+   * Checkout tetap melakukan validasi ulang sebelum membuat order.
+   */
+  const resolvedSearchParams = searchParams
+    ? await searchParams
+    : {};
+
+  const selectedIds = resolvedSearchParams.selected
+    ? new Set(
+        resolvedSearchParams.selected
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean),
+      )
+    : new Set(items.map((item) => item.id));
+
+  const selectedSubtotal = items.reduce((total, item) => {
+    if (!selectedIds.has(item.id)) {
+      return total;
+    }
+
+    return total + Number(item.price) * Number(item.quantity);
+  }, 0);
+
+  let voucherDiscount = 0;
+  let appliedVoucher:
+    | {
+        id: string;
+        code: string;
+        name: string;
+        type: "DISCOUNT" | "FREE_SHIPPING";
+        maximumShippingDiscount: number | null;
+      }
+    | null = null;
+
+  if (
+    session?.user?.id &&
+    resolvedSearchParams.voucher &&
+    selectedSubtotal > 0
+  ) {
+    try {
+      const voucher = await VoucherRepository.findById(
+        resolvedSearchParams.voucher,
+      );
+
+      if (voucher && voucher.type === "DISCOUNT") {
+        const calculation =
+          await VoucherService.validateAndCalculate({
+            code: voucher.code,
+            userId: session.user.id,
+            subtotal: selectedSubtotal,
+          });
+
+        // Cart hanya mendukung voucher potongan harga.
+        // Gratis ongkir menunggu perhitungan ongkir di Checkout.
+        if (calculation.voucher.type !== "DISCOUNT") {
+          throw new Error("Voucher gratis ongkir hanya dapat digunakan di Checkout.");
+        }
+
+        voucherDiscount = calculation.discountAmount.toNumber();
+
+        appliedVoucher = {
+          id: calculation.voucher.id,
+          code: calculation.voucher.code,
+          name: calculation.voucher.name,
+          type: calculation.voucher.type,
+          maximumShippingDiscount:
+            calculation.voucher.maximumShippingDiscount?.toNumber() ?? null,
+        };
+      }
+    } catch {
+      // Voucher invalid terhadap selection saat ini.
+      // Checkout tidak akan membawa voucher yang tidak tervalidasi.
+    }
+  }
 
   /**
    * ==========================================================
@@ -400,13 +493,21 @@ export default async function CartPage() {
 
                 <CartSelection
                   items={items}
+                  voucherDiscount={voucherDiscount}
+                  appliedVoucherId={appliedVoucher?.id ?? null}
                 />
 
                 {/* ========================================== */}
                 {/* PROMO SECTION                              */}
                 {/* ========================================== */}
 
-                <CartPromoSection />
+                <CartPromoSection
+                  items={items.map((item) => ({
+                    ...item,
+                    price: Number(item.price),
+                  }))}
+                  appliedVoucherId={appliedVoucher?.id ?? null}
+                />
 
               </section>
 

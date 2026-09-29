@@ -21,6 +21,8 @@ import HomeProductCard, {
 
 import { prisma } from "@/lib/prisma";
 
+import { getProductRatings } from "@/lib/products/get-product-ratings";
+
 import CategoryService from "@/services/category/category.service";
 import settingsService from "@/services/settings/settings.service";
 
@@ -112,6 +114,10 @@ function serializeProducts(
       stock: number;
     }>;
   }>,
+  productRatings: Map<
+    string,
+    { averageRating: number | null; reviewCount: number }
+  >,
 ): HomeProductCardProduct[] {
   return products.map((product) => ({
     id: product.id,
@@ -130,6 +136,14 @@ function serializeProducts(
               }
             )?.toNumber?.() ?? product.price,
           ),
+
+    rating:
+      productRatings.get(product.id)?.averageRating ??
+      null,
+
+    reviewCount:
+      productRatings.get(product.id)?.reviewCount ??
+      0,
 
     stock: product.stock ?? 0,
 
@@ -228,8 +242,16 @@ export default async function FreshFishLandingPage() {
     }),
   ]);
 
+  const productRatings =
+    await getProductRatings(
+      products.map((product) => product.id),
+    );
+
   const serializedProducts =
-    serializeProducts(products);
+    serializeProducts(
+      products,
+      productRatings,
+    );
 
   const storeName =
     settings.storeName?.trim() ||

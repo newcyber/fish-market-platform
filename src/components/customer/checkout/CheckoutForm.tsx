@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 
-import { useRef, useState, type RefObject } from "react";
+import {
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -33,6 +37,10 @@ import { validateVoucherAction } from "@/actions/voucher/validate-voucher";
 import ShippingMethodSelector from "@/components/checkout/ShippingMethodSelector";
 
 import DeleteAddressButton from "@/components/customer/address/DeleteAddressButton";
+
+import CustomerVoucherPicker, {
+  type CustomerVoucher,
+} from "@/components/customer/vouchers/CustomerVoucherPicker";
 
 import type {
   AvailableShippingProvider,
@@ -164,6 +172,7 @@ interface CheckoutFormProps {
   paymentChannels: CheckoutPaymentChannel[];
 
   internalShipping: CheckoutInternalShipping;
+  initialVoucherId?: string | null;
 }
 
 /**
@@ -183,7 +192,13 @@ interface AppliedVoucher {
 
   name: string;
 
+  type: "DISCOUNT" | "FREE_SHIPPING";
+
+  maximumShippingDiscount: number | null;
+
   discountAmount: number;
+
+  shippingDiscountAmount: number;
 
   finalSubtotal: number;
 }
@@ -228,6 +243,7 @@ export default function CheckoutForm({
   paymentChannels,
 
   internalShipping,
+  initialVoucherId = null,
 }: CheckoutFormProps) {
   /**
 
@@ -467,6 +483,8 @@ const [voucherMessage, setVoucherMessage] =
 
 const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
 
+const [showVoucherCodeInput, setShowVoucherCodeInput] = useState(false);
+
 /**
  * ==========================================================
  * VOUCHER DISCOUNT
@@ -475,8 +493,24 @@ const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
 
 const voucherDiscount = appliedVoucher?.discountAmount ?? 0;
 
+const voucherShippingDiscount =
+  appliedVoucher?.type === "FREE_SHIPPING"
+    ? Math.min(
+        Math.max(0, shippingCost),
+        Math.max(
+          0,
+          appliedVoucher.maximumShippingDiscount ?? Math.max(0, shippingCost),
+        ),
+      )
+    : 0;
+
 const discountedSubtotal =
   appliedVoucher?.finalSubtotal ?? subtotal;
+
+const finalShippingCost = Math.max(
+  0,
+  shippingCost - voucherShippingDiscount,
+);
 
 /**
  * ==========================================================
@@ -484,7 +518,7 @@ const discountedSubtotal =
  * ==========================================================
  */
 
-const orderTotal = discountedSubtotal + shippingCost;
+const orderTotal = discountedSubtotal + finalShippingCost;
 
 /**
  * ==========================================================
@@ -670,37 +704,32 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
 
    */
 
-  async function handleApplyVoucher() {
+  async function handleApplyVoucherCode(code: string) {
     if (isApplyingVoucher || isSubmitting) {
       return;
     }
 
-    const normalizedCode = voucherCode.trim().toUpperCase();
+    const normalizedCode = code.trim().toUpperCase();
 
     if (!normalizedCode) {
       setAppliedVoucher(null);
-
-      setVoucherMessage("Masukkan kode voucher terlebih dahulu.");
-
+      setVoucherMessage("Voucher tidak valid.");
       return;
     }
 
     try {
       setIsApplyingVoucher(true);
-
       setVoucherMessage(null);
 
       const result = await validateVoucherAction({
         code: normalizedCode,
-
         subtotal,
+        shippingCost,
       });
 
       if (!result.success) {
         setAppliedVoucher(null);
-
         setVoucherMessage(result.message);
-
         return;
       }
 
@@ -710,9 +739,7 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
         result.finalSubtotal === undefined
       ) {
         setAppliedVoucher(null);
-
         setVoucherMessage("Data voucher tidak lengkap.");
-
         return;
       }
 
@@ -720,37 +747,38 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
 
       setAppliedVoucher({
         id: result.voucher.id,
-
         code: result.voucher.code,
-
         name: result.voucher.name,
-
+        type: result.voucher.type,
+        maximumShippingDiscount:
+          result.voucher.maximumShippingDiscount,
         discountAmount: result.discountAmount,
-
+        shippingDiscountAmount:
+          result.shippingDiscountAmount ?? 0,
         finalSubtotal: result.finalSubtotal,
       });
 
-      setVoucherMessage(result.message || "Voucher berhasil diterapkan.");
+      setVoucherMessage(
+        result.message || "Voucher berhasil diterapkan.",
+      );
     } catch (error) {
       console.error("[APPLY_VOUCHER_ERROR]", error);
-
       setAppliedVoucher(null);
-
-      setVoucherMessage("Terjadi kesalahan saat menerapkan voucher.");
+      setVoucherMessage(
+        "Terjadi kesalahan saat menerapkan voucher.",
+      );
     } finally {
       setIsApplyingVoucher(false);
     }
   }
 
-  /**
+  async function handleUseVoucher(voucher: CustomerVoucher) {
+    await handleApplyVoucherCode(voucher.code);
+  }
 
-   * ==========================================================
-
-   * HANDLE REMOVE VOUCHER
-
-   * ==========================================================
-
-   */
+  function handleApplyVoucher() {
+    return handleApplyVoucherCode(voucherCode);
+  }
 
   function handleRemoveVoucher() {
     setVoucherCode("");
@@ -1688,15 +1716,16 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
 
                   {/* VOUCHER DISCOUNT */}
 
-                  {appliedVoucher && (
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-red-500">Diskon Voucher</span>
+                  {appliedVoucher &&
+                    appliedVoucher.type !== "FREE_SHIPPING" && (
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-red-500">Diskon Voucher</span>
 
-                      <span className="font-semibold text-red-600">
-                        -{formatRupiah(voucherDiscount)}
-                      </span>
-                    </div>
-                  )}
+                        <span className="font-semibold text-red-600">
+                          -{formatRupiah(voucherDiscount)}
+                        </span>
+                      </div>
+                    )}
 
 {/* SHIPPING */}
 
@@ -1734,6 +1763,16 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
                         </span>
                       </div>
                     )}
+
+                  {voucherShippingDiscount > 0 && (
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-emerald-600">Gratis Ongkir Voucher</span>
+
+                      <span className="font-semibold text-emerald-600">
+                        -{formatRupiah(voucherShippingDiscount)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="my-4 border-t border-slate-200" />
@@ -1800,45 +1839,70 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
                       )}
                     </div>
 
-                    {/* VOUCHER INPUT */}
+                    <CustomerVoucherPicker
+                      subtotal={subtotal}
+                      onUse={handleUseVoucher}
+                      disabled={isSubmitting || isApplyingVoucher}
+                      autoUseVoucherId={initialVoucherId}
+                      appliedVoucherId={appliedVoucher?.id ?? null}
+                      compact
+                    />
 
-                    <div className="mt-3 flex gap-2">
-                      <input
-                        type="text"
+                    {!appliedVoucher && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowVoucherCodeInput(
+                              (value) => !value,
+                            )
+                          }
+                          disabled={isSubmitting || isApplyingVoucher}
+                          className="text-[11px] font-semibold text-cyan-700 hover:text-cyan-800 disabled:opacity-50"
+                        >
+                          {showVoucherCodeInput
+                            ? "Tutup input kode"
+                            : "Punya kode voucher?"}
+                        </button>
 
-                        value={voucherCode}
+                        {showVoucherCodeInput && (
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              type="text"
+                              value={voucherCode}
+                              onChange={(event) =>
+                                handleVoucherCodeChange(
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="Masukkan kode voucher"
+                              disabled={
+                                isSubmitting ||
+                                isApplyingVoucher
+                              }
+                              className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:bg-white focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-100"
+                            />
 
-                        onChange={(event) =>
-                          handleVoucherCodeChange(event.target.value)
-                        }
-
-                        placeholder="Masukkan kode voucher"
-
-                        disabled={isSubmitting}
-
-                        className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:bg-white focus:ring-2 focus:ring-cyan-100 disabled:bg-slate-100"
-                      />
-
-                      <button
-                        type="button"
-
-                        onClick={handleApplyVoucher}
-
-                        disabled={
-                          !voucherCode.trim() ||
-                          isSubmitting ||
-                          isApplyingVoucher
-                        }
-
-                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-4 text-xs font-bold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
-                      >
-                        {isApplyingVoucher ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Terapkan"
+                            <button
+                              type="button"
+                              onClick={handleApplyVoucher}
+                              disabled={
+                                !voucherCode.trim() ||
+                                isSubmitting ||
+                                isApplyingVoucher
+                              }
+                              className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-cyan-600 px-4 text-xs font-bold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                            >
+                              {isApplyingVoucher ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Terapkan"
+                              )}
+                            </button>
+                          </div>
                         )}
-                      </button>
-                    </div>
+                      </div>
+                    )}
 
                     {/* VOUCHER MESSAGE */}
 
@@ -1872,12 +1936,22 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
                           </p>
 
                           <p className="mt-0.5 text-[11px] text-emerald-700">
-                            Hemat {formatRupiah(voucherDiscount)}
+                            Hemat{" "}
+                            {formatRupiah(
+                              appliedVoucher.type === "FREE_SHIPPING"
+                                ? voucherShippingDiscount
+                                : voucherDiscount,
+                            )}
                           </p>
                         </div>
 
                         <span className="shrink-0 text-sm font-bold text-emerald-700">
-                          -{formatRupiah(voucherDiscount)}
+                          -
+                          {formatRupiah(
+                            appliedVoucher.type === "FREE_SHIPPING"
+                              ? voucherShippingDiscount
+                              : voucherDiscount,
+                          )}
                         </span>
                       </div>
                     )}

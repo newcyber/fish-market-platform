@@ -98,7 +98,7 @@ export async function POST(
           id: review.id,
           status: review.status,
           message:
-            "Terima kasih. Penilaian Anda berhasil dikirim dan menunggu moderasi.",
+            "Terima kasih sudah berbagi pengalaman. Penilaian Anda sangat berarti bagi kami.",
         },
       },
       { status: 201 },

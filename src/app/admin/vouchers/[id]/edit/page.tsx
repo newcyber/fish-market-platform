@@ -91,6 +91,15 @@ export default async function EditVoucherPage({
           name: voucher.name,
           description: voucher.description,
 
+          type: voucher.type,
+
+          claimable: voucher.claimable,
+
+          claimLimit: voucher.claimLimit,
+
+          maximumShippingDiscount:
+            voucher.maximumShippingDiscount?.toNumber() ?? null,
+
           discountType: voucher.discountType,
 
           discountValue:

@@ -1,57 +1,24 @@
-
 "use client";
 
-import {
-  type ReactNode,
-  useMemo,
-  useState,
-} from "react";
+import { useMemo, useState } from "react";
+import type React from "react";
 
 import Image from "next/image";
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  ImageOff,
-} from "lucide-react";
-
-/**
- * ============================================================
- * PRODUCT DETAIL IMAGE
- * ============================================================
- */
+import { ChevronLeft, ChevronRight, ImageOff, X } from "lucide-react";
 
 export interface ProductDetailImage {
   id: string;
-
   image: string;
-
   isThumbnail?: boolean;
-
   sortOrder?: number;
 }
 
-/**
- * ============================================================
- * PRODUCT DETAIL GALLERY PROPS
- * ============================================================
- */
-
 interface ProductDetailGalleryProps {
   productName: string;
-
   images: ProductDetailImage[];
-
-  /**
-   * OPTIONAL OVERLAY
-   *
-   * Digunakan untuk menampilkan komponen
-   * seperti tombol wishlist dan share di atas gambar.
-   */
-
-  favoriteButton?: ReactNode;
-
-  shareButton?: ReactNode;
+  shareButton?: React.ReactNode;
+  favoriteButton?: React.ReactNode;
 }
 
 /**
@@ -66,28 +33,19 @@ interface ProductDetailGalleryProps {
  * - Thumbnail navigation
  * - Active thumbnail
  * - Previous / next image
- * - Favorite button overlay
- * - Share button overlay
  * - Empty state
  * - Responsive
  *
  * Tidak berhubungan dengan ProductGallery admin.
- *
  * ============================================================
  */
 
 export default function ProductDetailGallery({
   productName,
   images,
-  favoriteButton,
   shareButton,
+  favoriteButton,
 }: ProductDetailGalleryProps) {
-  /**
-   * ==========================================================
-   * SORT IMAGES
-   * ==========================================================
-   */
-
   const sortedImages = useMemo(() => {
     return [...images].sort((a, b) => {
       if (a.isThumbnail && !b.isThumbnail) {
@@ -105,28 +63,16 @@ export default function ProductDetailGallery({
     });
   }, [images]);
 
-  /**
-   * ==========================================================
-   * ACTIVE IMAGE
-   * ==========================================================
-   */
-
-  const [
-    activeIndex,
-    setActiveIndex,
-  ] = useState(0);
+  const [activeIndex, setActiveIndex] =
+    useState(0);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   const activeImage =
-    sortedImages[activeIndex] ?? null;
+    sortedImages[activeIndex] ??
+    null;
 
   const hasMultipleImages =
     sortedImages.length > 1;
-
-  /**
-   * ==========================================================
-   * PREVIOUS IMAGE
-   * ==========================================================
-   */
 
   const showPrevious = () => {
     if (!hasMultipleImages) {
@@ -139,12 +85,6 @@ export default function ProductDetailGallery({
         : current - 1
     );
   };
-
-  /**
-   * ==========================================================
-   * NEXT IMAGE
-   * ==========================================================
-   */
 
   const showNext = () => {
     if (!hasMultipleImages) {
@@ -180,117 +120,67 @@ export default function ProductDetailGallery({
     );
   }
 
-  /**
-   * ==========================================================
-   * RENDER
-   * ==========================================================
-   */
-
   return (
     <div className="w-full">
       {/* ======================================================
           MAIN IMAGE
       ====================================================== */}
 
-      <div className="group relative aspect-square w-full overflow-hidden bg-muted">
-        {/* PRODUCT IMAGE */}
-
+      <div
+        className="group relative mx-auto aspect-square w-full max-w-[calc(100vw-48px)] cursor-zoom-in overflow-hidden rounded-2xl bg-white sm:max-w-none"
+        role="button"
+        tabIndex={0}
+        aria-label="Perbesar foto produk"
+        onClick={() => setIsViewerOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setIsViewerOpen(true);
+          }
+        }}
+      >
         <Image
           src={activeImage.image}
           alt={productName}
           fill
           priority
-          sizes="(max-width: 1024px) 100vw, 480px"
-          className="object-cover"
+          sizes="(max-width: 1024px) calc(100vw - 48px), 480px"
+          className="rounded-2xl object-contain"
           unoptimized
         />
 
-        {/* ====================================================
-            SHARE AND FAVORITE BUTTONS
-        ==================================================== */}
-
-        {(shareButton || favoriteButton) && (
+        {(favoriteButton || shareButton) && (
           <div
-            className="
-              absolute
-              right-3
-              top-3
-              z-30
-              flex
-              flex-col
-              gap-2
-              sm:right-4
-              sm:top-4
-            "
+            className="absolute right-3 top-3 z-20 flex items-center gap-2"
+            onClick={(event) => event.stopPropagation()}
           >
-            {shareButton}
-
             {favoriteButton}
+            {shareButton}
           </div>
         )}
 
-        {/* ====================================================
-            IMAGE NAVIGATION
-        ==================================================== */}
-
         {hasMultipleImages && (
           <>
-            {/* PREVIOUS */}
-
             <button
               type="button"
-              onClick={showPrevious}
+              onClick={(event) => {
+                event.stopPropagation();
+                showPrevious();
+              }}
               aria-label="Gambar sebelumnya"
-              className="
-                absolute
-                left-3
-                top-1/2
-                z-20
-                flex
-                h-10
-                w-10
-                -translate-y-1/2
-                items-center
-                justify-center
-                rounded-full
-                bg-black/50
-                text-white
-                shadow-sm
-                transition-all
-                hover:bg-black/70
-                sm:opacity-0
-                sm:group-hover:opacity-100
-              "
+              className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity hover:bg-black/65 group-hover:opacity-100"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
 
-            {/* NEXT */}
-
             <button
               type="button"
-              onClick={showNext}
+              onClick={(event) => {
+                event.stopPropagation();
+                showNext();
+              }}
               aria-label="Gambar berikutnya"
-              className="
-                absolute
-                right-3
-                top-1/2
-                z-20
-                flex
-                h-10
-                w-10
-                -translate-y-1/2
-                items-center
-                justify-center
-                rounded-full
-                bg-black/50
-                text-white
-                shadow-sm
-                transition-all
-                hover:bg-black/70
-                sm:opacity-0
-                sm:group-hover:opacity-100
-              "
+              className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity hover:bg-black/65 group-hover:opacity-100"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -304,50 +194,75 @@ export default function ProductDetailGallery({
 
       {hasMultipleImages && (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {sortedImages.map((image, index) => {
-            const isActive =
-              index === activeIndex;
+          {sortedImages.map(
+            (image, index) => {
+              const isActive =
+                index === activeIndex;
 
-            return (
-              <button
-                key={image.id}
-                type="button"
-                onClick={() =>
-                  setActiveIndex(index)
-                }
-                aria-label={`Lihat gambar ${
-                  index + 1
-                }`}
-                className={[
-                  "relative h-18 w-18",
-                  "shrink-0",
-                  "overflow-hidden",
-                  "rounded-lg",
-                  "border-2",
-                  "transition-all",
-                  isActive
-                    ? "border-cyan-600"
-                    : [
-                        "border-transparent",
-                        "opacity-75",
-                        "hover:border-slate-300",
-                        "hover:opacity-100",
-                      ].join(" "),
-                ].join(" ")}
-              >
-                <Image
-                  src={image.image}
-                  alt={`${productName} ${
+              return (
+                <button
+                  key={image.id}
+                  type="button"
+                  onClick={() =>
+                    setActiveIndex(index)
+                  }
+                  aria-label={`Lihat gambar ${
                     index + 1
                   }`}
-                  fill
-                  sizes="72px"
-                  className="object-cover"
-                  unoptimized
-                />
-              </button>
-            );
-          })}
+                  className={[
+                    "relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg border transition",
+                    isActive
+                      ? "border-primary"
+                      : "border-transparent opacity-75 hover:opacity-100",
+                  ].join(" ")}
+                >
+                  <Image
+                    src={image.image}
+                    alt={`${productName} ${
+                      index + 1
+                    }`}
+                    fill
+                    sizes="72px"
+                    className="rounded-lg object-contain bg-white"
+                    unoptimized
+                  />
+                </button>
+              );
+            }
+          )}
+        </div>
+      )}
+
+      {isViewerOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-3 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Foto penuh ${productName}`}
+          onClick={() => setIsViewerOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setIsViewerOpen(false)}
+            aria-label="Tutup foto"
+            className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          <div
+            className="relative h-full w-full max-w-6xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Image
+              src={activeImage.image}
+              alt={productName}
+              fill
+              sizes="100vw"
+              className="object-contain"
+              unoptimized
+            />
+          </div>
         </div>
       )}
     </div>

@@ -57,6 +57,7 @@ export default async function CheckoutPage({
 }: {
   searchParams: Promise<{
     selected?: string;
+    voucher?: string;
   }>;
 }) {
   /**
@@ -87,7 +88,7 @@ export default async function CheckoutPage({
  * ==========================================================
  */
 
-const { selected } = await searchParams;
+const { selected, voucher } = await searchParams;
 
 const selectedItemIds = selected
   ? selected
@@ -501,6 +502,9 @@ const serializedItems =
       }
       internalShipping={
         internalShipping
+      }
+      initialVoucherId={
+        voucher ?? null
       }
     />
   );

@@ -26,6 +26,8 @@ interface ValidateVoucherInput {
   code: string;
 
   subtotal: number;
+
+  shippingCost?: number;
 }
 
 interface ValidateVoucherResult {
@@ -39,6 +41,10 @@ interface ValidateVoucherResult {
     code: string;
 
     name: string;
+
+    type: "DISCOUNT" | "FREE_SHIPPING";
+
+    maximumShippingDiscount: number | null;
   };
 
   subtotal?: number;
@@ -46,6 +52,8 @@ interface ValidateVoucherResult {
   discountAmount?: number;
 
   finalSubtotal?: number;
+
+  shippingDiscountAmount?: number;
 }
 
 /**
@@ -148,6 +156,14 @@ export async function validateVoucherAction(
 
         name:
           result.voucher.name,
+
+        type:
+          result.voucher.type,
+
+        maximumShippingDiscount:
+          result.voucher.maximumShippingDiscount !== null
+            ? result.voucher.maximumShippingDiscount.toNumber()
+            : null,
       },
 
       subtotal:
@@ -158,6 +174,12 @@ export async function validateVoucherAction(
 
       finalSubtotal:
         result.finalSubtotal.toNumber(),
+
+      shippingDiscountAmount:
+        VoucherService.calculateShippingDiscount(
+          result.voucher,
+          input.shippingCost ?? 0,
+        ).toNumber(),
     };
   } catch (error) {
     console.error(

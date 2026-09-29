@@ -1,6 +1,7 @@
 import {
   Prisma,
   VoucherDiscountType,
+  VoucherType,
 } from "@prisma/client";
 
 import { VoucherRepository } from "@/repositories/voucher/voucher.repository";
@@ -23,9 +24,17 @@ export interface CreateAdminVoucherInput {
 
   description?: string | null;
 
+  type?: VoucherType;
+
+  claimable?: boolean;
+
+  claimLimit?: number | null;
+
+  maximumShippingDiscount?: number | null;
+
   discountType: VoucherDiscountType;
 
-  discountValue: number;
+  discountValue?: number;
 
   minimumPurchase?: number | null;
 
@@ -48,6 +57,14 @@ export interface UpdateAdminVoucherInput {
   name?: string;
 
   description?: string | null;
+
+  type?: VoucherType;
+
+  claimable?: boolean;
+
+  claimLimit?: number | null;
+
+  maximumShippingDiscount?: number | null;
 
   discountType?: VoucherDiscountType;
 
@@ -107,6 +124,8 @@ export class AdminVoucherService {
 
       name?: string;
 
+      type?: VoucherType;
+
       discountType?: VoucherDiscountType;
 
       discountValue?: number;
@@ -114,6 +133,10 @@ export class AdminVoucherService {
       minimumPurchase?: number | null;
 
       maximumDiscount?: number | null;
+
+      maximumShippingDiscount?: number | null;
+
+      claimLimit?: number | null;
 
       usageLimit?: number | null;
 
@@ -143,6 +166,16 @@ export class AdminVoucherService {
     }
 
     if (
+      data.discountValue !== undefined &&
+      data.discountValue < 0
+    ) {
+      throw new Error(
+        "Nilai diskon tidak boleh negatif."
+      );
+    }
+
+    if (
+      data.type !== VoucherType.FREE_SHIPPING &&
       data.discountValue !== undefined &&
       data.discountValue <= 0
     ) {
@@ -178,6 +211,28 @@ export class AdminVoucherService {
     ) {
       throw new Error(
         "Maksimum diskon harus lebih besar dari 0."
+      );
+    }
+
+
+
+    if (
+      data.maximumShippingDiscount !== undefined &&
+      data.maximumShippingDiscount !== null &&
+      data.maximumShippingDiscount <= 0
+    ) {
+      throw new Error(
+        "Maksimum subsidi ongkir harus lebih besar dari 0."
+      );
+    }
+
+    if (
+      data.claimLimit !== undefined &&
+      data.claimLimit !== null &&
+      data.claimLimit <= 0
+    ) {
+      throw new Error(
+        "Batas klaim harus lebih besar dari 0."
       );
     }
 
@@ -324,6 +379,14 @@ export class AdminVoucherService {
       );
     }
 
+    const finalVoucherType =
+      input.type ?? VoucherType.DISCOUNT;
+
+    const finalDiscountValue =
+      finalVoucherType === VoucherType.FREE_SHIPPING
+        ? 0
+        : input.discountValue ?? 0;
+
     return VoucherRepository.create({
       code,
 
@@ -333,12 +396,26 @@ export class AdminVoucherService {
         input.description?.trim() ||
         null,
 
+      type: finalVoucherType,
+
+      claimable:
+        input.claimable ?? false,
+
+      claimLimit:
+        input.claimLimit ?? null,
+
+      maximumShippingDiscount:
+        input.maximumShippingDiscount !== undefined &&
+        input.maximumShippingDiscount !== null
+          ? new Prisma.Decimal(input.maximumShippingDiscount)
+          : null,
+
       discountType:
         input.discountType,
 
       discountValue:
         new Prisma.Decimal(
-          input.discountValue
+          finalDiscountValue
         ),
 
       minimumPurchase:
@@ -405,9 +482,15 @@ export class AdminVoucherService {
       input.discountType ??
       voucher.discountType;
 
+    const finalVoucherType =
+      input.type ??
+      voucher.type;
+
     const finalDiscountValue =
-      input.discountValue ??
-      Number(voucher.discountValue);
+      finalVoucherType === VoucherType.FREE_SHIPPING
+        ? 0
+        : input.discountValue ??
+          Number(voucher.discountValue);
 
     const finalStartAt =
       input.startAt !== undefined
@@ -424,6 +507,9 @@ export class AdminVoucherService {
 
       name: input.name,
 
+      type:
+        finalVoucherType,
+
       discountType:
         finalDiscountType,
 
@@ -435,6 +521,12 @@ export class AdminVoucherService {
 
       maximumDiscount:
         input.maximumDiscount,
+
+      maximumShippingDiscount:
+        input.maximumShippingDiscount,
+
+      claimLimit:
+        input.claimLimit,
 
       usageLimit:
         input.usageLimit,
@@ -494,6 +586,25 @@ export class AdminVoucherService {
       data.name = input.name.trim();
     }
 
+    if (input.type !== undefined) {
+      data.type = input.type;
+    }
+
+    if (input.claimable !== undefined) {
+      data.claimable = input.claimable;
+    }
+
+    if (input.claimLimit !== undefined) {
+      data.claimLimit = input.claimLimit;
+    }
+
+    if (input.maximumShippingDiscount !== undefined) {
+      data.maximumShippingDiscount =
+        input.maximumShippingDiscount !== null
+          ? new Prisma.Decimal(input.maximumShippingDiscount)
+          : null;
+    }
+
     if (
       input.description !== undefined
     ) {
@@ -510,6 +621,11 @@ export class AdminVoucherService {
     }
 
     if (
+      finalVoucherType === VoucherType.FREE_SHIPPING
+    ) {
+      data.discountValue =
+        new Prisma.Decimal(0);
+    } else if (
       input.discountValue !== undefined
     ) {
       data.discountValue =

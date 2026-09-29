@@ -95,6 +95,11 @@ enum ProductReviewStatus {
   REJECTED
 }
 
+enum VoucherType {
+  DISCOUNT
+  FREE_SHIPPING
+}
+
 enum VoucherDiscountType {
   PERCENTAGE
   FIXED_AMOUNT
@@ -1777,6 +1782,8 @@ model Order {
 
   voucherDiscount Decimal @default(0) @db.Decimal(12, 2)
 
+  voucherShippingDiscount Decimal @default(0) @db.Decimal(12, 2)
+
   voucher Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
 
   shippingCost Decimal @db.Decimal(12, 2)
@@ -2011,6 +2018,34 @@ model Voucher {
 
   /**
    * ============================================================
+   * VOUCHER TYPE
+   * ============================================================
+   * DISCOUNT = potongan subtotal produk.
+   * FREE_SHIPPING = subsidi ongkir.
+   */
+  type VoucherType @default(DISCOUNT)
+
+  /**
+   * Voucher yang ditandai claimable wajib dimiliki customer
+   * melalui UserVoucher sebelum dapat digunakan.
+   */
+  claimable Boolean @default(false)
+
+  /**
+   * Batas jumlah customer yang dapat melakukan claim.
+   * null = unlimited.
+   */
+  claimLimit Int?
+  claimCount Int @default(0)
+
+  /**
+   * Maksimum subsidi ongkir untuk FREE_SHIPPING.
+   * null = seluruh ongkir.
+   */
+  maximumShippingDiscount Decimal? @db.Decimal(12, 2)
+
+  /**
+   * ============================================================
    * STATUS
    * ============================================================
    */
@@ -2089,7 +2124,7 @@ model Voucher {
 
   orders Order[]
 
-  userVoucher UserVoucher?
+  userVouchers UserVoucher[]
 
   usages VoucherUsage[]
 
@@ -2666,77 +2701,51 @@ model RewardClaim {
 // ============================================================
 
 model UserVoucher {
-  /**
-   * ============================================================
-   * PRIMARY KEY
-   * ============================================================
-   */
-
   id String @id @default(uuid())
 
-  /**
-   * ============================================================
-   * USER
-   * ============================================================
-   */
-
   userId String
-
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /**
-   * ============================================================
-   * REWARD VOUCHER SETTING
-   * ============================================================
-   * Menyimpan reward yang digunakan ketika redeem.
-   * Relation ini menjadi referensi konfigurasi reward.
+   * Nullable untuk voucher promo biasa yang diklaim customer.
+   * Tetap terisi untuk voucher hasil redeem reward point.
    */
-
-  rewardVoucherSettingId String
-
-  rewardVoucherSetting RewardVoucherSetting @relation(fields: [rewardVoucherSettingId], references: [id], onDelete: Restrict)
+  rewardVoucherSettingId String?
+  rewardVoucherSetting RewardVoucherSetting? @relation(fields: [rewardVoucherSettingId], references: [id], onDelete: Restrict)
 
   /**
-   * ============================================================
-   * VOUCHER
-   * ============================================================
-   * Voucher aktual yang dibuat untuk customer.
-   * Satu Voucher hanya boleh dimiliki oleh satu UserVoucher.
+   * Satu voucher campaign dapat dimiliki banyak customer.
    */
-
-  voucherId String @unique
-
+  voucherId String
   voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Restrict)
 
-  /**
-   * ============================================================
-   * POINTS SPENT
-   * ============================================================
-   * Snapshot jumlah point yang dipakai ketika redeem.
-   * Jangan mengambil kembali dari RewardVoucherSetting
-   * karena setting admin dapat berubah di masa depan.
-   */
-
-  pointsSpent Int
+  pointsSpent Int @default(0)
 
   /**
-   * ============================================================
-   * TIMESTAMP
-   * ============================================================
+   * Waktu customer mendapatkan voucher.
+   * Nama redeemedAt dipertahankan untuk kompatibilitas reward voucher lama.
    */
-
   redeemedAt DateTime @default(now())
+  claimedAt DateTime @default(now())
 
-  /**
-   * ============================================================
-   * INDEXES
-   * ============================================================
-   */
-
+  @@unique([userId, voucherId])
   @@index([userId])
+  @@index([voucherId])
   @@index([rewardVoucherSettingId])
   @@index([userId, redeemedAt])
+  @@index([userId, claimedAt])
 }
+
+/**
+ * ============================================================
+ * VOUCHER USAGE
+ * ============================================================
+ * Mencatat penggunaan voucher oleh customer.
+ * Data ini digunakan untuk:
+ * - perUserLimit
+ * - audit penggunaan voucher
+ * - riwayat voucher
+ */
 
 /**
  * ============================================================
@@ -2791,6 +2800,11 @@ model VoucherUsage {
    */
 
   discountAmount Decimal @db.Decimal(12, 2)
+
+  /**
+   * Snapshot subsidi ongkir dari FREE_SHIPPING.
+   */
+  shippingDiscountAmount Decimal @default(0) @db.Decimal(12, 2)
 
   /**
    * ============================================================
