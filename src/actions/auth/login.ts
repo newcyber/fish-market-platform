@@ -6,10 +6,93 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 import { UserRepository } from "@/repositories/user.repository";
 import AddressService from "@/services/address/address.service";
+
 import {
   LoginSchema,
   type LoginInput,
 } from "@/validations/auth/login.schema";
+
+/**
+ * ============================================================
+ * PHONE NORMALIZER
+ * ============================================================
+ *
+ * Format internal Pisjo Market:
+ *
+ * 081234567890
+ *      ↓
+ * 6281234567890
+ *
+ * +6281234567890
+ *      ↓
+ * 6281234567890
+ *
+ * 6281234567890
+ *      ↓
+ * 6281234567890
+ *
+ * Hanya digunakan apabila identifier terdeteksi
+ * sebagai nomor HP.
+ * ============================================================
+ */
+
+function normalizePhone(
+  value: string
+): string {
+  const digits =
+    value.replace(
+      /\D/g,
+      "",
+    );
+
+  if (!digits) {
+    return "";
+  }
+
+  if (
+    digits.startsWith("62")
+  ) {
+    return digits;
+  }
+
+  if (
+    digits.startsWith("0")
+  ) {
+    return `62${digits.slice(1)}`;
+  }
+
+  return digits;
+}
+
+/**
+ * ============================================================
+ * IDENTIFIER DETECTOR
+ * ============================================================
+ */
+
+function isPhoneIdentifier(
+  value: string
+): boolean {
+  const normalized =
+    value.trim();
+
+  /**
+   * Jika mengandung @, anggap email.
+   */
+  if (
+    normalized.includes("@")
+  ) {
+    return false;
+  }
+
+  /**
+   * Selain itu, selama memiliki digit,
+   * kita perlakukan sebagai nomor HP.
+   */
+  return /\d/.test(
+    normalized,
+  );
+}
 
 /**
  * ============================================================
@@ -34,12 +117,15 @@ export interface LoginResult {
   hasAddress?: boolean;
 
   /**
-   * Error code untuk ditangani oleh frontend.
+   * Error code untuk ditangani frontend.
    */
   code?: string;
 
   fieldErrors?: Partial<
-    Record<keyof LoginInput, string>
+    Record<
+      keyof LoginInput,
+      string
+    >
   >;
 }
 
@@ -58,25 +144,37 @@ export async function login(
    * ==========================================================
    */
 
-  const parsed = LoginSchema.safeParse({
-    email: values.email
-      .trim()
-      .toLowerCase(),
+  const parsed =
+    LoginSchema.safeParse({
+      email:
+        values.email.trim(),
 
-    password: values.password,
-  });
+      password:
+        values.password,
+    });
 
   if (!parsed.success) {
     const fieldErrors: Partial<
-      Record<keyof LoginInput, string>
+      Record<
+        keyof LoginInput,
+        string
+      >
     > = {};
 
-    for (const issue of parsed.error.issues) {
-      const field = issue.path[0];
+    for (
+      const issue of
+        parsed.error.issues
+    ) {
+      const field =
+        issue.path[0];
 
       if (
-        typeof field === "string" &&
-        !(field in fieldErrors)
+        typeof field ===
+          "string" &&
+        !(
+          field in
+          fieldErrors
+        )
       ) {
         fieldErrors[
           field as keyof LoginInput
@@ -94,6 +192,46 @@ export async function login(
     };
   }
 
+  const identifier =
+    parsed.data.email.trim();
+
+  const password =
+    parsed.data.password;
+
+  const usingPhone =
+    isPhoneIdentifier(
+      identifier,
+    );
+
+  /**
+   * ==========================================================
+   * NORMALIZE IDENTIFIER
+   * ==========================================================
+   */
+
+  const normalizedIdentifier =
+    usingPhone
+      ? normalizePhone(
+          identifier,
+        )
+      : identifier.toLowerCase();
+
+  if (
+    !normalizedIdentifier
+  ) {
+    return {
+      success: false,
+
+      message:
+        "Email atau nomor WhatsApp tidak valid.",
+
+      fieldErrors: {
+        email:
+          "Masukkan email atau nomor WhatsApp yang valid.",
+      },
+    };
+  }
+
   /**
    * ==========================================================
    * AUTHENTICATE USER
@@ -101,44 +239,57 @@ export async function login(
    */
 
   try {
+    /**
+     * Auth.js Credentials Provider sekarang menerima
+     * identifier melalui field `email`.
+     *
+     * Kita pertahankan nama field tersebut sementara
+     * agar perubahan tetap incremental.
+     */
+
     await signIn(
       "credentials",
       {
         email:
-          parsed.data.email,
+          normalizedIdentifier,
 
-        password:
-          parsed.data.password,
+        password,
 
         redirect: false,
-      }
+      },
     );
 
     /**
      * ========================================================
-     * GET AUTHENTICATED USER ROLE
+     * GET AUTHENTICATED USER
      * ========================================================
      *
-     * signIn() di atas sudah melakukan:
+     * Setelah signIn berhasil, cari user kembali.
      *
-     * - validasi credentials
-     * - pengecekan user aktif
-     * - pengecekan email verification
-     * - validasi password
+     * Email:
+     *   findForAuth()
      *
-     * Kita mengambil user kembali hanya untuk mendapatkan
-     * role yang akan dikirim ke LoginForm sebagai dasar
-     * penentuan redirect.
+     * Phone:
+     *   findByPhone()
+     *
+     * Keduanya harus menghasilkan user yang sama
+     * dengan yang digunakan Auth.js.
      */
 
     const authenticatedUser =
-      await UserRepository.findForAuth(
-        parsed.data.email
-      );
+      usingPhone
+        ? await UserRepository.findByPhone(
+            normalizedIdentifier,
+          )
+        : await UserRepository.findForAuth(
+            normalizedIdentifier,
+          );
 
-    if (!authenticatedUser) {
+    if (
+      !authenticatedUser
+    ) {
       console.error(
-        "[LOGIN_ACTION] Authenticated user tidak ditemukan setelah signIn."
+        "[LOGIN_ACTION] Authenticated user tidak ditemukan setelah signIn.",
       );
 
       return {
@@ -151,22 +302,51 @@ export async function login(
 
     /**
      * ========================================================
-     * CHECK CUSTOMER ADDRESS
+     * ACTIVE ACCOUNT
+     * ========================================================
+     */
+
+    if (
+      !authenticatedUser.isActive
+    ) {
+      return {
+        success: false,
+
+        message:
+          "Akun tidak aktif.",
+      };
+    }
+
+    /**
+     * ========================================================
+     * CUSTOMER ADDRESS
      * ========================================================
      *
      * Hanya CUSTOMER yang membutuhkan pengecekan alamat.
      *
-     * Admin dan Super Admin tidak perlu memiliki alamat
-     * customer untuk masuk ke dashboard admin.
+     * Admin dan Super Admin tidak perlu memiliki
+     * alamat customer.
      */
-    let hasAddress: boolean | undefined;
 
-    if (authenticatedUser.role === Role.CUSTOMER) {
+    let hasAddress:
+      | boolean
+      | undefined;
+
+    if (
+      authenticatedUser.role ===
+      Role.CUSTOMER
+    ) {
       hasAddress =
         await AddressService.hasActiveAddress(
-          authenticatedUser.id
+          authenticatedUser.id,
         );
     }
+
+    /**
+     * ========================================================
+     * SUCCESS
+     * ========================================================
+     */
 
     return {
       success: true,
@@ -179,7 +359,6 @@ export async function login(
 
       hasAddress,
     };
-
   } catch (error) {
     /**
      * ========================================================
@@ -194,10 +373,15 @@ export async function login(
        * ======================================================
        * EMAIL NOT VERIFIED
        * ======================================================
+       *
+       * Untuk login menggunakan nomor HP, kita tetap
+       * menghormati status email verification yang saat ini
+       * diwajibkan oleh credentials provider.
        */
 
       if (
-        error.cause?.err instanceof Error &&
+        error.cause?.err instanceof
+          Error &&
         error.cause.err.message ===
           "EMAIL_NOT_VERIFIED"
       ) {
@@ -218,13 +402,15 @@ export async function login(
        * ======================================================
        */
 
-      switch (error.type) {
+      switch (
+        error.type
+      ) {
         case "CredentialsSignin":
           return {
             success: false,
 
             message:
-              "Email atau password salah.",
+              "Email/nomor WhatsApp atau password salah.",
           };
 
         default:
@@ -239,7 +425,7 @@ export async function login(
 
     console.error(
       "[LOGIN_ACTION]",
-      error
+      error,
     );
 
     return {

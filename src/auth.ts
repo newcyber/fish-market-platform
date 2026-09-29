@@ -9,19 +9,26 @@ import { LoginSchema } from "@/validations/auth/login.schema";
 import { verifyPassword } from "@/lib/auth/password";
 import { UserRepository } from "@/repositories/user.repository";
 
+import WhatsAppRegistrationOtpService from "@/services/auth/whatsapp-registration-otp.service";
+import WhatsAppLoginOtpService from "@/services/auth/whatsapp-login-otp.service";
+
 /**
  * ============================================================
  * AUTH CONFIGURATION
  * ============================================================
  *
- * Authentication system:
+ * Authentication:
  *
- * - Credentials authentication
- * - JWT session
+ * 1. Email + Password
+ * 2. WhatsApp OTP Registration
+ * 3. WhatsApp OTP Login
+ *
+ * Session:
+ * - JWT
  * - Active user validation
  * - Email verification validation
- * - Soft deleted user protection
- * - Password change session invalidation
+ * - Soft delete protection
+ * - Password change invalidation
  *
  * ============================================================
  */
@@ -32,11 +39,13 @@ export const {
   signIn,
   signOut,
 } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter:
+    PrismaAdapter(prisma),
 
   trustHost: true,
 
-  secret: env.AUTH_SECRET,
+  secret:
+    env.AUTH_SECRET,
 
   session: {
     strategy: "jwt",
@@ -47,138 +56,368 @@ export const {
   },
 
   providers: [
-    Credentials({
-      id: "credentials",
+    /**
+     * ==========================================================
+     * WHATSAPP LOGIN OTP
+     * ==========================================================
+     *
+     * Dipakai customer existing untuk login
+     * menggunakan nomor WhatsApp + OTP.
+     */
 
-      name: "Credentials",
+    Credentials({
+      id: "whatsapp-login-otp",
+
+      name: "WhatsApp Login OTP",
 
       credentials: {
-        email: {
-          label: "Email",
-          type: "email",
+        phone: {
+          label: "Nomor WhatsApp",
+          type: "text",
         },
 
-        password: {
-          label: "Password",
-          type: "password",
+        otp: {
+          label: "OTP",
+          type: "text",
         },
       },
 
-      /**
-       * ========================================================
-       * AUTHORIZE USER
-       * ========================================================
-       */
+      async authorize(
+        credentials,
+      ) {
+        const phone =
+          typeof credentials?.phone ===
+          "string"
+            ? credentials.phone
+            : "";
 
-      async authorize(credentials) {
-        /**
-         * ======================================================
-         * VALIDATE LOGIN INPUT
-         * ======================================================
-         */
+        const otp =
+          typeof credentials?.otp ===
+          "string"
+            ? credentials.otp
+            : "";
 
-        const parsed =
-          LoginSchema.safeParse({
-            email: credentials?.email,
-            password: credentials?.password,
-          });
-
-        if (!parsed.success) {
+        if (
+          !phone ||
+          !/^\d{6}$/.test(otp)
+        ) {
           return null;
         }
 
-        const {
-          email,
-          password,
-        } = parsed.data;
+        try {
+          const user =
+            await WhatsAppLoginOtpService.verify(
+              phone,
+              otp,
+            );
 
-        /**
-         * ======================================================
-         * FIND USER
-         * ======================================================
-         */
+          return {
+            id: user.id,
 
-        const user =
-          await UserRepository.findForAuth(
-            email
-          );
+            name: user.name,
 
-        if (!user) {
+            email: user.email,
+
+            image: user.avatar,
+
+            role: user.role,
+
+            isActive:
+              user.isActive,
+
+            passwordChangedAt:
+              user.passwordChangedAt,
+          };
+        } catch {
           return null;
         }
-
-        /**
-         * ======================================================
-         * ACCOUNT STATUS CHECK
-         * ======================================================
-         *
-         * User yang tidak aktif tidak dapat login.
-         */
-
-        if (!user.isActive) {
-          return null;
-        }
-
-        /**
-         * ======================================================
-         * EMAIL VERIFICATION CHECK
-         * ======================================================
-         *
-         * User wajib memverifikasi alamat email sebelum
-         * dapat melakukan login.
-         *
-         * Untuk user lama, pastikan kolom emailVerified sudah
-         * memiliki nilai jika memang akun tersebut harus tetap
-         * dapat mengakses sistem.
-         */
-
-        if (!user.emailVerified) {
-          throw new Error(
-            "EMAIL_NOT_VERIFIED"
-          );
-        }
-
-        /**
-         * ======================================================
-         * PASSWORD VERIFICATION
-         * ======================================================
-         */
-
-        const passwordValid =
-          await verifyPassword(
-            password,
-            user.password
-          );
-
-        if (!passwordValid) {
-          return null;
-        }
-
-        /**
-         * ======================================================
-         * RETURN AUTHENTICATED USER
-         * ======================================================
-         */
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.avatar,
-          role: user.role,
-          isActive: user.isActive,
-          passwordChangedAt:
-            user.passwordChangedAt,
-        };
       },
     }),
+
+    /**
+     * ==========================================================
+     * WHATSAPP REGISTRATION OTP
+     * ==========================================================
+     *
+     * JANGAN HAPUS.
+     *
+     * Provider ini digunakan RegisterForm.
+     */
+
+    Credentials({
+      id: "whatsapp-otp",
+
+      name: "WhatsApp OTP",
+
+      credentials: {
+        phone: {
+          label: "Nomor WhatsApp",
+          type: "text",
+        },
+
+        otp: {
+          label: "OTP",
+          type: "text",
+        },
+
+        name: {
+          label: "Nama",
+          type: "text",
+        },
+      },
+
+      async authorize(
+        credentials,
+      ) {
+        const phone =
+          typeof credentials?.phone ===
+          "string"
+            ? credentials.phone
+            : "";
+
+        const otp =
+          typeof credentials?.otp ===
+          "string"
+            ? credentials.otp
+            : "";
+
+        const name =
+          typeof credentials?.name ===
+          "string"
+            ? credentials.name
+            : "";
+
+        if (
+          !phone ||
+          !/^\d{6}$/.test(otp) ||
+          name.trim().length < 3
+        ) {
+          return null;
+        }
+
+        try {
+          const user =
+            await WhatsAppRegistrationOtpService.verifyAndActivate(
+              phone,
+              otp,
+              name,
+            );
+
+          return {
+            id: user.id,
+
+            name: user.name,
+
+            email: user.email,
+
+            image: user.avatar,
+
+            role: user.role,
+
+            isActive:
+              user.isActive,
+
+            passwordChangedAt:
+              user.passwordChangedAt,
+          };
+        } catch {
+          return null;
+        }
+      },
+    }),
+
+    /**
+     * ==========================================================
+     * EMAIL + PASSWORD
+     * ==========================================================
+     */
+
+    Credentials({
+  id: "credentials",
+
+  name: "Credentials",
+
+  credentials: {
+    email: {
+      label:
+        "Email atau Nomor WhatsApp",
+
+      type: "text",
+    },
+
+    password: {
+      label: "Password",
+
+      type: "password",
+    },
+  },
+
+  async authorize(
+    credentials,
+  ) {
+    /**
+     * ========================================================
+     * VALIDATE INPUT
+     * ========================================================
+     */
+
+    const parsed =
+      LoginSchema.safeParse({
+        email:
+          credentials?.email,
+
+        password:
+          credentials?.password,
+      });
+
+    if (!parsed.success) {
+      return null;
+    }
+
+    const identifier =
+      parsed.data.email.trim();
+
+    const password =
+      parsed.data.password;
+
+    /**
+     * ========================================================
+     * DETECT PHONE / EMAIL
+     * ========================================================
+     */
+
+    const isPhone =
+      !identifier.includes(
+        "@",
+      ) &&
+      /\d/.test(
+        identifier,
+      );
+
+    /**
+     * ========================================================
+     * NORMALIZE PHONE
+     * ========================================================
+     */
+
+    let normalizedIdentifier =
+      identifier.toLowerCase();
+
+    if (isPhone) {
+      const digits =
+        identifier.replace(
+          /\D/g,
+          "",
+        );
+
+      if (
+        digits.startsWith("62")
+      ) {
+        normalizedIdentifier =
+          digits;
+      } else if (
+        digits.startsWith("0")
+      ) {
+        normalizedIdentifier =
+          `62${digits.slice(1)}`;
+      } else {
+        normalizedIdentifier =
+          digits;
+      }
+    }
+
+    /**
+     * ========================================================
+     * FIND USER
+     * ========================================================
+     */
+
+    const user =
+      isPhone
+        ? await UserRepository.findByPhone(
+            normalizedIdentifier,
+          )
+        : await UserRepository.findForAuth(
+            normalizedIdentifier,
+          );
+
+    if (!user) {
+      return null;
+    }
+
+    /**
+     * ========================================================
+     * ACTIVE ACCOUNT
+     * ========================================================
+     */
+
+    if (!user.isActive) {
+      return null;
+    }
+
+    /**
+     * ========================================================
+     * EMAIL VERIFICATION
+     * ========================================================
+     *
+     * Dipertahankan karena merupakan behaviour existing
+     * credentials login Pisjo Market.
+     */
+
+    if (!user.emailVerified) {
+      throw new Error(
+        "EMAIL_NOT_VERIFIED",
+      );
+    }
+
+    /**
+     * ========================================================
+     * PASSWORD
+     * ========================================================
+     */
+
+    const passwordValid =
+      await verifyPassword(
+        password,
+        user.password,
+      );
+
+    if (!passwordValid) {
+      return null;
+    }
+
+    /**
+     * ========================================================
+     * AUTH USER
+     * ========================================================
+     */
+
+    return {
+      id: user.id,
+
+      name: user.name,
+
+      email: user.email,
+
+      image: user.avatar,
+
+      role: user.role,
+
+      isActive:
+        user.isActive,
+
+      passwordChangedAt:
+        user.passwordChangedAt,
+    };
+  },
+}),
   ],
 
   callbacks: {
     /**
-     * ========================================================
+     * ==========================================================
      * JWT CALLBACK
-     * ========================================================
+     * ==========================================================
      */
 
     async jwt({
@@ -186,13 +425,11 @@ export const {
       user,
     }) {
       /**
-       * ======================================================
-       * INITIAL LOGIN
-       * ======================================================
+       * Initial login.
        */
-
       if (user) {
-        token.id = user.id;
+        token.id =
+          user.id;
 
         token.role =
           user.role as Role;
@@ -209,99 +446,82 @@ export const {
       }
 
       /**
-       * ======================================================
-       * EXISTING SESSION VALIDATION
-       * ======================================================
+       * Existing session.
        */
-
       if (!token.id) {
         return token;
       }
 
       /**
-       * ======================================================
-       * ALWAYS VERIFY CURRENT USER STATE
-       * ======================================================
-       *
-       * Memastikan user:
-       *
-       * - Masih ada
-       * - Tidak di-soft-delete
-       * - Masih aktif
-       * - Email masih terverifikasi
+       * Always verify current user state.
        */
-
       const currentUser =
         await prisma.user.findFirst({
           where: {
             id: token.id as string,
+
             deletedAt: null,
           },
 
           select: {
             id: true,
+
             role: true,
+
             isActive: true,
+
             emailVerified: true,
+
             passwordChangedAt: true,
           },
         });
 
       /**
-       * ======================================================
-       * USER NO LONGER EXISTS OR WAS SOFT DELETED
-       * ======================================================
+       * User deleted / unavailable.
        */
-
       if (!currentUser) {
-        token.isActive = false;
+        token.isActive =
+          false;
 
         return token;
       }
 
       /**
-       * ======================================================
-       * BLOCK INACTIVE USERS
-       * ======================================================
+       * User inactive.
        */
-
       if (!currentUser.isActive) {
-        token.isActive = false;
+        token.isActive =
+          false;
 
         return token;
       }
 
       /**
-       * ======================================================
-       * EMAIL VERIFICATION VALIDATION
-       * ======================================================
+       * Email verification.
        *
-       * Jika status email tidak lagi terverifikasi,
-       * session dianggap tidak aktif.
+       * Tetap dipertahankan untuk menjaga
+       * behavior authentication existing.
        */
-
-      if (!currentUser.emailVerified) {
-        token.isActive = false;
+      if (
+        !currentUser.emailVerified
+      ) {
+        token.isActive =
+          false;
 
         return token;
       }
 
       /**
-       * ======================================================
-       * PASSWORD CHANGE VALIDATION
-       * ======================================================
-       *
-       * Jika password berubah setelah JWT diterbitkan,
-       * tandai session sebagai tidak aktif.
+       * Password changed.
        */
-
       const currentPasswordChangedAt =
         currentUser.passwordChangedAt
           ? currentUser.passwordChangedAt.getTime()
           : 0;
 
       const tokenPasswordChangedAt =
-        typeof token.passwordChangedAt === "number"
+        typeof token.passwordChangedAt ===
+        "number"
           ? token.passwordChangedAt
           : 0;
 
@@ -309,17 +529,15 @@ export const {
         currentPasswordChangedAt >
         tokenPasswordChangedAt
       ) {
-        token.isActive = false;
+        token.isActive =
+          false;
 
         return token;
       }
 
       /**
-       * ======================================================
-       * REFRESH AUTHORIZATION DATA
-       * ======================================================
+       * Refresh authorization data.
        */
-
       token.role =
         currentUser.role as Role;
 
@@ -333,9 +551,9 @@ export const {
     },
 
     /**
-     * ========================================================
+     * ==========================================================
      * SESSION CALLBACK
-     * ========================================================
+     * ==========================================================
      */
 
     async session({
@@ -351,12 +569,6 @@ export const {
 
       session.user.isActive =
         token.isActive === true;
-
-      /**
-       * ======================================================
-       * ONLY ASSIGN ROLE WHEN AVAILABLE
-       * ======================================================
-       */
 
       if (token.role) {
         session.user.role =
