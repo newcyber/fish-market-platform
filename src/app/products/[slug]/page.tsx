@@ -214,34 +214,42 @@ const product = isAdminPreview
     ProductReviewService.getPublicSummary(product.id),
   ]);
 
-  const productJsonLd = (
-    <ProductJsonLd
-      product={{
-        name: product.name,
-        description: product.description,
-        slug: product.slug,
-        sku: product.sku,
-        category: product.category,
-        images: product.images,
-        skus: product.skus,
-        price: product.price,
-        stock: product.stock,
-        isPublished: product.isPublished,
-        isPreOrder: product.isPreOrder,
-        aggregateRating: productReviewSummary.reviewCount > 0
-          ? {
-              ratingValue: productReviewSummary.averageRating,
-              reviewCount: productReviewSummary.reviewCount,
-            }
-          : null,
-      }}
-      options={{
-        baseUrl: siteUrls.storefrontUrl,
-        storeName: settings.storeName?.trim() || "Pisjo Market Platform",
-        currency: "IDR",
-      }}
-    />
-  );
+const productJsonLd = (
+  <ProductJsonLd
+    product={{
+      name: product.name,
+      description: product.description,
+      slug: product.slug,
+      sku: product.sku,
+      category: product.category,
+      images: product.images,
+      skus: product.skus,
+      price: product.price,
+      stock: product.stock,
+      isPublished: product.isPublished,
+      isPreOrder: product.isPreOrder,
+
+      aggregateRating: productReviewSummary.reviewCount > 0
+        ? {
+            ratingValue: productReviewSummary.averageRating,
+            reviewCount: productReviewSummary.reviewCount,
+          }
+        : null,
+
+      reviews: productReviewSummary.reviews.map((review) => ({
+        username: review.username,
+        rating: review.rating,
+        review: review.review,
+        createdAt: review.createdAt,
+      })),
+    }}
+    options={{
+      baseUrl: siteUrls.storefrontUrl,
+      storeName: settings.storeName?.trim() || "Pisjo Market Platform",
+      currency: "IDR",
+    }}
+  />
+);
 
   /**
    * ==========================================================

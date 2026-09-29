@@ -12,6 +12,13 @@ type ProductSku = {
   isActive?: boolean | null;
 };
 
+type ProductReviewJsonLd = {
+  username: string;
+  rating: number;
+  review?: string | null;
+  createdAt: string | Date;
+};
+
 export type ProductJsonLdInput = {
   name: string;
   description?: string | null;
@@ -30,6 +37,7 @@ export type ProductJsonLdInput = {
     ratingValue: number;
     reviewCount: number;
   } | null;
+  reviews?: ProductReviewJsonLd[];
 };
 
 type ProductJsonLdOptions = {
@@ -109,6 +117,70 @@ function resolveCanonicalUrl(baseUrl: string, slug: string): string {
   return new URL(`/products/${encodeURIComponent(slug)}`, baseUrl).toString();
 }
 
+function resolveReviewDate(value: string | Date): string | undefined {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  return date.toISOString();
+}
+
+function resolveReviews(
+  reviews: ProductReviewJsonLd[] | undefined,
+): Record<string, unknown>[] {
+  if (!reviews || reviews.length === 0) {
+    return [];
+  }
+
+  return reviews
+    .map((review) => {
+      const authorName = normalizeText(review.username);
+
+      if (!authorName) {
+        return null;
+      }
+
+      const rating = Number(review.rating);
+
+      if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+        return null;
+      }
+
+      const reviewSchema: Record<string, unknown> = {
+        "@type": "Review",
+        author: {
+          "@type": "Person",
+          name: authorName,
+        },
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue: rating,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      };
+
+      const reviewBody = normalizeText(review.review);
+
+      if (reviewBody) {
+        reviewSchema.reviewBody = reviewBody;
+      }
+
+      const datePublished = resolveReviewDate(review.createdAt);
+
+      if (datePublished) {
+        reviewSchema.datePublished = datePublished;
+      }
+
+      return reviewSchema;
+    })
+    .filter(
+      (review): review is Record<string, unknown> => review !== null,
+    );
+}
+
 function buildBreadcrumbJsonLd(
   product: ProductJsonLdInput,
   options: ProductJsonLdOptions,
@@ -167,6 +239,7 @@ export function buildProductJsonLd(
   const productUrl = resolveCanonicalUrl(baseUrl, product.slug);
   const prices = resolvePrices(product);
   const images = resolveProductImage(product.images, baseUrl);
+  const reviews = resolveReviews(product.reviews);
 
   const description =
     normalizeText(product.description) || `${name} dari ${options.storeName}`;
@@ -211,6 +284,10 @@ export function buildProductJsonLd(
       worstRating: 1,
       reviewCount: product.aggregateRating.reviewCount,
     };
+  }
+
+  if (reviews.length > 0) {
+    productSchema.review = reviews;
   }
 
   if (prices.length > 0) {
