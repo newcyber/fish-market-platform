@@ -215,6 +215,86 @@ function formatDate(
  * ==========================================================
  */
 
+function getMobileOrderStatusLabel(
+  status: OrderStatus
+) {
+  switch (status) {
+    case OrderStatus.WAITING_VERIFICATION:
+      return "Menunggu Verif";
+
+    case OrderStatus.WAITING_PAYMENT:
+      return "Menunggu Bayar";
+
+    case OrderStatus.PROCESSING:
+      return "Diproses";
+
+    case OrderStatus.SHIPPING:
+      return "Dikirim";
+
+    case OrderStatus.COMPLETED:
+      return "Selesai";
+
+    case OrderStatus.CANCELLED:
+      return "Dibatalkan";
+
+    case OrderStatus.PENDING:
+    default:
+      return "Pending";
+  }
+}
+
+function formatMobileDate(
+  value: Date
+) {
+  const date = new Date(value);
+  const datePart = new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  ).format(date);
+
+  const timePart = new Intl.DateTimeFormat(
+    "id-ID",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }
+  ).format(date);
+
+  return `${datePart} • ${timePart}`;
+}
+
+function getMobileProductSummary(
+  order: OrderTableItem
+) {
+  if (!order.items.length) {
+    return "Tidak ada item";
+  }
+
+  const firstItem = order.items[0];
+  const weight = firstItem.productWeight
+    ? ` ${firstItem.productWeight}`
+    : "";
+
+  const firstProduct = `${firstItem.productName}${weight} × ${firstItem.quantity}`;
+
+  if (order.items.length === 1) {
+    return firstProduct;
+  }
+
+  return `${firstProduct} +${order.items.length - 1} produk lainnya`;
+}
+
+/**
+ * ==========================================================
+ * PRODUCT SUMMARY
+ * ==========================================================
+ */
+
 function getProductSummary(
   order: OrderTableItem
 ) {
@@ -259,7 +339,7 @@ export default function OrderTable({
       {/* DESKTOP TABLE                                      */}
       {/* ================================================== */}
 
-      <div className="hidden min-w-0 lg:block">
+      <div className="hidden min-w-0 md:block">
         <AdminDataTable
           tableClassName="table-fixed"
           wrapperClassName="overflow-x-hidden"
@@ -443,130 +523,83 @@ export default function OrderTable({
       {/* MOBILE ORDER CARDS                                */}
       {/* ================================================== */}
 
-      <div className="grid min-w-0 gap-3 lg:hidden">
+      <div className="grid min-w-0 gap-2.5 px-2 py-1 md:hidden">
         {data.map((order) => (
           <article
             key={order.id}
-            className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="min-w-0 rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm"
           >
             {/* ============================================ */}
-            {/* HEADER                                       */}
+            {/* ORDER + STATUS                               */}
             {/* ============================================ */}
 
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-[var(--pisjo-navy)]">
-                  {order.orderNumber}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  {formatDate(
-                    order.createdAt
-                  )}
-                </p>
-              </div>
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <Link
+                href={`/admin/orders/${order.id}`}
+                title={order.orderNumber}
+                className="min-w-0 truncate text-[13px] font-bold text-[var(--pisjo-ocean)]"
+              >
+                {order.orderNumber}
+              </Link>
 
               <span
                 className={[
-                  "inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                  "inline-flex max-w-[42%] shrink-0 truncate rounded-full px-2 py-1 text-[10px] font-semibold",
                   getOrderStatusClass(
                     order.status
                   ),
                 ].join(" ")}
               >
-                {getOrderStatusLabel(
+                {getMobileOrderStatusLabel(
                   order.status
                 )}
               </span>
             </div>
 
             {/* ============================================ */}
-            {/* CUSTOMER                                     */}
+            {/* CUSTOMER + DATE                              */}
             {/* ============================================ */}
 
-            <div className="mt-4 rounded-xl bg-slate-50 p-3">
-              <p className="text-sm font-semibold text-slate-800">
+            <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+              <p className="min-w-0 truncate text-[12px] font-semibold text-slate-800">
                 {order.user.name}
               </p>
 
-              <p className="mt-1 truncate text-xs text-slate-500">
-                {order.user.email}
+              <p className="shrink-0 text-[10px] text-slate-500">
+                {formatMobileDate(
+                  order.createdAt
+                )}
               </p>
             </div>
 
             {/* ============================================ */}
-            {/* PRODUCT                                      */}
+            {/* PRODUCT SUMMARY                              */}
             {/* ============================================ */}
 
-            <div className="mt-3 flex min-w-0 items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-primary)]">
-                <Package className="h-4 w-4" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Produk
-                </p>
-
-                <p className="mt-1 text-sm leading-5 text-slate-700">
-                  {getProductSummary(order)}
-                </p>
-              </div>
-            </div>
-
-            {/* ============================================ */}
-            {/* PAYMENT + TOTAL                              */}
-            {/* ============================================ */}
-
-            <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Pembayaran
-                </p>
-
-                <span
-                  className={[
-                    "mt-1.5 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                    getPaymentStatusClass(
-                      order.paymentStatus
-                    ),
-                  ].join(" ")}
-                >
-                  {getPaymentStatusLabel(
-                    order.paymentStatus
-                  )}
-                </span>
-              </div>
-
-              <div className="text-right">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  Total
-                </p>
-
-                <p className="mt-1 text-base font-bold text-[var(--pisjo-navy)]">
-                  {formatCurrency(order.total)}
-                </p>
-              </div>
-            </div>
-
-            {/* ============================================ */}
-            {/* DETAIL BUTTON                                */}
-            {/* ============================================ */}
-
-            <Link
-              href={`/admin/orders/${order.id}`}
-              className="mt-4 block"
+            <p
+              className="mt-2 min-w-0 truncate text-[12px] leading-5 text-slate-600"
+              title={getMobileProductSummary(order)}
             >
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full gap-2 rounded-xl border-[var(--pisjo-primary)] text-[var(--pisjo-ocean)] hover:bg-[var(--pisjo-soft-blue)]"
-              >
-                Lihat Detail
+              {getMobileProductSummary(order)}
+            </p>
 
+            {/* ============================================ */}
+            {/* TOTAL + DETAIL                               */}
+            {/* ============================================ */}
+
+            <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-slate-100 pt-2.5">
+              <p className="min-w-0 truncate text-[15px] font-bold text-[var(--pisjo-navy)]">
+                {formatCurrency(order.total)}
+              </p>
+
+              <Link
+                href={`/admin/orders/${order.id}`}
+                className="inline-flex shrink-0 items-center gap-0.5 text-[12px] font-semibold text-[var(--pisjo-ocean)] transition hover:text-[var(--pisjo-primary)]"
+              >
+                Detail
                 <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </div>
           </article>
         ))}
 
@@ -575,8 +608,8 @@ export default function OrderTable({
         {/* ================================================== */}
 
         {data.length === 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
-            <Package className="mx-auto h-10 w-10 text-slate-300" />
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center shadow-sm">
+            <Package className="mx-auto h-9 w-9 text-slate-300" />
 
             <p className="mt-3 text-sm font-medium text-slate-700">
               Tidak ada pesanan

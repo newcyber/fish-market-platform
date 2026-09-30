@@ -49,6 +49,7 @@ export default function OrderStatsCards({
       icon: ShoppingCart,
       iconClass:
         "bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-primary)]",
+      hideOnMobile: false,
     },
     {
       title: "Total Penjualan",
@@ -57,6 +58,7 @@ export default function OrderStatsCards({
       icon: TrendingUp,
       iconClass:
         "bg-emerald-50 text-emerald-600",
+      hideOnMobile: false,
     },
     {
       title: "Rata-rata Order",
@@ -65,6 +67,7 @@ export default function OrderStatsCards({
       icon: WalletCards,
       iconClass:
         "bg-violet-50 text-violet-600",
+      hideOnMobile: true,
     },
     {
       title: "Order Selesai",
@@ -75,6 +78,7 @@ export default function OrderStatsCards({
       icon: CheckCircle2,
       iconClass:
         "bg-emerald-50 text-emerald-600",
+      hideOnMobile: false,
     },
     {
       title: "Menunggu Pembayaran",
@@ -85,18 +89,22 @@ export default function OrderStatsCards({
       icon: Clock3,
       iconClass:
         "bg-amber-50 text-amber-600",
+      hideOnMobile: false,
     },
   ];
 
   return (
-    <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <section className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
       {cards.map((card) => {
         const Icon = card.icon;
 
         return (
           <article
             key={card.title}
-            className="group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+            className={[
+              "group min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5",
+              card.hideOnMobile ? "hidden sm:block" : "",
+            ].join(" ")}
           >
             <div className="flex min-w-0 items-start justify-between gap-4">
               {/* ========================================== */}
@@ -104,11 +112,11 @@ export default function OrderStatsCards({
               {/* ========================================== */}
 
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-[var(--pisjo-text-secondary)]">
+                <p className="text-[11px] font-medium leading-4 text-[var(--pisjo-text-secondary)] sm:text-sm">
                   {card.title}
                 </p>
 
-                <p className="mt-2 break-words text-2xl font-bold leading-tight tracking-tight text-[var(--pisjo-navy)] sm:text-[26px]">
+                <p className="mt-1.5 break-words text-[18px] font-bold leading-tight tracking-tight text-[var(--pisjo-navy)] sm:mt-2 sm:text-[26px]">
                   {card.value}
                 </p>
               </div>
@@ -119,11 +127,11 @@ export default function OrderStatsCards({
 
               <div
                 className={[
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 sm:h-11 sm:w-11",
                   card.iconClass,
                 ].join(" ")}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
             </div>
 
@@ -131,7 +139,7 @@ export default function OrderStatsCards({
             {/* DESCRIPTION                                  */}
             {/* ============================================ */}
 
-            <p className="mt-3 text-xs text-[var(--pisjo-text-secondary)]">
+            <p className="mt-2 text-[10px] leading-4 text-[var(--pisjo-text-secondary)] sm:mt-3 sm:text-xs">
               {card.description}
             </p>
           </article>

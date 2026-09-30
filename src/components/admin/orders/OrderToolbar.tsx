@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Filter, Plus, Search, Trash2 } from "lucide-react";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -270,13 +270,13 @@ export default function OrderToolbar({
    */
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 md:p-5">
       {/* ================================================== */}
       {/* STATUS TABS                                        */}
       {/* ================================================== */}
 
       <div className="min-w-0">
-        <div className="mb-3">
+        <div className="mb-3 hidden md:block">
           <h2 className="text-sm font-semibold text-[var(--pisjo-navy)]">
             Status Pesanan
           </h2>
@@ -290,8 +290,8 @@ export default function OrderToolbar({
         {/* HORIZONTAL STATUS SCROLL                           */}
         {/* ================================================== */}
 
-        <div className="-mx-1 overflow-x-auto px-1 pb-1">
-          <div className="flex min-w-max gap-2">
+        <div className="-mx-1 px-1 pb-0 md:overflow-x-auto md:px-1 md:pb-1">
+          <div className="flex flex-wrap gap-1.5 md:min-w-max md:flex-nowrap md:gap-2">
             {STATUS_TABS.map((tab) => {
               const isActive = status === tab.value;
 
@@ -303,7 +303,8 @@ export default function OrderToolbar({
                   type="button"
                   onClick={() => handleStatusChange(tab.value)}
                   className={[
-                    "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border px-3.5 text-sm font-medium transition-colors",
+                    "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3.5 text-sm font-medium transition-colors max-md:min-h-8 max-md:gap-1 max-md:px-2.5 max-md:text-[12px]",
+                    tab.value === OrderStatus.CANCELLED ? "max-md:hidden" : "",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pisjo-primary)]/30",
                     isActive
                       ? "border-[var(--pisjo-primary)] bg-[var(--pisjo-primary)] text-white shadow-sm"
@@ -314,7 +315,7 @@ export default function OrderToolbar({
 
                   <span
                     className={[
-                      "inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
+                      "hidden min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold md:inline-flex",
                       isActive
                         ? "bg-white/20 text-white"
                         : "bg-slate-100 text-slate-600",
@@ -333,12 +334,9 @@ export default function OrderToolbar({
       {/* SEARCH + FILTER + ACTION                           */}
       {/* ================================================== */}
 
-      <div className="mt-5 border-t border-slate-100 pt-5">
-        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
-          {/* ================================================== */}
-          {/* SEARCH                                             */}
-          {/* ================================================== */}
-
+      <div className="mt-3 md:mt-5 md:border-t md:border-slate-100 md:pt-5">
+        <div className="flex min-w-0 flex-row items-center gap-3 md:flex-col md:items-stretch lg:flex-row lg:items-center">
+          {/* SEARCH */}
           <div className="relative min-w-0 flex-1">
             <Search
               aria-hidden="true"
@@ -351,42 +349,62 @@ export default function OrderToolbar({
               onChange={(event) => setSearchValue(event.target.value)}
               placeholder="Cari nomor order, customer, atau produk..."
               aria-label="Cari pesanan"
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[var(--pisjo-primary)] focus:ring-2 focus:ring-[var(--pisjo-primary)]/10"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-[13px] text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[var(--pisjo-primary)] focus:ring-2 focus:ring-[var(--pisjo-primary)]/10 md:h-11 md:text-sm"
             />
           </div>
 
-          {/* ================================================== */}
-          {/* PAYMENT FILTER                                     */}
-          {/* ================================================== */}
+          {/* MOBILE PAYMENT FILTER */}
+          <div className="md:hidden">
+            <Select
+              value={paymentStatus}
+              onValueChange={handlePaymentStatusChange}
+            >
+              <SelectTrigger
+                aria-label="Filter pembayaran"
+                className="h-10 w-10 justify-center rounded-xl border-slate-200 bg-white p-0 text-slate-600 md:h-11 md:w-12"
+              >
+                <Filter className="h-4 w-4" />
+                <SelectValue className="sr-only" />
+              </SelectTrigger>
 
-          <Select
-            value={paymentStatus}
-            onValueChange={handlePaymentStatusChange}
-          >
-            <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white text-sm lg:w-[210px]">
-              <SelectValue placeholder="Pembayaran" />
-            </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Pembayaran</SelectItem>
+                <SelectItem value={PaymentStatus.PENDING}>
+                  Menunggu Pembayaran
+                </SelectItem>
+                <SelectItem value={PaymentStatus.VERIFIED}>
+                  Terverifikasi
+                </SelectItem>
+                <SelectItem value={PaymentStatus.REJECTED}>Ditolak</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <SelectContent>
-              <SelectItem value="all">Semua Pembayaran</SelectItem>
+          {/* DESKTOP PAYMENT FILTER */}
+          <div className="hidden md:block">
+            <Select
+              value={paymentStatus}
+              onValueChange={handlePaymentStatusChange}
+            >
+              <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white text-sm lg:w-[210px]">
+                <SelectValue placeholder="Pembayaran" />
+              </SelectTrigger>
 
-              <SelectItem value={PaymentStatus.PENDING}>
-                Menunggu Pembayaran
-              </SelectItem>
+              <SelectContent>
+                <SelectItem value="all">Semua Pembayaran</SelectItem>
+                <SelectItem value={PaymentStatus.PENDING}>
+                  Menunggu Pembayaran
+                </SelectItem>
+                <SelectItem value={PaymentStatus.VERIFIED}>
+                  Terverifikasi
+                </SelectItem>
+                <SelectItem value={PaymentStatus.REJECTED}>Ditolak</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <SelectItem value={PaymentStatus.VERIFIED}>
-                Terverifikasi
-              </SelectItem>
-
-              <SelectItem value={PaymentStatus.REJECTED}>Ditolak</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* ================================================== */}
-          {/* CREATE ORDER                                       */}
-          {/* ================================================== */}
-
-          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+          {/* DESKTOP ACTIONS */}
+          <div className="hidden w-full flex-col gap-2 sm:flex-row md:flex lg:w-auto">
             <Link href="/admin/orders/trash" className="w-full sm:w-auto">
               <Button
                 type="button"

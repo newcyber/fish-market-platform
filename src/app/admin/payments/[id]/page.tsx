@@ -23,6 +23,7 @@ import {
 } from "@/services/payment/payment-verification.service";
 
 import PaymentVerificationActions from "@/components/admin/payments/PaymentVerificationActions";
+import PaymentProofPreviewModal from "@/components/admin/payments/PaymentProofPreviewModal";
 
 /**
  * ============================================================
@@ -443,10 +444,26 @@ export default async function AdminPaymentDetailPage({
                   <ReceiptText className="h-5 w-5" />
                 </div>
 
-                <div className="min-w-0">
-                  <h2 className="font-bold text-[var(--pisjo-navy)]">
-                    Bukti Pembayaran
-                  </h2>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-bold text-[var(--pisjo-navy)]">
+                      Bukti Pembayaran
+                    </h2>
+
+                    {payment.image ? (
+                      <PaymentProofPreviewModal
+                        image={payment.image}
+                        paymentProofId={payment.id}
+                        orderId={payment.order.id}
+                        orderNumber={payment.order.orderNumber}
+                        customerName={payment.order.user.name ?? "Customer"}
+                        paymentMethod={paymentDisplay.paymentName}
+                        orderTotal={formatCurrency(orderTotal)}
+                        uploadedAt={formatDate(payment.createdAt)}
+                        status={payment.status}
+                      />
+                    ) : null}
+                  </div>
 
                   <p className="mt-1 text-sm text-[var(--pisjo-text-secondary)]">
                     Bukti yang diupload oleh customer.
@@ -457,20 +474,21 @@ export default async function AdminPaymentDetailPage({
 
             <div className="p-4 sm:p-5">
               {payment.image ? (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                  <div className="relative min-h-[360px] w-full sm:min-h-[500px] lg:min-h-[620px]">
-                    <Image
-                      src={payment.image}
-                      alt={`Bukti pembayaran ${payment.order.orderNumber}`}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 70vw"
-                      priority
-                      unoptimized
-                    />
-                  </div>
-                </div>
-              ) : (
+  <div className="flex min-h-[240px] w-full items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 sm:min-h-[280px] lg:min-h-[320px]">
+    <div className="flex h-[240px] w-full max-w-[420px] items-center justify-center overflow-hidden rounded-lg bg-white sm:h-[280px] sm:max-w-[460px] lg:h-[320px] lg:max-w-[500px]">
+      <Image
+        src={payment.image}
+        alt={`Bukti pembayaran ${payment.order.orderNumber}`}
+        width={1200}
+        height={1600}
+        className="block h-auto max-h-full w-auto max-w-full object-contain"
+        sizes="(max-width: 640px) 90vw, 500px"
+        priority
+        unoptimized
+      />
+    </div>
+  </div>
+) : (
                 <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                   <div>
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm">

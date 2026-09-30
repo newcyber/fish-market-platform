@@ -17,6 +17,7 @@ import {
 import { PaymentStatus } from "@prisma/client";
 
 import { PaymentVerificationService } from "@/services/payment/payment-verification.service";
+import PaymentQuickPreviewModal from "@/components/admin/payments/PaymentQuickPreviewModal";
 
 /**
  * ============================================================
@@ -275,39 +276,39 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-soft-blue)] hover:shadow-md sm:p-5"
+      className="group min-w-0 rounded-xl border border-slate-200 bg-white p-2 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--pisjo-soft-blue)] hover:shadow-md sm:rounded-2xl sm:p-5"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">
+          <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)] sm:text-xs">
             {title}
           </p>
 
-          <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--pisjo-navy)] sm:text-3xl">
+          <p className="mt-1 text-lg font-bold tracking-tight text-[var(--pisjo-navy)] sm:mt-2 sm:text-3xl">
             {value.toLocaleString(
               "id-ID"
             )}
           </p>
 
-          <p className="mt-1 text-xs text-[var(--pisjo-text-secondary)]">
+          <p className="mt-1 hidden text-xs text-[var(--pisjo-text-secondary)] sm:block">
             {description}
           </p>
         </div>
 
         <div
           className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:h-11 sm:w-11 sm:rounded-xl",
             iconClassName,
           ].join(" ")}
         >
           <Icon
-            className="h-5 w-5"
+            className="h-3.5 w-3.5 sm:h-5 sm:w-5"
             strokeWidth={2}
           />
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[var(--pisjo-primary)]">
+      <div className="mt-2 hidden items-center gap-1 text-xs font-semibold text-[var(--pisjo-primary)] sm:flex sm:mt-4">
         Lihat daftar
         <ArrowRight
           className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
@@ -492,7 +493,7 @@ export default async function AdminPaymentsPage({
           KPI
       ====================================================== */}
 
-      <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Bukti"
           value={stats.total}
@@ -845,13 +846,24 @@ export default async function AdminPaymentsPage({
                           </td>
 
                           <td className="px-5 py-4 text-right">
-                            <Link
-                              href={`/admin/payments/${payment.id}`}
-                              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-[var(--pisjo-soft-blue)] hover:bg-[var(--pisjo-soft-blue)] hover:text-[var(--pisjo-ocean)]"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              Detail
-                            </Link>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                data-payment-preview={payment.id}
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[var(--pisjo-soft-blue)] bg-[var(--pisjo-soft-blue)] px-3 text-xs font-semibold text-[var(--pisjo-ocean)] transition hover:bg-[var(--pisjo-primary)] hover:text-white"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Preview
+                              </button>
+
+                              <Link
+                                href={`/admin/payments/${payment.id}`}
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-[var(--pisjo-soft-blue)] hover:bg-[var(--pisjo-soft-blue)] hover:text-[var(--pisjo-ocean)]"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Detail
+                              </Link>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1001,13 +1013,24 @@ export default async function AdminPaymentsPage({
                         DETAIL BUTTON
                     ------------------------------------------ */}
 
-                    <Link
-                      href={`/admin/payments/${payment.id}`}
-                      className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--pisjo-ocean)]"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Lihat Detail Pembayaran
-                    </Link>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        data-payment-preview={payment.id}
+                        className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[var(--pisjo-soft-blue)] bg-[var(--pisjo-soft-blue)] px-3 text-sm font-semibold text-[var(--pisjo-ocean)] transition hover:bg-[var(--pisjo-primary)] hover:text-white"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Preview
+                      </button>
+
+                      <Link
+                        href={`/admin/payments/${payment.id}`}
+                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-3 text-sm font-semibold text-white transition hover:bg-[var(--pisjo-ocean)]"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Detail
+                      </Link>
+                    </div>
                   </article>
                 );
               }
@@ -1015,6 +1038,35 @@ export default async function AdminPaymentsPage({
           </section>
         </>
       )}
+
+      <PaymentQuickPreviewModal
+        payments={payments.map((payment) => ({
+          id: payment.id,
+          status: payment.status,
+          image: payment.image,
+          createdAt: payment.createdAt.toISOString(),
+          verifiedAt: payment.verifiedAt
+            ? payment.verifiedAt.toISOString()
+            : null,
+          rejectionReason: payment.rejectionReason,
+          order: {
+            id: payment.order.id,
+            orderNumber: payment.order.orderNumber,
+            total: payment.order.total,
+            status: payment.order.status,
+            user: {
+              name: payment.order.user.name,
+              email: payment.order.user.email,
+            },
+            paymentChannel: payment.order.paymentChannel
+              ? {
+                  name: payment.order.paymentChannel.name,
+                  type: payment.order.paymentChannel.type,
+                }
+              : null,
+          },
+        }))}
+      />
 
       {/* ======================================================
           PAGINATION

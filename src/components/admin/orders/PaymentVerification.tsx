@@ -33,6 +33,7 @@ interface PaymentVerificationProps {
   orderStatus: string;
   hasPaymentProof: boolean;
   paymentProofId: string | null;
+  compact?: boolean;
 }
 
 export default function PaymentVerification({
@@ -41,6 +42,7 @@ export default function PaymentVerification({
   orderStatus,
   hasPaymentProof,
   paymentProofId,
+  compact = false,
 }: PaymentVerificationProps) {
   const router = useRouter();
 
@@ -187,6 +189,109 @@ export default function PaymentVerification({
 
       router.refresh();
     });
+  }
+
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        {error ? (
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        {success ? (
+          <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs leading-5 text-green-700">
+            {success}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          disabled={!hasPaymentProof || !paymentProofId || isPending}
+          onClick={() => {
+            if (paymentProofId) {
+              router.push(`/admin/payments/${paymentProofId}`);
+            }
+          }}
+          className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-[var(--pisjo-soft-blue)]/45 px-3.5 py-3 text-left transition hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]/70 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]">
+            <CreditCard className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-semibold text-[var(--pisjo-navy)]">
+              Bukti Pembayaran
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-[var(--pisjo-text-secondary)]">
+              {hasPaymentProof ? "Buka bukti pembayaran yang terhubung pada order ini." : "Belum ada bukti pembayaran yang terhubung pada order ini."}
+            </span>
+          </span>
+        </button>
+
+        {!isVerified && !isCancelled && hasPaymentProof ? (
+          <details className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-semibold text-[var(--pisjo-navy)]">
+              Alasan Penolakan Pembayaran
+            </summary>
+            <div className="mt-2 space-y-2">
+              <textarea
+                id="payment-rejection-reason-compact"
+                value={rejectionReason}
+                onChange={(event) => setRejectionReason(event.target.value)}
+                placeholder="Contoh: Nominal transfer tidak sesuai."
+                rows={2}
+                maxLength={500}
+                disabled={isPending}
+                className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-[var(--pisjo-primary)] focus:ring-2 focus:ring-[var(--pisjo-primary)]/20 disabled:bg-slate-100"
+              />
+              <div className="flex items-center justify-between text-[11px] text-[var(--pisjo-text-secondary)]">
+                <span>Wajib diisi untuk menolak pembayaran.</span>
+                <span>{rejectionReason.length}/500</span>
+              </div>
+            </div>
+          </details>
+        ) : null}
+
+        {!isVerified && !isCancelled ? (
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button
+              type="button"
+              onClick={verifyPayment}
+              disabled={isPending || !hasPaymentProof || !paymentProofId}
+              className="min-h-10 w-full rounded-lg bg-[var(--pisjo-primary)] px-3 text-xs font-semibold text-white hover:bg-[var(--pisjo-ocean)]"
+            >
+              {isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />}
+              {isRejected ? "Verifikasi Bukti Baru" : "Verifikasi Pembayaran"}
+            </Button>
+            {!isRejected ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={rejectPayment}
+                disabled={isPending || !hasPaymentProof || !paymentProofId || !rejectionReason.trim()}
+                className="min-h-10 w-full rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
+              >
+                {isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <XCircle className="mr-1.5 h-4 w-4" />}
+                Tolak Pembayaran
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {isVerified ? (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs leading-5 text-green-800">
+            Pembayaran sudah terverifikasi.
+          </div>
+        ) : null}
+
+        {isCancelled ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+            Order sudah dibatalkan sehingga status pembayaran tidak dapat diubah.
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (

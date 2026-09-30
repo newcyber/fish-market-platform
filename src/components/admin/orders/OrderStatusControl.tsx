@@ -37,6 +37,7 @@ interface OrderStatusControlProps {
   orderId: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  compact?: boolean;
 }
 
 function getStatusLabel(
@@ -108,6 +109,7 @@ export default function OrderStatusControl({
   orderId,
   status,
   paymentStatus,
+  compact = false,
 }: OrderStatusControlProps) {
   const router = useRouter();
 
@@ -271,6 +273,65 @@ export default function OrderStatusControl({
 
       router.refresh();
     });
+  }
+
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        {error ? (
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        {success ? (
+          <div role="status" className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs leading-5 text-green-700">
+            {success}
+          </div>
+        ) : null}
+
+        {isTerminal ? (
+          <div className={["rounded-lg border px-3 py-2 text-xs leading-5", status === OrderStatus.COMPLETED ? "border-green-200 bg-green-50 text-green-800" : "border-slate-200 bg-slate-50 text-[var(--pisjo-text-secondary)]"].join(" ")}>
+            {status === OrderStatus.COMPLETED
+              ? "Order sudah selesai dan merupakan status final."
+              : "Order sudah dibatalkan dan tidak dapat diproses kembali."}
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {(status === OrderStatus.PENDING || status === OrderStatus.WAITING_VERIFICATION) && !paymentVerified ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                Verifikasi pembayaran terlebih dahulu sebelum order diproses.
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {nextStatus ? (
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={isPending || (nextStatus === OrderStatus.PROCESSING && !paymentVerified)}
+                  className="min-h-10 w-full rounded-lg bg-[var(--pisjo-primary)] px-3 text-xs font-semibold text-white hover:bg-[var(--pisjo-ocean)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ActionIcon className="mr-1.5 h-4 w-4" />}
+                  {actionLabel}
+                </Button>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isPending}
+                className="min-h-10 w-full rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
+              >
+                {isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <XCircle className="mr-1.5 h-4 w-4" />}
+                Batalkan Order
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
