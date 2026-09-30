@@ -296,7 +296,7 @@ export default function RegisterForm() {
             event.preventDefault();
             void handleEmailRegister();
           }}
-          className="mt-6 space-y-5"
+          className="mt-4 space-y-5 sm:mt-5"
           noValidate
         >
           <div className="space-y-2">
@@ -382,7 +382,7 @@ export default function RegisterForm() {
             event.preventDefault();
             void handleRequestOtp();
           }}
-          className="space-y-5"
+          className="mt-4 space-y-5 sm:mt-5"
           noValidate
         >
           <div className="space-y-2">
@@ -466,7 +466,7 @@ export default function RegisterForm() {
             event.preventDefault();
             void handleVerifyOtp();
           }}
-          className="space-y-5"
+          className="mt-4 space-y-5 sm:mt-5"
           noValidate
         >
           <button

@@ -1234,13 +1234,16 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
         {/* ====================================================
             PISJO REORDER
         ==================================================== */}
-
-        {mode === "customer" && (
-          <HomeReorderSection order={serializedReorderOrder} />
+        {mode === "customer" && customerMemberTierSummary && (
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+            <CustomerMemberTier summary={customerMemberTierSummary} />
+            </div>
         )}
 
-        {mode === "customer" && customerMemberTierSummary && (
-          <CustomerMemberTier summary={customerMemberTierSummary} />
+        {mode === "customer" && (
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+          <HomeReorderSection order={serializedReorderOrder} />
+           </div>
         )}
 
         {/* ====================================================

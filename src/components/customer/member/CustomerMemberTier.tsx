@@ -20,7 +20,7 @@ export default function CustomerMemberTier({
     summary;
 
   return (
-    <section className="w-full">
+    <section className="mx-auto w-full max-w-6xl px-4 sm:px-6">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
