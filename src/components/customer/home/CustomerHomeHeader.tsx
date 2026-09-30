@@ -322,7 +322,7 @@ export default function CustomerHomeHeader({
 
           {/* Voucher */}
           <Link
-            href="/customer/rewards"
+            href="/customer/vouchers"
             className="
               flex
               min-h-20

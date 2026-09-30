@@ -203,12 +203,68 @@ model User {
 
   rewardClaims RewardClaim[]
 
+  /**
+   * Current derived membership tier for customer benefits.
+   */
+  memberTierId String?
+  memberTier   MemberTier? @relation(fields: [memberTierId], references: [id], onDelete: SetNull)
+
   productReviews ProductReview[]
 
   wapiDeliveries WapiDelivery[] @relation("UserWapiDeliveries")
 
   @@index([email])
   @@index([role])
+}
+
+// ============================================================
+// PISJO MEMBER TIER
+// ============================================================
+//
+// Membership tier customer berdasarkan total transaksi
+// terverifikasi dalam rolling 12 bulan.
+//
+// Point tetap menjadi loyalty currency terpisah.
+// Tier menentukan benefit membership.
+// ============================================================
+
+model MemberTier {
+  id String @id @default(uuid())
+
+  name String
+
+  slug String @unique
+
+  /**
+   * Minimum verified spending dalam rolling membership period.
+   */
+  minSpend Decimal @db.Decimal(12, 2)
+
+  /**
+   * Bonus point percentage untuk transaksi berikutnya.
+   * 25 berarti +25% dari point dasar.
+   */
+  bonusPointsPercent Int @default(0)
+
+  freeShipping Boolean @default(false)
+
+  prioritySupport Boolean @default(false)
+
+  exclusivePricing Boolean @default(false)
+
+  isActive Boolean @default(true)
+
+  sortOrder Int @default(0)
+
+  users User[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([minSpend])
+  @@index([isActive])
+  @@index([sortOrder])
 }
 
 // ============================================================
@@ -916,15 +972,15 @@ model ProductReview {
   id String @id @default(uuid())
 
   productId String
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   userId String?
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   username String
-  email String
-  rating Int
-  review String?
+  email    String
+  rating   Int
+  review   String?
 
   status ProductReviewStatus @default(PENDING)
 
@@ -2048,7 +2104,7 @@ model Voucher {
    * null = unlimited.
    */
   claimLimit Int?
-  claimCount Int @default(0)
+  claimCount Int  @default(0)
 
   /**
    * Maksimum subsidi ongkir untuk FREE_SHIPPING.
@@ -2716,20 +2772,20 @@ model UserVoucher {
   id String @id @default(uuid())
 
   userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /**
    * Nullable untuk voucher promo biasa yang diklaim customer.
    * Tetap terisi untuk voucher hasil redeem reward point.
    */
   rewardVoucherSettingId String?
-  rewardVoucherSetting RewardVoucherSetting? @relation(fields: [rewardVoucherSettingId], references: [id], onDelete: Restrict)
+  rewardVoucherSetting   RewardVoucherSetting? @relation(fields: [rewardVoucherSettingId], references: [id], onDelete: Restrict)
 
   /**
    * Satu voucher campaign dapat dimiliki banyak customer.
    */
   voucherId String
-  voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Restrict)
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Restrict)
 
   pointsSpent Int @default(0)
 
@@ -2738,7 +2794,7 @@ model UserVoucher {
    * Nama redeemedAt dipertahankan untuk kompatibilitas reward voucher lama.
    */
   redeemedAt DateTime @default(now())
-  claimedAt DateTime @default(now())
+  claimedAt  DateTime @default(now())
 
   @@unique([userId, voucherId])
   @@index([userId])

@@ -21,16 +21,16 @@ export default function CustomerRewardSummary({
   const next = summary.nextReward;
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 pt-3 sm:px-6 md:px-8">
+    <section className="w-full">
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-row divide-x divide-slate-100">
+        <div className="grid divide-y divide-slate-100 md:grid-cols-3 md:divide-x md:divide-y-0">
           <Link
             href="/customer/rewards"
-            className="group min-w-0 flex-[0.8] p-2.5 transition hover:bg-slate-50 sm:p-5"
+            className="group p-4 transition hover:bg-slate-50 sm:p-5"
           >
             <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500 sm:h-10 sm:w-10">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
                   <Star className="h-5 w-5 fill-current" />
                 </span>
                 <div>
@@ -42,17 +42,17 @@ export default function CustomerRewardSummary({
                   </p>
                 </div>
               </div>
-              <ArrowRight className="hidden h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500 sm:block" />
+              <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:text-slate-500" />
             </div>
           </Link>
 
           <Link
             href="/customer/vouchers"
-            className="group min-w-0 flex-[1] p-2.5 transition hover:bg-slate-50 sm:p-5"
+            className="group p-4 transition hover:bg-slate-50 sm:p-5"
           >
             <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 sm:h-10 sm:w-10">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                   <Ticket className="h-5 w-5" />
                 </span>
                 <div>
@@ -67,37 +67,38 @@ export default function CustomerRewardSummary({
                   </p>
                 </div>
               </div>
-              <ArrowRight className="hidden h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500 sm:block" />
+              <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:text-slate-500" />
             </div>
 
             {summary.vouchers.items.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1 sm:mt-3">
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {summary.vouchers.items.map((voucher) => (
                   <span
                     key={voucher.id}
-                    className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-slate-600 sm:px-2.5 sm:py-1 sm:text-[10px]"
+                    className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600"
                   >
                     {voucherType(voucher.type)}
                   </span>
                 ))}
                 {summary.vouchers.count > summary.vouchers.items.length && (
                   <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-400">
-                    +{summary.vouchers.count - summary.vouchers.items.length} lagi
+                    +{summary.vouchers.count - summary.vouchers.items.length}{" "}
+                    lagi
                   </span>
                 )}
               </div>
             )}
           </Link>
 
-          <div className="min-w-0 flex-[1.3] p-2.5 sm:p-5">
+          <div className="p-4 sm:p-5">
             <div className="flex items-start gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 sm:h-10 sm:w-10">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                 <Gift className="h-5 w-5" />
               </span>
 
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-slate-500">
-                  Reward Terdekat
+                  Reward Berikutnya
                 </p>
 
                 {next ? (
@@ -115,7 +116,8 @@ export default function CustomerRewardSummary({
 
                     <div className="mt-2 flex items-center justify-between gap-3 text-[10px]">
                       <span className="font-semibold text-slate-500">
-                        {points(next.currentPoints)} / {points(next.requiredPoints)} poin
+                        {points(next.currentPoints)} /{" "}
+                        {points(next.requiredPoints)} poin
                       </span>
                       <span className="font-bold text-emerald-600">
                         {points(next.remainingPoints)} lagi

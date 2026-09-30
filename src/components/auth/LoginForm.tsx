@@ -861,16 +861,6 @@ setTimeout(() => {
     <AuthCard>
       {header}
 
-      <div className="mt-6">
-        <SocialAuthButtons callbackUrl={callbackUrl ?? "/customer"} disabled={isPasswordPending || isOtpPending} />
-
-        <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-          <div className="h-px flex-1 bg-slate-200" />
-          <span>atau gunakan metode lain</span>
-          <div className="h-px flex-1 bg-slate-200" />
-        </div>
-      </div>
-
       {/* ================================================== */}
       {/* LOGIN METHOD SWITCHER                              */}
       {/* ================================================== */}
@@ -1205,6 +1195,19 @@ setTimeout(() => {
             >
               Daftar sekarang
             </Link>
+          </div>
+
+          <div className="pt-1">
+            <div className="mb-4 flex items-center gap-3 text-xs text-slate-400">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="whitespace-nowrap">Atau masuk dengan</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <SocialAuthButtons
+              callbackUrl={callbackUrl ?? "/customer"}
+              disabled={isPasswordPending || isOtpPending}
+            />
           </div>
         </form>
       ) : (
@@ -1671,6 +1674,19 @@ setTimeout(() => {
           {/* ============================================ */}
           {/* REGISTER                                    */}
           {/* ============================================ */}
+
+          <div className="pt-1">
+            <div className="mb-4 flex items-center gap-3 text-xs text-slate-400">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="whitespace-nowrap">Atau masuk dengan</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <SocialAuthButtons
+              callbackUrl={callbackUrl ?? "/customer"}
+              disabled={isPasswordPending || isOtpPending}
+            />
+          </div>
 
           <div
             className="

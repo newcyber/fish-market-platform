@@ -42,6 +42,11 @@ import FlashSaleService from "@/services/flash-sale/flash-sale.service";
 
 import PromoPopup from "@/components/customer/promo/PromoPopup";
 
+import CustomerMemberTier from "@/components/customer/member/CustomerMemberTier";
+
+import { getCustomerMemberTierSummary } from "@/services/customer/member-tier.service";
+
+
 /**
  * ============================================================
  * SHARED HOME PAGE
@@ -339,6 +344,7 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
     customerHomeSummary,
     customerOrderSummary,
     latestReorderOrder,
+    customerMemberTierSummary,
   ] = await Promise.all([
     /**
      * ========================================================
@@ -793,6 +799,15 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
     customerUserId
       ? ReorderService.getLatestReorderableOrder(customerUserId)
       : null,
+
+    /**
+     * ========================================================
+     * PISJO MEMBER TIER
+     * ========================================================
+     */
+    customerUserId
+      ? getCustomerMemberTierSummary(customerUserId)
+      : null,
   ]);
 
   /**
@@ -1222,6 +1237,10 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
 
         {mode === "customer" && (
           <HomeReorderSection order={serializedReorderOrder} />
+        )}
+
+        {mode === "customer" && customerMemberTierSummary && (
+          <CustomerMemberTier summary={customerMemberTierSummary} />
         )}
 
         {/* ====================================================

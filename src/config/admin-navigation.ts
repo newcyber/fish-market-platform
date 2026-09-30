@@ -326,6 +326,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       },
 
       {
+        id: "member-tiers",
+        title: "Member Tier",
+        href: "/admin/member-tiers",
+        icon: "loyalty",
+        roles: SUPER_ADMIN_ONLY,
+        order: 10,
+      },
+
+      {
         id: "landing-page",
         title: "Landing Page",
         href: "/admin/landing-page",

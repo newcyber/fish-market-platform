@@ -259,14 +259,6 @@ export default function RegisterForm() {
       />
 
       <div className="mt-6">
-        <SocialAuthButtons callbackUrl="/customer" disabled={isSubmitting} />
-
-        <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-          <div className="h-px flex-1 bg-slate-200" />
-          <span>atau daftar dengan metode lain</span>
-          <div className="h-px flex-1 bg-slate-200" />
-        </div>
-
         <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
           <button
             type="button"
@@ -447,6 +439,15 @@ export default function RegisterForm() {
               Data Anda dilindungi dan nomor WhatsApp digunakan untuk
               verifikasi akun.
             </span>
+          </div>
+
+          <div className="pt-1">
+            <div className="mb-4 flex items-center gap-3 text-xs text-slate-400">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span>Atau daftar dengan</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+            <SocialAuthButtons callbackUrl="/customer" disabled={isSubmitting} />
           </div>
 
           <p className="text-center text-sm text-slate-500">
