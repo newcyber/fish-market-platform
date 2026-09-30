@@ -7,7 +7,7 @@ import { z } from "zod";
  *
  * Validasi registrasi customer publik.
  *
- * Nomor HP wajib diisi dan dinormalisasi ke format:
+ * Nomor HP opsional untuk registrasi email dan dinormalisasi ke format:
  *
  * 08xxxxxxxxxx
  *
@@ -47,10 +47,6 @@ export const RegisterSchema = z
     phone: z
       .string()
       .trim()
-      .min(
-        10,
-        "Nomor HP minimal 10 digit."
-      )
       .max(
         15,
         "Nomor HP maksimal 15 digit."
@@ -75,14 +71,13 @@ export const RegisterSchema = z
       })
       .refine(
         (value) =>
-          /^08\d{8,13}$/.test(
-            value
-          ),
+          value === "" || /^08\d{8,13}$/.test(value),
         {
           message:
             "Nomor HP Indonesia tidak valid.",
         }
-      ),
+      )
+      .optional(),
 
     password: z
       .string()

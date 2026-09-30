@@ -53,6 +53,7 @@ import {
 import {
   SubmitButton,
 } from "@/components/auth/SubmitButton";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 import {
   Alert,
@@ -859,6 +860,16 @@ setTimeout(() => {
   return (
     <AuthCard>
       {header}
+
+      <div className="mt-6">
+        <SocialAuthButtons callbackUrl={callbackUrl ?? "/customer"} disabled={isPasswordPending || isOtpPending} />
+
+        <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span>atau gunakan metode lain</span>
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+      </div>
 
       {/* ================================================== */}
       {/* LOGIN METHOD SWITCHER                              */}

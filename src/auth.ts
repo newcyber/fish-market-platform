@@ -1,16 +1,85 @@
+import crypto from "node:crypto";
+
 import NextAuth from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import Facebook from "next-auth/providers/facebook";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { Role } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { LoginSchema } from "@/validations/auth/login.schema";
-import { verifyPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { UserRepository } from "@/repositories/user.repository";
 
 import WhatsAppRegistrationOtpService from "@/services/auth/whatsapp-registration-otp.service";
 import WhatsAppLoginOtpService from "@/services/auth/whatsapp-login-otp.service";
+
+/**
+ * Auth.js expects the standard Prisma adapter User model to expose
+ * `image` and does not know about Pisjo's custom `avatar` field or
+ * the required legacy `password` column. Keep the existing Prisma
+ * adapter for Account/Session operations, but override OAuth user
+ * creation so Google/Facebook can create a valid Pisjo customer.
+ */
+const baseAdapter = PrismaAdapter(prisma);
+
+const adapter: Adapter = {
+  ...baseAdapter,
+
+  async createUser(data) {
+    const password = await hashPassword(
+      `oauth:${crypto.randomUUID()}:${crypto.randomUUID()}`,
+    );
+
+    const user = await prisma.user.create({
+      data: {
+        name: data.name || "Customer Pisjo",
+        email: data.email,
+        password,
+        avatar: data.image ?? null,
+        emailVerified: data.emailVerified ?? new Date(),
+        role: Role.CUSTOMER,
+        isActive: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      image: user.avatar,
+      role: user.role,
+      isActive: user.isActive,
+      passwordChangedAt: user.passwordChangedAt,
+    };
+  },
+};
+
+const oauthProviders = [
+  ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET
+    ? [
+        Google({
+          clientId: env.AUTH_GOOGLE_ID,
+          clientSecret: env.AUTH_GOOGLE_SECRET,
+          allowDangerousEmailAccountLinking: true,
+        }),
+      ]
+    : []),
+
+  ...(env.AUTH_FACEBOOK_ID && env.AUTH_FACEBOOK_SECRET
+    ? [
+        Facebook({
+          clientId: env.AUTH_FACEBOOK_ID,
+          clientSecret: env.AUTH_FACEBOOK_SECRET,
+          allowDangerousEmailAccountLinking: true,
+        }),
+      ]
+    : []),
+];
 
 /**
  * ============================================================
@@ -22,6 +91,8 @@ import WhatsAppLoginOtpService from "@/services/auth/whatsapp-login-otp.service"
  * 1. Email + Password
  * 2. WhatsApp OTP Registration
  * 3. WhatsApp OTP Login
+ * 4. Google OAuth
+ * 5. Facebook OAuth
  *
  * Session:
  * - JWT
@@ -39,8 +110,7 @@ export const {
   signIn,
   signOut,
 } = NextAuth({
-  adapter:
-    PrismaAdapter(prisma),
+  adapter,
 
   trustHost: true,
 
@@ -56,6 +126,8 @@ export const {
   },
 
   providers: [
+    ...oauthProviders,
+
     /**
      * ==========================================================
      * WHATSAPP LOGIN OTP
@@ -415,6 +487,57 @@ export const {
 
   callbacks: {
     /**
+     * OAuth safety + account linking.
+     *
+     * Google/Facebook must provide an email before Pisjo accepts
+     * the identity. The provider options above allow Auth.js to
+     * link a provider to an existing Pisjo user with the same
+     * trusted provider email instead of creating a duplicate.
+     */
+    async signIn({ user, account }) {
+      if (account?.type === "oauth") {
+        if (!user.email) {
+          return false;
+        }
+
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            email: user.email.toLowerCase(),
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            role: true,
+            isActive: true,
+            emailVerified: true,
+          },
+        });
+
+        // Social login is intended for customer accounts. Keep admin
+        // authentication on the existing credentials/WhatsApp flows.
+        if (existingUser && existingUser.role !== Role.CUSTOMER) {
+          return false;
+        }
+
+        if (existingUser && !existingUser.isActive) {
+          return false;
+        }
+
+        // A trusted OAuth provider has verified the email identity.
+        // Upgrade an existing unverified customer so the existing JWT
+        // callback does not immediately invalidate the new OAuth session.
+        if (existingUser && !existingUser.emailVerified) {
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { emailVerified: new Date() },
+          });
+        }
+      }
+
+      return true;
+    },
+
+    /**
      * ==========================================================
      * JWT CALLBACK
      * ==========================================================
@@ -428,19 +551,36 @@ export const {
        * Initial login.
        */
       if (user) {
-        token.id =
-          user.id;
+        token.id = user.id;
 
-        token.role =
-          user.role as Role;
-
-        token.isActive =
-          user.isActive;
-
-        token.passwordChangedAt =
-          user.passwordChangedAt
+        // Credentials/WhatsApp providers already return these fields.
+        // OAuth users are created by the adapter, so hydrate the
+        // application-specific authorization fields from Prisma.
+        if (user.role && typeof user.isActive === "boolean") {
+          token.role = user.role as Role;
+          token.isActive = user.isActive;
+          token.passwordChangedAt = user.passwordChangedAt
             ? user.passwordChangedAt.getTime()
             : 0;
+        } else {
+          const oauthUser = await prisma.user.findFirst({
+            where: {
+              id: user.id,
+              deletedAt: null,
+            },
+            select: {
+              role: true,
+              isActive: true,
+              passwordChangedAt: true,
+            },
+          });
+
+          token.role = oauthUser?.role ?? Role.CUSTOMER;
+          token.isActive = oauthUser?.isActive === true;
+          token.passwordChangedAt = oauthUser?.passwordChangedAt
+            ? oauthUser.passwordChangedAt.getTime()
+            : 0;
+        }
 
         return token;
       }

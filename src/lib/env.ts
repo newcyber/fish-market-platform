@@ -43,6 +43,17 @@ export const env = {
   APP_URL: optional("APP_URL"),
 
   /**
+   * Social OAuth providers.
+   * Optional so the application can still run with the existing
+   * WhatsApp + email authentication when a provider is not configured.
+   */
+  AUTH_GOOGLE_ID: optional("AUTH_GOOGLE_ID"),
+  AUTH_GOOGLE_SECRET: optional("AUTH_GOOGLE_SECRET"),
+
+  AUTH_FACEBOOK_ID: optional("AUTH_FACEBOOK_ID"),
+  AUTH_FACEBOOK_SECRET: optional("AUTH_FACEBOOK_SECRET"),
+
+  /**
    * OneSignal
    *
    * REST API key must stay server-side.

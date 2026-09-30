@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { registerCustomerAction } from "@/actions/auth/register";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, MessageCircle, ShieldCheck } from "lucide-react";
@@ -12,6 +13,7 @@ import {
 import { AuthCard } from "@/components/auth/AuthCard";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { SubmitButton } from "@/components/auth/SubmitButton";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 function normalizePhone(value: string) {
   return value.replace(/\D/g, "");
@@ -28,10 +30,14 @@ function formatCountdown(seconds: number) {
 }
 
 export default function RegisterForm() {
+  const [method, setMethod] = useState<"whatsapp" | "email">("whatsapp");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -58,6 +64,56 @@ export default function RegisterForm() {
       Math.ceil((resendAvailableAt - now) / 1000),
     );
   }, [now, resendAvailableAt]);
+
+
+  const handleEmailRegister = async () => {
+    if (name.trim().length < 3) {
+      toast.error("Masukkan nama lengkap Anda.");
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      toast.error("Masukkan email yang valid.");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password minimal 6 karakter.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error("Konfirmasi password tidak cocok.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await registerCustomerAction({
+        name,
+        email,
+        phone: undefined,
+        password,
+        confirmPassword,
+      });
+
+      if (!result.success) {
+        toast.error(result.message ?? "Registrasi gagal.");
+        return;
+      }
+
+      toast.success("Registrasi berhasil. Kode verifikasi dikirim ke email Anda.");
+      window.location.assign(
+        `/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`,
+      );
+    } catch (error) {
+      console.error("[REGISTER_EMAIL]", error);
+      toast.error("Gagal melakukan registrasi. Silakan coba lagi.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleRequestOtp = async () => {
     const digits = normalizePhone(phone);
@@ -194,13 +250,141 @@ export default function RegisterForm() {
       <AuthHeader
         title="Daftar"
         description={
-          step === "phone"
-            ? "Buat akun Pisjo Market dengan nomor WhatsApp Anda."
-            : "Verifikasi WhatsApp untuk menyelesaikan pendaftaran."
+          method === "email"
+            ? "Buat akun Pisjo Market menggunakan email dan password."
+            : step === "phone"
+              ? "Buat akun Pisjo Market dengan nomor WhatsApp Anda."
+              : "Verifikasi WhatsApp untuk menyelesaikan pendaftaran."
         }
       />
 
-      {step === "phone" ? (
+      <div className="mt-6">
+        <SocialAuthButtons callbackUrl="/customer" disabled={isSubmitting} />
+
+        <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span>atau daftar dengan metode lain</span>
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMethod("whatsapp");
+              setStep("phone");
+            }}
+            disabled={isSubmitting}
+            className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition ${
+              method === "whatsapp"
+                ? "bg-white text-[var(--pisjo-navy)] shadow-sm"
+                : "text-slate-500 hover:text-[var(--pisjo-navy)]"
+            }`}
+          >
+            WhatsApp
+          </button>
+          <button
+            type="button"
+            onClick={() => setMethod("email")}
+            disabled={isSubmitting}
+            className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition ${
+              method === "email"
+                ? "bg-white text-[var(--pisjo-navy)] shadow-sm"
+                : "text-slate-500 hover:text-[var(--pisjo-navy)]"
+            }`}
+          >
+            Email
+          </button>
+        </div>
+      </div>
+
+      {method === "email" ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleEmailRegister();
+          }}
+          className="mt-6 space-y-5"
+          noValidate
+        >
+          <div className="space-y-2">
+            <label htmlFor="register-email-name" className="text-sm font-medium text-[var(--pisjo-navy)]">
+              Nama Lengkap<span className="ml-1 text-red-500">*</span>
+            </label>
+            <input
+              id="register-email-name"
+              type="text"
+              autoComplete="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="Masukkan nama lengkap"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[var(--pisjo-primary)] focus:ring-4 focus:ring-[var(--pisjo-primary)]/10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="register-email" className="text-sm font-medium text-[var(--pisjo-navy)]">
+              Email<span className="ml-1 text-red-500">*</span>
+            </label>
+            <input
+              id="register-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="nama@email.com"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[var(--pisjo-primary)] focus:ring-4 focus:ring-[var(--pisjo-primary)]/10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="register-password" className="text-sm font-medium text-[var(--pisjo-navy)]">
+              Password<span className="ml-1 text-red-500">*</span>
+            </label>
+            <input
+              id="register-password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="Minimal 6 karakter"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[var(--pisjo-primary)] focus:ring-4 focus:ring-[var(--pisjo-primary)]/10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="register-confirm-password" className="text-sm font-medium text-[var(--pisjo-navy)]">
+              Konfirmasi Password<span className="ml-1 text-red-500">*</span>
+            </label>
+            <input
+              id="register-confirm-password"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              disabled={isSubmitting}
+              placeholder="Ulangi password"
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[var(--pisjo-primary)] focus:ring-4 focus:ring-[var(--pisjo-primary)]/10"
+            />
+          </div>
+
+          <SubmitButton
+            loading={isSubmitting}
+            text="Daftar dengan Email"
+            loadingText="Mendaftarkan..."
+          />
+
+          <p className="text-center text-sm text-slate-500">
+            Sudah punya akun?{" "}
+            <Link href="/login" className="font-semibold text-[var(--pisjo-primary)] hover:underline">
+              Masuk sekarang
+            </Link>
+          </p>
+        </form>
+      ) : step === "phone" ? (
         <form
           onSubmit={(event) => {
             event.preventDefault();
