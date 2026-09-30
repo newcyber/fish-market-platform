@@ -896,6 +896,9 @@ setQuantity(
               item.variantOptionId
           );
 
+        /**
+         * Option harus memang dimiliki SKU ini.
+         */
         if (
           !skuOptionIds.includes(
             optionId
@@ -904,6 +907,23 @@ setQuantity(
           return false;
         }
 
+        /**
+         * SKU yang stoknya habis tidak boleh membuat
+         * option terlihat tersedia.
+         *
+         * Untuk Pre-Order, stock 0 tetap dianggap tersedia.
+         */
+        if (
+          !isPreOrder &&
+          Number(sku.stock) <= 0
+        ) {
+          return false;
+        }
+
+        /**
+         * SKU harus compatible dengan pilihan pada
+         * group lain yang sudah dipilih customer.
+         */
         return Object.entries(
           selectedOptions
         ).every(
@@ -1255,9 +1275,19 @@ setQuantity(
                           isPending
                             ? "cursor-not-allowed opacity-50"
                             : "",
+                          !available
+                            ? "line-through decoration-1"
+                            : "",
                         ].join(" ")}
                       >
-                        <div className="font-medium">
+                        <div
+                          className={[
+                            "font-medium",
+                            !available
+                              ? "line-through decoration-1"
+                              : "",
+                          ].join(" ")}
+                        >
                           {
                             option.label
                           }
