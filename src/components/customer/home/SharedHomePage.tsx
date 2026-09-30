@@ -1401,109 +1401,6 @@ const serializedRepeatPurchaseProducts =
         />
       </div>
 
-            {/* ======================================================
-          FRESH FISH SEO HUB
-      ====================================================== */}
-
-      {mode === "guest" && (
-        <section
-          aria-labelledby="fresh-fish-hub-title"
-          className="
-            relative
-            z-10
-            border-y
-            border-slate-100
-            bg-white
-          "
-        >
-          <div
-            className="
-              mx-auto
-              flex
-              max-w-7xl
-              flex-col
-              gap-4
-              px-4
-              py-6
-              sm:flex-row
-              sm:items-center
-              sm:justify-between
-              sm:px-6
-              sm:py-7
-              lg:px-8
-            "
-          >
-            <div className="min-w-0">
-              <p
-                className="
-                  text-xs
-                  font-semibold
-                  uppercase
-                  tracking-[0.12em]
-                  text-(--pisjo-primary)
-                "
-              >
-                Pilihan Ikan Segar
-              </p>
-
-              <h2
-                id="fresh-fish-hub-title"
-                className="
-                  mt-1
-                  text-lg
-                  font-bold
-                  tracking-tight
-                  text-(--ocean-950)
-                  sm:text-xl
-                "
-              >
-                Temukan ikan segar untuk kebutuhan Anda
-              </h2>
-
-              <p
-                className="
-                  mt-1
-                  max-w-2xl
-                  text-sm
-                  leading-6
-                  text-slate-500
-                "
-              >
-                Jelajahi pilihan ikan segar dan kategori produk
-                PISJO sebelum berbelanja.
-              </p>
-            </div>
-
-            <Link
-              href="/ikan-segar"
-              className="
-                inline-flex
-                shrink-0
-                items-center
-                justify-center
-                gap-2
-                rounded-xl
-                bg-(--pisjo-primary)
-                px-4
-                py-2.5
-                text-sm
-                font-bold
-                text-white
-                transition
-                hover:opacity-90
-                focus-visible:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-(--pisjo-primary)/40
-                focus-visible:ring-offset-2
-              "
-            >
-              Lihat ikan segar
-              <span aria-hidden="true">→</span>
-            </Link>
-          </div>
-        </section>
-      )}
-
       {/* ======================================================
           FLASH SALE
       ====================================================== */}
@@ -1693,6 +1590,109 @@ const serializedRepeatPurchaseProducts =
         />
 
       </div>
+
+                  {/* ======================================================
+          FRESH FISH SEO HUB
+      ====================================================== */}
+
+      {mode === "guest" && (
+        <section
+          aria-labelledby="fresh-fish-hub-title"
+          className="
+            relative
+            z-10
+            border-y
+            border-slate-100
+            bg-white
+          "
+        >
+          <div
+            className="
+              mx-auto
+              flex
+              max-w-7xl
+              flex-col
+              gap-4
+              px-4
+              py-6
+              sm:flex-row
+              sm:items-center
+              sm:justify-between
+              sm:px-6
+              sm:py-7
+              lg:px-8
+            "
+          >
+            <div className="min-w-0">
+              <p
+                className="
+                  text-xs
+                  font-semibold
+                  uppercase
+                  tracking-[0.12em]
+                  text-(--pisjo-primary)
+                "
+              >
+                Pilihan Ikan Segar
+              </p>
+
+              <h2
+                id="fresh-fish-hub-title"
+                className="
+                  mt-1
+                  text-lg
+                  font-bold
+                  tracking-tight
+                  text-(--ocean-950)
+                  sm:text-xl
+                "
+              >
+                Temukan ikan segar untuk kebutuhan Anda
+              </h2>
+
+              <p
+                className="
+                  mt-1
+                  max-w-2xl
+                  text-sm
+                  leading-6
+                  text-slate-500
+                "
+              >
+                Jelajahi pilihan ikan segar dan kategori produk
+                PISJO sebelum berbelanja.
+              </p>
+            </div>
+
+            <Link
+              href="/ikan-segar"
+              className="
+                inline-flex
+                shrink-0
+                items-center
+                justify-center
+                gap-2
+                rounded-xl
+                bg-(--pisjo-primary)
+                px-4
+                py-2.5
+                text-sm
+                font-bold
+                text-white
+                transition
+                hover:opacity-90
+                focus-visible:outline-none
+                focus-visible:ring-2
+                focus-visible:ring-(--pisjo-primary)/40
+                focus-visible:ring-offset-2
+              "
+            >
+              Lihat ikan segar
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </section>
+      )}
 
     </main>
   );
