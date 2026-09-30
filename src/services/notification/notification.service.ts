@@ -663,38 +663,259 @@ class NotificationService {
     input: CreatePaymentProofNotificationInput,
   ) {
     /**
-     * --------------------------------------------------------
-     * VALIDATE ORDER ID
-     * --------------------------------------------------------
+     * ========================================================
+     * VALIDATE INPUT
+     * ========================================================
      */
 
     const orderId = input.orderId?.trim();
+    const paymentProofId = input.paymentProofId?.trim();
+    const confirmationEventId =
+      input.confirmationEventId?.trim();
 
     if (!orderId) {
       throw new Error("Order ID tidak valid.");
     }
 
-    const paymentProofId = input.paymentProofId?.trim();
-
     if (!paymentProofId) {
       throw new Error("Payment proof ID tidak valid.");
     }
-
-    const confirmationEventId = input.confirmationEventId?.trim();
 
     if (!confirmationEventId) {
       throw new Error("Confirmation event ID tidak valid.");
     }
 
     /**
-     * --------------------------------------------------------
-     * NORMALIZE MESSAGE DATA
-     * --------------------------------------------------------
+     * ========================================================
+     * LOAD LATEST ORDER + PAYMENT PROOF
+     * ========================================================
+     *
+     * Jangan mengandalkan field/relation yang tidak ada di
+     * schema OrderItem/Address. Semua field di bawah berasal
+     * dari generated Prisma client terbaru project.
      */
 
-    const orderNumber = input.orderNumber?.trim() || "Pesanan";
+    const order = await prisma.order.findUnique({
+      where: {
+        id: orderId,
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        subtotal: true,
+        shippingCost: true,
+        total: true,
+        notes: true,
 
-    const message = `Konfirmasi pembayaran baru untuk pesanan ${orderNumber}.`;
+        user: {
+          select: {
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+
+        address: {
+          select: {
+            receiverName: true,
+            receiverPhone: true,
+            province: true,
+            city: true,
+            district: true,
+            village: true,
+            postalCode: true,
+            fullAddress: true,
+            label: true,
+          },
+        },
+
+        items: {
+          orderBy: {
+            id: "asc",
+          },
+          select: {
+            productName: true,
+            quantity: true,
+            price: true,
+            subtotal: true,
+          },
+        },
+
+        paymentProof: {
+          select: {
+            id: true,
+            image: true,
+            bankName: true,
+            accountName: true,
+            accountNumber: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new Error("Pesanan tidak ditemukan.");
+    }
+
+    if (!order.paymentProof) {
+      throw new Error("Bukti pembayaran tidak ditemukan.");
+    }
+
+    if (order.paymentProof.id !== paymentProofId) {
+      throw new Error(
+        "Bukti pembayaran tidak sesuai dengan pesanan.",
+      );
+    }
+
+    /**
+     * ========================================================
+     * FORMAT HELPERS
+     * ========================================================
+     */
+
+    const formatRupiah = (value: unknown): string => {
+      const numericValue = Number(value ?? 0);
+
+      if (!Number.isFinite(numericValue)) {
+        return "Rp0";
+      }
+
+      return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+      }).format(numericValue);
+    };
+
+    const orderNumber =
+      input.orderNumber?.trim() ||
+      order.orderNumber.trim();
+
+    const customerName =
+      order.user?.name?.trim() ||
+      order.user?.email?.trim() ||
+      order.user?.phone?.trim() ||
+      order.address?.receiverName?.trim() ||
+      "Customer";
+
+    const paymentMethod =
+      order.paymentMethod || "UNKNOWN";
+
+    const orderItems =
+      order.items
+        .map((item) => {
+          const productName =
+            item.productName.trim();
+
+          return `• ${productName} x${item.quantity} — ${formatRupiah(item.subtotal)}`;
+        })
+        .join("\n") ||
+      "• Tidak ada detail produk";
+
+    const shippingAddress =
+      order.address?.fullAddress?.trim() ||
+      [
+        order.address?.receiverName?.trim(),
+        order.address?.receiverPhone?.trim(),
+        order.address?.label?.trim(),
+        order.address?.province?.trim(),
+        order.address?.city?.trim(),
+        order.address?.district?.trim(),
+        order.address?.village?.trim(),
+        order.address?.postalCode?.trim(),
+      ]
+        .filter(Boolean)
+        .join(", ") ||
+      "-";
+
+    /**
+     * ========================================================
+     * BUILD PUBLIC URL
+     * ========================================================
+     */
+
+    const appUrl =
+      process.env.APP_URL?.trim() ||
+      process.env.AUTH_URL?.trim() ||
+      "http://localhost:3000";
+
+    const normalizedAppUrl =
+      appUrl.replace(/\/+$/, "");
+
+    const paymentProofPath =
+      order.paymentProof.image?.trim() || "";
+
+    const paymentProofUrl =
+      paymentProofPath.startsWith("http://") ||
+      paymentProofPath.startsWith("https://")
+        ? paymentProofPath
+        : `${normalizedAppUrl}${
+            paymentProofPath.startsWith("/")
+              ? paymentProofPath
+              : `/${paymentProofPath}`
+          }`;
+
+    const orderUrl =
+      `${normalizedAppUrl}/admin/orders/${order.id}`;
+
+    /**
+     * ========================================================
+     * WAPI MESSAGE
+     * ========================================================
+     */
+
+    const message = [
+      "🔔 BUKTI PEMBAYARAN BARU",
+      "",
+      `Pesanan: ${orderNumber}`,
+      `Customer: ${customerName}`,
+      "",
+      "💰 TOTAL PESANAN",
+      formatRupiah(order.total),
+      "",
+      "📦 DETAIL PESANAN",
+      orderItems,
+      "",
+      "💳 PEMBAYARAN",
+      `Metode: ${paymentMethod}`,
+      `Status: ${order.paymentStatus}`,
+      order.paymentProof.bankName
+        ? `Bank: ${order.paymentProof.bankName}`
+        : null,
+      order.paymentProof.accountName
+        ? `Nama Rekening: ${order.paymentProof.accountName}`
+        : null,
+      order.paymentProof.accountNumber
+        ? `No. Rekening: ${order.paymentProof.accountNumber}`
+        : null,
+      "",
+      "🧾 RINGKASAN",
+      `Subtotal: ${formatRupiah(order.subtotal)}`,
+      `Ongkir: ${formatRupiah(order.shippingCost)}`,
+      `Total: ${formatRupiah(order.total)}`,
+      "",
+      "📍 ALAMAT PENGIRIMAN",
+      shippingAddress,
+      "",
+      "📝 CATATAN",
+      order.notes?.trim() || "-",
+      "",
+      "🖼️ BUKTI PEMBAYARAN",
+      paymentProofUrl,
+      "",
+      "🔎 BUKA ORDER",
+      orderUrl,
+      "",
+      "⚠️ Status: MENUNGGU VERIFIKASI",
+    ]
+      .filter(
+        (line): line is string =>
+          line !== null,
+      )
+      .join("\n");
 
     /**
      * ========================================================
@@ -702,74 +923,75 @@ class NotificationService {
      * ========================================================
      */
 
-    const recipients = await prisma.user.findMany({
-      where: {
-        role: {
-          in: ["ADMIN", "SUPER_ADMIN"],
+    const recipients =
+      await prisma.user.findMany({
+        where: {
+          role: {
+            in: ["ADMIN", "SUPER_ADMIN"],
+          },
+          isActive: true,
+          deletedAt: null,
         },
-
-        isActive: true,
-
-        deletedAt: null,
-      },
-
-      select: {
-        id: true,
-      },
-    });
-
-    /**
-     * --------------------------------------------------------
-     * NO ACTIVE RECIPIENT
-     * --------------------------------------------------------
-     */
+        select: {
+          id: true,
+          phone: true,
+        },
+      });
 
     if (recipients.length === 0) {
       return {
         count: 0,
-
         push: {
+          totalNotifications: 0,
           totalSubscriptions: 0,
           sent: 0,
           failed: 0,
           removed: 0,
+        },
+        whatsapp: {
+          recipients: 0,
+          sent: 0,
+          failed: 0,
+          skipped: 0,
+          disabled: false,
         },
       };
     }
 
     /**
      * ========================================================
-     * CREATE NOTIFICATIONS
+     * DATABASE NOTIFICATION
      * ========================================================
      */
 
-    const notificationResults = await Promise.all(
-      recipients.map(async (recipient) => {
-        const eventKey = `PAYMENT_CONFIRMATION:${confirmationEventId}:${recipient.id}`;
+    const notificationResults =
+      await Promise.all(
+        recipients.map(async (recipient) => {
+          const eventKey =
+            `PAYMENT_CONFIRMATION:${confirmationEventId}:${recipient.id}`;
 
-        return notificationRepository.createIdempotent({
-          userId: recipient.id,
-          title: "Konfirmasi Pembayaran QRIS",
-          message,
-          type: NotificationType.PAYMENT_PROOF,
-          href: "/admin/payments",
-          orderId,
-          eventKey,
-        });
-      }),
-    );
+          return notificationRepository.createIdempotent({
+            userId: recipient.id,
+            title: "Bukti Pembayaran Baru",
+            message:
+              `Customer ${customerName} mengupload bukti pembayaran untuk pesanan ${orderNumber}.`,
+            type: NotificationType.PAYMENT_PROOF,
+            href: `/admin/orders/${orderId}`,
+            orderId,
+            eventKey,
+          });
+        }),
+      );
 
-    const notifications = notificationResults
-      .filter((result) => result.created)
-      .map((result) => result.notification);
+    const notifications =
+      notificationResults
+        .filter((result) => result.created)
+        .map((result) => result.notification);
 
     /**
      * ========================================================
-     * WEB PUSH DELIVERY
+     * WEB PUSH
      * ========================================================
-     *
-     * Push bersifat best-effort dan tidak boleh menggagalkan
-     * proses upload bukti pembayaran.
      */
 
     let pushResult = {
@@ -781,37 +1003,259 @@ class NotificationService {
     };
 
     try {
-      pushResult = await pushDeliveryService.deliver({
-        notifications: notifications.map((notification) => ({
-          userId: notification.userId,
-
-          notificationId: notification.id,
-
-          title: notification.title,
-
-          message: notification.message,
-
-          href: notification.href,
-
-          type: notification.type,
-
-          createdAt: notification.createdAt,
-        })),
-      });
+      pushResult =
+        await pushDeliveryService.deliver({
+          notifications: notifications.map(
+            (notification) => ({
+              userId: notification.userId,
+              notificationId:
+                notification.id,
+              title: notification.title,
+              message:
+                notification.message,
+              href: notification.href,
+              type: notification.type,
+              createdAt:
+                notification.createdAt,
+            }),
+          ),
+        });
     } catch (error) {
-      console.error("[WEB_PUSH_PAYMENT_PROOF_FATAL_ERROR]", error);
+      console.error(
+        "[WEB_PUSH_PAYMENT_PROOF_FATAL_ERROR]",
+        error,
+      );
     }
 
     /**
      * ========================================================
-     * RESULT
+     * WHATSAPP DELIVERY
      * ========================================================
+     *
+     * Hanya upload bukti pembayaran yang memicu
+     * WAPI. Order baru tidak lagi mengirim WAPI.
      */
+
+    const wapiSettings =
+      await settingsRepository
+        .getWapiOrderNotificationSettings();
+
+    const whatsappResult = {
+      recipients: 0,
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      disabled: !wapiSettings.enabled,
+    };
+
+    if (wapiSettings.enabled) {
+      for (const recipient of recipients) {
+        const phone =
+          recipient.phone?.trim();
+
+        if (!phone) {
+          whatsappResult.skipped += 1;
+
+          await prisma.wapiDelivery.upsert({
+            where: {
+              orderId_userId: {
+                orderId,
+                userId: recipient.id,
+              },
+            },
+            create: {
+              orderId,
+              userId: recipient.id,
+              phone: "",
+              message,
+              status:
+                WapiDeliveryStatus.SKIPPED,
+              errorMessage:
+                "Recipient tidak memiliki nomor telepon.",
+            },
+            update: {
+              phone: "",
+              message,
+              status:
+                WapiDeliveryStatus.SKIPPED,
+              errorMessage:
+                "Recipient tidak memiliki nomor telepon.",
+              messageId: null,
+              jid: null,
+              processingStartedAt: null,
+              sentAt: null,
+            },
+          });
+
+          continue;
+        }
+
+        whatsappResult.recipients += 1;
+
+        const existingDelivery =
+          await prisma.wapiDelivery.findUnique({
+            where: {
+              orderId_userId: {
+                orderId,
+                userId: recipient.id,
+              },
+            },
+            select: {
+              id: true,
+              status: true,
+              message: true,
+            },
+          });
+
+        if (
+          existingDelivery?.status ===
+            WapiDeliveryStatus.SENT &&
+          existingDelivery.message === message
+        ) {
+          whatsappResult.sent += 1;
+
+          continue;
+        }
+
+        const delivery =
+          await prisma.wapiDelivery.upsert({
+            where: {
+              orderId_userId: {
+                orderId,
+                userId: recipient.id,
+              },
+            },
+            create: {
+              orderId,
+              userId: recipient.id,
+              phone,
+              message,
+              status:
+                WapiDeliveryStatus.PENDING,
+              attempts: 0,
+            },
+            update: {
+              phone,
+              message,
+              status:
+                WapiDeliveryStatus.PENDING,
+              errorMessage: null,
+              messageId: null,
+              jid: null,
+              processingStartedAt: null,
+              sentAt: null,
+            },
+          });
+
+        const claimResult =
+          await prisma.wapiDelivery.updateMany({
+            where: {
+              id: delivery.id,
+              status: {
+                in: [
+                  WapiDeliveryStatus.PENDING,
+                  WapiDeliveryStatus.FAILED,
+                ],
+              },
+            },
+            data: {
+              status:
+                WapiDeliveryStatus.PROCESSING,
+              phone,
+              message,
+              errorMessage: null,
+              processingStartedAt:
+                new Date(),
+            },
+          });
+
+        if (claimResult.count === 0) {
+          const currentDelivery =
+            await prisma.wapiDelivery.findUnique({
+              where: {
+                id: delivery.id,
+              },
+              select: {
+                status: true,
+              },
+            });
+
+          if (
+            currentDelivery?.status ===
+            WapiDeliveryStatus.SENT
+          ) {
+            whatsappResult.sent += 1;
+          }
+
+          continue;
+        }
+
+        try {
+          const result =
+            await whatsappService.sendText({
+              phone,
+              message,
+            });
+
+          await prisma.wapiDelivery.update({
+            where: {
+              id: delivery.id,
+            },
+            data: {
+              status:
+                WapiDeliveryStatus.SENT,
+              messageId: result.messageId,
+              jid: result.jid,
+              attempts: {
+                increment: 1,
+              },
+              errorMessage: null,
+              processingStartedAt: null,
+              sentAt: new Date(),
+            },
+          });
+
+          whatsappResult.sent += 1;
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Unknown WhatsApp gateway error.";
+
+          await prisma.wapiDelivery.update({
+            where: {
+              id: delivery.id,
+            },
+            data: {
+              status:
+                WapiDeliveryStatus.FAILED,
+              attempts: {
+                increment: 1,
+              },
+              errorMessage,
+              processingStartedAt: null,
+            },
+          });
+
+          whatsappResult.failed += 1;
+
+          console.error(
+            "[WHATSAPP_PAYMENT_PROOF_ERROR]",
+            {
+              orderId,
+              userId: recipient.id,
+              deliveryId: delivery.id,
+              error,
+            },
+          );
+        }
+      }
+    }
 
     return {
       count: notifications.length,
-
       push: pushResult,
+      whatsapp: whatsappResult,
     };
   }
 
