@@ -32,6 +32,9 @@ import {
 } from "@/services/reward-voucher/reward-voucher.service";
 
 import RewardVoucherSection from "@/components/customer/reward-voucher/RewardVoucherSection";
+import CustomerRewardSummary from "@/components/customer/reward/CustomerRewardSummary";
+
+import { getCustomerRewardSummary } from "@/services/customer/customer-reward-summary.service";
 
 import {
   OrderRepository,
@@ -100,6 +103,7 @@ export default async function CustomerAccountPage() {
   cartCount,
   unseenReward,
   availableRewardVouchers,
+  customerRewardSummary,
 ] = await Promise.all([
   OrderRepository.getCustomerOrderSummary(
     session.user.id
@@ -119,6 +123,8 @@ getUnseenReward(
 ),
 
   getAvailableRewardVouchers(),
+
+  getCustomerRewardSummary(session.user.id),
 ]);
 
 const rewardVoucherItems =
@@ -687,6 +693,8 @@ const rewardVoucherItems =
             </div>
 
           </section>
+
+<CustomerRewardSummary summary={customerRewardSummary} />
 
 <RewardVoucherSection
             rewardPoints={

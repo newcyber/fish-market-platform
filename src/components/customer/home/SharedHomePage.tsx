@@ -6,47 +6,39 @@ import { getProductRatings } from "@/lib/products/get-product-ratings";
 
 import { auth } from "@/auth";
 
-import HomeBestSellingProducts from
-  "@/components/customer/home/HomeBestSellingProducts";
+import HomeBestSellingProducts from "@/components/customer/home/HomeBestSellingProducts";
 
-import HomeCategoryShortcuts from
-  "@/components/customer/home/HomeCategoryShortcuts";
+import HomeCategoryShortcuts from "@/components/customer/home/HomeCategoryShortcuts";
 
-import HomeFeaturedProducts from
-  "@/components/customer/home/HomeFeaturedProducts";
+import HomeFeaturedProducts from "@/components/customer/home/HomeFeaturedProducts";
 
-import HomeFlashSaleSection from
-  "@/components/customer/home/HomeFlashSaleSection";
+import HomeFlashSaleSection from "@/components/customer/home/HomeFlashSaleSection";
 
-import HomeHeroCarousel from
-  "@/components/customer/home/HomeHeroCarousel";
+import HomeHeroCarousel from "@/components/customer/home/HomeHeroCarousel";
 
-import HomeNewestProducts from
-  "@/components/customer/home/HomeNewestProducts";
+import HomeNewestProducts from "@/components/customer/home/HomeNewestProducts";
 
-import HomeAllProducts from
-  "@/components/customer/home/HomeAllProducts";
+import HomeAllProducts from "@/components/customer/home/HomeAllProducts";
 
-import HomePromoBanner from
-  "@/components/customer/home/HomePromoBanner";
+import HomePromoBanner from "@/components/customer/home/HomePromoBanner";
 
-import HomeRepeatPurchaseProducts from
-  "@/components/customer/home/HomeRepeatPurchaseProducts";
+import HomeRepeatPurchaseProducts from "@/components/customer/home/HomeRepeatPurchaseProducts";
 
-import CustomerHomeHeader from
-  "@/components/customer/home/CustomerHomeHeader";
+import HomeReorderSection, {
+  type HomeReorderOrder,
+} from "@/components/customer/home/HomeReorderSection";
 
-import { CustomerRepository } from
-  "@/repositories/CustomerRepository";
+import CustomerHomeHeader from "@/components/customer/home/CustomerHomeHeader";
 
-import { OrderRepository } from
-  "@/repositories/OrderRepository";
+import { CustomerRepository } from "@/repositories/CustomerRepository";
 
-import { prisma } from
-  "@/lib/prisma";
+import { OrderRepository } from "@/repositories/OrderRepository";
 
-import FlashSaleService from
-  "@/services/flash-sale/flash-sale.service";
+import { prisma } from "@/lib/prisma";
+
+import ReorderService from "@/services/order/reorder.service";
+
+import FlashSaleService from "@/services/flash-sale/flash-sale.service";
 
 import PromoPopup from "@/components/customer/promo/PromoPopup";
 
@@ -72,9 +64,7 @@ import PromoPopup from "@/components/customer/promo/PromoPopup";
  */
 
 interface SharedHomePageProps {
-  mode:
-    | "guest"
-    | "customer";
+  mode: "guest" | "customer";
 }
 
 /**
@@ -99,303 +89,190 @@ interface SharedHomePageProps {
  */
 
 function serializeFlashSale(
-  flashSale: Awaited<
-    ReturnType<
-      typeof FlashSaleService.getActiveForHomepage
-    >
-  >
+  flashSale: Awaited<ReturnType<typeof FlashSaleService.getActiveForHomepage>>,
 ) {
   if (!flashSale) {
     return null;
   }
 
   return {
-    id:
-      flashSale.id,
+    id: flashSale.id,
 
-    name:
-      flashSale.name,
+    name: flashSale.name,
 
-    endAt:
-      flashSale.endAt.toISOString(),
+    endAt: flashSale.endAt.toISOString(),
 
-    items:
-      flashSale.items.map(
-        (item) => ({
-          id:
-            item.id,
+    items: flashSale.items.map((item) => ({
+      id: item.id,
 
-          originalPrice:
-            item.originalPrice.toNumber(),
+      originalPrice: item.originalPrice.toNumber(),
 
-          flashPrice:
-            item.flashPrice.toNumber(),
+      flashPrice: item.flashPrice.toNumber(),
 
-          stockLimit:
-            item.stockLimit,
+      stockLimit: item.stockLimit,
 
-          soldQuantity:
-            item.soldQuantity,
+      soldQuantity: item.soldQuantity,
 
-          /**
-           * ======================================================
-           * PRODUCT
-           * ======================================================
-           */
-          product: {
-            id:
-              item.product.id,
+      /**
+       * ======================================================
+       * PRODUCT
+       * ======================================================
+       */
+      product: {
+        id: item.product.id,
 
-            name:
-              item.product.name,
+        name: item.product.name,
 
-            slug:
-              item.product.slug,
+        slug: item.product.slug,
 
-            price:
-              item.product.price.toNumber(),
+        price: item.product.price.toNumber(),
 
-            /**
-             * PRODUCT IMAGES
-             */
-            images:
-              (
-                item.product.images ??
-                []
-              ).map(
-                (image) => ({
-                  id:
-                    image.id,
+        /**
+         * PRODUCT IMAGES
+         */
+        images: (item.product.images ?? []).map((image) => ({
+          id: image.id,
 
-                  image:
-                    image.image,
+          image: image.image,
 
-                  sortOrder:
-                    image.sortOrder,
+          sortOrder: image.sortOrder,
 
-                  isThumbnail:
-                    image.isThumbnail,
-                })
-              ),
+          isThumbnail: image.isThumbnail,
+        })),
 
-            /**
-             * ==================================================
-             * VARIANT GROUPS
-             * ==================================================
-             *
-             * Contoh:
-             *
-             * Ukuran
-             * ├── 500 Gram
-             * └── 1 Kg
-             *
-             * Jenis
-             * ├── Fresh
-             * └── Frozen
-             *
-             * ==================================================
-             */
-            variantGroups:
-              (
-                item.product.variantGroups ??
-                []
-              ).map(
-                (group) => ({
-                  id:
-                    group.id,
+        /**
+         * ==================================================
+         * VARIANT GROUPS
+         * ==================================================
+         *
+         * Contoh:
+         *
+         * Ukuran
+         * ├── 500 Gram
+         * └── 1 Kg
+         *
+         * Jenis
+         * ├── Fresh
+         * └── Frozen
+         *
+         * ==================================================
+         */
+        variantGroups: (item.product.variantGroups ?? []).map((group) => ({
+          id: group.id,
 
-                  name:
-                    group.name,
+          name: group.name,
 
-                  sortOrder:
-                    group.sortOrder,
+          sortOrder: group.sortOrder,
 
-                  isActive:
-                    group.isActive,
+          isActive: group.isActive,
 
-                  options:
-                    (
-                      group.options ??
-                      []
-                    ).map(
-                      (option) => ({
-                        id:
-                          option.id,
+          options: (group.options ?? []).map((option) => ({
+            id: option.id,
 
-                        groupId:
-                          option.groupId,
+            groupId: option.groupId,
 
-                        label:
-                          option.label,
+            label: option.label,
 
-                        sortOrder:
-                          option.sortOrder,
+            sortOrder: option.sortOrder,
 
-                        isActive:
-                          option.isActive,
-                      })
-                    ),
-                })
-              ),
+            isActive: option.isActive,
+          })),
+        })),
 
-            /**
-             * ==================================================
-             * PRODUCT SKUs
-             * ==================================================
-             *
-             * Semua SKU aktif dikirim agar Quick Add Modal
-             * dapat mencari SKU berdasarkan pilihan variant.
-             *
-             * ==================================================
-             */
-            skus:
-              (
-                item.product.skus ??
-                []
-              ).map(
-                (sku) => ({
-                  id:
-                    sku.id,
+        /**
+         * ==================================================
+         * PRODUCT SKUs
+         * ==================================================
+         *
+         * Semua SKU aktif dikirim agar Quick Add Modal
+         * dapat mencari SKU berdasarkan pilihan variant.
+         *
+         * ==================================================
+         */
+        skus: (item.product.skus ?? []).map((sku) => ({
+          id: sku.id,
 
-                  sku:
-                    sku.sku,
+          sku: sku.sku,
 
-                  price:
-                    sku.price.toNumber(),
+          price: sku.price.toNumber(),
 
-                  stock:
-                    sku.stock,
+          stock: sku.stock,
 
-                  isActive:
-                    sku.isActive,
+          isActive: sku.isActive,
 
-                  skuOptions:
-                    (
-                      sku.skuOptions ??
-                      []
-                    ).map(
-                      (skuOption) => ({
-                        id:
-                          skuOption.id,
+          skuOptions: (sku.skuOptions ?? []).map((skuOption) => ({
+            id: skuOption.id,
 
-                        skuId:
-                          skuOption.skuId,
+            skuId: skuOption.skuId,
 
-                        variantOptionId:
-                          skuOption.variantOptionId,
+            variantOptionId: skuOption.variantOptionId,
 
-                        variantOption: {
-                          id:
-                            skuOption.variantOption.id,
+            variantOption: {
+              id: skuOption.variantOption.id,
 
-                          groupId:
-                            skuOption
-                              .variantOption
-                              .groupId,
+              groupId: skuOption.variantOption.groupId,
 
-                          label:
-                            skuOption
-                              .variantOption
-                              .label,
+              label: skuOption.variantOption.label,
 
-                          sortOrder:
-                            skuOption
-                              .variantOption
-                              .sortOrder,
+              sortOrder: skuOption.variantOption.sortOrder,
 
-                          isActive:
-                            skuOption
-                              .variantOption
-                              .isActive,
-                        },
-                      })
-                    ),
-                })
-              ),
-          },
+              isActive: skuOption.variantOption.isActive,
+            },
+          })),
+        })),
+      },
 
-          /**
-           * ======================================================
-           * FLASH SALE SKU
-           * ======================================================
-           *
-           * Ini adalah SKU yang secara langsung terkait dengan
-           * Flash Sale item tersebut.
-           *
-           * Digunakan untuk:
-           *
-           * - menentukan variant awal
-           * - menampilkan SKU
-           * - menentukan harga Flash Sale
-           * - menentukan stok
-           *
-           * ======================================================
-           */
-          sku:
-            item.sku
-              ? {
-                  id:
-                    item.sku.id,
+      /**
+       * ======================================================
+       * FLASH SALE SKU
+       * ======================================================
+       *
+       * Ini adalah SKU yang secara langsung terkait dengan
+       * Flash Sale item tersebut.
+       *
+       * Digunakan untuk:
+       *
+       * - menentukan variant awal
+       * - menampilkan SKU
+       * - menentukan harga Flash Sale
+       * - menentukan stok
+       *
+       * ======================================================
+       */
+      sku: item.sku
+        ? {
+            id: item.sku.id,
 
-                  sku:
-                    item.sku.sku,
+            sku: item.sku.sku,
 
-                  price:
-                    item.sku.price.toNumber(),
+            price: item.sku.price.toNumber(),
 
-                  stock:
-                    item.sku.stock,
+            stock: item.sku.stock,
 
-                  isActive:
-                    item.sku.isActive,
+            isActive: item.sku.isActive,
 
-                  skuOptions:
-                    (
-                      item.sku.skuOptions ??
-                      []
-                    ).map(
-                      (skuOption) => ({
-                        id:
-                          skuOption.id,
+            skuOptions: (item.sku.skuOptions ?? []).map((skuOption) => ({
+              id: skuOption.id,
 
-                        skuId:
-                          skuOption.skuId,
+              skuId: skuOption.skuId,
 
-                        variantOptionId:
-                          skuOption.variantOptionId,
+              variantOptionId: skuOption.variantOptionId,
 
-                        variantOption: {
-                          id:
-                            skuOption
-                              .variantOption
-                              .id,
+              variantOption: {
+                id: skuOption.variantOption.id,
 
-                          groupId:
-                            skuOption
-                              .variantOption
-                              .groupId,
+                groupId: skuOption.variantOption.groupId,
 
-                          label:
-                            skuOption
-                              .variantOption
-                              .label,
+                label: skuOption.variantOption.label,
 
-                          sortOrder:
-                            skuOption
-                              .variantOption
-                              .sortOrder,
+                sortOrder: skuOption.variantOption.sortOrder,
 
-                          isActive:
-                            skuOption
-                              .variantOption
-                              .isActive,
-                        },
-                      })
-                    ),
-                }
-              : null,
-        })
-      ),
+                isActive: skuOption.variantOption.isActive,
+              },
+            })),
+          }
+        : null,
+    })),
   };
 }
 
@@ -405,20 +282,14 @@ function serializeFlashSale(
  * ============================================================
  */
 
-export default async function SharedHomePage({
-  mode,
-}: SharedHomePageProps) {
-
+export default async function SharedHomePage({ mode }: SharedHomePageProps) {
   /**
    * ==========================================================
    * PRODUCTS HREF
    * ==========================================================
    */
 
-  const productsHref =
-    mode === "customer"
-      ? "/customer/products"
-      : "/products";
+  const productsHref = mode === "customer" ? "/customer/products" : "/products";
 
   /**
    * ==========================================================
@@ -430,13 +301,9 @@ export default async function SharedHomePage({
    * Guest tidak melakukan query ini.
    */
 
-  const session =
-    mode === "customer"
-      ? await auth()
-      : null;
+  const session = mode === "customer" ? await auth() : null;
 
-  const customerUserId =
-    session?.user?.id ?? null;
+  const customerUserId = session?.user?.id ?? null;
 
   /**
    * ==========================================================
@@ -461,519 +328,472 @@ export default async function SharedHomePage({
    * ==========================================================
    */
 
-const [
-  flashSale,
-  featuredProducts,
-  bestSellingGroups,
-  newestProducts,
-  allProducts,
-  categories,
-  repeatPurchaseItems,
-  customerHomeSummary,
-  customerOrderSummary,
-] = await Promise.all([
+  const [
+    flashSale,
+    featuredProducts,
+    bestSellingGroups,
+    newestProducts,
+    allProducts,
+    categories,
+    repeatPurchaseItems,
+    customerHomeSummary,
+    customerOrderSummary,
+    latestReorderOrder,
+  ] = await Promise.all([
+    /**
+     * ========================================================
+     * FLASH SALE
+     * ========================================================
+     */
 
-      /**
-       * ========================================================
-       * FLASH SALE
-       * ========================================================
-       */
+    FlashSaleService.getActiveForHomepage().catch((error) => {
+      console.error("[HOME_FLASH_SALE_ERROR]", error);
 
-      FlashSaleService
-        .getActiveForHomepage()
-        .catch(
-          (error) => {
-            console.error(
-              "[HOME_FLASH_SALE_ERROR]",
-              error
-            );
+      return null;
+    }),
 
-            return null;
-          }
-        ),
+    /**
+     * ========================================================
+     * FEATURED PRODUCTS
+     * ========================================================
+     */
 
-      /**
-       * ========================================================
-       * FEATURED PRODUCTS
-       * ========================================================
-       */
-
-      prisma.product.findMany({
-        where: {
-          deletedAt:
-            null,
-
-          isPublished:
-            true,
-
-          featured:
-            true,
-        },
-
-        include: {
-          images: {
-            orderBy: {
-              sortOrder:
-                "asc",
-            },
-          },
-
-          variantGroups: {
-            where: {
-              isActive:
-                true,
-            },
-
-            select: {
-              id:
-                true,
-            },
-          },
-
-          skus: {
-            where: {
-              isActive:
-                true,
-            },
-
-            orderBy: {
-              price:
-                "asc",
-            },
-
-            select: {
-              price:
-                true,
-
-              stock:
-                true,
-            },
-
-            take:
-              1,
-          },
-        },
-
-        orderBy: {
-          createdAt:
-            "desc",
-        },
-
-        take:
-          10,
-      }),
-
-      /**
-       * ========================================================
-       * BEST SELLING PRODUCT GROUPS
-       * ========================================================
-       */
-
-      prisma.orderItem.groupBy({
-        by: [
-          "productId",
-        ],
-
-        where: {
-          order: {
-            deletedAt:
-              null,
-
-            status: {
-              in: [
-                "PROCESSING",
-                "SHIPPING",
-                "COMPLETED",
-              ],
-            },
-          },
-        },
-
-        _sum: {
-          quantity:
-            true,
-        },
-
-        orderBy: {
-          _sum: {
-            quantity:
-              "desc",
-          },
-        },
-
-        take:
-          10,
-      }),
-
-      /**
-       * ========================================================
-       * NEWEST PRODUCTS
-       * ========================================================
-       */
-
-      prisma.product.findMany({
-        where: {
-          deletedAt:
-            null,
-
-          isPublished:
-            true,
-        },
-
-        include: {
-          images: {
-            orderBy: {
-              sortOrder:
-                "asc",
-            },
-          },
-
-          variantGroups: {
-            where: {
-              isActive:
-                true,
-            },
-
-            select: {
-              id:
-                true,
-            },
-
-            take:
-              1,
-          },
-
-          skus: {
-            where: {
-              isActive:
-                true,
-            },
-
-            orderBy: {
-              price:
-                "asc",
-            },
-
-            select: {
-              price:
-                true,
-
-              stock:
-                true,
-            },
-          },
-        },
-
-        orderBy: {
-          createdAt:
-            "desc",
-        },
-
-          take:
-          10,
-      }),
-
-      /**
-       * ========================================================
-       * ALL PRODUCTS
-       * ========================================================
-       *
-       * Section katalog produk umum pada homepage.
-       *
-       * Hanya mengambil 12 produk awal agar homepage tidak
-       * melakukan query/render seluruh katalog sekaligus.
-       *
-       * Tombol "Lihat Semua" tetap mengarah ke halaman katalog
-       * melalui productsHref.
-       * ========================================================
-       */
-      prisma.product.findMany({
-        where: {
-          deletedAt: null,
-          isPublished: true,
-        },
-
-        include: {
-          images: {
-            orderBy: {
-              sortOrder: "asc",
-            },
-          },
-
-          variantGroups: {
-            where: {
-              isActive: true,
-            },
-
-            select: {
-              id: true,
-            },
-
-            take: 1,
-          },
-
-          skus: {
-            where: {
-              isActive: true,
-            },
-
-            orderBy: {
-              price: "asc",
-            },
-
-            select: {
-              price: true,
-              stock: true,
-            },
-          },
-        },
-
-        orderBy: {
-          createdAt: "desc",
-        },
-
-        take: 12,
-      }),
-
-      /**
-       * ========================================================
-       * HOMEPAGE CATEGORIES
-       * ========================================================
-       */
-
-      prisma.category.findMany({
-        where: {
-          isActive:
-            true,
-
-          deletedAt:
-            null,
-        },
-
-        orderBy: [
-          {
-            sortOrder:
-              "asc",
-          },
-
-          {
-            name:
-              "asc",
-          },
-        ],
-
-        select: {
-          id:
-            true,
-
-          name:
-            true,
-
-          slug:
-            true,
-
-          image:
-            true,
-
-          description:
-            true,
-
-          sortOrder:
-            true,
-        },
-      }),
-/**
- * ========================================================
- * BELANJA LAGI
- * ========================================================
- *
- * Hanya customer.
- *
- * Order valid:
- * - userId sesuai session
- * - COMPLETED
- * - VERIFIED
- * - belum soft delete
- *
- * Item dibatasi pada histori terbaru agar homepage
- * tidak mengambil seluruh histori customer.
- *
- * ========================================================
- */
-
-customerUserId
-  ? prisma.orderItem.findMany({
+    prisma.product.findMany({
       where: {
-        order: {
-          userId: customerUserId,
+        deletedAt: null,
 
-          status: "COMPLETED",
+        isPublished: true,
 
-          paymentStatus: "VERIFIED",
+        featured: true,
+      },
 
-          deletedAt: null,
+      include: {
+        images: {
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
 
-        product: {
-          deletedAt: null,
+        variantGroups: {
+          where: {
+            isActive: true,
+          },
 
-          isPublished: true,
+          select: {
+            id: true,
+          },
+        },
+
+        skus: {
+          where: {
+            isActive: true,
+          },
+
+          orderBy: {
+            price: "asc",
+          },
+
+          select: {
+            price: true,
+
+            stock: true,
+          },
+
+          take: 1,
         },
       },
 
       orderBy: {
+        createdAt: "desc",
+      },
+
+      take: 10,
+    }),
+
+    /**
+     * ========================================================
+     * BEST SELLING PRODUCT GROUPS
+     * ========================================================
+     */
+
+    prisma.orderItem.groupBy({
+      by: ["productId"],
+
+      where: {
         order: {
-          createdAt: "desc",
+          deletedAt: null,
+
+          status: {
+            in: ["PROCESSING", "SHIPPING", "COMPLETED"],
+          },
         },
       },
 
-      take: 50,
+      _sum: {
+        quantity: true,
+      },
 
-      select: {
-        productId: true,
+      orderBy: {
+        _sum: {
+          quantity: "desc",
+        },
+      },
 
-        order: {
-          select: {
-            createdAt: true,
+      take: 10,
+    }),
+
+    /**
+     * ========================================================
+     * NEWEST PRODUCTS
+     * ========================================================
+     */
+
+    prisma.product.findMany({
+      where: {
+        deletedAt: null,
+
+        isPublished: true,
+      },
+
+      include: {
+        images: {
+          orderBy: {
+            sortOrder: "asc",
           },
         },
 
-        product: {
+        variantGroups: {
+          where: {
+            isActive: true,
+          },
+
           select: {
             id: true,
+          },
 
-            name: true,
+          take: 1,
+        },
 
-            slug: true,
+        skus: {
+          where: {
+            isActive: true,
+          },
 
+          orderBy: {
+            price: "asc",
+          },
+
+          select: {
             price: true,
 
             stock: true,
-
-            /**
-             * ==================================================
-             * PRE-ORDER
-             * ==================================================
-             *
-             * Pre-Order merupakan atribut Product,
-             * bukan atribut SKU.
-             */
-
-            isPreOrder: true,
-
-            preOrderMinDays: true,
-
-            preOrderMaxDays: true,
-
-            /**
-             * ==================================================
-             * IMAGES
-             * ==================================================
-             */
-
-            images: {
-              orderBy: {
-                sortOrder: "asc",
-              },
-
-              select: {
-                id: true,
-
-                image: true,
-
-                sortOrder: true,
-
-                isThumbnail: true,
-              },
-            },
-
-            /**
-             * ==================================================
-             * VARIANT GROUPS
-             * ==================================================
-             */
-
-            variantGroups: {
-              where: {
-                isActive: true,
-              },
-
-              select: {
-                id: true,
-              },
-
-              take: 1,
-            },
-
-            /**
-             * ==================================================
-             * ACTIVE SKU
-             * ==================================================
-             *
-             * SKU aktif dengan harga terendah digunakan
-             * oleh serializeHomepageProduct().
-             */
-
-            skus: {
-              where: {
-                isActive: true,
-              },
-
-              orderBy: {
-                price: "asc",
-              },
-
-              select: {
-                price: true,
-
-                stock: true,
-              },
-            },
           },
         },
       },
-    })
-  : [],
 
-/**
- * ========================================================
- * CUSTOMER HOME SUMMARY
- * ========================================================
- *
- * Hanya customer.
- *
- * Berisi:
- * - nama
- * - reward points
- * - alamat aktif/default
- *
- * Guest tidak melakukan query customer.
- */
+      orderBy: {
+        createdAt: "desc",
+      },
 
-      customerUserId
-        ? CustomerRepository.findHomeSummary(
-            customerUserId
-          )
-        : null,
+      take: 10,
+    }),
 
-      /**
-       * ========================================================
-       * CUSTOMER ORDER SUMMARY
-       * ========================================================
-       *
-       * Hanya customer.
-       *
-       * Digunakan untuk jumlah pesanan aktif
-       * pada Customer Home Header.
-       */
+    /**
+     * ========================================================
+     * ALL PRODUCTS
+     * ========================================================
+     *
+     * Section katalog produk umum pada homepage.
+     *
+     * Hanya mengambil 12 produk awal agar homepage tidak
+     * melakukan query/render seluruh katalog sekaligus.
+     *
+     * Tombol "Lihat Semua" tetap mengarah ke halaman katalog
+     * melalui productsHref.
+     * ========================================================
+     */
+    prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        isPublished: true,
+      },
 
-      customerUserId
-        ? OrderRepository.getCustomerOrderSummary(
-            customerUserId
-          )
-        : null,
+      include: {
+        images: {
+          orderBy: {
+            sortOrder: "asc",
+          },
+        },
 
-    ]);
+        variantGroups: {
+          where: {
+            isActive: true,
+          },
+
+          select: {
+            id: true,
+          },
+
+          take: 1,
+        },
+
+        skus: {
+          where: {
+            isActive: true,
+          },
+
+          orderBy: {
+            price: "asc",
+          },
+
+          select: {
+            price: true,
+            stock: true,
+          },
+        },
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
+
+      take: 12,
+    }),
+
+    /**
+     * ========================================================
+     * HOMEPAGE CATEGORIES
+     * ========================================================
+     */
+
+    prisma.category.findMany({
+      where: {
+        isActive: true,
+
+        deletedAt: null,
+      },
+
+      orderBy: [
+        {
+          sortOrder: "asc",
+        },
+
+        {
+          name: "asc",
+        },
+      ],
+
+      select: {
+        id: true,
+
+        name: true,
+
+        slug: true,
+
+        image: true,
+
+        description: true,
+
+        sortOrder: true,
+      },
+    }),
+    /**
+     * ========================================================
+     * BELANJA LAGI
+     * ========================================================
+     *
+     * Hanya customer.
+     *
+     * Order valid:
+     * - userId sesuai session
+     * - COMPLETED
+     * - VERIFIED
+     * - belum soft delete
+     *
+     * Item dibatasi pada histori terbaru agar homepage
+     * tidak mengambil seluruh histori customer.
+     *
+     * ========================================================
+     */
+
+    customerUserId
+      ? prisma.orderItem.findMany({
+          where: {
+            order: {
+              userId: customerUserId,
+
+              status: "COMPLETED",
+
+              paymentStatus: "VERIFIED",
+
+              deletedAt: null,
+            },
+
+            product: {
+              deletedAt: null,
+
+              isPublished: true,
+            },
+          },
+
+          orderBy: {
+            order: {
+              createdAt: "desc",
+            },
+          },
+
+          take: 50,
+
+          select: {
+            productId: true,
+
+            order: {
+              select: {
+                createdAt: true,
+              },
+            },
+
+            product: {
+              select: {
+                id: true,
+
+                name: true,
+
+                slug: true,
+
+                price: true,
+
+                stock: true,
+
+                /**
+                 * ==================================================
+                 * PRE-ORDER
+                 * ==================================================
+                 *
+                 * Pre-Order merupakan atribut Product,
+                 * bukan atribut SKU.
+                 */
+
+                isPreOrder: true,
+
+                preOrderMinDays: true,
+
+                preOrderMaxDays: true,
+
+                /**
+                 * ==================================================
+                 * IMAGES
+                 * ==================================================
+                 */
+
+                images: {
+                  orderBy: {
+                    sortOrder: "asc",
+                  },
+
+                  select: {
+                    id: true,
+
+                    image: true,
+
+                    sortOrder: true,
+
+                    isThumbnail: true,
+                  },
+                },
+
+                /**
+                 * ==================================================
+                 * VARIANT GROUPS
+                 * ==================================================
+                 */
+
+                variantGroups: {
+                  where: {
+                    isActive: true,
+                  },
+
+                  select: {
+                    id: true,
+                  },
+
+                  take: 1,
+                },
+
+                /**
+                 * ==================================================
+                 * ACTIVE SKU
+                 * ==================================================
+                 *
+                 * SKU aktif dengan harga terendah digunakan
+                 * oleh serializeHomepageProduct().
+                 */
+
+                skus: {
+                  where: {
+                    isActive: true,
+                  },
+
+                  orderBy: {
+                    price: "asc",
+                  },
+
+                  select: {
+                    price: true,
+
+                    stock: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+      : [],
+
+    /**
+     * ========================================================
+     * CUSTOMER HOME SUMMARY
+     * ========================================================
+     *
+     * Hanya customer.
+     *
+     * Berisi:
+     * - nama
+     * - reward points
+     * - alamat aktif/default
+     *
+     * Guest tidak melakukan query customer.
+     */
+
+    customerUserId ? CustomerRepository.findHomeSummary(customerUserId) : null,
+
+    /**
+     * ========================================================
+     * CUSTOMER ORDER SUMMARY
+     * ========================================================
+     *
+     * Hanya customer.
+     *
+     * Digunakan untuk jumlah pesanan aktif
+     * pada Customer Home Header.
+     */
+
+    customerUserId
+      ? OrderRepository.getCustomerOrderSummary(customerUserId)
+      : null,
+
+    /**
+     * ========================================================
+     * PISJO REORDER
+     * ========================================================
+     *
+     * Hanya mengambil satu pesanan terakhir yang benar-benar
+     * selesai dan pembayarannya sudah terverifikasi.
+     */
+    customerUserId
+      ? ReorderService.getLatestReorderableOrder(customerUserId)
+      : null,
+  ]);
 
   /**
    * ==========================================================
@@ -981,14 +801,13 @@ customerUserId
    * ==========================================================
    */
 
-  const activeOrderCount =
-    customerOrderSummary
-      ? customerOrderSummary.pending +
-        customerOrderSummary.waitingPayment +
-        customerOrderSummary.waitingVerification +
-        customerOrderSummary.processing +
-        customerOrderSummary.shipping
-      : 0;
+  const activeOrderCount = customerOrderSummary
+    ? customerOrderSummary.pending +
+      customerOrderSummary.waitingPayment +
+      customerOrderSummary.waitingVerification +
+      customerOrderSummary.processing +
+      customerOrderSummary.shipping
+    : 0;
 
   /**
    * ==========================================================
@@ -996,8 +815,7 @@ customerUserId
    * ==========================================================
    */
 
-  const storeSettings =
-    await prisma.storeSettings.findFirst();
+  const storeSettings = await prisma.storeSettings.findFirst();
 
   /**
    * ==========================================================
@@ -1016,8 +834,7 @@ customerUserId
     ...repeatPurchaseItems.map((item) => item.productId),
   ];
 
-  const productRatings =
-    await getProductRatings(homepageProductIds);
+  const productRatings = await getProductRatings(homepageProductIds);
 
   /**
    * ==========================================================
@@ -1025,10 +842,7 @@ customerUserId
    * ==========================================================
    */
 
-  const serializedFlashSale =
-    serializeFlashSale(
-      flashSale
-    );
+  const serializedFlashSale = serializeFlashSale(flashSale);
 
   /**
    * ==========================================================
@@ -1036,14 +850,9 @@ customerUserId
    * ==========================================================
    */
 
-  const serializedFeaturedProducts =
-    featuredProducts.map(
-      (product) =>
-        serializeHomepageProduct(
-          product,
-          productRatings.get(product.id),
-        )
-    );
+  const serializedFeaturedProducts = featuredProducts.map((product) =>
+    serializeHomepageProduct(product, productRatings.get(product.id)),
+  );
 
   /**
    * ==========================================================
@@ -1051,68 +860,53 @@ customerUserId
    * ==========================================================
    */
 
-  const bestSellingProductIds =
-    bestSellingGroups.map(
-      (item) =>
-        item.productId
-    );
+  const bestSellingProductIds = bestSellingGroups.map((item) => item.productId);
 
   const bestSellingProducts =
     bestSellingProductIds.length > 0
       ? await prisma.product.findMany({
           where: {
             id: {
-              in:
-                bestSellingProductIds,
+              in: bestSellingProductIds,
             },
 
-            deletedAt:
-              null,
+            deletedAt: null,
 
-            isPublished:
-              true,
+            isPublished: true,
           },
 
           include: {
             images: {
               orderBy: {
-                sortOrder:
-                  "asc",
+                sortOrder: "asc",
               },
             },
 
             variantGroups: {
               where: {
-                isActive:
-                  true,
+                isActive: true,
               },
 
               select: {
-                id:
-                  true,
+                id: true,
               },
 
-              take:
-                1,
+              take: 1,
             },
 
             skus: {
               where: {
-                isActive:
-                  true,
+                isActive: true,
               },
 
               orderBy: {
-                price:
-                  "asc",
+                price: "asc",
               },
 
               select: {
-                price:
-                  true,
+                price: true,
 
-                stock:
-                  true,
+                stock: true,
               },
             },
           },
@@ -1125,15 +919,9 @@ customerUserId
    * ==========================================================
    */
 
-  const bestSellingProductMap =
-    new Map(
-      bestSellingProducts.map(
-        (product) => [
-          product.id,
-          product,
-        ]
-      )
-    );
+  const bestSellingProductMap = new Map(
+    bestSellingProducts.map((product) => [product.id, product]),
+  );
 
   /**
    * ==========================================================
@@ -1141,39 +929,23 @@ customerUserId
    * ==========================================================
    */
 
-  const serializedBestSellingProducts =
-    bestSellingGroups
-      .map(
-        (group) => {
-          const product =
-            bestSellingProductMap.get(
-              group.productId
-            );
+  const serializedBestSellingProducts = bestSellingGroups
+    .map((group) => {
+      const product = bestSellingProductMap.get(group.productId);
 
-          if (!product) {
-            return null;
-          }
+      if (!product) {
+        return null;
+      }
 
-          return {
-            ...serializeHomepageProduct(
-              product,
-              productRatings.get(product.id),
-            ),
+      return {
+        ...serializeHomepageProduct(product, productRatings.get(product.id)),
 
-            soldQuantity:
-              group._sum.quantity ??
-              0,
-          };
-        }
-      )
-      .filter(
-        (
-          product
-        ): product is NonNullable<
-          typeof product
-        > =>
-          product !== null
-      );
+        soldQuantity: group._sum.quantity ?? 0,
+      };
+    })
+    .filter(
+      (product): product is NonNullable<typeof product> => product !== null,
+    );
 
   /**
    * ==========================================================
@@ -1181,14 +953,9 @@ customerUserId
    * ==========================================================
    */
 
-  const serializedNewestProducts =
-    newestProducts.map(
-      (product) =>
-        serializeHomepageProduct(
-          product,
-          productRatings.get(product.id),
-        )
-    );
+  const serializedNewestProducts = newestProducts.map((product) =>
+    serializeHomepageProduct(product, productRatings.get(product.id)),
+  );
 
   /**
    * ============================================================
@@ -1196,65 +963,72 @@ customerUserId
    * ============================================================
    */
 
-  const serializedAllProducts =
-    allProducts.map(
-      (product) =>
-        serializeHomepageProduct(
-          product,
-          productRatings.get(product.id),
-        )
-    );
+  const serializedAllProducts = allProducts.map((product) =>
+    serializeHomepageProduct(product, productRatings.get(product.id)),
+  );
 
-/**
- * ============================================================
- * SERIALIZE BELANJA LAGI
- * ============================================================
- *
- * Produk diurutkan berdasarkan pembelian terakhir.
- *
- * Satu produk hanya muncul satu kali walaupun dibeli
- * beberapa kali.
- *
- * ============================================================
- */
+  /**
+   * ============================================================
+   * SERIALIZE BELANJA LAGI
+   * ============================================================
+   *
+   * Produk diurutkan berdasarkan pembelian terakhir.
+   *
+   * Satu produk hanya muncul satu kali walaupun dibeli
+   * beberapa kali.
+   *
+   * ============================================================
+   */
 
-const repeatPurchaseProductMap =
-  new Map<
+  const repeatPurchaseProductMap = new Map<
     string,
     (typeof repeatPurchaseItems)[number]["product"]
   >();
 
-for (const item of repeatPurchaseItems) {
-  if (!repeatPurchaseProductMap.has(item.productId)) {
-    repeatPurchaseProductMap.set(
-      item.productId,
-      item.product
-    );
+  for (const item of repeatPurchaseItems) {
+    if (!repeatPurchaseProductMap.has(item.productId)) {
+      repeatPurchaseProductMap.set(item.productId, item.product);
+    }
+
+    if (repeatPurchaseProductMap.size >= 6) {
+      break;
+    }
   }
 
-  if (
-    repeatPurchaseProductMap.size >= 6
-  ) {
-    break;
-  }
-}
-
-const serializedRepeatPurchaseProducts =
-  Array.from(
-    repeatPurchaseProductMap.values()
-  ).map(
-    (product) =>
-      serializeHomepageProduct(
-      product,
-      productRatings.get(product.id),
-    )
+  const serializedRepeatPurchaseProducts = Array.from(
+    repeatPurchaseProductMap.values(),
+  ).map((product) =>
+    serializeHomepageProduct(product, productRatings.get(product.id)),
   );
 
-/**
- * ============================================================
- * RENDER
- * ============================================================
- */
+  /**
+   * ============================================================
+   * SERIALIZE PISJO REORDER
+   * ============================================================
+   */
+
+  const serializedReorderOrder: HomeReorderOrder | null = latestReorderOrder
+    ? {
+        id: latestReorderOrder.id,
+        orderNumber: latestReorderOrder.orderNumber,
+        createdAt: latestReorderOrder.createdAt.toISOString(),
+        total: latestReorderOrder.total.toNumber(),
+        items: latestReorderOrder.items.map((item) => ({
+          id: item.id,
+          productName: item.productName,
+          productVariant: item.productVariant,
+          productWeight: item.productWeight,
+          quantity: item.quantity,
+          image: item.product.images[0]?.image ?? null,
+        })),
+      }
+    : null;
+
+  /**
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
 
   return (
     <main
@@ -1264,26 +1038,16 @@ const serializedRepeatPurchaseProducts =
         bg-(--ice-50)
       "
     >
-
       {/* ======================================================
           CUSTOMER HOME HEADER
       ====================================================== */}
 
       {mode === "customer" && customerHomeSummary && (
         <CustomerHomeHeader
-          customerName={
-            customerHomeSummary.name?.trim() ||
-            "Customer"
-          }
-          rewardPoints={
-            customerHomeSummary.rewardPointsBalance ?? 0
-          }
-          address={
-            customerHomeSummary.addresses[0] ?? null
-          }
-          activeOrderCount={
-            activeOrderCount
-          }
+          customerName={customerHomeSummary.name?.trim() || "Customer"}
+          rewardPoints={customerHomeSummary.rewardPointsBalance ?? 0}
+          address={customerHomeSummary.addresses[0] ?? null}
+          activeOrderCount={activeOrderCount}
         />
       )}
 
@@ -1291,94 +1055,57 @@ const serializedRepeatPurchaseProducts =
           PROMO POPUP
       ====================================================== */}
 
-<PromoPopup
-  enabled={
-    storeSettings?.promoPopupEnabled ?? false
-  }
-  image={
-    storeSettings?.promoPopupImage ?? null
-  }
-  alt={
-    storeSettings?.promoPopupAlt ?? null
-  }
-  href={
-    storeSettings?.promoPopupHref ?? null
-  }
-  delay={
-    storeSettings?.promoPopupDelay ?? 1200
-  }
-  version={
-    storeSettings?.promoPopupVersion ?? null
-  }
-  rememberClose={
-    storeSettings?.promoPopupRememberClose ?? true
-  }
-/>
+      <PromoPopup
+        enabled={storeSettings?.promoPopupEnabled ?? false}
+        image={storeSettings?.promoPopupImage ?? null}
+        alt={storeSettings?.promoPopupAlt ?? null}
+        href={storeSettings?.promoPopupHref ?? null}
+        delay={storeSettings?.promoPopupDelay ?? 1200}
+        version={storeSettings?.promoPopupVersion ?? null}
+        rememberClose={storeSettings?.promoPopupRememberClose ?? true}
+      />
 
       {/* ======================================================
           HERO
       ====================================================== */}
 
       <HomeHeroCarousel
-  productsHref={
-    productsHref
-  }
+        productsHref={productsHref}
 
-  heroImages={{
-    slide1:
-      storeSettings?.heroSlide1Image ??
-      null,
+        heroImages={{
+          slide1: storeSettings?.heroSlide1Image ?? null,
 
-    slide2:
-      storeSettings?.heroSlide2Image ??
-      null,
+          slide2: storeSettings?.heroSlide2Image ?? null,
 
-    slide3:
-      storeSettings?.heroSlide3Image ??
-      null,
-  }}
+          slide3: storeSettings?.heroSlide3Image ?? null,
+        }}
 
-  heroContent={{
-    slide1: {
-      eyebrow:
-        storeSettings?.heroSlide1Eyebrow ?? null,
-      title:
-        storeSettings?.heroSlide1Title ?? null,
-      highlight:
-        storeSettings?.heroSlide1Highlight ?? null,
-      description:
-        storeSettings?.heroSlide1Description ?? null,
-      button:
-        storeSettings?.heroSlide1Button ?? null,
-    },
+        heroContent={{
+          slide1: {
+            eyebrow: storeSettings?.heroSlide1Eyebrow ?? null,
+            title: storeSettings?.heroSlide1Title ?? null,
+            highlight: storeSettings?.heroSlide1Highlight ?? null,
+            description: storeSettings?.heroSlide1Description ?? null,
+            button: storeSettings?.heroSlide1Button ?? null,
+          },
 
-    slide2: {
-      eyebrow:
-        storeSettings?.heroSlide2Eyebrow ?? null,
-      title:
-        storeSettings?.heroSlide2Title ?? null,
-      highlight:
-        storeSettings?.heroSlide2Highlight ?? null,
-      description:
-        storeSettings?.heroSlide2Description ?? null,
-      button:
-        storeSettings?.heroSlide2Button ?? null,
-    },
+          slide2: {
+            eyebrow: storeSettings?.heroSlide2Eyebrow ?? null,
+            title: storeSettings?.heroSlide2Title ?? null,
+            highlight: storeSettings?.heroSlide2Highlight ?? null,
+            description: storeSettings?.heroSlide2Description ?? null,
+            button: storeSettings?.heroSlide2Button ?? null,
+          },
 
-    slide3: {
-      eyebrow:
-        storeSettings?.heroSlide3Eyebrow ?? null,
-      title:
-        storeSettings?.heroSlide3Title ?? null,
-      highlight:
-        storeSettings?.heroSlide3Highlight ?? null,
-      description:
-        storeSettings?.heroSlide3Description ?? null,
-      button:
-        storeSettings?.heroSlide3Button ?? null,
-    },
-  }}
-/>
+          slide3: {
+            eyebrow: storeSettings?.heroSlide3Eyebrow ?? null,
+            title: storeSettings?.heroSlide3Title ?? null,
+            highlight: storeSettings?.heroSlide3Highlight ?? null,
+            description: storeSettings?.heroSlide3Description ?? null,
+            button: storeSettings?.heroSlide3Button ?? null,
+          },
+        }}
+      />
 
       {/* ======================================================
           CATEGORY
@@ -1391,13 +1118,9 @@ const serializedRepeatPurchaseProducts =
         "
       >
         <HomeCategoryShortcuts
-          productsHref={
-            productsHref
-          }
+          productsHref={productsHref}
 
-          categories={
-            categories
-          }
+          categories={categories}
         />
       </div>
 
@@ -1412,25 +1135,19 @@ const serializedRepeatPurchaseProducts =
             z-10
           "
         >
-{serializedFlashSale ? (
-  <HomeFlashSaleSection
-    flashSale={serializedFlashSale}
-    productsHref={productsHref}
-    bannerImage={
-      storeSettings?.flashSaleBannerImage ?? null
-    }
-    bannerContent={{
-      label:
-        storeSettings?.flashSaleBannerLabel ?? null,
-      title:
-        storeSettings?.flashSaleBannerTitle ?? null,
-      highlight:
-        storeSettings?.flashSaleBannerHighlight ?? null,
-      description:
-        storeSettings?.flashSaleBannerDescription ?? null,
-    }}
-  />
-) : null}
+          {serializedFlashSale ? (
+            <HomeFlashSaleSection
+              flashSale={serializedFlashSale}
+              productsHref={productsHref}
+              bannerImage={storeSettings?.flashSaleBannerImage ?? null}
+              bannerContent={{
+                label: storeSettings?.flashSaleBannerLabel ?? null,
+                title: storeSettings?.flashSaleBannerTitle ?? null,
+                highlight: storeSettings?.flashSaleBannerHighlight ?? null,
+                description: storeSettings?.flashSaleBannerDescription ?? null,
+              }}
+            />
+          ) : null}
         </div>
       )}
 
@@ -1444,64 +1161,46 @@ const serializedRepeatPurchaseProducts =
           z-10
         "
       >
-<HomePromoBanner
-  productsHref={
-    productsHref
-  }
-  promoContent={{
-    sectionLabel:
-      storeSettings?.promoSectionLabel ?? null,
+        <HomePromoBanner
+          productsHref={productsHref}
+          promoContent={{
+            sectionLabel: storeSettings?.promoSectionLabel ?? null,
 
-    sectionTitle:
-      storeSettings?.promoSectionTitle ?? null,
+            sectionTitle: storeSettings?.promoSectionTitle ?? null,
 
-    sectionLinkLabel:
-      storeSettings?.promoSectionLinkLabel ?? null,
+            sectionLinkLabel: storeSettings?.promoSectionLinkLabel ?? null,
 
-    sectionLinkHref:
-      storeSettings?.promoSectionLinkHref ?? null,
+            sectionLinkHref: storeSettings?.promoSectionLinkHref ?? null,
 
-    card1: {
-      image:
-        storeSettings?.promoCard1Image ?? null,
+            card1: {
+              image: storeSettings?.promoCard1Image ?? null,
 
-      eyebrow:
-        storeSettings?.promoCard1Eyebrow ?? null,
+              eyebrow: storeSettings?.promoCard1Eyebrow ?? null,
 
-      title:
-        storeSettings?.promoCard1Title ?? null,
+              title: storeSettings?.promoCard1Title ?? null,
 
-      description:
-        storeSettings?.promoCard1Description ?? null,
+              description: storeSettings?.promoCard1Description ?? null,
 
-      button:
-        storeSettings?.promoCard1Button ?? null,
+              button: storeSettings?.promoCard1Button ?? null,
 
-      href:
-        storeSettings?.promoCard1Href ?? null,
-    },
+              href: storeSettings?.promoCard1Href ?? null,
+            },
 
-    card2: {
-      image:
-        storeSettings?.promoCard2Image ?? null,
+            card2: {
+              image: storeSettings?.promoCard2Image ?? null,
 
-      eyebrow:
-        storeSettings?.promoCard2Eyebrow ?? null,
+              eyebrow: storeSettings?.promoCard2Eyebrow ?? null,
 
-      title:
-        storeSettings?.promoCard2Title ?? null,
+              title: storeSettings?.promoCard2Title ?? null,
 
-      description:
-        storeSettings?.promoCard2Description ?? null,
+              description: storeSettings?.promoCard2Description ?? null,
 
-      button:
-        storeSettings?.promoCard2Button ?? null,
+              button: storeSettings?.promoCard2Button ?? null,
 
-      href:
-        storeSettings?.promoCard2Href ?? null,
-    },
-  }}
-/>
+              href: storeSettings?.promoCard2Href ?? null,
+            },
+          }}
+        />
       </div>
 
       {/* ======================================================
@@ -1517,6 +1216,13 @@ const serializedRepeatPurchaseProducts =
           lg:pb-16
         "
       >
+        {/* ====================================================
+            PISJO REORDER
+        ==================================================== */}
+
+        {mode === "customer" && (
+          <HomeReorderSection order={serializedReorderOrder} />
+        )}
 
         {/* ====================================================
             BELANJA LAGI
@@ -1524,12 +1230,8 @@ const serializedRepeatPurchaseProducts =
 
         {mode === "customer" && (
           <HomeRepeatPurchaseProducts
-            products={
-              serializedRepeatPurchaseProducts
-            }
-            productsHref={
-              productsHref
-            }
+            products={serializedRepeatPurchaseProducts}
+            productsHref={productsHref}
           />
         )}
 
@@ -1538,13 +1240,9 @@ const serializedRepeatPurchaseProducts =
         ==================================================== */}
 
         <HomeFeaturedProducts
-          products={
-            serializedFeaturedProducts
-          }
+          products={serializedFeaturedProducts}
 
-          productsHref={
-            productsHref
-          }
+          productsHref={productsHref}
         />
 
         {/* ====================================================
@@ -1552,13 +1250,9 @@ const serializedRepeatPurchaseProducts =
         ==================================================== */}
 
         <HomeBestSellingProducts
-          products={
-            serializedBestSellingProducts
-          }
+          products={serializedBestSellingProducts}
 
-          productsHref={
-            productsHref
-          }
+          productsHref={productsHref}
         />
 
         {/* ====================================================
@@ -1566,13 +1260,9 @@ const serializedRepeatPurchaseProducts =
         ==================================================== */}
 
         <HomeNewestProducts
-          products={
-            serializedNewestProducts
-          }
+          products={serializedNewestProducts}
 
-          productsHref={
-            productsHref
-          }
+          productsHref={productsHref}
         />
 
         {/* ====================================================
@@ -1580,18 +1270,13 @@ const serializedRepeatPurchaseProducts =
         ==================================================== */}
 
         <HomeAllProducts
-          products={
-            serializedAllProducts
-          }
+          products={serializedAllProducts}
 
-          productsHref={
-            productsHref
-          }
+          productsHref={productsHref}
         />
-
       </div>
 
-                  {/* ======================================================
+      {/* ======================================================
           FRESH FISH SEO HUB
       ====================================================== */}
 
@@ -1659,8 +1344,8 @@ const serializedRepeatPurchaseProducts =
                   text-slate-500
                 "
               >
-                Jelajahi pilihan ikan segar dan kategori produk
-                PISJO sebelum berbelanja.
+                Jelajahi pilihan ikan segar dan kategori produk PISJO sebelum
+                berbelanja.
               </p>
             </div>
 
@@ -1693,7 +1378,6 @@ const serializedRepeatPurchaseProducts =
           </div>
         </section>
       )}
-
     </main>
   );
 }

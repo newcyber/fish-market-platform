@@ -1,8 +1,4 @@
-import {
-  OrderStatus,
-  PaymentStatus,
-  Prisma,
-} from "@prisma/client";
+import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -19,19 +15,13 @@ export interface OrderFilters {
 
   take?: number;
 
-  orderBy?:
-    | "createdAt"
-    | "orderNumber"
-    | "total";
+  orderBy?: "createdAt" | "orderNumber" | "total";
 
   order?: "asc" | "desc";
 }
 
 function buildAdminOrderWhere(
-  filters: Pick<
-    OrderFilters,
-    "search" | "status" | "paymentStatus"
-  > = {}
+  filters: Pick<OrderFilters, "search" | "status" | "paymentStatus"> = {},
 ): Prisma.OrderWhereInput {
   const search = filters.search?.trim();
 
@@ -115,54 +105,51 @@ export class OrderRepository {
    * Total seluruh order.
    */
   static async getTotalOrders() {
-  return prisma.order.count({
-    where: {
-      deletedAt: null,
-    },
-  });
-}
+    return prisma.order.count({
+      where: {
+        deletedAt: null,
+      },
+    });
+  }
 
   /**
- * Total order yang berada di Trash.
- */
-static async getDeletedTotal() {
-  return prisma.order.count({
-    where: {
-      deletedAt: {
-        not: null,
+   * Total order yang berada di Trash.
+   */
+  static async getDeletedTotal() {
+    return prisma.order.count({
+      where: {
+        deletedAt: {
+          not: null,
+        },
       },
-    },
-  });
-}
+    });
+  }
 
   /**
    * Total pembayaran yang masih menunggu.
    */
   static async getPendingPayments() {
-  return prisma.order.count({
-    where: {
-      deletedAt: null,
+    return prisma.order.count({
+      where: {
+        deletedAt: null,
 
-      paymentStatus:
-        PaymentStatus.PENDING,
-    },
-  });
-}
+        paymentStatus: PaymentStatus.PENDING,
+      },
+    });
+  }
 
   /**
    * Total order berdasarkan status.
    */
-  static async getTotalByStatus(
-  status: OrderStatus
-) {
-  return prisma.order.count({
-    where: {
-      deletedAt: null,
+  static async getTotalByStatus(status: OrderStatus) {
+    return prisma.order.count({
+      where: {
+        deletedAt: null,
 
-      status,
-    },
-  });
-}
+        status,
+      },
+    });
+  }
 
   /**
    * ==========================================================
@@ -277,19 +264,14 @@ static async getDeletedTotal() {
      * NORMALIZE SALES
      * ==========================================================
      */
-    const totalSales = Number(
-      verifiedSales._sum.total ?? 0
-    );
+    const totalSales = Number(verifiedSales._sum.total ?? 0);
 
     /**
      * ==========================================================
      * AVERAGE ORDER VALUE
      * ==========================================================
      */
-    const averageOrder =
-      verifiedOrders > 0
-        ? totalSales / verifiedOrders
-        : 0;
+    const averageOrder = verifiedOrders > 0 ? totalSales / verifiedOrders : 0;
 
     return {
       totalOrders,
@@ -330,10 +312,7 @@ static async getDeletedTotal() {
       counts[row.status] = row._count._all;
     }
 
-    const total = Object.values(counts).reduce(
-      (sum, count) => sum + count,
-      0
-    );
+    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
 
     return {
       total,
@@ -353,18 +332,12 @@ static async getDeletedTotal() {
    * dan seluruh detail product.
    */
   static async findManyForAdminList(
-    filters: Pick<
-      OrderFilters,
-      "search" | "status" | "paymentStatus"
-    > & {
+    filters: Pick<OrderFilters, "search" | "status" | "paymentStatus"> & {
       skip?: number;
       take?: number;
-    } = {}
+    } = {},
   ) {
-    const {
-      skip = 0,
-      take = 20,
-    } = filters;
+    const { skip = 0, take = 20 } = filters;
 
     return prisma.order.findMany({
       where: buildAdminOrderWhere(filters),
@@ -411,10 +384,7 @@ static async getDeletedTotal() {
    * Total row untuk pagination Admin Order.
    */
   static async countForAdminList(
-    filters: Pick<
-      OrderFilters,
-      "search" | "status" | "paymentStatus"
-    > = {}
+    filters: Pick<OrderFilters, "search" | "status" | "paymentStatus"> = {},
   ) {
     return prisma.order.count({
       where: buildAdminOrderWhere(filters),
@@ -441,23 +411,20 @@ static async getDeletedTotal() {
    * OrderStatus agar tidak perlu mengambil seluruh Order
    * beserta relasinya.
    */
-  static async getCustomerOrderSummary(
-    userId: string
-  ) {
-    const rows =
-      await prisma.order.groupBy({
-        by: ["status"],
+  static async getCustomerOrderSummary(userId: string) {
+    const rows = await prisma.order.groupBy({
+      by: ["status"],
 
-        where: {
-          userId,
+      where: {
+        userId,
 
-          deletedAt: null,
-        },
+        deletedAt: null,
+      },
 
-        _count: {
-          _all: true,
-        },
-      });
+      _count: {
+        _all: true,
+      },
+    });
 
     const summary = {
       totalOrders: 0,
@@ -478,11 +445,9 @@ static async getDeletedTotal() {
     };
 
     for (const row of rows) {
-      const count =
-        row._count._all;
+      const count = row._count._all;
 
-      summary.totalOrders +=
-        count;
+      summary.totalOrders += count;
 
       switch (row.status) {
         case OrderStatus.PENDING:
@@ -494,8 +459,7 @@ static async getDeletedTotal() {
           break;
 
         case OrderStatus.WAITING_VERIFICATION:
-          summary.waitingVerification =
-            count;
+          summary.waitingVerification = count;
           break;
 
         case OrderStatus.PROCESSING:
@@ -534,201 +498,283 @@ static async getDeletedTotal() {
     });
   }
 
-  static async findMany(
-  filters: OrderFilters = {}
-) {
-  const {
-    search,
-    status,
-    paymentStatus,
-    userId,
-    skip = 0,
-    take = 20,
-    orderBy = "createdAt",
-    order = "desc",
-  } = filters;
+  static async findMany(filters: OrderFilters = {}) {
+    const {
+      search,
+      status,
+      paymentStatus,
+      userId,
+      skip = 0,
+      take = 20,
+      orderBy = "createdAt",
+      order = "desc",
+    } = filters;
 
-  return prisma.order.findMany({
-    where: {
-      deletedAt: null,
+    return prisma.order.findMany({
+      where: {
+        deletedAt: null,
 
-      ...(search
-        ? {
-            OR: [
-              {
-                orderNumber: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-              {
-                user: {
-                  name: {
+        ...(search
+          ? {
+              OR: [
+                {
+                  orderNumber: {
                     contains: search,
                     mode: "insensitive",
                   },
                 },
-              },
-            ],
-          }
-        : {}),
+                {
+                  user: {
+                    name: {
+                      contains: search,
+                      mode: "insensitive",
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
 
-      ...(status
-        ? {
-            status,
-          }
-        : {}),
+        ...(status
+          ? {
+              status,
+            }
+          : {}),
 
-      ...(paymentStatus
-        ? {
-            paymentStatus,
-          }
-        : {}),
+        ...(paymentStatus
+          ? {
+              paymentStatus,
+            }
+          : {}),
 
-      ...(userId
-        ? {
-            userId,
-          }
-        : {}),
-    },
-
-    include: DEFAULT_INCLUDE,
-
-    skip,
-
-    take,
-
-    orderBy: {
-      [orderBy]: order,
-    },
-  });
-}
-
-static async findDeleted() {
-  return prisma.order.findMany({
-    where: {
-      deletedAt: {
-        not: null,
+        ...(userId
+          ? {
+              userId,
+            }
+          : {}),
       },
-    },
 
-    include: DEFAULT_INCLUDE,
+      include: DEFAULT_INCLUDE,
 
-    orderBy: {
-      deletedAt: "desc",
-    },
-  });
-}
+      skip,
 
-static async softDelete(id: string) {
-  return prisma.order.update({
-    where: {
-      id,
-    },
+      take,
 
-    data: {
-      deletedAt: new Date(),
-    },
-  });
-}
+      orderBy: {
+        [orderBy]: order,
+      },
+    });
+  }
 
-static async restore(id: string) {
-  return prisma.order.update({
-    where: {
-      id,
-    },
+  static async findDeleted() {
+    return prisma.order.findMany({
+      where: {
+        deletedAt: {
+          not: null,
+        },
+      },
 
-    data: {
-      deletedAt: null,
-    },
-  });
-}
+      include: DEFAULT_INCLUDE,
 
-static async forceDelete(id: string) {
-  return prisma.order.delete({
-    where: {
-      id,
-    },
-  });
-}
+      orderBy: {
+        deletedAt: "desc",
+      },
+    });
+  }
+
+  static async softDelete(id: string) {
+    return prisma.order.update({
+      where: {
+        id,
+      },
+
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+  }
+
+  static async restore(id: string) {
+    return prisma.order.update({
+      where: {
+        id,
+      },
+
+      data: {
+        deletedAt: null,
+      },
+    });
+  }
+
+  static async forceDelete(id: string) {
+    return prisma.order.delete({
+      where: {
+        id,
+      },
+    });
+  }
 
   /**
    * Cari order berdasarkan ID.
    */
   static async findById(id: string) {
     return prisma.order.findUnique({
-  where: {
-    id,
-  },
-
-  include: {
-    user: true,
-
-    address: true,
-
-    items: {
-      include: {
-        product: true,
+      where: {
+        id,
       },
-    },
 
-    paymentProof: true,
+      include: {
+        user: true,
 
-    paymentChannel: true,
-  },
-});
+        address: true,
+
+        items: {
+          include: {
+            product: true,
+          },
+        },
+
+        paymentProof: true,
+
+        paymentChannel: true,
+      },
+    });
   }
 
-static async findByIdAndUserId(
-  id: string,
-  userId: string
-) {
-  return prisma.order.findFirst({
-    where: {
-      id,
-      userId,
-      deletedAt: null,
-    },
-
-    include: {
-      user: true,
-
-      address: true,
-
-      items: {
-        include: {
-          product: {
-            include: {
-              images: {
-                orderBy: [
-                  {
-                    isThumbnail: "desc",
-                  },
-                  {
-                    sortOrder: "asc",
-                  },
-                ],
-              },
-            },
-          },
-
-          sku: true,
+  /**
+   * ==========================================================
+   * PISJO REORDER
+   * ==========================================================
+   *
+   * Order terakhir yang benar-benar selesai dan pembayarannya
+   * sudah terverifikasi. Hanya data milik customer yang diminta.
+   */
+  static async findLatestCompletedByUserId(userId: string) {
+    return prisma.order.findFirst({
+      where: {
+        userId,
+        status: OrderStatus.COMPLETED,
+        paymentStatus: PaymentStatus.VERIFIED,
+        deletedAt: null,
+        items: {
+          some: {},
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        items: {
+          orderBy: {
+            id: "asc",
+          },
+          include: {
+            product: {
+              include: {
+                images: {
+                  orderBy: [{ isThumbnail: "desc" }, { sortOrder: "asc" }],
+                  take: 1,
+                },
+                skus: {
+                  where: {
+                    isActive: true,
+                  },
+                  select: {
+                    id: true,
+                  },
+                },
+              },
+            },
+            sku: true,
+          },
+        },
+      },
+    });
+  }
 
-      paymentProof: true,
+  /**
+   * Ambil order tertentu untuk proses reorder dengan authorization
+   * scope userId serta status pembayaran/order yang valid.
+   */
+  static async findCompletedByIdAndUserId(id: string, userId: string) {
+    return prisma.order.findFirst({
+      where: {
+        id,
+        userId,
+        status: OrderStatus.COMPLETED,
+        paymentStatus: PaymentStatus.VERIFIED,
+        deletedAt: null,
+      },
+      include: {
+        items: {
+          orderBy: {
+            id: "asc",
+          },
+          include: {
+            product: {
+              include: {
+                skus: {
+                  where: {
+                    isActive: true,
+                  },
+                  select: {
+                    id: true,
+                  },
+                },
+              },
+            },
+            sku: true,
+          },
+        },
+      },
+    });
+  }
 
-      paymentChannel: true,
-    },
-  });
-}
+  static async findByIdAndUserId(id: string, userId: string) {
+    return prisma.order.findFirst({
+      where: {
+        id,
+        userId,
+        deletedAt: null,
+      },
+
+      include: {
+        user: true,
+
+        address: true,
+
+        items: {
+          include: {
+            product: {
+              include: {
+                images: {
+                  orderBy: [
+                    {
+                      isThumbnail: "desc",
+                    },
+                    {
+                      sortOrder: "asc",
+                    },
+                  ],
+                },
+              },
+            },
+
+            sku: true,
+          },
+        },
+
+        paymentProof: true,
+
+        paymentChannel: true,
+      },
+    });
+  }
 
   /**
    * Cari order berdasarkan nomor order.
    */
-  static async findByOrderNumber(
-    orderNumber: string
-  ) {
+  static async findByOrderNumber(orderNumber: string) {
     return prisma.order.findUnique({
       where: {
         orderNumber,
@@ -751,42 +797,39 @@ static async findByIdAndUserId(
   /**
    * Seluruh order milik user.
    */
-  static async findByUserId(
-  userId: string,
-  statuses?: OrderStatus[]
-) {
-  return prisma.order.findMany({
-where: {
-  userId,
-  deletedAt: null,
+  static async findByUserId(userId: string, statuses?: OrderStatus[]) {
+    return prisma.order.findMany({
+      where: {
+        userId,
+        deletedAt: null,
 
-  ...(statuses && statuses.length > 0
-    ? {
-        status: {
-          in: statuses,
-        },
-      }
-    : {}),
-},
-
-    orderBy: {
-      createdAt: "desc",
-    },
-
-    include: {
-      items: {
-        include: {
-          product: true,
-          sku: true,
-        },
+        ...(statuses && statuses.length > 0
+          ? {
+              status: {
+                in: statuses,
+              },
+            }
+          : {}),
       },
 
-      paymentProof: true,
+      orderBy: {
+        createdAt: "desc",
+      },
 
-      paymentChannel: true,
-    },
-  });
-}
+      include: {
+        items: {
+          include: {
+            product: true,
+            sku: true,
+          },
+        },
+
+        paymentProof: true,
+
+        paymentChannel: true,
+      },
+    });
+  }
 
   /**
    * ==========================================================
@@ -803,7 +846,7 @@ where: {
    */
   static async findByUserIdPaginated(
     userId: string,
-    options: CustomerOrderPaginationOptions
+    options: CustomerOrderPaginationOptions,
   ) {
     const { limit, cursor, status } = options;
 
@@ -925,11 +968,7 @@ where: {
   /**
    * Membuat order baru.
    */
-  static async create(
-    data: Parameters<
-      typeof prisma.order.create
-    >[0]["data"]
-  ) {
+  static async create(data: Parameters<typeof prisma.order.create>[0]["data"]) {
     return prisma.order.create({
       data,
 
@@ -946,9 +985,7 @@ where: {
    */
   static async update(
     id: string,
-    data: Parameters<
-      typeof prisma.order.update
-    >[0]["data"]
+    data: Parameters<typeof prisma.order.update>[0]["data"],
   ) {
     return prisma.order.update({
       where: {
@@ -963,41 +1000,37 @@ where: {
    * Update status order.
    */
   /**
- * Update status order secara concurrency-safe.
- *
- * expectedStatus digunakan untuk memastikan
- * status order di database masih sama dengan
- * status yang sebelumnya divalidasi oleh Service.
- *
- * Jika status sudah berubah karena request lain,
- * update akan gagal.
- */
-static async updateStatus(
-  id: string,
-  status: OrderStatus,
-  expectedStatus?: OrderStatus
-) {
-  if (
-    expectedStatus === undefined
+   * Update status order secara concurrency-safe.
+   *
+   * expectedStatus digunakan untuk memastikan
+   * status order di database masih sama dengan
+   * status yang sebelumnya divalidasi oleh Service.
+   *
+   * Jika status sudah berubah karena request lain,
+   * update akan gagal.
+   */
+  static async updateStatus(
+    id: string,
+    status: OrderStatus,
+    expectedStatus?: OrderStatus,
   ) {
-    return prisma.order.update({
+    if (expectedStatus === undefined) {
+      return prisma.order.update({
+        where: {
+          id,
+        },
+
+        data: {
+          status,
+        },
+      });
+    }
+
+    const result = await prisma.order.updateMany({
       where: {
         id,
-      },
 
-      data: {
-        status,
-      },
-    });
-  }
-
-  const result =
-    await prisma.order.updateMany({
-      where: {
-        id,
-
-        status:
-          expectedStatus,
+        status: expectedStatus,
 
         deletedAt: null,
       },
@@ -1007,34 +1040,34 @@ static async updateStatus(
       },
     });
 
-  if (result.count !== 1) {
-    throw new Error(
-      "Order berubah sebelum proses selesai. Silakan refresh halaman dan coba lagi."
-    );
-  }
+    if (result.count !== 1) {
+      throw new Error(
+        "Order berubah sebelum proses selesai. Silakan refresh halaman dan coba lagi.",
+      );
+    }
 
-  return prisma.order.findUnique({
-  where: {
-    id,
-  },
-
-  include: {
-    user: true,
-
-    address: true,
-
-    items: {
-      include: {
-        product: true,
+    return prisma.order.findUnique({
+      where: {
+        id,
       },
-    },
 
-    paymentProof: true,
+      include: {
+        user: true,
 
-    paymentChannel: true,
-  },
-});
-}
+        address: true,
+
+        items: {
+          include: {
+            product: true,
+          },
+        },
+
+        paymentProof: true,
+
+        paymentChannel: true,
+      },
+    });
+  }
 }
 
 export default OrderRepository;

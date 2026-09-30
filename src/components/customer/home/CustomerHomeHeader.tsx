@@ -361,7 +361,7 @@ export default function CustomerHomeHeader({
 
             <span className="text-sm font-bold leading-none">Voucher</span>
 
-            <span className="text-[10px] text-slate-500">Tukar</span>
+            <span className="text-[10px] text-slate-500">Inventory Voucher</span>
           </Link>
 
           {/* Active orders */}
