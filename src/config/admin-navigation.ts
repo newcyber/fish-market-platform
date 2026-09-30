@@ -6,6 +6,20 @@ import { Role } from "@prisma/client";
  * ============================================================
  * ADMIN NAVIGATION
  * ============================================================
+ *
+ * Main menu order:
+ * 1. Dashboard
+ * 2. Transaction
+ * 3. Customer
+ * 4. Produk
+ * 5. Promotion
+ * 6. Loyalty
+ * 7. Report
+ * 8. Setting
+ *
+ * Kategori berada di dalam Produk.
+ * Smart SEO berada di dalam Setting agar tidak menjadi top-level menu.
+ * ============================================================
  */
 
 const ADMIN_ROLES = [Role.SUPER_ADMIN, Role.ADMIN];
@@ -15,7 +29,7 @@ const SUPER_ADMIN_ONLY = [Role.SUPER_ADMIN];
 export const ADMIN_NAVIGATION: NavigationItem[] = [
   /**
    * ==========================================================
-   * DASHBOARD
+   * 1. DASHBOARD
    * ==========================================================
    */
   {
@@ -29,83 +43,20 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
 
   /**
    * ==========================================================
-   * PRODUCTS
-   * ==========================================================
-   */
-  {
-    id: "products",
-    title: "Products",
-    href: "/admin/products",
-    icon: "products",
-    roles: ADMIN_ROLES,
-    order: 2,
-
-    children: [
-      {
-        id: "product-list",
-        title: "Products",
-        href: "/admin/products",
-        icon: "products",
-        roles: ADMIN_ROLES,
-        order: 1,
-      },
-
-      {
-        id: "product-reviews",
-        title: "Product Reviews",
-        href: "/admin/product-reviews",
-        icon: "products",
-        roles: ADMIN_ROLES,
-        order: 2,
-      },
-    ],
-  },
-  /**
-   * ==========================================================
-   * CATEGORIES
-   * ==========================================================
-   */
-  {
-    id: "categories",
-    title: "Categories",
-    href: "/admin/categories",
-    icon: "categories",
-    roles: ADMIN_ROLES,
-    order: 3,
-  },
-
-  /**
-   * ==========================================================
-   * TRANSACTIONS
+   * 2. TRANSACTION
    * ==========================================================
    *
-   * Satu grup untuk seluruh proses transaksi:
-   *
-   * Transactions
+   * Transaction
    * ├── Orders
    * └── Payments
-   *
-   * Parent dapat dilihat oleh:
-   *
-   * - SUPER_ADMIN
-   * - ADMIN
-   *
-   * Orders:
-   * - SUPER_ADMIN
-   * - ADMIN
-   *
-   * Payments:
-   * - SUPER_ADMIN
-   *
-   * ==========================================================
    */
   {
     id: "transactions",
-    title: "Transactions",
+    title: "Transaction",
     href: "/admin/orders",
     icon: "orders",
     roles: ADMIN_ROLES,
-    order: 4,
+    order: 2,
 
     children: [
       {
@@ -130,30 +81,78 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
 
   /**
    * ==========================================================
-   * CUSTOMERS
+   * 3. CUSTOMER
    * ==========================================================
    */
   {
     id: "customers",
-    title: "Customers",
+    title: "Customer",
     href: "/admin/customers",
     icon: "customers",
     roles: ADMIN_ROLES,
-    order: 5,
+    order: 3,
   },
 
   /**
    * ==========================================================
-   * PROMOTIONS
+   * 4. PRODUK
+   * ==========================================================
+   *
+   * Produk
+   * ├── Products
+   * ├── Categories
+   * └── Product Reviews
+   */
+  {
+    id: "products",
+    title: "Produk",
+    href: "/admin/products",
+    icon: "products",
+    roles: ADMIN_ROLES,
+    order: 4,
+
+    children: [
+      {
+        id: "product-list",
+        title: "Products",
+        href: "/admin/products",
+        icon: "products",
+        roles: ADMIN_ROLES,
+        order: 1,
+      },
+
+      {
+        id: "categories",
+        title: "Categories",
+        href: "/admin/categories",
+        icon: "categories",
+        roles: ADMIN_ROLES,
+        order: 2,
+      },
+
+      {
+        id: "product-reviews",
+        title: "Product Reviews",
+        href: "/admin/product-reviews",
+        icon: "products",
+        roles: ADMIN_ROLES,
+        order: 3,
+      },
+    ],
+  },
+
+  /**
+   * ==========================================================
+   * 5. PROMOTION
    * ==========================================================
    */
   {
     id: "promotions",
-    title: "Promotions",
+    title: "Promotion",
     href: "/admin/promotions",
     icon: "promotions",
     roles: SUPER_ADMIN_ONLY,
-    order: 6,
+    order: 5,
 
     children: [
       {
@@ -205,16 +204,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
 
   /**
    * ==========================================================
-   * LOYALTY
-   * ==========================================================
-   *
-   * Loyalty
-   * ├── Reward Point Calculator
-   * ├── Reward Voucher
-   * ├── Reward Catalog
-   * ├── Reward Category
-   * └── Reward Claims
-   *
+   * 6. LOYALTY
    * ==========================================================
    */
   {
@@ -223,7 +213,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     href: "/admin/reward-catalog",
     icon: "loyalty",
     roles: SUPER_ADMIN_ONLY,
-    order: 8,
+    order: 6,
 
     children: [
       {
@@ -270,41 +260,44 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         roles: SUPER_ADMIN_ONLY,
         order: 5,
       },
+
+      {
+        id: "member-tiers",
+        title: "Member Tier",
+        href: "/admin/member-tiers",
+        icon: "loyalty",
+        roles: SUPER_ADMIN_ONLY,
+        order: 6,
+      },
     ],
   },
 
   /**
    * ==========================================================
-   * REPORTS
+   * 7. REPORT
    * ==========================================================
    */
   {
     id: "reports",
-    title: "Reports",
+    title: "Report",
     href: "/admin/reports",
     icon: "reports",
     roles: SUPER_ADMIN_ONLY,
-    order: 8,
+    order: 7,
   },
 
   /**
    * ==========================================================
-   * SETTINGS
-   * ==========================================================
-   *
-   * Settings
-   * ├── Pengaturan Toko
-   * └── Metode Pembayaran
-   *
+   * 8. SETTING
    * ==========================================================
    */
   {
     id: "settings",
-    title: "Settings",
+    title: "Setting",
     href: "/admin/settings",
     icon: "settings",
     roles: SUPER_ADMIN_ONLY,
-    order: 9,
+    order: 8,
 
     children: [
       {
@@ -326,12 +319,12 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       },
 
       {
-        id: "member-tiers",
-        title: "Member Tier",
-        href: "/admin/member-tiers",
-        icon: "loyalty",
+        id: "smart-seo",
+        title: "Smart SEO Setting",
+        href: "/admin/smart-seo",
+        icon: "smart-seo",
         roles: SUPER_ADMIN_ONLY,
-        order: 10,
+        order: 3,
       },
 
       {
@@ -340,7 +333,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/landing-page",
         icon: "landing-page",
         roles: SUPER_ADMIN_ONLY,
-        order: 3,
+        order: 4,
       },
 
       {
@@ -349,7 +342,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/landing-page/images",
         icon: "landing-page",
         roles: SUPER_ADMIN_ONLY,
-        order: 4,
+        order: 5,
       },
 
       {
@@ -358,7 +351,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/landing-page/android",
         icon: "landing-page",
         roles: SUPER_ADMIN_ONLY,
-        order: 5,
+        order: 6,
       },
 
       {
@@ -367,7 +360,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/landing-page/ios",
         icon: "landing-page",
         roles: SUPER_ADMIN_ONLY,
-        order: 6,
+        order: 7,
       },
 
       {
@@ -376,7 +369,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/settings/wapi",
         icon: "whatsapp",
         roles: SUPER_ADMIN_ONLY,
-        order: 7,
+        order: 8,
       },
 
       {
@@ -385,7 +378,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/notifications/wapi-deliveries",
         icon: "whatsapp",
         roles: SUPER_ADMIN_ONLY,
-        order: 8,
+        order: 9,
       },
 
       {
@@ -394,29 +387,9 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/social-store-links",
         icon: "settings",
         roles: SUPER_ADMIN_ONLY,
-        order: 99,
+        order: 10,
       },
     ],
-  },
-
-  /**
-   * ==========================================================
-   * SMART SEO
-   * ==========================================================
-   *
-   * Pusat pengelolaan SEO global dan AI SEO.
-   *
-   * Hanya SUPER_ADMIN yang dapat mengakses.
-   *
-   * ==========================================================
-   */
-  {
-    id: "smart-seo",
-    title: "Smart SEO Setting",
-    href: "/admin/smart-seo",
-    icon: "smart-seo",
-    roles: SUPER_ADMIN_ONLY,
-    order: 10,
   },
 ];
 
