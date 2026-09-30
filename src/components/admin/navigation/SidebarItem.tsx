@@ -398,7 +398,15 @@ export function SidebarItem({
     isChildActive
   );
 
+  /**
+   * Transaction harus selalu terbuka karena
+   * Orders dan Payments menampilkan notification badge.
+   */
+  const isAlwaysOpen =
+    item.id === "transactions";
+
   const isSubmenuOpen =
+    isAlwaysOpen ||
     isOpen ||
     isChildActive;
 
@@ -433,6 +441,10 @@ export function SidebarItem({
         <button
           type="button"
           onClick={() => {
+            if (isAlwaysOpen) {
+              return;
+            }
+
             setIsOpen(
               (current) =>
                 !current
