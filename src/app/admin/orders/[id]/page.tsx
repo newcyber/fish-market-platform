@@ -11,10 +11,7 @@ import {
   User,
 } from "lucide-react";
 import { notFound } from "next/navigation";
-import {
-  OrderStatus,
-  PaymentStatus,
-} from "@prisma/client";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 
 import OrderService from "@/services/order/order.service";
 
@@ -179,16 +176,14 @@ function getShippingStatus(orderStatus: OrderStatus) {
       return {
         label: "Siap Dikirim",
         description: "Order sudah diproses dan siap untuk dikirim.",
-        className:
-          "border-amber-200 bg-amber-50 text-amber-700",
+        className: "border-amber-200 bg-amber-50 text-amber-700",
       };
 
     default:
       return {
         label: "Belum Dikirim",
         description: "Pengiriman belum dimulai.",
-        className:
-          "border-slate-200 bg-slate-50 text-slate-600",
+        className: "border-slate-200 bg-slate-50 text-slate-600",
       };
   }
 }
@@ -223,13 +218,7 @@ function SectionHeader({
   );
 }
 
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5">
       <span className="shrink-0 text-xs text-[var(--pisjo-text-secondary)] sm:text-sm">
@@ -293,7 +282,7 @@ export default async function OrderDetailPage({
 
   const productCount = order.items.reduce(
     (total, item) => total + item.quantity,
-    0
+    0,
   );
 
   const isPaid = order.paymentStatus === PaymentStatus.VERIFIED;
@@ -305,9 +294,16 @@ export default async function OrderDetailPage({
       {/* HEADER */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-xs text-[var(--pisjo-text-secondary)] sm:text-sm">
-          <Link href="/admin/orders" className="transition hover:text-[var(--pisjo-ocean)]">Pesanan</Link>
+          <Link
+            href="/admin/orders"
+            className="transition hover:text-[var(--pisjo-ocean)]"
+          >
+            Pesanan
+          </Link>
           <ChevronRight className="h-3.5 w-3.5" />
-          <span className="font-medium text-[var(--pisjo-navy)]">Detail Order</span>
+          <span className="font-medium text-[var(--pisjo-navy)]">
+            Detail Order
+          </span>
         </div>
 
         <Link
@@ -321,29 +317,32 @@ export default async function OrderDetailPage({
         <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-              <h1 className="min-w-0 break-all text-2xl font-extrabold tracking-tight text-[var(--pisjo-navy)] sm:text-3xl">{order.orderNumber}</h1>
-              <span className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-bold ${getOrderStatusClass(order.status)}`}>{getOrderStatusLabel(order.status)}</span>
+              <h1 className="min-w-0 break-all text-2xl font-extrabold tracking-tight text-[var(--pisjo-navy)] sm:text-3xl">
+                {order.orderNumber}
+              </h1>
+              <span
+                className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-xs font-bold ${getOrderStatusClass(order.status)}`}
+              >
+                {getOrderStatusLabel(order.status)}
+              </span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--pisjo-text-secondary)] sm:text-sm">
               <span>Dibuat {formatDate(order.createdAt)}</span>
               <span>•</span>
-              <span>{order.items.length} produk · {productCount} item</span>
+              <span>
+                {order.items.length} produk · {productCount} item
+              </span>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2 xl:justify-end">
-            {!order.trackingNumber && order.status === OrderStatus.PROCESSING && (
-              <CreateInternalShipmentButton orderId={order.id} orderNumber={order.orderNumber} />
-            )}
-            {order.trackingNumber && (
-              <PrintInternalShippingLabelButton orderId={order.id} trackingNumber={order.trackingNumber} />
-            )}
             <Link
               href={`/admin/orders/${order.id}/edit`}
               className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[var(--pisjo-navy)] transition hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"
             >
               Edit Pesanan
             </Link>
+
             <DeleteOrderButton id={order.id} orderNumber={order.orderNumber} />
           </div>
         </div>
@@ -353,20 +352,62 @@ export default async function OrderDetailPage({
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
           <div className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]"><User className="h-5 w-5" /></div>
-            <div className="min-w-0"><p className="text-xs text-[var(--pisjo-text-secondary)]">Customer</p><p className="truncate text-sm font-bold text-[var(--pisjo-navy)]">{order.user.name}</p></div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]">
+              <User className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--pisjo-text-secondary)]">
+                Customer
+              </p>
+              <p className="truncate text-sm font-bold text-[var(--pisjo-navy)]">
+                {order.user.name}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]"><Receipt className="h-5 w-5" /></div>
-            <div className="min-w-0"><p className="text-xs text-[var(--pisjo-text-secondary)]">Total Pesanan</p><p className="truncate text-sm font-bold text-[var(--pisjo-navy)]">{formatCurrency(order.total)}</p></div>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]">
+              <Receipt className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--pisjo-text-secondary)]">
+                Total Pesanan
+              </p>
+              <p className="truncate text-sm font-bold text-[var(--pisjo-navy)]">
+                {formatCurrency(order.total)}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3 p-4">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isPaid ? 'bg-[var(--pisjo-green)]/10 text-[var(--pisjo-green)]' : 'bg-amber-50 text-amber-600'}`}><CreditCard className="h-5 w-5" /></div>
-            <div className="min-w-0"><p className="text-xs text-[var(--pisjo-text-secondary)]">Pembayaran</p><p className={`truncate text-sm font-bold ${isPaid ? 'text-[var(--pisjo-green)]' : 'text-amber-700'}`}>{getPaymentStatusLabel(order.paymentStatus)}</p></div>
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isPaid ? "bg-[var(--pisjo-green)]/10 text-[var(--pisjo-green)]" : "bg-amber-50 text-amber-600"}`}
+            >
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--pisjo-text-secondary)]">
+                Pembayaran
+              </p>
+              <p
+                className={`truncate text-sm font-bold ${isPaid ? "text-[var(--pisjo-green)]" : "text-amber-700"}`}
+              >
+                {getPaymentStatusLabel(order.paymentStatus)}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3 p-4">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isCompleted ? 'bg-[var(--pisjo-green)]/10 text-[var(--pisjo-green)]' : isCancelled ? 'bg-[var(--pisjo-red)]/10 text-[var(--pisjo-red)]' : 'bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]'}`}><Package className="h-5 w-5" /></div>
-            <div className="min-w-0"><p className="text-xs text-[var(--pisjo-text-secondary)]">Status Order</p><p className="truncate text-sm font-bold text-[var(--pisjo-navy)]">{getOrderStatusLabel(order.status)}</p></div>
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isCompleted ? "bg-[var(--pisjo-green)]/10 text-[var(--pisjo-green)]" : isCancelled ? "bg-[var(--pisjo-red)]/10 text-[var(--pisjo-red)]" : "bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]"}`}
+            >
+              <Package className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--pisjo-text-secondary)]">
+                Status Order
+              </p>
+              <p className="truncate text-sm font-bold text-[var(--pisjo-navy)]">
+                {getOrderStatusLabel(order.status)}
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -374,12 +415,37 @@ export default async function OrderDetailPage({
       {/* CUSTOMER + PAYMENT */}
       <section className="grid min-w-0 gap-4 xl:grid-cols-2">
         <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <SectionHeader icon={User} title="Informasi Customer & Alamat Pengiriman" description="Data customer dan alamat yang tersimpan pada order ini" />
+          <SectionHeader
+            icon={User}
+            title="Informasi Customer & Alamat Pengiriman"
+            description="Data customer dan alamat yang tersimpan pada order ini"
+          />
           <div className="p-4 sm:p-5">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="min-w-0"><p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">Nama</p><p className="mt-1 text-sm font-semibold text-[var(--pisjo-navy)]">{order.user.name}</p></div>
-              <div className="min-w-0"><p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">Email</p><p className="mt-1 break-all text-sm font-medium text-[var(--pisjo-navy)]">{order.user.email}</p></div>
-              <div className="min-w-0"><p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">Telepon</p><p className="mt-1 text-sm font-medium text-[var(--pisjo-navy)]">{order.user.phone ?? '-'}</p></div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">
+                  Nama
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[var(--pisjo-navy)]">
+                  {order.user.name}
+                </p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">
+                  Email
+                </p>
+                <p className="mt-1 break-all text-sm font-medium text-[var(--pisjo-navy)]">
+                  {order.user.email}
+                </p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-[var(--pisjo-text-secondary)]">
+                  Telepon
+                </p>
+                <p className="mt-1 text-sm font-medium text-[var(--pisjo-navy)]">
+                  {order.user.phone ?? "-"}
+                </p>
+              </div>
               {courierAddress ? (
                 <div className="min-w-0 sm:col-span-2 border-t border-slate-100 pt-4">
                   <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--pisjo-text-secondary)]">
@@ -397,7 +463,9 @@ export default async function OrderDetailPage({
                     Alamat Pengiriman
                   </div>
                   <div className="mt-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
-                    <p className="text-sm font-medium text-slate-600">Informasi alamat tidak tersedia.</p>
+                    <p className="text-sm font-medium text-slate-600">
+                      Informasi alamat tidak tersedia.
+                    </p>
                   </div>
                 </div>
               )}
@@ -418,126 +486,291 @@ export default async function OrderDetailPage({
       </section>
       {/* PRODUK PESANAN */}
       <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <SectionHeader icon={Package} title="Produk Pesanan" description={`${order.items.length} jenis produk · ${productCount} item`} />
+        <SectionHeader
+          icon={Package}
+          title="Produk Pesanan"
+          description={`${order.items.length} jenis produk · ${productCount} item`}
+        />
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[860px] text-sm">
-            <thead><tr className="border-b border-slate-100 bg-[var(--pisjo-soft-blue)]/45">
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">Produk</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">Varian</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">Harga</th>
-              <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">Qty</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">Subtotal</th>
-            </tr></thead>
-            <tbody>{order.items.map((item) => (<tr key={item.id} className="border-b border-slate-100 last:border-0">
-              <td className="px-5 py-4 align-top">
-  <div className="flex min-w-0 items-start gap-3">
-    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-      {(() => {
-        const thumbnail = item.product?.images?.find(
-          (image) => !image.mediaType || image.mediaType === "IMAGE",
-        )?.image ?? item.product?.images?.[0]?.image;
+            <thead>
+              <tr className="border-b border-slate-100 bg-[var(--pisjo-soft-blue)]/45">
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">
+                  Produk
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">
+                  Varian
+                </th>
+                <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">
+                  Harga
+                </th>
+                <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">
+                  Qty
+                </th>
+                <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[var(--pisjo-text-secondary)]">
+                  Subtotal
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items.map((item) => (
+                <tr
+                  key={item.id}
+                  className="border-b border-slate-100 last:border-0"
+                >
+                  <td className="px-5 py-4 align-top">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                        {(() => {
+                          const thumbnail =
+                            item.product?.images?.find(
+                              (image) =>
+                                !image.mediaType || image.mediaType === "IMAGE",
+                            )?.image ?? item.product?.images?.[0]?.image;
 
-        return thumbnail ? (
-          <img
-            src={thumbnail}
-            alt={item.productName}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-[var(--pisjo-text-secondary)]">
-            <Package className="h-5 w-5" />
-          </div>
-        );
-      })()}
-    </div>
+                          return thumbnail ? (
+                            <img
+                              src={thumbnail}
+                              alt={item.productName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[var(--pisjo-text-secondary)]">
+                              <Package className="h-5 w-5" />
+                            </div>
+                          );
+                        })()}
+                      </div>
 
-    <div className="min-w-0">
-      <p className="font-semibold text-[var(--pisjo-navy)]">{item.productName}</p>
-      {item.product ? (
-        <p className="mt-1 text-xs text-[var(--pisjo-text-secondary)]">
-          SKU: {item.product.sku ?? "-"}
-        </p>
-      ) : null}
-      {item.customerNote?.trim() ? (
-        <p className="mt-2 text-xs text-[var(--pisjo-text-secondary)]">
-          Catatan: {item.customerNote.trim()}
-        </p>
-      ) : null}
-    </div>
-  </div>
-</td>
-              <td className="px-5 py-4 align-top"><div className="flex flex-wrap gap-1.5">{item.productVariant ? <span className="rounded-full bg-[var(--pisjo-soft-blue)] px-2.5 py-1 text-xs font-medium text-[var(--pisjo-ocean)]">{item.productVariant}</span> : null}{item.productWeight ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{item.productWeight}</span> : null}</div></td>
-              <td className="whitespace-nowrap px-5 py-4 text-right align-top text-[var(--pisjo-navy)]">{formatCurrency(item.price)}</td>
-              <td className="px-5 py-4 text-center align-top font-semibold text-[var(--pisjo-navy)]">{item.quantity}</td>
-              <td className="whitespace-nowrap px-5 py-4 text-right align-top font-bold text-[var(--pisjo-navy)]">{formatCurrency(item.subtotal)}</td>
-            </tr>))}</tbody>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--pisjo-navy)]">
+                          {item.productName}
+                        </p>
+                        {item.product ? (
+                          <p className="mt-1 text-xs text-[var(--pisjo-text-secondary)]">
+                            SKU: {item.product.sku ?? "-"}
+                          </p>
+                        ) : null}
+                        {item.customerNote?.trim() ? (
+                          <p className="mt-2 text-xs text-[var(--pisjo-text-secondary)]">
+                            Catatan: {item.customerNote.trim()}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 align-top">
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.productVariant ? (
+                        <span className="rounded-full bg-[var(--pisjo-soft-blue)] px-2.5 py-1 text-xs font-medium text-[var(--pisjo-ocean)]">
+                          {item.productVariant}
+                        </span>
+                      ) : null}
+                      {item.productWeight ? (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          {item.productWeight}
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 text-right align-top text-[var(--pisjo-navy)]">
+                    {formatCurrency(item.price)}
+                  </td>
+                  <td className="px-5 py-4 text-center align-top font-semibold text-[var(--pisjo-navy)]">
+                    {item.quantity}
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 text-right align-top font-bold text-[var(--pisjo-navy)]">
+                    {formatCurrency(item.subtotal)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
         <div className="divide-y divide-slate-100 md:hidden">
-  {order.items.map((item) => {
-    const thumbnail =
-      item.product?.images?.find(
-        (image) => !image.mediaType || image.mediaType === "IMAGE",
-      )?.image ?? item.product?.images?.[0]?.image;
+          {order.items.map((item) => {
+            const thumbnail =
+              item.product?.images?.find(
+                (image) => !image.mediaType || image.mediaType === "IMAGE",
+              )?.image ?? item.product?.images?.[0]?.image;
 
-    return (
-      <article key={item.id} className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-              {thumbnail ? (
-                <img
-                  src={thumbnail}
-                  alt={item.productName}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-[var(--pisjo-text-secondary)]">
-                  <Package className="h-5 w-5" />
+            return (
+              <article key={item.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                      {thumbnail ? (
+                        <img
+                          src={thumbnail}
+                          alt={item.productName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[var(--pisjo-text-secondary)]">
+                          <Package className="h-5 w-5" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <h3 className="break-words text-sm font-bold text-[var(--pisjo-navy)]">
+                        {item.productName}
+                      </h3>
+                      <p className="mt-1 text-xs text-[var(--pisjo-text-secondary)]">
+                        {item.productVariant || "-"}
+                        {item.productWeight ? ` · ${item.productWeight}` : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="shrink-0 rounded-lg bg-[var(--pisjo-soft-blue)] px-2.5 py-1 text-xs font-bold text-[var(--pisjo-ocean)]">
+                    × {item.quantity}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            <div className="min-w-0">
-              <h3 className="break-words text-sm font-bold text-[var(--pisjo-navy)]">
-                {item.productName}
-              </h3>
-              <p className="mt-1 text-xs text-[var(--pisjo-text-secondary)]">
-                {item.productVariant || "-"}
-                {item.productWeight ? ` · ${item.productWeight}` : ""}
-              </p>
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                  <span className="text-xs text-[var(--pisjo-text-secondary)]">
+                    Harga
+                  </span>
+                  <span className="text-sm font-semibold text-[var(--pisjo-navy)]">
+                    {formatCurrency(item.price)}
+                  </span>
+                </div>
+
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-xs text-[var(--pisjo-text-secondary)]">
+                    Subtotal
+                  </span>
+                  <span className="text-sm font-bold text-[var(--pisjo-ocean)]">
+                    {formatCurrency(item.subtotal)}
+                  </span>
+                </div>
+
+                {item.customerNote?.trim() ? (
+                  <p className="mt-3 text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                    Catatan: {item.customerNote.trim()}
+                  </p>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* SHIPPING + PAYMENT SUMMARY */}
+      <section className="grid min-w-0 gap-4 xl:grid-cols-5">
+        {/* PENGIRIMAN */}
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-3">
+          <SectionHeader
+            icon={Truck}
+            title="Pengiriman"
+            description="Informasi pengiriman dan nomor resi order"
+          />
+
+          <div className="p-4 sm:p-5">
+            {order.trackingNumber ? (
+              <div className="rounded-xl border border-slate-200 bg-[var(--pisjo-soft-blue)]/30 p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[var(--pisjo-ocean)] shadow-sm">
+                      <Truck className="h-5 w-5" />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs text-[var(--pisjo-text-secondary)]">
+                        Nomor Resi
+                      </p>
+
+                      <p className="mt-1 break-all text-sm font-bold text-[var(--pisjo-navy)]">
+                        {order.trackingNumber}
+                      </p>
+
+                      <span
+                        className={`mt-2 inline-flex rounded-lg border px-2.5 py-1 text-xs font-semibold ${shippingStatus.className}`}
+                      >
+                        {shippingStatus.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <PrintInternalShippingLabelButton
+                      orderId={order.id}
+                      trackingNumber={order.trackingNumber}
+                    />
+                  </div>
+                </div>
+
+                <p className="mt-4 border-t border-slate-200 pt-3 text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                  {shippingStatus.description}
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 sm:p-6">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[var(--pisjo-ocean)] shadow-sm">
+                    <Truck className="h-6 w-6" />
+                  </div>
+
+                  <p className="mt-3 text-sm font-bold text-[var(--pisjo-navy)]">
+                    Belum ada pengiriman
+                  </p>
+
+                  <p className="mt-1 max-w-md text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                    Nomor resi dan informasi kurir akan muncul setelah
+                    pengiriman dibuat.
+                  </p>
+
+                  {order.status === OrderStatus.PROCESSING ? (
+                    <div className="mt-4">
+                      <CreateInternalShipmentButton
+                        orderId={order.id}
+                        orderNumber={order.orderNumber}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* RINGKASAN PEMBAYARAN */}
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
+          <SectionHeader
+            icon={Receipt}
+            title="Ringkasan Pembayaran"
+            description="Rincian biaya order"
+          />
+
+          <div className="p-4 sm:p-5">
+            <div className="divide-y divide-slate-100">
+              <InfoRow
+                label="Subtotal"
+                value={formatCurrency(order.subtotal)}
+              />
+
+              <InfoRow
+                label="Biaya Pengiriman"
+                value={formatCurrency(order.shippingCost)}
+              />
+
+              <div className="mt-2 flex items-center justify-between gap-4 border-t border-slate-200 pt-4">
+                <div>
+                  <p className="text-sm font-bold text-[var(--pisjo-navy)]">
+                    Total Pesanan
+                  </p>
+                </div>
+
+                <p className="text-xl font-extrabold text-[var(--pisjo-ocean)]">
+                  {formatCurrency(order.total)}
+                </p>
+              </div>
             </div>
           </div>
-
-          <span className="shrink-0 rounded-lg bg-[var(--pisjo-soft-blue)] px-2.5 py-1 text-xs font-bold text-[var(--pisjo-ocean)]">
-            × {item.quantity}
-          </span>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-          <span className="text-xs text-[var(--pisjo-text-secondary)]">Harga</span>
-          <span className="text-sm font-semibold text-[var(--pisjo-navy)]">
-            {formatCurrency(item.price)}
-          </span>
-        </div>
-
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <span className="text-xs text-[var(--pisjo-text-secondary)]">Subtotal</span>
-          <span className="text-sm font-bold text-[var(--pisjo-ocean)]">
-            {formatCurrency(item.subtotal)}
-          </span>
-        </div>
-
-        {item.customerNote?.trim() ? (
-          <p className="mt-3 text-xs leading-5 text-[var(--pisjo-text-secondary)]">
-            Catatan: {item.customerNote.trim()}
-          </p>
-        ) : null}
-      </article>
-    );
-  })}
-</div>
+        </section>
       </section>
+
       {/* TIMELINE */}
       <OrderTimeline
         createdAt={order.createdAt}
@@ -548,7 +781,20 @@ export default async function OrderDetailPage({
         paymentStatus={order.paymentStatus}
       />
 
-      {order.notes ? <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><SectionHeader icon={FileText} title="Catatan Order" description="Catatan tambahan dari order" /><div className="p-4 sm:p-5"><div className="whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-4 text-sm leading-6 text-[var(--pisjo-navy)]">{order.notes}</div></div></section> : null}
+      {order.notes ? (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <SectionHeader
+            icon={FileText}
+            title="Catatan Order"
+            description="Catatan tambahan dari order"
+          />
+          <div className="p-4 sm:p-5">
+            <div className="whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-4 text-sm leading-6 text-[var(--pisjo-navy)]">
+              {order.notes}
+            </div>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

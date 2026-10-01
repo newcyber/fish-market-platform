@@ -18,6 +18,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ProductSyncMenu from "@/components/admin/products/ProductSyncMenu";
 
 import {
   Select,
@@ -243,7 +244,7 @@ useEffect(() => {
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 lg:flex-row">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
@@ -257,7 +258,7 @@ useEffect(() => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:shrink-0">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:shrink-0">
             <Select
               value={statusValue}
               onValueChange={(value) => {
@@ -342,6 +343,20 @@ useEffect(() => {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <ProductSyncMenu />
+
+            <Link
+              href="/admin/products/create"
+              className="flex-1 sm:flex-none"
+            >
+              <Button className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Produk
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -370,15 +385,6 @@ useEffect(() => {
             )}
           </div>
 
-          <Link
-            href="/admin/products/create"
-            className="w-full sm:w-auto"
-          >
-            <Button className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Produk
-            </Button>
-          </Link>
         </div>
       </div>
     </div>

@@ -3156,6 +3156,58 @@ model WishlistItem {
 // STORE SETTINGS
 // ============================================================
 
+
+// ============================================================
+// PRODUCT GOOGLE SHEETS SYNC
+// ============================================================
+//
+// Konfigurasi singleton untuk sinkronisasi harga dan stok ProductSku
+// dari Google Sheets. Credential Google TIDAK disimpan di database;
+// gunakan environment variable/service secret di server.
+//
+// ============================================================
+
+model ProductGoogleSheetsSyncConfig {
+  id String @id @default(uuid())
+
+  /// Singleton key. Hanya satu konfigurasi aktif untuk marketplace.
+  key String @unique @default("default")
+
+  enabled Boolean @default(false)
+
+  /// Google Spreadsheet ID, bukan seluruh URL.
+  spreadsheetId String?
+
+  /// Nama worksheet/tab, contoh: Products.
+  sheetName String @default("Products")
+
+  /// Range relatif terhadap worksheet, contoh: A:C atau A1:C10000.
+  range String @default("A:C")
+
+  /// Kolom SKU pada range.
+  skuColumn String @default("A")
+
+  /// Kolom harga pada range.
+  priceColumn String @default("B")
+
+  /// Kolom stok pada range.
+  stockColumn String @default("C")
+
+  /// Baris header relatif terhadap hasil range, 1-based.
+  headerRow Int @default(1)
+
+  lastSyncAt DateTime?
+  lastSyncType String?
+  lastSyncStatus String?
+  lastSyncSummary Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled])
+  @@index([lastSyncAt])
+}
+
 model StoreSettings {
   id String @id @default(uuid())
 
