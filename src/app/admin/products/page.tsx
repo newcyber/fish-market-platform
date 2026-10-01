@@ -198,8 +198,38 @@ export default async function ProductsPage({
 
         sku: product.sku,
 
+        priceMin:
+          (() => {
+            const skuPrices = product.skus
+              .map((sku) => Number(sku.price))
+              .filter((price) => Number.isFinite(price));
+
+            return skuPrices.length > 0
+              ? Math.min(...skuPrices)
+              : Number(product.price);
+          })(),
+
+        priceMax:
+          (() => {
+            const skuPrices = product.skus
+              .map((sku) => Number(sku.price))
+              .filter((price) => Number.isFinite(price));
+
+            return skuPrices.length > 0
+              ? Math.max(...skuPrices)
+              : Number(product.price);
+          })(),
+
         price:
-          Number(product.price),
+          (() => {
+            const skuPrices = product.skus
+              .map((sku) => Number(sku.price))
+              .filter((price) => Number.isFinite(price));
+
+            return skuPrices.length > 0
+              ? Math.min(...skuPrices)
+              : Number(product.price);
+          })(),
 
         stock:
           product.stock,

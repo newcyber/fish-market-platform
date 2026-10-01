@@ -58,6 +58,8 @@ import type {
   ActionResult,
 } from "@/types/action-result";
 
+import ProductVideoUploadPanel from "@/components/admin/products/upload/ProductVideoUploadPanel";
+
 /**
  * ============================================================
  * CATEGORY OPTION
@@ -1332,6 +1334,19 @@ const previewHref =
       form.skus
     );
 
+  const lowestSkuPrice =
+    form.skus.length > 0
+      ? Math.min(
+          ...form.skus.map(
+            (sku) =>
+              Math.max(
+                0,
+                Number(sku.price) || 0
+              )
+          )
+        )
+      : 0;
+
     const hasVariants =
   form.variantGroups.length > 0;
 
@@ -1347,23 +1362,11 @@ const totalSkuStock =
       form.variantGroups;
 
     if (groups.length === 0) {
-      if (
-        form.weightGrams !== null &&
-        (
-          !Number.isInteger(
-            form.weightGrams
-          ) ||
-          form.weightGrams <= 0
-        )
-      ) {
-        event.preventDefault();
+      event.preventDefault();
 
-        window.alert(
-          "Berat produk harus berupa angka bulat lebih dari 0 gram."
-        );
-
-        return;
-      }
+      window.alert(
+        "Produk wajib memiliki minimal satu SKU karena harga produk ditentukan dari harga SKU terendah."
+      );
 
       return;
     }
@@ -1627,11 +1630,7 @@ const totalSkuStock =
         )}
 
       {showImageUpload && (
-        <>
-      {/* ====================================================== */}
-      {/* GAMBAR PRODUK */}
-      {/* ====================================================== */}
-
+        <div className="grid gap-5 md:grid-cols-2">
       <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -1723,10 +1722,41 @@ const totalSkuStock =
           </div>
         )}
       </Card>
+          <div className="min-w-0">
+            {afterImageUpload ??
+              (successData?.productId ? (
+                <ProductVideoUploadPanel
+                  productId={successData.productId}
+                />
+              ) : (
+                <Card className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-lg font-semibold">
+                      <span aria-hidden="true">🎬</span>
+                      Video Gallery
+                    </h2>
 
-          {afterImageUpload}
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      Upload video produk setelah produk berhasil disimpan.
+                      Format MP4 atau WebM, maksimal 50 MB per video.
+                    </p>
+                  </div>
 
-        </>
+                  <div className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center opacity-60">
+                    <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+
+                    <span className="text-sm font-medium">
+                      Upload video tersedia setelah produk disimpan
+                    </span>
+
+                    <span className="mt-1 text-xs text-muted-foreground">
+                      Simpan produk terlebih dahulu untuk mengaktifkan upload video.
+                    </span>
+                  </div>
+                </Card>
+              ))}
+          </div>
+        </div>
       )}
 
       {/* ====================================================== */}
@@ -2306,46 +2336,31 @@ const totalSkuStock =
           </h2>
 
           <p className="text-sm text-muted-foreground">
-            Harga dasar dan stok produk digunakan
-            sebagai fallback untuk produk tanpa varian.
+            Harga produk dihitung otomatis dari SKU dengan harga
+            paling rendah. Stok tetap dikelola sesuai SKU.
           </p>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="price">
-              Harga Dasar Produk
+            <Label>
+              Harga Produk
             </Label>
 
-            <Input
-              id="price"
-              name="price"
-              type="number"
-              min="0"
-              step="1"
-              value={form.price}
-              onChange={(
-                event
-              ) =>
-                setForm(
-                  (
-                    previous
-                  ) => ({
-                    ...previous,
+            <div className="rounded-lg border bg-muted/30 px-3 py-2.5">
+              <p className="font-semibold">
+                {form.skus.length > 0
+                  ? formatRupiah(
+                      lowestSkuPrice
+                    )
+                  : "Belum ada harga SKU"}
+              </p>
 
-                    price:
-                      Math.max(
-                        0,
-                        Number(
-                          event.target
-                            .value
-                        ) || 0
-                      ),
-                  })
-                )
-              }
-              required
-            />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Harga produk ditentukan otomatis dari harga SKU terendah.
+                Tidak perlu mengatur harga dasar secara terpisah.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -3232,6 +3247,13 @@ const totalSkuStock =
             value={JSON.stringify(
               skusPayload
             )}
+            readOnly
+          />
+
+          <input
+            type="hidden"
+            name="price"
+            value={lowestSkuPrice}
             readOnly
           />
         </Card>

@@ -69,6 +69,10 @@ export interface ProductTableItem {
 
   price: number;
 
+  priceMin: number;
+
+  priceMax: number;
+
   stock: number;
 
   stockItems: ProductStockItem[];
@@ -667,8 +671,9 @@ export function ProductTable({
                     </TableCell>
 
                     <TableCell className="text-right font-medium whitespace-nowrap">
-                      Rp{" "}
-                      {product.price.toLocaleString("id-ID")}
+                      {product.priceMin === product.priceMax
+                        ? `Rp ${product.priceMin.toLocaleString("id-ID")}`
+                        : `Rp ${product.priceMin.toLocaleString("id-ID")} - Rp ${product.priceMax.toLocaleString("id-ID")}`}
                     </TableCell>
 
                     <TableCell className="text-center">
@@ -751,8 +756,9 @@ export function ProductTable({
                       Harga
                     </p>
                     <p className="mt-0.5 font-semibold">
-                      Rp{" "}
-                      {product.price.toLocaleString("id-ID")}
+                      {product.priceMin === product.priceMax
+                        ? `Rp ${product.priceMin.toLocaleString("id-ID")}`
+                        : `Rp ${product.priceMin.toLocaleString("id-ID")} - Rp ${product.priceMax.toLocaleString("id-ID")}`}
                     </p>
                   </div>
 
