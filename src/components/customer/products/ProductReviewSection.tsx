@@ -89,7 +89,6 @@ export default function ProductReviewSection({
   const summary = initialSummary;
   const [rating, setRating] = useState(0);
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [review, setReview] = useState("");
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -128,7 +127,6 @@ export default function ProductReviewSection({
           },
           body: JSON.stringify({
             username,
-            email,
             rating,
             review,
             website,
@@ -150,7 +148,6 @@ export default function ProductReviewSection({
 
       setRating(0);
       setUsername("");
-      setEmail("");
       setReview("");
       setWebsite("");
     } catch (submitError) {
@@ -275,30 +272,6 @@ export default function ProductReviewSection({
                       autoComplete="name"
                       className="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                       placeholder="Nama Anda"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="product-review-email"
-                      className="text-sm font-medium text-slate-700"
-                    >
-                      Email{" "}
-                      <span className="text-red-500">*</span>
-                    </label>
-
-                    <input
-                      id="product-review-email"
-                      type="email"
-                      value={email}
-                      onChange={(event) =>
-                        setEmail(event.target.value)
-                      }
-                      required
-                      maxLength={160}
-                      autoComplete="email"
-                      className="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
-                      placeholder="nama@email.com"
                     />
                   </div>
                 </div>

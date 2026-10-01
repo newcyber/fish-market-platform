@@ -7,13 +7,6 @@ export const ProductReviewCreateSchema = z.object({
     .min(2, "Nama minimal 2 karakter.")
     .max(50, "Nama maksimal 50 karakter."),
 
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email("Email tidak valid.")
-    .max(160, "Email terlalu panjang."),
-
   rating: z.coerce
     .number()
     .int("Rating harus berupa bilangan bulat.")

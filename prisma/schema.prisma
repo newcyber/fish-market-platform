@@ -978,7 +978,7 @@ model ProductReview {
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   username String
-  email    String
+  email    String?
   rating   Int
   review   String?
 

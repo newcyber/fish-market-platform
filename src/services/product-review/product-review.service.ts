@@ -27,41 +27,10 @@ export class ProductReviewService {
       throw new Error("PRODUCT_NOT_FOUND");
     }
 
-    const now = new Date();
-    const duplicateWindow = new Date(
-      now.getTime() - 30 * 24 * 60 * 60 * 1000,
-    );
-
-    const duplicate =
-      await ProductReviewRepository.findRecentDuplicate(
-        productId,
-        input.email,
-        duplicateWindow,
-      );
-
-    if (duplicate) {
-      throw new Error("DUPLICATE_REVIEW");
-    }
-
-    const dailyWindow = new Date(
-      now.getTime() - 24 * 60 * 60 * 1000,
-    );
-
-    const dailyCount =
-      await ProductReviewRepository.countByEmailSince(
-        input.email,
-        dailyWindow,
-      );
-
-    if (dailyCount >= 5) {
-      throw new Error("REVIEW_RATE_LIMIT");
-    }
-
     return ProductReviewRepository.create({
       productId,
       userId,
       username: input.username,
-      email: input.email,
       rating: input.rating,
       review: input.review,
     });

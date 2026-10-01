@@ -46,7 +46,10 @@ export async function GET(
       data: summary,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "PRODUCT_NOT_FOUND") {
+    if (
+      error instanceof Error &&
+      error.message === "PRODUCT_NOT_FOUND"
+    ) {
       return errorResponse(
         "PRODUCT_NOT_FOUND",
         "Produk tidak ditemukan.",
@@ -71,25 +74,30 @@ export async function POST(
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const parsed = ProductReviewCreateSchema.safeParse(body);
+
+    const parsed =
+      ProductReviewCreateSchema.safeParse(body);
 
     if (!parsed.success) {
       return errorResponse(
         "VALIDATION_ERROR",
-        parsed.error.issues[0]?.message ?? "Data review tidak valid.",
+        parsed.error.issues[0]?.message ??
+          "Data review tidak valid.",
         400,
       );
     }
 
-    // Guest tetap diperbolehkan. Jika user sudah login, review dapat
-    // dikaitkan ke user tanpa mengubah alur guest review.
+    // Guest tetap diperbolehkan.
+    // Jika user sudah login, review dapat dikaitkan
+    // ke user tanpa mengubah alur guest review.
     const session = await auth();
 
-    const review = await ProductReviewService.submitGuestReview(
-      id,
-      parsed.data,
-      session?.user?.id ?? null,
-    );
+    const review =
+      await ProductReviewService.submitGuestReview(
+        id,
+        parsed.data,
+        session?.user?.id ?? null,
+      );
 
     return NextResponse.json(
       {
@@ -104,30 +112,15 @@ export async function POST(
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === "PRODUCT_NOT_FOUND") {
-        return errorResponse(
-          "PRODUCT_NOT_FOUND",
-          "Produk tidak ditemukan.",
-          404,
-        );
-      }
-
-      if (error.message === "DUPLICATE_REVIEW") {
-        return errorResponse(
-          "DUPLICATE_REVIEW",
-          "Anda sudah mengirim penilaian untuk produk ini. Silakan tunggu proses moderasi.",
-          409,
-        );
-      }
-
-      if (error.message === "REVIEW_RATE_LIMIT") {
-        return errorResponse(
-          "REVIEW_RATE_LIMIT",
-          "Terlalu banyak penilaian dari email ini. Silakan coba lagi nanti.",
-          429,
-        );
-      }
+    if (
+      error instanceof Error &&
+      error.message === "PRODUCT_NOT_FOUND"
+    ) {
+      return errorResponse(
+        "PRODUCT_NOT_FOUND",
+        "Produk tidak ditemukan.",
+        404,
+      );
     }
 
     console.error("[PRODUCT_REVIEW_POST_ERROR]", error);

@@ -76,53 +76,22 @@ export class ProductReviewRepository {
     };
   }
 
-  static async countByEmailSince(email: string, since: Date) {
-    return prisma.productReview.count({
-      where: {
-        email,
-        createdAt: { gte: since },
-      },
-    });
-  }
-
-  static async findRecentDuplicate(
-    productId: string,
-    email: string,
-    since: Date,
-  ) {
-    return prisma.productReview.findFirst({
-      where: {
-        productId,
-        email,
-        createdAt: { gte: since },
-        status: {
-          in: [
-            ProductReviewStatus.PENDING,
-            ProductReviewStatus.APPROVED,
-          ],
-        },
-      },
-      select: { id: true },
-    });
-  }
-
   static async create(data: {
-    productId: string;
-    userId?: string | null;
-    username: string;
-    email: string;
-    rating: number;
-    review?: string | null;
-  }) {
-    return prisma.productReview.create({
-      data: {
-        productId: data.productId,
-        userId: data.userId ?? null,
-        username: data.username,
-        email: data.email,
-        rating: data.rating,
-        review: data.review ?? null,
-        status: ProductReviewStatus.PENDING,
+  productId: string;
+  userId?: string | null;
+  username: string;
+  rating: number;
+  review?: string | null;
+}) {
+  return prisma.productReview.create({
+    data: {
+      productId: data.productId,
+      userId: data.userId ?? null,
+      username: data.username,
+      email: null,
+      rating: data.rating,
+      review: data.review ?? null,
+      status: ProductReviewStatus.PENDING,
       },
       select: {
         id: true,
