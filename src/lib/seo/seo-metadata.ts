@@ -54,6 +54,10 @@ export type SeoPageOverrides = {
   baseUrl?: string | null;
   noIndex?: boolean;
   noFollow?: boolean;
+  /** Force a public page to remain indexable even if global SEO settings are disabled. */
+  forceIndex?: boolean;
+  /** Force a public page to remain crawlable even if global SEO settings are disabled. */
+  forceFollow?: boolean;
 };
 
 /**
@@ -217,10 +221,18 @@ export function buildSeoMetadata(
    */
 
   const robotsIndex =
-    overrides.noIndex === true ? false : settings.seoRobotsIndex;
+    overrides.noIndex === true
+      ? false
+      : overrides.forceIndex === true
+        ? true
+        : settings.seoRobotsIndex;
 
   const robotsFollow =
-    overrides.noFollow === true ? false : settings.seoRobotsFollow;
+    overrides.noFollow === true
+      ? false
+      : overrides.forceFollow === true
+        ? true
+        : settings.seoRobotsFollow;
 
   /**
    * ==========================================================

@@ -146,6 +146,12 @@ export async function generateMetadata({
     ogTitle,
     ogDescription,
     image: productImage,
+    // Published product pages are core storefront content and must remain
+    // indexable/crawlable even if the global SEO toggle was accidentally
+    // disabled elsewhere in the admin settings. Unpublished/preview pages
+    // are handled separately above.
+    forceIndex: true,
+    forceFollow: true,
   });
 }
 

@@ -174,6 +174,22 @@ function resolveAvailability(product: ProductJsonLdInput): string {
     return "https://schema.org/PreOrder";
   }
 
+  // Variant products keep their real inventory on ProductSku.
+  // Using product.stock alone can incorrectly mark a product with
+  // available variants as OutOfStock in Google's structured data.
+  const activeSkus =
+    product.skus?.filter((sku) => sku.isActive !== false) ?? [];
+
+  if (activeSkus.length > 0) {
+    const hasAvailableSku = activeSkus.some(
+      (sku) => typeof sku.stock === "number" && sku.stock > 0,
+    );
+
+    return hasAvailableSku
+      ? "https://schema.org/InStock"
+      : "https://schema.org/OutOfStock";
+  }
+
   if (typeof product.stock === "number" && product.stock <= 0) {
     return "https://schema.org/OutOfStock";
   }
