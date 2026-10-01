@@ -1425,7 +1425,7 @@ class ProductGoogleSheetsSyncService {
       },
     });
 
-const candidates: PisjoSkuCandidate[] = skuRecords.map((record) => {
+    const candidates: PisjoSkuCandidate[] = skuRecords.map((record) => {
       const tokens = extractVariantTokens(
         record.skuOptions.map((item) => item.variantOption.label),
       );
@@ -1496,14 +1496,57 @@ const candidates: PisjoSkuCandidate[] = skuRecords.map((record) => {
         continue;
       }
 
-      const matches = productCandidates.filter(
-        (candidate) =>
-          candidate.weightTokens.includes(sourceWeight) &&
-          candidate.conditionTokens.includes(sourceCondition),
-      );
+      /**
+       * PISJO memiliki dua struktur SKU:
+       *
+       * CONDITION_BASED:
+       *   SKU memiliki weight + condition (UTUH/BERSIH).
+       *
+       * WEIGHT_ONLY:
+       *   SKU hanya memiliki weight tanpa condition.
+       *
+       * HARGA_JUAL_PISJO tetap menghasilkan condition dari posisi harga
+       * (harga pertama = UTUH, harga kedua = BERSIH). Namun condition hanya
+       * dipakai sebagai syarat matching jika product tersebut memang
+       * mempunyai SKU dengan condition.
+       */
+      const productGroups = new Map<string, PisjoSkuCandidate[]>();
+
+      for (const candidate of productCandidates) {
+        const group = productGroups.get(candidate.productId);
+
+        if (group) {
+          group.push(candidate);
+        } else {
+          productGroups.set(candidate.productId, [candidate]);
+        }
+      }
+
+      const matches: PisjoSkuCandidate[] = [];
+
+      for (const group of productGroups.values()) {
+        const isConditionBased = group.some(
+          (candidate) => candidate.conditionTokens.length > 0,
+        );
+
+        for (const candidate of group) {
+          if (!candidate.weightTokens.includes(sourceWeight)) {
+            continue;
+          }
+
+          if (
+            isConditionBased &&
+            !candidate.conditionTokens.includes(sourceCondition)
+          ) {
+            continue;
+          }
+
+          matches.push(candidate);
+        }
+      }
 
       /**
-       * Product sudah ditemukan, tetapi kombinasi weight + condition
+       * Product sudah ditemukan, tetapi kombinasi variant yang diperlukan
        * tidak memiliki ProductSku aktif yang dapat di-update.
        */
       if (matches.length === 0) {
@@ -1521,6 +1564,7 @@ const candidates: PisjoSkuCandidate[] = skuRecords.map((record) => {
             productCandidates: productCandidates.map((candidate) => ({
               sku: candidate.sku,
               productName: candidate.productName,
+              productId: candidate.productId,
               weightTokens: candidate.weightTokens,
               conditionTokens: candidate.conditionTokens,
             })),
