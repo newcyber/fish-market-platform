@@ -349,12 +349,26 @@ export default class OrderService {
    */
   private static generateOrderNumber() {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(now);
+
+    const getPart = (type: string) =>
+      parts.find((part) => part.type === type)?.value ?? "00";
+
+    const year = getPart("year");
+    const month = getPart("month");
+    const day = getPart("day");
+    const hours = getPart("hour");
+    const minutes = getPart("minute");
+    const seconds = getPart("second");
     const random = Math.floor(1000 + Math.random() * 9000);
     return `ORD-${year}${month}${day}-${hours}${minutes}${seconds}-${random}`;
   }

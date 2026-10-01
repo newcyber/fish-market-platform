@@ -94,6 +94,8 @@ export default async function OrdersTrashPage() {
                                 "medium",
                               timeStyle:
                                 "short",
+                              timeZone:
+                                "Asia/Jakarta",
                             }
                           ).format(
                             new Date(

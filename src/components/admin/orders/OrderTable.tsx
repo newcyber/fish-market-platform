@@ -205,6 +205,7 @@ function formatDate(
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Asia/Jakarta",
     }
   ).format(new Date(value));
 }
@@ -253,6 +254,7 @@ function formatMobileDate(
       day: "2-digit",
       month: "short",
       year: "numeric",
+      timeZone: "Asia/Jakarta",
     }
   ).format(date);
 
@@ -261,6 +263,7 @@ function formatMobileDate(
     {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Asia/Jakarta",
       hour12: false,
     }
   ).format(date);

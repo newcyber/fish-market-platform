@@ -41,6 +41,7 @@ function formatDate(value: string) {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
   }).format(new Date(value));
 }
 

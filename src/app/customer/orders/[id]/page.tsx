@@ -98,6 +98,7 @@ function formatDate(
     {
       dateStyle: "long",
       timeStyle: "short",
+      timeZone: "Asia/Jakarta",
     }
   ).format(date);
 }

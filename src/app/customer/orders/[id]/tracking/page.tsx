@@ -93,6 +93,7 @@ function formatDate(date: Date) {
     {
       dateStyle: "long",
       timeStyle: "short",
+      timeZone: "Asia/Jakarta",
     }
   ).format(date);
 }
@@ -110,6 +111,7 @@ function formatShortDate(date: Date) {
       day: "numeric",
       month: "short",
       year: "numeric",
+      timeZone: "Asia/Jakarta",
     }
   ).format(date);
 }
