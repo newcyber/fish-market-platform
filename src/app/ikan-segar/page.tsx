@@ -36,10 +36,10 @@ import {
 const PAGE_PATH = "/ikan-segar";
 
 const DEFAULT_TITLE =
-  "Ikan Segar Online | PISJO - Pusat Ikan Segar";
+  "Ikan Segar Jogja | Pusat Ikan Segar PISJO";
 
 const DEFAULT_DESCRIPTION =
-  "Temukan pilihan ikan segar berkualitas di PISJO. Jelajahi berbagai kategori ikan, lihat produk pilihan, dan belanja ikan segar secara online.";
+  "Belanja ikan segar Jogja di PISJO Market. Temukan ikan laut, ikan air tawar, seafood, dan pilihan frozen food berkualitas untuk kebutuhan rumah tangga maupun usaha.";
 
 function buildSeoSettings(
   settings: Awaited<
@@ -72,7 +72,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const description =
     settings.storeDescription?.trim()
-      ? `Temukan ikan segar berkualitas di ${storeName}. Jelajahi pilihan produk ikan, kategori, dan belanja ikan segar secara online.`
+      ? `Belanja ikan segar Jogja di ${storeName}. Temukan ikan laut, ikan air tawar, seafood, dan pilihan frozen food berkualitas secara online.`
       : DEFAULT_DESCRIPTION;
 
   return buildSeoMetadata(
@@ -82,12 +82,12 @@ export async function generateMetadata(): Promise<Metadata> {
       title:
         storeName === "PISJO"
           ? DEFAULT_TITLE
-          : `Ikan Segar Online | ${storeName}`,
+          : `Ikan Segar Jogja | ${storeName}`,
       description,
       ogTitle:
         storeName === "PISJO"
           ? DEFAULT_TITLE
-          : `Ikan Segar Online | ${storeName}`,
+          : `Ikan Segar Jogja | ${storeName}`,
       ogDescription: description,
     },
   );
@@ -295,8 +295,8 @@ export default async function FreshFishLandingPage() {
     url: pageUrl,
     name:
       storeName === "PISJO"
-        ? "Ikan Segar Online"
-        : `Ikan Segar Online | ${storeName}`,
+        ? "Ikan Segar Jogja | Pusat Ikan Segar PISJO"
+        : `Ikan Segar Jogja | ${storeName}`,
     description: pageDescription,
     inLanguage: "id-ID",
         isPartOf: {
@@ -326,9 +326,7 @@ export default async function FreshFishLandingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
-            structuredData,
-          ),
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
         }}
       />
 
@@ -376,7 +374,7 @@ export default async function FreshFishLandingPage() {
             </div>
 
             <h1 className="max-w-3xl text-3xl font-black tracking-tight text-(--ocean-950) sm:text-4xl lg:text-5xl">
-              Ikan Segar Online untuk Pilihan Makan Anda
+              Ikan Segar Online di Jogja
             </h1>
 
             <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">

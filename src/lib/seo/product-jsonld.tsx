@@ -386,6 +386,11 @@ export function buildProductJsonLd(
       highPrice,
       offerCount: prices.length,
       availability: resolveAvailability(product),
+      itemCondition: "https://schema.org/NewCondition",
+      seller: {
+        "@type": "Organization",
+        name: options.storeName,
+      },
     };
   }
 

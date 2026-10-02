@@ -140,18 +140,17 @@ export async function generateMetadata({
     });
   }
 
+  const storeName = settings.storeName?.trim() || "Pisjo Market";
+
   const title = selectedCategory
-    ? `${selectedCategory.name} | ${settings.storeName?.trim() || "Pisjo Market Platform"}`
-    : settings.seoTitle?.trim() ||
-      `Produk | ${settings.storeName?.trim() || "Pisjo Market Platform"}`;
+    ? `${selectedCategory.name} | ${storeName}`
+    : `Produk Ikan & Seafood | ${storeName}`;
 
   const description = selectedCategory
     ? `Temukan berbagai produk ${selectedCategory.name} berkualitas di ${
         settings.storeName?.trim() || "Pisjo Market Platform"
       }.`
-    : settings.seoDescription?.trim() ||
-      settings.storeDescription?.trim() ||
-      "Modern Pisjo Marketplace";
+    : "Belanja ikan segar, seafood, dan frozen food berkualitas di Pisjo Market. Pilih produk, lihat stok, dan pesan secara online di Jogja.";
 
   const pathname = selectedCategory
     ? `/products?category=${encodeURIComponent(
@@ -163,6 +162,12 @@ export async function generateMetadata({
     pathname,
     title,
     description,
+    // Filter URLs are useful for navigation but are not dedicated
+    // landing pages yet. Keep them crawlable for discovery while
+    // preventing duplicate/thin category variants from competing
+    // with the main /products page.
+    noIndex: Boolean(selectedCategory),
+    forceFollow: Boolean(selectedCategory),
   });
 }
 

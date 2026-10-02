@@ -115,9 +115,7 @@ export async function generateMetadata({
 
   const productDescription =
     product.description?.trim() ||
-    settings.seoDescription?.trim() ||
-    settings.storeDescription?.trim() ||
-    "Modern Pisjo Marketplace";
+    `Beli ${product.name.trim()} secara online di ${storeName}. Cek harga, stok, dan pilihan produk ikan atau seafood di Pisjo Market Jogja.`;
 
   const productImage = product.images
     .filter(
@@ -141,7 +139,7 @@ export async function generateMetadata({
   return buildSeoMetadata(seoSettings, {
     pathname: `/products/${product.slug}`,
     baseUrl: siteUrls.storefrontUrl,
-    title: `${productName} | ${storeName}`,
+    title: `${productName} | ${storeName} Jogja`,
     description: productDescription,
     ogTitle,
     ogDescription,

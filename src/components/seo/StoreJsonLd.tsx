@@ -61,7 +61,7 @@ export default function StoreJsonLd({
   ].filter((value): value is string => Boolean(value?.trim()));
 
   const organization: Record<string, unknown> = {
-    "@type": "Organization",
+    "@type": ["Organization", "LocalBusiness", "Store"],
     "@id": `${normalizedSiteUrl}/#organization`,
     name: storeName,
     url: normalizedSiteUrl,
@@ -135,7 +135,7 @@ export default function StoreJsonLd({
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(pageSchema),
+        __html: JSON.stringify(pageSchema).replace(/</g, "\\u003c"),
       }}
     />
   );
