@@ -7,7 +7,7 @@ import { Check, Loader2, X } from "lucide-react";
 interface AdminReview {
   id: string;
   username: string;
-  email: string;
+  email: string | null;
   rating: number;
   review: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
@@ -33,7 +33,11 @@ const filters = [
   { value: "REJECTED", label: "Rejected" },
 ];
 
-function maskEmail(email: string) {
+function maskEmail(email: string | null | undefined) {
+  if (!email) {
+    return "Email tidak tersedia";
+  }
+
   const [local, domain] = email.split("@");
 
   if (!local || !domain) {
