@@ -402,16 +402,19 @@ export function SidebarItem({
   );
 
   /**
-   * Transaction harus selalu terbuka karena
-   * Orders dan Payments menampilkan notification badge.
+   * Transaction dapat di-expand / minimize secara manual.
+   *
+   * Pengecualian: saat Dashboard sedang aktif, Transaction
+   * harus tetap terbuka sesuai behavior admin dashboard.
+   * Notification badge Orders / Payments tetap dipolling
+   * terlepas dari kondisi submenu terbuka atau tertutup.
    */
-  const isAlwaysOpen =
-    item.id === "transactions";
+  const isDashboardOpen =
+    item.id === "transactions" &&
+    pathname === "/admin";
 
   const isSubmenuOpen =
-    isAlwaysOpen ||
-    isOpen ||
-    isChildActive;
+    isDashboardOpen || isOpen;
 
   /**
    * ==========================================================
@@ -444,7 +447,7 @@ export function SidebarItem({
         <button
           type="button"
           onClick={() => {
-            if (isAlwaysOpen) {
+            if (isDashboardOpen) {
               return;
             }
 
