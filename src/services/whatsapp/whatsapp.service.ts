@@ -11,30 +11,41 @@ import type {
   WhatsAppStatusResponse,
 } from "./whatsapp.types";
 
-class WhatsAppService {
-  private normalizePhone(phone: string): string {
-    let normalized = phone.replace(/\D/g, "");
+export function normalizeWhatsAppPhone(phone: string): string {
+  let normalized = phone.trim().replace(/\D/g, "");
 
-    if (normalized.startsWith("0")) {
-      normalized = `62${normalized.slice(1)}`;
-    }
-
-    if (normalized.startsWith("8")) {
-      normalized = `62${normalized}`;
-    }
-
-    if (!normalized.startsWith("62")) {
-      throw new Error(
-        "Invalid WhatsApp phone number. Use Indonesian format such as 628xxxxxxxxxx.",
-      );
-    }
-
-    if (normalized.length < 10 || normalized.length > 15) {
-      throw new Error("Invalid WhatsApp phone number length.");
-    }
-
-    return normalized;
+  if (normalized.startsWith("0")) {
+    normalized = `62${normalized.slice(1)}`;
   }
+
+  if (normalized.startsWith("8")) {
+    normalized = `62${normalized}`;
+  }
+
+  if (!normalized.startsWith("62")) {
+    throw new Error(
+      "Invalid WhatsApp phone number. Use Indonesian format such as 628xxxxxxxxxx.",
+    );
+  }
+
+  if (normalized.length < 10 || normalized.length > 15) {
+    throw new Error("Invalid WhatsApp phone number length.");
+  }
+
+  return normalized;
+}
+
+export class WhatsAppGatewayError extends Error {
+  readonly statusCode: number | null;
+
+  constructor(message: string, statusCode: number | null = null) {
+    super(message);
+    this.name = "WhatsAppGatewayError";
+    this.statusCode = statusCode;
+  }
+}
+
+class WhatsAppService {
 
   private async request<T>(
     path: string,
@@ -70,8 +81,9 @@ class WhatsAppService {
       try {
         parsed = body ? JSON.parse(body) : null;
       } catch {
-        throw new Error(
+        throw new WhatsAppGatewayError(
           `WhatsApp gateway returned invalid JSON. HTTP ${response.status}.`,
+          response.status,
         );
       }
 
@@ -84,7 +96,7 @@ class WhatsAppService {
             ? parsed.error
             : `WhatsApp gateway HTTP ${response.status}.`;
 
-        throw new Error(errorMessage);
+        throw new WhatsAppGatewayError(errorMessage, response.status);
       }
 
       return parsed as T;
@@ -171,7 +183,7 @@ class WhatsAppService {
   async sendText(
     input: WhatsAppSendTextInput,
   ): Promise<WhatsAppSendTextResult> {
-    const phone = this.normalizePhone(input.phone);
+    const phone = normalizeWhatsAppPhone(input.phone);
     const message = input.message.trim();
 
     if (!message) {

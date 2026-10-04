@@ -774,6 +774,27 @@ export class OrderRepository {
         paymentProof: true,
 
         paymentChannel: true,
+
+        courierAssignments: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            courier: {
+              select: {
+                name: true,
+              },
+            },
+            events: {
+              orderBy: { createdAt: "asc" },
+              select: {
+                id: true,
+                type: true,
+                toStatus: true,
+                note: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
       },
     });
   }

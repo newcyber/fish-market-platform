@@ -35,6 +35,7 @@ export interface UpdateSettingsPayload {
   storefrontUrl?: string | null;
 
   footerDescription?: string | null;
+  tierSystemEnabled?: boolean;
 
   /**
    * ==========================================================
@@ -300,6 +301,15 @@ export interface UpdateWapiOrderNotificationSettingsPayload {
   wapiOrderNotificationTemplate?: string | null;
 }
 
+export interface UpdateWapiCustomerNotificationSettingsPayload {
+  wapiCustomerNotificationEnabled?: boolean;
+  wapiCustomerOrderCreatedEnabled?: boolean;
+  wapiCustomerOrderStatusEnabled?: boolean;
+  wapiCustomerPaymentVerifiedEnabled?: boolean;
+  wapiCustomerPaymentRejectedEnabled?: boolean;
+  wapiCustomerRewardPointsEnabled?: boolean;
+}
+
 /**
  * ============================================================
  * UPDATE IMAGE BANNER SETTINGS PAYLOAD
@@ -486,6 +496,7 @@ class SettingsRepository {
         storeDescription: null,
 
         footerDescription: null,
+        tierSystemEnabled: true,
 
         /**
          * ------------------------------------------------------
@@ -720,6 +731,71 @@ class SettingsRepository {
       ...(data.wapiOrderNotificationTemplate !== undefined && {
         wapiOrderNotificationTemplate:
           data.wapiOrderNotificationTemplate,
+      }),
+    };
+
+    return prisma.storeSettings.update({
+      where: {
+        id: settings.id,
+      },
+      data: updateData,
+    });
+  }
+
+  /**
+   * ============================================================
+   * GET WAPI CUSTOMER NOTIFICATION SETTINGS
+   * ============================================================
+   *
+   * Global kill switch untuk WhatsApp transactional customer.
+   * Terpisah dari preferensi WAPI masing-masing customer.
+   */
+  async getWapiCustomerNotificationSettings() {
+    const settings = await this.getOrCreate();
+
+    return {
+      enabled: settings.wapiCustomerNotificationEnabled,
+      events: {
+        ORDER_CREATED: settings.wapiCustomerOrderCreatedEnabled,
+        ORDER_STATUS: settings.wapiCustomerOrderStatusEnabled,
+        PAYMENT_VERIFIED: settings.wapiCustomerPaymentVerifiedEnabled,
+        PAYMENT_REJECTED: settings.wapiCustomerPaymentRejectedEnabled,
+        REWARD_POINTS: settings.wapiCustomerRewardPointsEnabled,
+      },
+    };
+  }
+
+  /**
+   * ============================================================
+   * UPDATE WAPI CUSTOMER NOTIFICATION SETTINGS
+   * ============================================================
+   */
+  async updateWapiCustomerNotificationSettings(
+    data: UpdateWapiCustomerNotificationSettingsPayload,
+  ) {
+    const settings = await this.getOrCreate();
+
+    const updateData = {
+      ...(data.wapiCustomerNotificationEnabled !== undefined && {
+        wapiCustomerNotificationEnabled:
+          data.wapiCustomerNotificationEnabled,
+      }),
+      ...(data.wapiCustomerOrderCreatedEnabled !== undefined && {
+        wapiCustomerOrderCreatedEnabled: data.wapiCustomerOrderCreatedEnabled,
+      }),
+      ...(data.wapiCustomerOrderStatusEnabled !== undefined && {
+        wapiCustomerOrderStatusEnabled: data.wapiCustomerOrderStatusEnabled,
+      }),
+      ...(data.wapiCustomerPaymentVerifiedEnabled !== undefined && {
+        wapiCustomerPaymentVerifiedEnabled:
+          data.wapiCustomerPaymentVerifiedEnabled,
+      }),
+      ...(data.wapiCustomerPaymentRejectedEnabled !== undefined && {
+        wapiCustomerPaymentRejectedEnabled:
+          data.wapiCustomerPaymentRejectedEnabled,
+      }),
+      ...(data.wapiCustomerRewardPointsEnabled !== undefined && {
+        wapiCustomerRewardPointsEnabled: data.wapiCustomerRewardPointsEnabled,
       }),
     };
 
@@ -1096,6 +1172,13 @@ async updateImagePopup(
 
         storeName:
           data.storeName,
+
+        // Preserve the current database value when the field is omitted.
+        // FALSE is a valid persisted value and must never be converted
+        // back to TRUE by an update payload.
+        ...(data.tierSystemEnabled !== undefined
+          ? { tierSystemEnabled: data.tierSystemEnabled }
+          : {}),
 
         storeDescription:
           data.storeDescription ?? null,

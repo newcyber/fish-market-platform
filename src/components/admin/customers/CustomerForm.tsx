@@ -176,10 +176,14 @@ export default function CustomerForm({
               <SelectContent>
                 <SelectItem value="CUSTOMER">
                   Customer
-                </SelectItem>
+                  </SelectItem>
 
-                <SelectItem value="ADMIN">
-                  Admin
+                  <SelectItem value="ADMIN">
+                    Admin
+                  </SelectItem>
+
+                <SelectItem value="COURIER">
+                  Kurir Internal
                 </SelectItem>
               </SelectContent>
             </Select>

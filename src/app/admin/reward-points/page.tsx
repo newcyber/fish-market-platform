@@ -16,13 +16,14 @@ export default async function RewardPointPage() {
         </h1>
 
         <p className="mt-2 text-sm text-slate-500">
-          Atur jumlah poin reward yang diberikan berdasarkan berat
-          produk yang dibeli customer.
+          Atur reward pembelian berdasarkan berat produk dan bonus
+          poin untuk customer baru yang berhasil memverifikasi akun.
         </p>
       </div>
 
       <RewardPointSettingsForm
         initialPointsPerKg={settings.pointsPerKg}
+        initialSignupBonusPoints={settings.signupBonusPoints}
       />
     </div>
   );

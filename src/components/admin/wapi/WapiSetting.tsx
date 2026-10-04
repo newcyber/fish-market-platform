@@ -45,6 +45,56 @@ interface OrderNotificationSettings {
   maxLength: number;
 }
 
+type CustomerWapiEventKey =
+  | "ORDER_CREATED"
+  | "ORDER_STATUS"
+  | "PAYMENT_VERIFIED"
+  | "PAYMENT_REJECTED"
+  | "REWARD_POINTS";
+
+interface CustomerNotificationEvents {
+  ORDER_CREATED: boolean;
+  ORDER_STATUS: boolean;
+  PAYMENT_VERIFIED: boolean;
+  PAYMENT_REJECTED: boolean;
+  REWARD_POINTS: boolean;
+}
+
+interface CustomerNotificationResponse {
+  success: boolean;
+  data?: {
+    enabled: boolean;
+    events: CustomerNotificationEvents;
+  };
+  error?: string;
+}
+
+const CUSTOMER_WAPI_EVENT_LABELS: Record<
+  CustomerWapiEventKey,
+  { title: string; description: string }
+> = {
+  ORDER_CREATED: {
+    title: "Pesanan dibuat",
+    description: "Kirim WhatsApp ketika customer berhasil membuat pesanan.",
+  },
+  ORDER_STATUS: {
+    title: "Perubahan status pesanan",
+    description: "Kirim WhatsApp ketika status pesanan berubah.",
+  },
+  PAYMENT_VERIFIED: {
+    title: "Pembayaran diverifikasi",
+    description: "Kirim WhatsApp ketika pembayaran customer berhasil diverifikasi.",
+  },
+  PAYMENT_REJECTED: {
+    title: "Pembayaran ditolak",
+    description: "Kirim WhatsApp ketika bukti pembayaran customer ditolak.",
+  },
+  REWARD_POINTS: {
+    title: "Reward points",
+    description: "Kirim WhatsApp ketika customer mendapatkan reward points.",
+  },
+};
+
 interface OrderNotificationResponse {
   success: boolean;
   data?: OrderNotificationSettings;
@@ -89,6 +139,27 @@ export function WapiSetting() {
   const [notificationMessage, setNotificationMessage] = useState<string | null>(
     null,
   );
+
+  const [customerNotificationEnabled, setCustomerNotificationEnabled] =
+    useState(true);
+
+  const [customerNotificationEvents, setCustomerNotificationEvents] =
+    useState<CustomerNotificationEvents>({
+      ORDER_CREATED: true,
+      ORDER_STATUS: true,
+      PAYMENT_VERIFIED: true,
+      PAYMENT_REJECTED: true,
+      REWARD_POINTS: true,
+    });
+
+  const [customerNotificationLoading, setCustomerNotificationLoading] =
+    useState(false);
+
+  const [customerNotificationSaving, setCustomerNotificationSaving] =
+    useState(false);
+
+  const [customerNotificationMessage, setCustomerNotificationMessage] =
+    useState<string | null>(null);
 
   const loadNotificationSettings = useCallback(async () => {
     setNotificationLoading(true);
@@ -177,6 +248,91 @@ export function WapiSetting() {
       );
     } finally {
       setNotificationSaving(false);
+    }
+  };
+
+  const loadCustomerNotificationSettings = useCallback(async () => {
+    setCustomerNotificationLoading(true);
+
+    try {
+      const response = await fetch(
+        "/api/admin/settings/wapi/customer-notification",
+        {
+          cache: "no-store",
+        },
+      );
+
+      const result = (await response.json()) as CustomerNotificationResponse;
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(
+          result.error ||
+            "Gagal mengambil status notifikasi WhatsApp customer.",
+        );
+      }
+
+      setCustomerNotificationEnabled(result.data.enabled);
+      setCustomerNotificationEvents(result.data.events);
+      setCustomerNotificationMessage(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengambil status notifikasi WhatsApp customer.",
+      );
+    } finally {
+      setCustomerNotificationLoading(false);
+    }
+  }, []);
+
+  const handleSaveCustomerNotification = async () => {
+    setCustomerNotificationSaving(true);
+    setCustomerNotificationMessage(null);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        "/api/admin/settings/wapi/customer-notification",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            enabled: customerNotificationEnabled,
+            orderCreated: customerNotificationEvents.ORDER_CREATED,
+            orderStatus: customerNotificationEvents.ORDER_STATUS,
+            paymentVerified: customerNotificationEvents.PAYMENT_VERIFIED,
+            paymentRejected: customerNotificationEvents.PAYMENT_REJECTED,
+            rewardPoints: customerNotificationEvents.REWARD_POINTS,
+          }),
+        },
+      );
+
+      const result = (await response.json()) as CustomerNotificationResponse;
+
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(
+          result.error ||
+            "Gagal menyimpan status notifikasi WhatsApp customer.",
+        );
+      }
+
+      setCustomerNotificationEnabled(result.data.enabled);
+      setCustomerNotificationEvents(result.data.events);
+      setCustomerNotificationMessage(
+        result.data.enabled
+          ? "Notifikasi WhatsApp customer berhasil diaktifkan."
+          : "Notifikasi WhatsApp customer berhasil dinonaktifkan.",
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal menyimpan status notifikasi WhatsApp customer.",
+      );
+    } finally {
+      setCustomerNotificationSaving(false);
     }
   };
 
@@ -278,6 +434,16 @@ export function WapiSetting() {
       window.clearTimeout(timeout);
     };
   }, [loadNotificationSettings]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void loadCustomerNotificationSettings();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [loadCustomerNotificationSettings]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -468,7 +634,144 @@ export function WapiSetting() {
             </div>
 
             <div>
-              <h2 className="font-semibold">Template Notifikasi Pesanan</h2>
+              <h2 className="font-semibold">
+                Notifikasi WhatsApp Customer
+              </h2>
+
+              <p className="text-sm text-muted-foreground">
+                Kontrol global untuk seluruh notifikasi WhatsApp transaksional
+                kepada customer.
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-5">
+          {customerNotificationLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Memuat status notifikasi customer...
+            </div>
+          ) : (
+            <>
+              <label className="flex items-center justify-between gap-4 rounded-xl border p-4">
+                <div>
+                  <p className="font-medium">
+                    Aktifkan notifikasi WhatsApp customer
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Jika OFF, sistem tidak akan mengirim event WhatsApp
+                    transaksional customer seperti pesanan dibuat, pembayaran
+                    diverifikasi, perubahan status pesanan, dan reward points.
+                    Notifikasi database dan Web Push tetap berjalan.
+                  </p>
+                </div>
+
+                <input
+                  type="checkbox"
+                  checked={customerNotificationEnabled}
+                  onChange={(event) =>
+                    setCustomerNotificationEnabled(event.target.checked)
+                  }
+                  disabled={customerNotificationSaving}
+                  className="h-5 w-5 accent-green-600"
+                />
+              </label>
+
+              <div
+                className={
+                  customerNotificationEnabled
+                    ? "rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-700"
+                    : "rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700"
+                }
+              >
+                {customerNotificationEnabled
+                  ? "ON — WhatsApp transactional customer aktif. Preferensi OFF milik customer tetap dihormati."
+                  : "OFF — seluruh WhatsApp transactional customer diblokir sampai admin mengaktifkannya kembali."}
+              </div>
+
+              {customerNotificationMessage && (
+                <div className="rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-700">
+                  {customerNotificationMessage}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <p className="font-medium">Kontrol per event</p>
+                  <p className="text-sm text-muted-foreground">
+                    Matikan hanya jenis pesan tertentu tanpa mematikan seluruh
+                    notifikasi WhatsApp customer.
+                  </p>
+                </div>
+
+                {(Object.keys(CUSTOMER_WAPI_EVENT_LABELS) as CustomerWapiEventKey[]).map(
+                  (eventType) => {
+                    const item = CUSTOMER_WAPI_EVENT_LABELS[eventType];
+
+                    return (
+                      <label
+                        key={eventType}
+                        className="flex items-center justify-between gap-4 rounded-xl border p-4"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium">{item.title}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.description}
+                          </p>
+                        </div>
+
+                        <input
+                          type="checkbox"
+                          checked={customerNotificationEvents[eventType]}
+                          onChange={(event) =>
+                            setCustomerNotificationEvents((current) => ({
+                              ...current,
+                              [eventType]: event.target.checked,
+                            }))
+                          }
+                          disabled={
+                            customerNotificationSaving ||
+                            customerNotificationLoading
+                          }
+                          className="h-5 w-5 accent-green-600"
+                        />
+                      </label>
+                    );
+                  },
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={handleSaveCustomerNotification}
+                  disabled={
+                    customerNotificationSaving ||
+                    customerNotificationLoading
+                  }
+                >
+                  {customerNotificationSaving && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Simpan Pengaturan Customer
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
+              <MessageCircle className="h-6 w-6" />
+            </div>
+
+            <div>
+              <h2 className="font-semibold">Template Admin Notification</h2>
 
               <p className="text-sm text-muted-foreground">
                 Atur pesan WhatsApp otomatis ketika pesanan baru dibuat.

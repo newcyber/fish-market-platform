@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { isMemberTierEnabled } from "@/services/member-tier/member-tier-feature.service";
 import {
   MemberTierRepository,
   type MemberTierRepositoryCreateInput,
@@ -129,6 +130,11 @@ async function validateUniqueRules(
 }
 
 export class AdminMemberTierService {
+  static async getSystemStatus() {
+    return isMemberTierEnabled();
+  }
+
+
   static async getAll() {
     return MemberTierRepository.seedDefaultsIfEmpty();
   }

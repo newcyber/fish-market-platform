@@ -6,6 +6,8 @@ import CustomerService from "@/services/customer/customer.service";
 import { EmailVerificationOtpRepository } from "@/repositories/email-verification-otp.repository";
 import { UserRepository } from "@/repositories/user.repository";
 import { whatsappService } from "@/services/whatsapp/whatsapp.service";
+import { prisma } from "@/lib/prisma";
+import { awardSignupRewardPointsTx } from "@/services/reward-point/reward-point.service";
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRES_IN_MINUTES = 10;
@@ -280,15 +282,34 @@ try {
       throw new Error("INVALID_OTP");
     }
 
-    await EmailVerificationOtpRepository.markAsUsed(
-      verificationOtp.id,
-    );
+    return prisma.$transaction(
+      async (tx) => {
+        const updatedUser =
+          await tx.user.update({
+            where: {
+              id: user.id,
+            },
 
-    return UserRepository.update(user.id, {
-      name: normalizedName,
-      isActive: true,
-      emailVerified: new Date(),
-    });
+            data: {
+              name: normalizedName,
+              isActive: true,
+              emailVerified: new Date(),
+            },
+          });
+
+        await EmailVerificationOtpRepository.markAsUsed(
+          verificationOtp.id,
+          tx,
+        );
+
+        await awardSignupRewardPointsTx(
+          tx,
+          user.id,
+        );
+
+        return updatedUser;
+      },
+    );
   }
 }
 

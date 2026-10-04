@@ -3282,20 +3282,60 @@ export default class OrderService {
     if (!id) {
       throw new Error("Order ID wajib diisi.");
     }
-    return prisma.$transaction(async (tx) => {
+
+    const cancelledOrder = await prisma.$transaction(async (tx) => {
       return this.cancelOrderInTransaction(tx, id);
     });
+
+    try {
+      if (cancelledOrder.userId) {
+        await notificationService.createCustomerOrderStatusNotification({
+          userId: cancelledOrder.userId,
+          orderId: cancelledOrder.id,
+          orderNumber: cancelledOrder.orderNumber,
+          status: OrderStatus.CANCELLED,
+        });
+      }
+    } catch (notificationError) {
+      console.error(
+        "[CUSTOMER_ORDER_CANCELLED_NOTIFICATION_ERROR]",
+        notificationError,
+      );
+    }
+
+    return cancelledOrder;
   }
+
   static async cancelOrderForUser(id: string, userId: string) {
     if (!id) {
       throw new Error("Order ID wajib diisi.");
     }
+
     if (!userId) {
       throw new Error("Customer wajib diidentifikasi.");
     }
-    return prisma.$transaction(async (tx) => {
+
+    const cancelledOrder = await prisma.$transaction(async (tx) => {
       return this.cancelOrderInTransaction(tx, id, userId);
     });
+
+    try {
+      if (cancelledOrder.userId) {
+        await notificationService.createCustomerOrderStatusNotification({
+          userId: cancelledOrder.userId,
+          orderId: cancelledOrder.id,
+          orderNumber: cancelledOrder.orderNumber,
+          status: OrderStatus.CANCELLED,
+        });
+      }
+    } catch (notificationError) {
+      console.error(
+        "[CUSTOMER_ORDER_CANCELLED_NOTIFICATION_FOR_USER_ERROR]",
+        notificationError,
+      );
+    }
+
+    return cancelledOrder;
   }
   /**
    * ============================================================
@@ -5761,6 +5801,36 @@ export default class OrderService {
          */
         console.error("[CREATE_ORDER_NOTIFICATION_ERROR]", notificationError);
       }
+
+      /**
+       * ========================================================
+       * CUSTOMER ORDER CREATED NOTIFICATION
+       * ========================================================
+       *
+       * Order baru sebelumnya hanya memicu notifikasi ADMIN.
+       * Customer baru menerima WAPI setelah status berubah,
+       * sehingga checkout sukses tidak menghasilkan WhatsApp
+       * transactional ke customer.
+       *
+       * Event ini dijalankan setelah transaction order commit.
+       * Kegagalan WAPI tidak menggagalkan order.
+       */
+      try {
+        if (order.userId) {
+          await notificationService.createCustomerOrderCreatedNotification({
+            userId: order.userId,
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            totalAmount: Number(order.total),
+          });
+        }
+      } catch (notificationError) {
+        console.error(
+          "[CUSTOMER_ORDER_CREATED_NOTIFICATION_ERROR]",
+          notificationError,
+        );
+      }
+
       /**
        * ========================================================
        * SUCCESS

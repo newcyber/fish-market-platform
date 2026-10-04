@@ -35,6 +35,7 @@ export default async function AdminSettingsPage() {
     storeName: rawSettings.storeName,
     storeDescription: rawSettings.storeDescription,
     footerDescription: rawSettings.footerDescription,
+    tierSystemEnabled: rawSettings.tierSystemEnabled,
 
     landingPageUrl: rawSettings.landingPageUrl,
     storefrontUrl: rawSettings.storefrontUrl,

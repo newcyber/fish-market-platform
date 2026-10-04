@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { EmailVerificationOtpRepository } from "@/repositories/email-verification-otp.repository";
 import { UserRepository } from "@/repositories/user.repository";
+import { awardSignupRewardPointsTx } from "@/services/reward-point/reward-point.service";
 
 /**
  * ============================================================
@@ -364,6 +365,11 @@ private static readonly RESEND_COOLDOWN_SECONDS = 60;
         await EmailVerificationOtpRepository.markAsUsed(
           verificationOtp.id,
           tx
+        );
+
+        await awardSignupRewardPointsTx(
+          tx,
+          userId,
         );
       }
     );

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isMemberTierEnabled } from "@/services/member-tier/member-tier-feature.service";
 
 const MEMBERSHIP_PERIOD_DAYS = 365;
 
@@ -118,7 +119,11 @@ async function getActiveTiers(): Promise<TierLike[]> {
 
 export async function getCustomerMemberTierSummary(
   userId: string,
-): Promise<CustomerMemberTierSummary> {
+): Promise<CustomerMemberTierSummary | null> {
+  const enabled = await isMemberTierEnabled();
+
+  if (!enabled) return null;
+
   const periodEnd = new Date();
   const periodStart = new Date(periodEnd);
   periodStart.setDate(periodStart.getDate() - MEMBERSHIP_PERIOD_DAYS);

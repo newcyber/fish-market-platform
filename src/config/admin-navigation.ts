@@ -76,6 +76,15 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         roles: SUPER_ADMIN_ONLY,
         order: 2,
       },
+
+      {
+        id: "couriers",
+        title: "Kurir Internal",
+        href: "/admin/couriers",
+        icon: "couriers",
+        roles: ADMIN_ROLES,
+        order: 3,
+      },
     ],
   },
 
@@ -382,12 +391,30 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       },
 
       {
+        id: "wapi-customer-command-center",
+        title: "WAPI Customer Center",
+        href: "/admin/notifications/wapi-customer-deliveries",
+        icon: "whatsapp",
+        roles: SUPER_ADMIN_ONLY,
+        order: 10,
+      },
+
+      {
         id: "social-store-links",
         title: "Social & Store Links",
         href: "/admin/social-store-links",
         icon: "settings",
         roles: SUPER_ADMIN_ONLY,
-        order: 10,
+        order: 11,
+      },
+
+      {
+        id: "database-backups",
+        title: "Database Backup",
+        href: "/admin/database-backups",
+        icon: "settings",
+        roles: SUPER_ADMIN_ONLY,
+        order: 12,
       },
     ],
   },

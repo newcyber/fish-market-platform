@@ -8,6 +8,7 @@ import pushDeliveryService from "@/services/notification/push/push-delivery.serv
 import { whatsappService } from "@/services/whatsapp/whatsapp.service";
 
 import { renderOrderNotificationTemplate } from "@/services/notification/order-notification-template";
+import WapiCustomerDeliveryService from "@/services/notification/wapi-customer-delivery.service";
 
 import settingsRepository from "@/repositories/settings/settings.repository";
 
@@ -76,6 +77,13 @@ export interface CreateCustomerOrderStatusNotificationInput {
   orderId: string;
   orderNumber: string;
   status: string;
+}
+
+export interface CreateCustomerOrderCreatedNotificationInput {
+  userId: string;
+  orderId: string;
+  orderNumber: string;
+  totalAmount?: number | null;
 }
 
 export interface CreateCustomerRewardPointsNotificationInput {
@@ -1409,9 +1417,41 @@ class NotificationService {
 
     /*
      * --------------------------------------------------------
-     * RETURN RESULT
+     * CUSTOMER WHATSAPP DELIVERY
      * --------------------------------------------------------
+     *
+     * Transactional WhatsApp memakai ledger terpisah sehingga
+     * satu order dapat memiliki banyak event tanpa bentrok.
+     * Delivery tetap best-effort dan tidak menggagalkan proses payment.
      */
+    const wapiEventType =
+      paymentEvent === "VERIFIED" ? "PAYMENT_VERIFIED" : "PAYMENT_REJECTED";
+
+    let wapiResult;
+    try {
+      wapiResult = await WapiCustomerDeliveryService.deliver({
+        userId,
+        orderId,
+        eventKey,
+        eventType: wapiEventType,
+        message,
+      });
+
+      console.log("[WAPI_CUSTOMER_PAYMENT_RESULT]", {
+        userId,
+        orderId,
+        eventKey,
+        eventType: wapiEventType,
+        result: wapiResult,
+      });
+    } catch (error) {
+      console.error("[WAPI_CUSTOMER_PAYMENT_DELIVERY_FATAL]", error);
+      wapiResult = {
+        status: "FAILED" as const,
+        errorMessage:
+          error instanceof Error ? error.message : "WAPI delivery failed.",
+      };
+    }
 
     return {
       count: created ? 1 : 0,
@@ -1419,6 +1459,145 @@ class NotificationService {
       created,
       eventKey,
       push: pushResult,
+      whatsapp: wapiResult,
+    };
+  }
+
+  /**
+   * ==========================================================
+   * CREATE CUSTOMER ORDER CREATED NOTIFICATION
+   * ==========================================================
+   *
+   * Dikirim segera setelah checkout berhasil membuat order.
+   *
+   * Event ini berbeda dari ORDER_STATUS karena order baru
+   * belum mengalami perubahan status. Event key:
+   *
+   *   ORDER_CREATED:{orderId}
+   *
+   * Database notification dan WhatsApp sama-sama idempotent.
+   * Kegagalan WhatsApp tidak menggagalkan checkout.
+   */
+  async createCustomerOrderCreatedNotification(
+    input: CreateCustomerOrderCreatedNotificationInput,
+  ) {
+    const userId = input.userId?.trim();
+    const orderId = input.orderId?.trim();
+    const orderNumber = input.orderNumber?.trim() || "Pesanan Baru";
+
+    if (!userId) {
+      throw new Error("User ID customer tidak valid.");
+    }
+
+    if (!orderId) {
+      throw new Error("Order ID tidak valid.");
+    }
+
+    const customer = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        name: true,
+      },
+    });
+
+    if (!customer) {
+      throw new Error("Customer tidak ditemukan.");
+    }
+
+    const customerName = customer.name?.trim() || "Customer";
+    const totalAmount =
+      typeof input.totalAmount === "number" &&
+      Number.isFinite(input.totalAmount)
+        ? new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+          }).format(input.totalAmount)
+        : null;
+
+    const title = "Pesanan berhasil dibuat 🐟";
+    const message = [
+      `Halo ${customerName},`,
+      "",
+      `Pesanan ${orderNumber} berhasil dibuat di Pisjo Market.`,
+      totalAmount ? `Total pesanan: ${totalAmount}` : null,
+      "",
+      "Silakan cek detail pesanan di akun Pisjo Market Anda.",
+      "Terima kasih sudah berbelanja di Pisjo Market.",
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
+
+    const eventKey = `ORDER_CREATED:${orderId}`;
+
+    const { notification, created } =
+      await notificationRepository.createIdempotent({
+        userId,
+        title,
+        message,
+        type: NotificationType.ORDER_STATUS,
+        href: `/customer/orders/${orderId}`,
+        orderId,
+        eventKey,
+      });
+
+    let pushResult = {
+      totalNotifications: 0,
+      totalSubscriptions: 0,
+      sent: 0,
+      failed: 0,
+      removed: 0,
+    };
+
+    if (created) {
+      try {
+        pushResult = await pushDeliveryService.deliver({
+          notifications: [
+            {
+              userId: notification.userId,
+              notificationId: notification.id,
+              title: notification.title,
+              message: notification.message,
+              href: notification.href,
+              type: notification.type,
+              createdAt: notification.createdAt,
+            },
+          ],
+        });
+      } catch (error) {
+        console.error("[WEB_PUSH_CUSTOMER_ORDER_CREATED_ERROR]", error);
+      }
+    }
+
+    let wapiResult;
+
+    try {
+      wapiResult = await WapiCustomerDeliveryService.deliver({
+        userId,
+        orderId,
+        eventKey,
+        eventType: "ORDER_CREATED",
+        message,
+      });
+    } catch (error) {
+      console.error("[WAPI_CUSTOMER_ORDER_CREATED_DELIVERY_FATAL]", error);
+
+      wapiResult = {
+        status: "FAILED" as const,
+        errorMessage:
+          error instanceof Error ? error.message : "WAPI delivery failed.",
+      };
+    }
+
+    return {
+      count: created ? 1 : 0,
+      notification,
+      created,
+      eventKey,
+      push: pushResult,
+      whatsapp: wapiResult,
     };
   }
 
@@ -1587,15 +1766,33 @@ class NotificationService {
 
     /**
      * --------------------------------------------------------
-     * RETURN RESULT
+     * CUSTOMER WHATSAPP DELIVERY
      * --------------------------------------------------------
      */
+    let wapiResult;
+    try {
+      wapiResult = await WapiCustomerDeliveryService.deliver({
+        userId,
+        orderId,
+        eventKey,
+        eventType: "ORDER_STATUS",
+        message: notificationContent.message,
+      });
+    } catch (error) {
+      console.error("[WAPI_CUSTOMER_ORDER_STATUS_DELIVERY_FATAL]", error);
+      wapiResult = {
+        status: "FAILED" as const,
+        errorMessage:
+          error instanceof Error ? error.message : "WAPI delivery failed.",
+      };
+    }
 
     return {
       count: created ? 1 : 0,
       notification,
       created,
       push: pushResult,
+      whatsapp: wapiResult,
     };
   }
 
@@ -1721,11 +1918,30 @@ class NotificationService {
       }
     }
 
+    let wapiResult;
+    try {
+      wapiResult = await WapiCustomerDeliveryService.deliver({
+        userId,
+        orderId,
+        eventKey,
+        eventType: "REWARD_POINTS",
+        message,
+      });
+    } catch (error) {
+      console.error("[WAPI_CUSTOMER_REWARD_DELIVERY_FATAL]", error);
+      wapiResult = {
+        status: "FAILED" as const,
+        errorMessage:
+          error instanceof Error ? error.message : "WAPI delivery failed.",
+      };
+    }
+
     return {
       count: created ? 1 : 0,
       notification,
       created,
       push: pushResult,
+      whatsapp: wapiResult,
     };
   }
 

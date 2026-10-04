@@ -41,19 +41,19 @@ import { createHash, randomUUID } from "node:crypto";
  * PROJECT ROOT
  * ============================================================
  *
- * process.cwd() digunakan sebagai project root
- * ketika aplikasi berjalan.
- *
- * Komentar turbopackIgnore digunakan agar operasi
- * filesystem tidak menyebabkan Turbopack melakukan
- * tracing seluruh project secara tidak sengaja.
+ * process.cwd() digunakan sebagai project root ketika aplikasi
+ * berjalan. Turbopack diberi instruksi ignore pada ekspresi
+ * cwd sehingga tracing tidak melebar ke seluruh project.
  *
  * ============================================================
  */
 
-const PROJECT_ROOT =
-  process.cwd(
+const UPLOAD_ROOT =
+  path.join(
     /* turbopackIgnore: true */
+    process.cwd(),
+    "public",
+    "uploads",
   );
 
 /**
@@ -64,68 +64,59 @@ const PROJECT_ROOT =
 
 const QRIS_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
+    UPLOAD_ROOT,
     "settings",
-    "qris"
+    "qris",
   );
 
 const PRODUCT_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
-    "products"
+    UPLOAD_ROOT,
+    "products",
   );
 
 const PRODUCT_VIDEO_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
+    UPLOAD_ROOT,
     "products",
-    "videos"
+    "videos",
   );
 
 const REWARD_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
-    "rewards"
+    UPLOAD_ROOT,
+    "rewards",
   );
 
 const CATEGORY_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
-    "categories"
+    UPLOAD_ROOT,
+    "categories",
+  );
+
+const COURIER_DELIVERY_PROOF_UPLOAD_DIRECTORY =
+  path.join(
+    UPLOAD_ROOT,
+    "courier",
+    "delivery-proof",
   );
 
 const SETTINGS_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
-    "settings"
+    UPLOAD_ROOT,
+    "settings",
   );
 
 const LANDING_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
+    UPLOAD_ROOT,
     "settings",
-    "landing"
+    "landing",
   );
 
-  const LANDING_ANDROID_UPLOAD_DIRECTORY =
+const LANDING_ANDROID_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
+    UPLOAD_ROOT,
     "settings",
     "landing",
     "android",
@@ -133,29 +124,23 @@ const LANDING_UPLOAD_DIRECTORY =
 
 const LOGIN_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
+    UPLOAD_ROOT,
     "settings",
-    "login"
+    "login",
   );
 
 const PROMO_UPLOAD_DIRECTORY =
   path.join(
-    PROJECT_ROOT,
-    "public",
-    "uploads",
+    UPLOAD_ROOT,
     "settings",
-    "promo"
+    "promo",
   );
 
-  const PROMO_POPUP_UPLOAD_DIRECTORY =
+const PROMO_POPUP_UPLOAD_DIRECTORY =
   path.join(
-    process.cwd(),
-    "public",
-    "uploads",
+    UPLOAD_ROOT,
     "settings",
-    "promo-popup"
+    "promo-popup",
   );
   
 /**
@@ -496,6 +481,22 @@ static async saveCategoryImage(
 
 /**
  * ==========================================================
+ * SAVE COURIER DELIVERY PROOF
+ * ==========================================================
+ */
+
+static async saveCourierDeliveryProof(
+  file: File
+): Promise<string> {
+  return this.saveToDirectory(
+    file,
+    COURIER_DELIVERY_PROOF_UPLOAD_DIRECTORY,
+    "/uploads/courier/delivery-proof"
+  );
+}
+
+/**
+ * ==========================================================
  * DELETE CATEGORY IMAGE
  * ==========================================================
  */
@@ -797,6 +798,16 @@ static async savePromoImage(
    *
    * ==========================================================
    */
+
+  static async deleteCourierDeliveryProof(
+    imagePath: string
+  ): Promise<void> {
+    await this.deleteFromDirectory(
+      imagePath,
+      "uploads/courier/delivery-proof/",
+      COURIER_DELIVERY_PROOF_UPLOAD_DIRECTORY
+    );
+  }
 
   static async deletePaymentQris(
     imagePath: string

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -52,6 +53,7 @@ interface SettingsFormProps {
     storeName: string;
     storeDescription: string | null;
     footerDescription: string | null;
+    tierSystemEnabled: boolean;
 
     landingPageUrl: string | null;
     storefrontUrl: string | null;
@@ -164,6 +166,7 @@ const ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 export default function SettingsForm({ settings }: SettingsFormProps) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const [message, setMessage] = useState<string | null>(null);
 
@@ -233,6 +236,11 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
 
   const [internalShippingEnabled, setInternalShippingEnabled] = useState(
     settings.internalShippingEnabled,
+  );
+
+  /** Member tier global feature switch. */
+  const [tierSystemEnabled, setTierSystemEnabled] = useState(
+    settings.tierSystemEnabled,
   );
 
   /**
@@ -538,6 +546,11 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
 
       footerDescription: String(formData.get("footerDescription") ?? ""),
 
+      // Member tier global feature switch.
+      // This value comes from React state because the switch is a
+      // client-side button and therefore is not part of FormData.
+      tierSystemEnabled,
+
       landingPageUrl: String(formData.get("landingPageUrl") ?? ""),
 
       storefrontUrl: String(formData.get("storefrontUrl") ?? ""),
@@ -663,6 +676,11 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
 
   return (
     <form action={handleSubmit} className="space-y-6">
+      <input
+        type="hidden"
+        name="tierSystemEnabled"
+        value={tierSystemEnabled ? "true" : "false"}
+      />
       {/* ====================================================== */}
       {/* FEEDBACK */}
       {/* ====================================================== */}
@@ -1289,6 +1307,77 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
       </details>
 
       {/* ====================================================== */}
+      {/* ====================================================== */}
+      {/* MEMBER TIER SYSTEM */}
+      {/* ====================================================== */}
+
+      <details
+        className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+        open={false}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 transition hover:bg-slate-50 sm:p-6 [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <Store className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">
+                Member Tier System
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Aktifkan atau nonaktifkan sistem tier membership customer secara global.
+              </p>
+            </div>
+          </div>
+
+          <ChevronDown className="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+        </summary>
+
+        <div className="border-t border-slate-200 p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Aktifkan Sistem Tier
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Jika OFF, tier customer tidak dihitung dan komponen tier di sisi
+                customer tidak ditampilkan. Data tier tetap disimpan sehingga
+                sistem dapat diaktifkan kembali tanpa kehilangan konfigurasi.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={tierSystemEnabled}
+              aria-label="Aktifkan sistem member tier"
+              onClick={() => setTierSystemEnabled((previous) => !previous)}
+              disabled={isPending}
+              className={[
+                "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition",
+                tierSystemEnabled ? "bg-emerald-600" : "bg-slate-300",
+                isPending ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition",
+                  tierSystemEnabled ? "translate-x-6" : "translate-x-1",
+                ].join(" ")}
+              />
+            </button>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+            <p className="text-xs leading-5 text-amber-800">
+              OFF tidak menghapus Member Tier dari database. Ini hanya mematikan
+              penggunaan fitur tier oleh sistem customer.
+            </p>
+          </div>
+        </div>
+      </details>
+
       {/* INTERNAL SHIPPING CONFIGURATION */}
       {/* ====================================================== */}
 
@@ -1650,7 +1739,7 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
       </details>
 
       {/* ====================================================== */}
-      {/* PENGATURAN ORDER */}
+      {/* PENGATURAN PEMBATALAN ORDER */}
       {/* ====================================================== */}
 
       <details
@@ -1665,7 +1754,7 @@ export default function SettingsForm({ settings }: SettingsFormProps) {
 
             <div className="min-w-0">
               <h2 className="text-base font-bold text-slate-900">
-                Pengaturan Order
+                Pengaturan Pembatalan Order
               </h2>
 
               <p className="mt-1 text-sm text-slate-500">

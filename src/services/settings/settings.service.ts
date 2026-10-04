@@ -41,6 +41,7 @@ export interface UpdateStoreSettingsPayload {
   storefrontUrl?: string | null;
 
   footerDescription?: string;
+  tierSystemEnabled?: boolean;
 
     /**
    * ==========================================================
@@ -947,6 +948,10 @@ const normalize = (
        */
 
       storeName,
+      // Only update the feature switch when the caller explicitly
+      // provides it. The database default belongs to record creation;
+      // an update must never silently turn the feature back ON.
+      tierSystemEnabled: payload.tierSystemEnabled,
 
       storeDescription:
         normalize(

@@ -12,10 +12,85 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+// ============================================================
+// DATABASE BACKUP
+// ============================================================
+//
+// Metadata/audit record for logical PostgreSQL backups.
+// The actual archive is stored outside the application/database.
+// ============================================================
+
+model DatabaseBackup {
+  id           String             @id @default(uuid())
+  filename     String             @unique
+  storageKey   String?
+  sizeBytes    BigInt?
+  checksum     String?
+  status       DatabaseBackupStatus @default(RUNNING)
+  backupType   DatabaseBackupType  @default(MANUAL)
+  startedAt    DateTime            @default(now())
+  completedAt  DateTime?
+  verifiedAt   DateTime?
+  errorMessage String?             @db.Text
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([backupType])
+  @@index([startedAt])
+}
+
+enum DatabaseBackupStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum DatabaseBackupType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  MANUAL
+}
+
 enum Role {
   SUPER_ADMIN
   ADMIN
   CUSTOMER
+  COURIER
+}
+
+enum CourierAssignmentStatus {
+  ASSIGNED
+  ON_ROUTE
+  PICKED_UP
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum CourierAssignmentEventType {
+  ASSIGNED
+  REASSIGNED
+  ON_ROUTE
+  PICKED_UP
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum CourierFailureCode {
+  CUSTOMER_UNAVAILABLE
+  WRONG_ADDRESS
+  ADDRESS_NOT_FOUND
+  CUSTOMER_REFUSED
+  CUSTOMER_CANCELLED
+  DAMAGED_PACKAGE
+  VEHICLE_PROBLEM
+  WEATHER
+  OTHER
 }
 
 enum RewardPointTransactionType {
@@ -152,6 +227,17 @@ model User {
   passwordChangedAt DateTime?
 
   phone         String?   @unique
+
+  // ============================================================
+  // WHATSAPP CUSTOMER NOTIFICATION PREFERENCES
+  // ============================================================
+  // Transactional messages are enabled by default for customers
+  // with a WhatsApp number. Marketing remains opt-in separately.
+  wapiTransactionalEnabled Boolean  @default(true)
+  wapiMarketingOptIn      Boolean  @default(false)
+  wapiMarketingOptInAt    DateTime?
+  wapiMarketingOptOutAt   DateTime?
+
   avatar        String?
   emailVerified DateTime?
 
@@ -212,6 +298,17 @@ model User {
   productReviews ProductReview[]
 
   wapiDeliveries WapiDelivery[] @relation("UserWapiDeliveries")
+  wapiCustomerDeliveries WapiCustomerDelivery[] @relation("UserWapiCustomerDeliveries")
+  wapiCustomerAuditLogs WapiCustomerAuditLog[] @relation("WapiCustomerAuditActors")
+
+  courierAssignments CourierAssignment[] @relation("CourierAssignments")
+
+  courierAssignedBy CourierAssignment[] @relation("CourierAssignmentsAssignedBy")
+
+  courierAssignmentEvents CourierAssignmentEvent[] @relation("CourierAssignmentEventActor")
+
+  courierDeliveryProofs CourierDeliveryProof[] @relation("CourierDeliveryProofCreatedBy")
+  courierSlaSettings CourierSlaSettings[]
 
   @@index([email])
   @@index([role])
@@ -372,6 +469,18 @@ model RewardPointTransaction {
 
   /**
    * ============================================================
+   * IDEMPOTENCY REFERENCE
+   * ============================================================
+   *
+   * Digunakan untuk transaksi reward non-order seperti bonus
+   * pendaftaran. Nilai unik memastikan bonus yang sama tidak
+   * pernah diberikan dua kali walaupun terjadi retry/concurrent request.
+   */
+
+  referenceKey String? @unique
+
+  /**
+   * ============================================================
    * TIMESTAMP
    * ============================================================
    */
@@ -413,6 +522,13 @@ model RewardPointSettings {
    * 15 = 1 KG -> 15 point
    */
   pointsPerKg Int @default(10)
+
+  /**
+   * Bonus point yang diberikan satu kali setelah customer
+   * berhasil menyelesaikan registrasi/verifikasi akun.
+   * Nilai 0 berarti bonus pendaftaran dinonaktifkan.
+   */
+  signupBonusPoints Int @default(100)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1935,6 +2051,9 @@ model Order {
   voucherUsage VoucherUsage?
 
   wapiDeliveries WapiDelivery[] @relation("OrderWapiDeliveries")
+  wapiCustomerDeliveries WapiCustomerDelivery[] @relation("OrderWapiCustomerDeliveries")
+
+  courierAssignments CourierAssignment[]
 
   @@index([orderNumber])
   @@index([userId])
@@ -3420,6 +3539,20 @@ model StoreSettings {
    * melalui WhatsApp kepada admin.
    */
   wapiOrderNotificationEnabled Boolean @default(true)
+  /**
+   * Global kill switch untuk seluruh notifikasi WhatsApp transaksional customer.
+   * false = event WAPI customer tidak dikirim dan tidak membuat delivery row baru.
+   */
+  wapiCustomerNotificationEnabled Boolean @default(true)
+  tierSystemEnabled Boolean @default(true)
+
+  // Per-event switches for customer transactional WhatsApp.
+  // Global switch above remains the master kill switch.
+  wapiCustomerOrderCreatedEnabled Boolean @default(true)
+  wapiCustomerOrderStatusEnabled Boolean @default(true)
+  wapiCustomerPaymentVerifiedEnabled Boolean @default(true)
+  wapiCustomerPaymentRejectedEnabled Boolean @default(true)
+  wapiCustomerRewardPointsEnabled Boolean @default(true)
 
   /**
    * Template pesan WhatsApp pesanan baru.
@@ -3893,4 +4026,225 @@ model WapiDelivery {
   @@index([status])
   @@index([orderId])
   @@index([userId])
+}
+
+
+// ============================================================
+// CUSTOMER WHATSAPP DELIVERY
+// ============================================================
+//
+// Separate ledger for customer-facing transactional WhatsApp.
+// This intentionally does not reuse WapiDelivery because the
+// existing WapiDelivery contract is one row per order/customer,
+// while a customer may receive multiple lifecycle events for one
+// order (payment, shipping, completed, reward, etc.).
+// ============================================================
+
+model WapiCustomerAuditLog {
+  id String @id @default(uuid())
+
+  actorId String?
+  actor User? @relation("WapiCustomerAuditActors", fields: [actorId], references: [id], onDelete: SetNull)
+
+  deliveryId String?
+  delivery WapiCustomerDelivery? @relation("WapiCustomerDeliveryAuditLogs", fields: [deliveryId], references: [id], onDelete: SetNull)
+
+  action String
+  settingKey String?
+  eventType String?
+  fromStatus WapiDeliveryStatus?
+  toStatus WapiDeliveryStatus?
+
+  previousValue Json?
+  newValue Json?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([deliveryId, createdAt])
+  @@index([action, createdAt])
+  @@index([settingKey, createdAt])
+}
+
+model WapiCustomerDelivery {
+  id String @id @default(uuid())
+
+  userId String
+  user User @relation("UserWapiCustomerDeliveries", fields: [userId], references: [id], onDelete: Cascade)
+
+  orderId String?
+  order Order? @relation("OrderWapiCustomerDeliveries", fields: [orderId], references: [id], onDelete: Cascade)
+
+  auditLogs WapiCustomerAuditLog[] @relation("WapiCustomerDeliveryAuditLogs")
+
+  eventKey String @unique
+  eventType String
+
+  phone String
+  message String @db.Text
+
+  status WapiDeliveryStatus @default(PENDING)
+
+  messageId String?
+  jid String?
+
+  attempts Int @default(0)
+  errorMessage String? @db.Text
+  processingStartedAt DateTime?
+  sentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+  @@index([eventType, createdAt])
+}
+
+
+
+
+// ============================================================
+// COURIER SLA SETTINGS
+// ============================================================
+//
+// One active global SLA configuration is used by courier
+// performance reporting. Historical assignment timestamps remain
+// the source of truth; this model only defines the thresholds.
+// ============================================================
+
+model CourierSlaSettings {
+  id String @id @default(uuid())
+
+  assignmentToStartMinutes Int @default(15)
+  startToPickupMinutes     Int @default(30)
+  pickupToDeliveryMinutes  Int @default(60)
+  totalDeliveryMinutes     Int @default(105)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  updatedById String?
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+  @@index([updatedById])
+}
+
+// ============================================================
+// INTERNAL COURIER ASSIGNMENT
+// ============================================================
+
+model CourierAssignment {
+  id String @id @default(uuid())
+
+  orderId String
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  courierId String
+  courier User @relation("CourierAssignments", fields: [courierId], references: [id], onDelete: Restrict)
+
+  assignedById String?
+  assignedBy User? @relation("CourierAssignmentsAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  status CourierAssignmentStatus @default(ASSIGNED)
+
+  // SLA snapshot captured when this assignment is created.
+  // Historical assignments must remain evaluated against the SLA
+  // that was active at assignment time, even if global settings change.
+  slaAssignmentToStartMinutes Int?
+  slaStartToPickupMinutes     Int?
+  slaPickupToDeliveryMinutes  Int?
+  slaTotalDeliveryMinutes     Int?
+
+  isActive Boolean @default(true)
+
+  /// Null for historical/inactive assignments; orderId for the active assignment.
+  /// A nullable unique key gives one active assignment per order while preserving history.
+  activeAssignmentKey String? @unique
+
+  assignedAt DateTime @default(now())
+  startedAt DateTime?
+  pickedUpAt DateTime?
+  deliveredAt DateTime?
+  failedAt DateTime?
+
+  failureCode CourierFailureCode?
+
+  failureReason String? @db.Text
+
+  events CourierAssignmentEvent[]
+
+  deliveryProof CourierDeliveryProof?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courierId, isActive])
+  @@index([courierId, status])
+  @@index([assignedAt])
+  @@index([deliveredAt])
+  @@index([failedAt])
+  @@index([failureCode])
+}
+
+
+// ============================================================
+// COURIER ASSIGNMENT AUDIT EVENT
+// ============================================================
+
+model CourierAssignmentEvent {
+  id String @id @default(uuid())
+
+  assignmentId String
+  assignment CourierAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  actorId String?
+  actor User? @relation("CourierAssignmentEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  type CourierAssignmentEventType
+  fromStatus CourierAssignmentStatus?
+  toStatus CourierAssignmentStatus?
+  note String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([assignmentId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([type, createdAt])
+}
+
+// ============================================================
+// COURIER DELIVERY PROOF
+// ============================================================
+
+model CourierDeliveryProof {
+  id String @id @default(uuid())
+
+  assignmentId String @unique
+  assignment CourierAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  recipientName String
+  recipientNote String? @db.Text
+  photoUrl String?
+
+  latitude Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  capturedAt DateTime @default(now())
+
+  createdById String?
+  createdBy User? @relation("CourierDeliveryProofCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  usedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@index([capturedAt])
 }

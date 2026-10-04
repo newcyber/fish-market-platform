@@ -16,13 +16,18 @@ import {
 
 type RewardPointSettingsFormProps = {
   initialPointsPerKg: number;
+  initialSignupBonusPoints: number;
 };
 
 export default function RewardPointSettingsForm({
   initialPointsPerKg,
+  initialSignupBonusPoints,
 }: RewardPointSettingsFormProps) {
   const [pointsPerKg, setPointsPerKg] =
     useState(String(initialPointsPerKg));
+
+  const [signupBonusPoints, setSignupBonusPoints] =
+    useState(String(initialSignupBonusPoints));
 
   const [error, setError] =
     useState<string | null>(null);
@@ -56,6 +61,7 @@ export default function RewardPointSettingsForm({
 
   function validateForm(): string | null {
     const value = Number(pointsPerKg);
+    const signupBonus = Number(signupBonusPoints);
 
     if (!Number.isInteger(value)) {
       return "Point per kilogram harus berupa bilangan bulat.";
@@ -67,6 +73,14 @@ export default function RewardPointSettingsForm({
 
     if (value > 1000) {
       return "Point per kilogram tidak boleh lebih dari 1000.";
+    }
+
+    if (!Number.isInteger(signupBonus) || signupBonus < 0) {
+      return "Bonus pendaftaran harus berupa bilangan bulat 0 atau lebih.";
+    }
+
+    if (signupBonus > 10000) {
+      return "Bonus pendaftaran tidak boleh lebih dari 10000 poin.";
     }
 
     return null;
@@ -99,6 +113,7 @@ export default function RewardPointSettingsForm({
           },
           body: JSON.stringify({
             pointsPerKg: Number(pointsPerKg),
+            signupBonusPoints: Number(signupBonusPoints),
           }),
         },
       );
@@ -114,6 +129,9 @@ export default function RewardPointSettingsForm({
 
       setPointsPerKg(
         String(result.data.pointsPerKg),
+      );
+      setSignupBonusPoints(
+        String(result.data.signupBonusPoints),
       );
 
       setSuccess(
@@ -184,6 +202,40 @@ export default function RewardPointSettingsForm({
 
             <p className="mt-2 text-xs text-slate-500">
               Contoh: jika diisi 10, maka 1 kg = 10 poin.
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="signupBonusPoints"
+              className="block text-sm font-medium text-slate-700"
+            >
+              Bonus Pendaftaran
+            </label>
+
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                id="signupBonusPoints"
+                type="number"
+                min={0}
+                max={10000}
+                step={1}
+                value={signupBonusPoints}
+                onChange={(event) =>
+                  setSignupBonusPoints(event.target.value)
+                }
+                disabled={isSubmitting}
+                className="h-11 w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-slate-50"
+              />
+
+              <span className="text-sm text-slate-500">
+                poin / pendaftaran
+              </span>
+            </div>
+
+            <p className="mt-2 text-xs text-slate-500">
+              Diberikan satu kali setelah customer berhasil
+              memverifikasi akun. Isi 0 untuk menonaktifkan bonus.
             </p>
           </div>
 

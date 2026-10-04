@@ -592,7 +592,9 @@ export default async function CustomerAccountPage() {
           <div className="space-y-4 sm:space-y-6">
             <CustomerRewardSummary summary={customerRewardSummary} />
 
-            <CustomerMemberTier summary={customerMemberTierSummary} />
+            {customerMemberTierSummary && (
+              <CustomerMemberTier summary={customerMemberTierSummary} />
+            )}
 
             <RewardVoucherSection
             rewardPoints={rewardPoints}

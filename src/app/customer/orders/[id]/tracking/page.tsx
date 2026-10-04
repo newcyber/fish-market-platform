@@ -228,6 +228,34 @@ function getCompletedStepIndex(status: OrderStatus) {
   }
 }
 
+function getCourierEventLabel(type: string) {
+  switch (type) {
+    case "ASSIGNED":
+      return "Kurir ditugaskan";
+    case "REASSIGNED":
+      return "Kurir diganti";
+    case "ON_ROUTE":
+      return "Kurir mulai mengantar";
+    case "PICKED_UP":
+      return "Pesanan diambil kurir";
+    case "DELIVERED":
+      return "Pesanan diterima";
+    case "FAILED":
+      return "Pengantaran gagal";
+    case "CANCELLED":
+      return "Tugas pengantaran dibatalkan";
+    default:
+      return "Status pengantaran diperbarui";
+  }
+}
+
+function getSafeCourierEventNote(type: string, note: string | null) {
+  if (type === "FAILED") {
+    return "Pengantaran tidak berhasil pada percobaan ini. Pisjo akan memproses tindak lanjut pengiriman.";
+  }
+  return note;
+}
+
 function getTrackingStepDate(
   stepKey: (typeof trackingSteps)[number]["key"],
   order: {
@@ -1435,6 +1463,46 @@ return (
     })}
   </div>
 </div>
+
+{/* ==================================================== */}
+{/* COURIER DELIVERY TIMELINE                           */}
+{/* ==================================================== */}
+
+{order.courierAssignments.some((assignment) => assignment.events.length > 0) && (
+  <section
+    className="mx-4 mb-4 overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_4px_18px_rgba(23,50,77,0.06)] sm:mx-6 sm:mb-6"
+  >
+    <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
+      <h2 className="text-base font-bold text-[var(--ocean-950)]">Perjalanan Kurir</h2>
+      <p className="mt-0.5 text-xs text-slate-500">Aktivitas pengiriman yang sudah tercatat</p>
+    </div>
+
+    <div className="space-y-4 px-4 py-5 sm:px-5">
+      {order.courierAssignments.flatMap((assignment) =>
+        assignment.events.map((event) => ({
+          ...event,
+          courierName: assignment.courier.name,
+        })),
+      ).map((event) => (
+        <div key={event.id} className="flex gap-3">
+          <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-cyan-700">
+            <Truck className="h-3.5 w-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-900">{getCourierEventLabel(event.type)}</p>
+              <time className="text-[11px] text-slate-400">{formatDate(event.createdAt)}</time>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500">Kurir: {event.courierName}</p>
+            {getSafeCourierEventNote(event.type, event.note) ? (
+              <p className="mt-1 text-xs leading-5 text-slate-500">{getSafeCourierEventNote(event.type, event.note)}</p>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
 
 {/* ==================================================== */}
 {/* CURRENT DELIVERY MESSAGE                             */}

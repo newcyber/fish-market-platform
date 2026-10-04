@@ -183,3 +183,4 @@ backup/
 *.pem
 *.key
 *.cert
+backups/

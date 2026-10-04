@@ -702,6 +702,101 @@ let totalPoints = 0;
 
 /**
  * ============================================================
+ * AWARD SIGNUP REWARD POINTS — TRANSACTION CLIENT
+ * ============================================================
+ *
+ * Bonus diberikan setelah registrasi berhasil diselesaikan
+ * (email/WhatsApp verification). Proses ledger + balance
+ * berada dalam transaction yang sama.
+ *
+ * referenceKey UNIQUE menjadi protection terhadap duplicate
+ * award akibat retry atau concurrent verification request.
+ */
+
+export async function awardSignupRewardPointsTx(
+  tx: Prisma.TransactionClient,
+  userId: string,
+) {
+  const normalizedUserId = String(userId).trim();
+
+  if (!normalizedUserId) {
+    throw new Error("User ID tidak valid.");
+  }
+
+  const referenceKey =
+    `SIGNUP:${normalizedUserId}`;
+
+  const existing =
+    await tx.rewardPointTransaction.findUnique({
+      where: {
+        referenceKey,
+      },
+    });
+
+  if (existing) {
+    return {
+      awarded: false,
+      alreadyAwarded: true,
+      points: existing.points,
+      transactionId: existing.id,
+      userId: normalizedUserId,
+    };
+  }
+
+  const settings =
+    await rewardPointSettingsRepository.getOrCreateTx(
+      tx,
+    );
+
+  const signupBonusPoints =
+    settings.signupBonusPoints;
+
+  if (
+    !Number.isInteger(signupBonusPoints) ||
+    signupBonusPoints <= 0
+  ) {
+    return {
+      awarded: false,
+      alreadyAwarded: false,
+      points: 0,
+      userId: normalizedUserId,
+    };
+  }
+
+  const transaction =
+    await tx.rewardPointTransaction.create({
+      data: {
+        userId: normalizedUserId,
+        type: "EARN",
+        points: signupBonusPoints,
+        referenceKey,
+        description:
+          "Bonus pendaftaran customer baru",
+      },
+    });
+
+  await tx.user.update({
+    where: {
+      id: normalizedUserId,
+    },
+    data: {
+      rewardPointsBalance: {
+        increment: signupBonusPoints,
+      },
+    },
+  });
+
+  return {
+    awarded: true,
+    alreadyAwarded: false,
+    points: signupBonusPoints,
+    transactionId: transaction.id,
+    userId: normalizedUserId,
+  };
+}
+
+/**
+ * ============================================================
  * AWARD ORDER REWARD POINTS — TRANSACTION CLIENT
  * ============================================================
  *

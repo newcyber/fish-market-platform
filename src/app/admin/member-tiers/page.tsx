@@ -8,7 +8,10 @@ import {
 } from "@/components/admin/member-tiers/MemberTierTable";
 
 export default async function AdminMemberTiersPage() {
-  const tiers = await AdminMemberTierService.getAll();
+  const [tiers, tierSystemEnabled] = await Promise.all([
+    AdminMemberTierService.getAll(),
+    AdminMemberTierService.getSystemStatus(),
+  ]);
 
   const items: MemberTierTableItem[] = tiers.map((tier) => ({
     id: tier.id,
@@ -47,6 +50,18 @@ export default async function AdminMemberTiersPage() {
           Tambah Tier
         </Link>
       </div>
+
+      {!tierSystemEnabled && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <p className="text-sm font-semibold text-amber-900">
+            Sistem Member Tier sedang OFF
+          </p>
+          <p className="mt-1 text-sm text-amber-800">
+            Data tier tetap tersimpan, tetapi tidak digunakan untuk customer
+            sampai fitur diaktifkan kembali dari Pengaturan Toko.
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-5">

@@ -37,6 +37,9 @@ export async function GET() {
       data: {
         pointsPerKg:
           settings.pointsPerKg,
+
+        signupBonusPoints:
+          settings.signupBonusPoints,
       },
     });
   } catch (error) {
@@ -126,9 +129,15 @@ export async function PATCH(
     const pointsPerKg =
       Number(body?.pointsPerKg);
 
+    const signupBonusPoints =
+      Number(body?.signupBonusPoints);
+
     const settings =
       await rewardPointSettingsService.updateSettings(
         pointsPerKg,
+        Number.isFinite(signupBonusPoints)
+          ? signupBonusPoints
+          : undefined,
       );
 
     return NextResponse.json({
@@ -137,6 +146,9 @@ export async function PATCH(
       data: {
         pointsPerKg:
           settings.pointsPerKg,
+
+        signupBonusPoints:
+          settings.signupBonusPoints,
       },
     });
   } catch (error) {

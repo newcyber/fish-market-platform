@@ -55,6 +55,7 @@ export interface UpdateSettingsActionInput {
    * Deskripsi khusus untuk Footer Customer.
    */
   footerDescription?: string;
+  tierSystemEnabled?: boolean;
 
   /**
    * ==========================================================
@@ -271,6 +272,9 @@ export async function updateSettingsAction(
 
 storeName:
   input.storeName,
+
+tierSystemEnabled:
+  input.tierSystemEnabled,
 
 storeDescription:
   input.storeDescription,
@@ -557,6 +561,15 @@ siteLogo:
       paymentTimeoutHours:
         input.paymentTimeoutHours,
     });
+
+    // Revalidate the settings page and customer-facing pages immediately.
+    // This prevents stale server-rendered output after changing the global
+    // member-tier switch.
+    revalidatePath("/admin/settings");
+    revalidatePath("/admin/member-tiers");
+    revalidatePath("/customer/account");
+    revalidatePath("/");
+
 
     /**
      * --------------------------------------------------------

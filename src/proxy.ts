@@ -2,22 +2,8 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
 /**
- * ============================================================
- * PUBLIC ROUTES
- * ============================================================
- *
- * Route yang dapat diakses tanpa login.
- *
- * Route storefront/product juga termasuk public karena:
- *
- * - Guest dapat melihat produk
- * - Customer dapat melihat produk
- * - ADMIN dapat melihat produk
- * - SUPER_ADMIN dapat melihat produk
- *
- * Session user tetap dipertahankan.
+ * Public storefront routes.
  */
-
 const PUBLIC_ROUTES = [
   "/",
   "/login",
@@ -26,77 +12,14 @@ const PUBLIC_ROUTES = [
   "/products",
 ];
 
-/**
- * ============================================================
- * PUBLIC ROUTE PREFIXES
- * ============================================================
- *
- * Prefix yang seluruh turunannya bersifat public.
- *
- * Contoh:
- *
- * /products
- * /products/ikan-bandeng
- * /products/ikan-kakap
- *
- * semuanya dapat diakses tanpa login.
- */
+const PUBLIC_ROUTE_PREFIXES = ["/products"];
 
-const PUBLIC_ROUTE_PREFIXES = [
-  "/products",
-];
-
-/**
- * ============================================================
- * AUTH ROUTES
- * ============================================================
- *
- * Route autentikasi.
- *
- * Jika user sudah login:
- *
- * ADMIN / SUPER_ADMIN
- * -> /admin
- *
- * CUSTOMER
- * -> /customer
- */
-
-const AUTH_ROUTES = [
-  "/login",
-  "/register",
-];
-
-/**
- * ============================================================
- * ROUTE PREFIX
- * ============================================================
- */
+const AUTH_ROUTES = ["/login", "/register"];
 
 const ADMIN_PREFIX = "/admin";
-
+const ADMIN_COURIER_PREFIX = "/admin/couriers";
+const COURIER_PREFIX = "/courier";
 const CUSTOMER_PREFIX = "/customer";
-
-/**
- * ============================================================
- * HELPER
- * ============================================================
- *
- * Memastikan prefix tidak salah mencocokkan route.
- *
- * Contoh:
- *
- * /products
- * /products/ikan
- *
- * cocok.
- *
- * Tetapi:
- *
- * /products-old
- *
- * tidak cocok.
- */
 
 function isPublicRoute(pathname: string) {
   if (PUBLIC_ROUTES.includes(pathname)) {
@@ -105,364 +28,186 @@ function isPublicRoute(pathname: string) {
 
   return PUBLIC_ROUTE_PREFIXES.some(
     (prefix) =>
-      pathname === prefix ||
-      pathname.startsWith(`${prefix}/`),
+      pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
 
-/**
- * ============================================================
- * PROXY
- * ============================================================
- *
- * Proteksi route berdasarkan:
- *
- * - Authentication
- * - User active status
- * - User role
- *
- * Aturan utama:
- *
- * GUEST
- *   -> Homepage
- *   -> Product
- *   -> Public routes
- *
- * CUSTOMER
- *   -> Homepage
- *   -> Product
- *   -> Customer area
- *
- * ADMIN
- *   -> Homepage
- *   -> Product
- *   -> Admin area
- *
- * SUPER_ADMIN
- *   -> Homepage
- *   -> Product
- *   -> Admin area
- *
- * ADMIN / SUPER_ADMIN tidak dipaksa masuk
- * ke /customer ketika browsing storefront.
- *
- * ============================================================
- */
+function isAdminCourierRoute(pathname: string) {
+  return (
+    pathname === ADMIN_COURIER_PREFIX ||
+    pathname.startsWith(`${ADMIN_COURIER_PREFIX}/`)
+  );
+}
+
+function isCourierRoute(pathname: string) {
+  return pathname === COURIER_PREFIX || pathname.startsWith(`${COURIER_PREFIX}/`);
+}
+
+function redirectByRole(
+  role: string | undefined,
+  nextUrl: URL,
+) {
+  if (role === "SUPER_ADMIN" || role === "ADMIN") {
+    return NextResponse.redirect(new URL("/admin", nextUrl));
+  }
+
+  if (role === "COURIER") {
+    return NextResponse.redirect(new URL("/courier", nextUrl));
+  }
+
+  if (role === "CUSTOMER") {
+    return NextResponse.redirect(new URL("/customer", nextUrl));
+  }
+
+  return NextResponse.next();
+}
 
 export default auth((req) => {
   const { nextUrl } = req;
-
   const pathname = nextUrl.pathname;
-
   const isLoggedIn = Boolean(req.auth);
-
   const user = req.auth?.user;
-
   const role = user?.role;
 
   /**
-   * ==========================================================
-   * ROOT HOMEPAGE
-   * ==========================================================
-   *
-   * Homepage selalu public.
-   *
-   * Jangan redirect berdasarkan role.
-   *
-   * ADMIN tetap dapat melihat homepage.
-   * SUPER_ADMIN tetap dapat melihat homepage.
-   * CUSTOMER tetap dapat melihat homepage.
-   * Guest tetap dapat melihat homepage.
+   * Homepage is public for every role.
    */
-
   if (pathname === "/") {
     return NextResponse.next();
   }
 
   /**
-   * ==========================================================
-   * PUBLIC STOREFRONT
-   * ==========================================================
-   *
-   * Contoh:
-   *
-   * /products
-   * /products/ikan-bandeng
-   *
-   * Semua role dapat mengakses.
-   *
-   * Tidak boleh redirect:
-   *
-   * ADMIN -> /admin
-   * SUPER_ADMIN -> /admin
-   * CUSTOMER -> /customer
-   *
-   * Karena user memang sedang browsing storefront.
+   * Storefront/product pages remain public.
    */
-
-  if (isPublicRoute(pathname)) {
-    /**
-     * Login/register diproses
-     * pada blok AUTH_ROUTES di bawah.
-     */
-
-    if (!AUTH_ROUTES.includes(pathname)) {
-      return NextResponse.next();
-    }
-  }
-
-  /**
-   * ==========================================================
-   * LOGIN REQUIRED PAGE
-   * ==========================================================
-   *
-   * Guest:
-   *   boleh masuk.
-   *
-   * User login:
-   *   halaman ini tidak diperlukan lagi.
-   */
-
-  if (pathname === "/login-required") {
-    if (isLoggedIn) {
-      /**
-       * Jika user adalah admin,
-       * arahkan ke dashboard admin.
-       */
-
-      if (
-        role === "SUPER_ADMIN" ||
-        role === "ADMIN"
-      ) {
-        return NextResponse.redirect(
-          new URL("/admin", nextUrl),
-        );
-      }
-
-      /**
-       * Customer tetap diarahkan
-       * ke customer area.
-       */
-
-      if (role === "CUSTOMER") {
-        return NextResponse.redirect(
-          new URL("/customer", nextUrl),
-        );
-      }
-    }
-
+  if (isPublicRoute(pathname) && !AUTH_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
 
   /**
-   * ==========================================================
-   * AUTH ROUTES
-   * ==========================================================
-   *
-   * /login
-   * /register
+   * Login-required is only useful for guests.
    */
-
-  if (AUTH_ROUTES.includes(pathname)) {
-    /**
-     * Guest boleh membuka login/register.
-     */
-
+  if (pathname === "/login-required") {
     if (!isLoggedIn) {
       return NextResponse.next();
     }
 
-    /**
-     * User nonaktif tidak dipaksa redirect
-     * berdasarkan role.
-     *
-     * Hal ini memungkinkan halaman login
-     * menangani status akun.
-     */
+    return redirectByRole(role, nextUrl);
+  }
+
+  /**
+   * Auth pages: logged-in users should never land back on login/register.
+   */
+  if (AUTH_ROUTES.includes(pathname)) {
+    if (!isLoggedIn) {
+      return NextResponse.next();
+    }
 
     if (user?.isActive === false) {
       return NextResponse.next();
     }
 
-    /**
-     * ADMIN / SUPER_ADMIN
-     */
+    return redirectByRole(role, nextUrl);
+  }
 
-    if (
-      role === "SUPER_ADMIN" ||
-      role === "ADMIN"
-    ) {
-      return NextResponse.redirect(
-        new URL("/admin", nextUrl),
-      );
+  /**
+   * Dedicated courier operational area.
+   * Only an active COURIER can enter this area.
+   */
+  if (isCourierRoute(pathname)) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/login", nextUrl));
     }
 
-    /**
-     * CUSTOMER
-     */
+    if (user?.isActive === false) {
+      return NextResponse.redirect(new URL("/login", nextUrl));
+    }
+
+    if (role === "COURIER") {
+      return NextResponse.next();
+    }
+
+    return redirectByRole(role, nextUrl);
+  }
+
+  /**
+   * Admin dispatch page remains available to admins only.
+   * /admin/couriers is an admin assignment/dispatch center,
+   * not the courier's operational dashboard.
+   */
+  if (isAdminCourierRoute(pathname)) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/login", nextUrl));
+    }
+
+    if (user?.isActive === false) {
+      return NextResponse.redirect(new URL("/login", nextUrl));
+    }
+
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
+      return NextResponse.next();
+    }
+
+    if (role === "COURIER") {
+      return NextResponse.redirect(new URL("/courier", nextUrl));
+    }
 
     if (role === "CUSTOMER") {
-      return NextResponse.redirect(
-        new URL("/customer", nextUrl),
-      );
+      return NextResponse.redirect(new URL("/customer", nextUrl));
     }
 
-    return NextResponse.next();
+    return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
   /**
-   * ==========================================================
-   * ADMIN AREA
-   * ==========================================================
-   *
-   * /admin
-   * /admin/...
-   *
-   * Hanya:
-   *
-   * - ADMIN
-   * - SUPER_ADMIN
-   *
-   * yang boleh masuk.
-   *
-   * Catatan:
-   *
-   * Proteksi SUPER_ADMIN khusus seperti:
-   *
-   * /admin/settings
-   *
-   * tetap dilakukan oleh:
-   *
-   * requireSuperAdmin()
-   *
-   * pada Server Component / Server Action.
+   * Admin area: ADMIN and SUPER_ADMIN only.
    */
-
-  if (pathname.startsWith(ADMIN_PREFIX)) {
-    /**
-     * BELUM LOGIN
-     */
-
+  if (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`)) {
     if (!isLoggedIn) {
-      return NextResponse.redirect(
-        new URL("/login", nextUrl),
-      );
+      return NextResponse.redirect(new URL("/login", nextUrl));
     }
-
-    /**
-     * USER NONAKTIF
-     */
 
     if (user?.isActive === false) {
-      return NextResponse.redirect(
-        new URL("/login", nextUrl),
-      );
+      return NextResponse.redirect(new URL("/login", nextUrl));
     }
 
-    /**
-     * BUKAN ADMIN
-     */
-
-    if (
-      role !== "SUPER_ADMIN" &&
-      role !== "ADMIN"
-    ) {
-      return NextResponse.redirect(
-        new URL("/customer", nextUrl),
-      );
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
+      return NextResponse.next();
     }
 
-    return NextResponse.next();
+    if (role === "COURIER") {
+      return NextResponse.redirect(new URL("/courier", nextUrl));
+    }
+
+    if (role === "CUSTOMER") {
+      return NextResponse.redirect(new URL("/customer", nextUrl));
+    }
+
+    return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
   /**
-   * ==========================================================
-   * CUSTOMER AREA
-   * ==========================================================
-   *
-   * /customer
-   * /customer/...
-   *
-   * Hanya CUSTOMER.
-   *
-   * ADMIN / SUPER_ADMIN tidak menggunakan area customer.
+   * Customer area: CUSTOMER only.
    */
-
-  if (pathname.startsWith(CUSTOMER_PREFIX)) {
-    /**
-     * BELUM LOGIN
-     *
-     * Simpan halaman yang ingin dibuka.
-     */
-
+  if (pathname === CUSTOMER_PREFIX || pathname.startsWith(`${CUSTOMER_PREFIX}/`)) {
     if (!isLoggedIn) {
-      const loginRequiredUrl = new URL(
-        "/login-required",
-        nextUrl,
-      );
-
-      const callbackUrl =
-        `${nextUrl.pathname}${nextUrl.search}`;
-
+      const loginRequiredUrl = new URL("/login-required", nextUrl);
       loginRequiredUrl.searchParams.set(
         "callbackUrl",
-        callbackUrl,
+        `${nextUrl.pathname}${nextUrl.search}`,
       );
-
-      return NextResponse.redirect(
-        loginRequiredUrl,
-      );
+      return NextResponse.redirect(loginRequiredUrl);
     }
-
-    /**
-     * USER NONAKTIF
-     */
 
     if (user?.isActive === false) {
-      return NextResponse.redirect(
-        new URL("/login", nextUrl),
-      );
+      return NextResponse.redirect(new URL("/login", nextUrl));
     }
 
-    /**
-     * ADMIN / SUPER_ADMIN
-     *
-     * Tidak boleh menggunakan customer area.
-     */
-
-    if (
-      role === "SUPER_ADMIN" ||
-      role === "ADMIN"
-    ) {
-      return NextResponse.redirect(
-        new URL("/admin", nextUrl),
-      );
+    if (role === "CUSTOMER") {
+      return NextResponse.next();
     }
 
-    /**
-     * ROLE BUKAN CUSTOMER
-     */
-
-    if (role !== "CUSTOMER") {
-      return NextResponse.redirect(
-        new URL("/login", nextUrl),
-      );
-    }
-
-    return NextResponse.next();
+    return redirectByRole(role, nextUrl);
   }
-
-  /**
-   * ==========================================================
-   * DEFAULT
-   * ==========================================================
-   *
-   * Route lain tidak diblokir oleh proxy.
-   *
-   * Authorization khusus tetap harus dilakukan
-   * di Server Component / Server Action / API route
-   * sesuai kebutuhan masing-masing.
-   */
 
   return NextResponse.next();
 });

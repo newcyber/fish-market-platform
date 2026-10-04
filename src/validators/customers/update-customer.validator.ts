@@ -33,7 +33,7 @@ export const updateCustomerSchema = z.object({
       return value;
     }),
 
-  role: z.enum(["CUSTOMER", "ADMIN"]),
+  role: z.enum(["CUSTOMER", "ADMIN", "COURIER"]),
 
   isActive: z
     .enum(["true", "false"])
