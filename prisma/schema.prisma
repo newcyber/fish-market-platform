@@ -3540,6 +3540,11 @@ model StoreSettings {
    */
   wapiOrderNotificationEnabled Boolean @default(true)
   /**
+   * Mengaktifkan atau menonaktifkan notifikasi upload bukti pembayaran
+   * melalui WhatsApp kepada admin.
+   */
+  wapiPaymentProofNotificationEnabled Boolean @default(true)
+  /**
    * Global kill switch untuk seluruh notifikasi WhatsApp transaksional customer.
    * false = event WAPI customer tidak dikirim dan tidak membuat delivery row baru.
    */

@@ -13,7 +13,7 @@ import {
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "Terjadi kesalahan pada pengaturan notifikasi WhatsApp.";
+    : "Terjadi kesalahan pada pengaturan notifikasi WhatsApp admin.";
 }
 
 export async function GET() {
@@ -21,7 +21,7 @@ export async function GET() {
     await requireSuperAdmin();
 
     const settings =
-      await settingsRepository.getWapiOrderNotificationSettings();
+      await settingsRepository.getWapiAdminNotificationSettings();
 
     return NextResponse.json({
       success: true,
@@ -36,15 +36,11 @@ export async function GET() {
     });
   } catch (error) {
     const message = getErrorMessage(error);
-
     const status =
       message === "UNAUTHORIZED" ? 401 : message === "FORBIDDEN" ? 403 : 500;
 
     return NextResponse.json(
-      {
-        success: false,
-        error: message,
-      },
+      { success: false, error: message },
       { status },
     );
   }
@@ -56,15 +52,9 @@ export async function PATCH(request: Request) {
 
     const body = await request.json();
 
-    if (
-      body.enabled !== undefined &&
-      typeof body.enabled !== "boolean"
-    ) {
+    if (body.enabled !== undefined && typeof body.enabled !== "boolean") {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Field enabled harus berupa boolean.",
-        },
+        { success: false, error: "Field enabled harus berupa boolean." },
         { status: 400 },
       );
     }
@@ -144,7 +134,7 @@ export async function PATCH(request: Request) {
     }
 
     const updated =
-      await settingsRepository.updateWapiOrderNotificationSettings({
+      await settingsRepository.updateWapiAdminNotificationSettings({
         ...(body.enabled !== undefined && {
           wapiOrderNotificationEnabled: body.enabled,
         }),
@@ -158,7 +148,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Pengaturan notifikasi WhatsApp berhasil diperbarui.",
+      message: "Pengaturan notifikasi WhatsApp admin berhasil diperbarui.",
       data: {
         enabled: updated.wapiOrderNotificationEnabled,
         paymentProofEnabled: updated.wapiPaymentProofNotificationEnabled,
@@ -169,15 +159,11 @@ export async function PATCH(request: Request) {
     });
   } catch (error) {
     const message = getErrorMessage(error);
-
     const status =
       message === "UNAUTHORIZED" ? 401 : message === "FORBIDDEN" ? 403 : 500;
 
     return NextResponse.json(
-      {
-        success: false,
-        error: message,
-      },
+      { success: false, error: message },
       { status },
     );
   }

@@ -298,6 +298,22 @@ export interface UpdateSettingsPayload {
 
 export interface UpdateWapiOrderNotificationSettingsPayload {
   wapiOrderNotificationEnabled?: boolean;
+  wapiPaymentProofNotificationEnabled?: boolean;
+  wapiOrderNotificationTemplate?: string | null;
+}
+
+/**
+ * ============================================================
+ * UPDATE WAPI ADMIN NOTIFICATION SETTINGS PAYLOAD
+ * ============================================================
+ *
+ * Alias API contract untuk endpoint admin-notification.
+ * Field database tetap menggunakan contract StoreSettings yang
+ * sudah ada sehingga tidak membuat kolom duplikat.
+ */
+export interface UpdateWapiAdminNotificationSettingsPayload {
+  wapiOrderNotificationEnabled?: boolean;
+  wapiPaymentProofNotificationEnabled?: boolean;
   wapiOrderNotificationTemplate?: string | null;
 }
 
@@ -704,6 +720,7 @@ class SettingsRepository {
 
     return {
       enabled: settings.wapiOrderNotificationEnabled,
+      paymentProofEnabled: settings.wapiPaymentProofNotificationEnabled,
       template: settings.wapiOrderNotificationTemplate,
     };
   }
@@ -728,6 +745,11 @@ class SettingsRepository {
           data.wapiOrderNotificationEnabled,
       }),
 
+      ...(data.wapiPaymentProofNotificationEnabled !== undefined && {
+        wapiPaymentProofNotificationEnabled:
+          data.wapiPaymentProofNotificationEnabled,
+      }),
+
       ...(data.wapiOrderNotificationTemplate !== undefined && {
         wapiOrderNotificationTemplate:
           data.wapiOrderNotificationTemplate,
@@ -740,6 +762,35 @@ class SettingsRepository {
       },
       data: updateData,
     });
+  }
+
+  /**
+   * ============================================================
+   * GET WAPI ADMIN NOTIFICATION SETTINGS
+   * ============================================================
+   *
+   * Compatibility facade untuk endpoint admin-notification.
+   * Secara data tetap memakai field WAPI admin yang sama:
+   * - wapiOrderNotificationEnabled
+   * - wapiPaymentProofNotificationEnabled
+   * - wapiOrderNotificationTemplate
+   */
+  async getWapiAdminNotificationSettings() {
+    return this.getWapiOrderNotificationSettings();
+  }
+
+  /**
+   * ============================================================
+   * UPDATE WAPI ADMIN NOTIFICATION SETTINGS
+   * ============================================================
+   *
+   * Compatibility facade untuk endpoint admin-notification.
+   * Hanya field WAPI admin yang diperbarui.
+   */
+  async updateWapiAdminNotificationSettings(
+    data: UpdateWapiAdminNotificationSettingsPayload,
+  ) {
+    return this.updateWapiOrderNotificationSettings(data);
   }
 
   /**

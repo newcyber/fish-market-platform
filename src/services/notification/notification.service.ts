@@ -1053,10 +1053,10 @@ class NotificationService {
       sent: 0,
       failed: 0,
       skipped: 0,
-      disabled: !wapiSettings.enabled,
+      disabled: !wapiSettings.paymentProofEnabled,
     };
 
-    if (wapiSettings.enabled) {
+    if (wapiSettings.paymentProofEnabled) {
       for (const recipient of recipients) {
         const phone =
           recipient.phone?.trim();

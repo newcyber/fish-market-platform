@@ -39,6 +39,7 @@ interface QrResponse {
 
 interface OrderNotificationSettings {
   enabled: boolean;
+  paymentProofEnabled: boolean;
   template: string;
   defaultTemplate: string;
   placeholders: readonly string[];
@@ -130,6 +131,9 @@ export function WapiSetting() {
 
   const [notificationEnabled, setNotificationEnabled] = useState(true);
 
+  const [paymentProofNotificationEnabled, setPaymentProofNotificationEnabled] =
+    useState(true);
+
   const [notificationTemplate, setNotificationTemplate] = useState("");
 
   const [notificationLoading, setNotificationLoading] = useState(false);
@@ -182,6 +186,7 @@ export function WapiSetting() {
 
       setNotificationSettings(result.data);
       setNotificationEnabled(result.data.enabled);
+      setPaymentProofNotificationEnabled(result.data.paymentProofEnabled);
       setNotificationTemplate(result.data.template);
       setNotificationMessage(null);
     } catch (err) {
@@ -210,6 +215,7 @@ export function WapiSetting() {
           },
           body: JSON.stringify({
             enabled: notificationEnabled,
+            paymentProofEnabled: paymentProofNotificationEnabled,
             template: notificationTemplate,
           }),
         },
@@ -227,6 +233,8 @@ export function WapiSetting() {
 
       setNotificationSettings((current): OrderNotificationSettings => ({
         enabled: data?.enabled ?? current?.enabled ?? true,
+        paymentProofEnabled:
+          data?.paymentProofEnabled ?? current?.paymentProofEnabled ?? true,
         template: data?.template ?? current?.template ?? "",
         defaultTemplate:
           data?.defaultTemplate ?? current?.defaultTemplate ?? "",
@@ -235,6 +243,7 @@ export function WapiSetting() {
       }));
 
       setNotificationEnabled(result.data.enabled);
+      setPaymentProofNotificationEnabled(result.data.paymentProofEnabled);
       setNotificationTemplate(result.data.template);
 
       setNotificationMessage(
@@ -771,10 +780,10 @@ export function WapiSetting() {
             </div>
 
             <div>
-              <h2 className="font-semibold">Template Admin Notification</h2>
+              <h2 className="font-semibold">Notifikasi WhatsApp Admin</h2>
 
               <p className="text-sm text-muted-foreground">
-                Atur pesan WhatsApp otomatis ketika pesanan baru dibuat.
+                Atur notifikasi WhatsApp admin untuk pembelian dan upload bukti pembayaran.
               </p>
             </div>
           </div>
@@ -806,6 +815,39 @@ export function WapiSetting() {
                   className="h-5 w-5 accent-green-600"
                 />
               </label>
+
+              <label className="flex items-center justify-between gap-4 rounded-xl border p-4">
+                <div>
+                  <p className="font-medium">Notifikasi upload bukti pembayaran</p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Kirim WhatsApp kepada admin ketika customer mengupload bukti pembayaran.
+                    Notifikasi database dan Web Push tetap berjalan saat OFF.
+                  </p>
+                </div>
+
+                <input
+                  type="checkbox"
+                  checked={paymentProofNotificationEnabled}
+                  onChange={(event) =>
+                    setPaymentProofNotificationEnabled(event.target.checked)
+                  }
+                  disabled={notificationSaving}
+                  className="h-5 w-5 accent-green-600"
+                />
+              </label>
+
+              <div
+                className={
+                  notificationEnabled && paymentProofNotificationEnabled
+                    ? "rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-700"
+                    : "rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700"
+                }
+              >
+                {notificationEnabled && paymentProofNotificationEnabled
+                  ? "ON — notifikasi WhatsApp pembelian dan upload bukti pembayaran admin aktif."
+                  : "Sebagian atau seluruh notifikasi WhatsApp admin sedang OFF sesuai event yang dipilih."}
+              </div>
 
               <div className="space-y-2">
                 <label
