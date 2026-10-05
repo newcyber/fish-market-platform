@@ -400,12 +400,21 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       },
 
       {
+        id: "wapi-courier-command-center",
+        title: "WAPI Courier Center",
+        href: "/admin/notifications/wapi-courier-deliveries",
+        icon: "whatsapp",
+        roles: SUPER_ADMIN_ONLY,
+        order: 11,
+      },
+
+      {
         id: "social-store-links",
         title: "Social & Store Links",
         href: "/admin/social-store-links",
         icon: "settings",
         roles: SUPER_ADMIN_ONLY,
-        order: 11,
+        order: 12,
       },
 
       {
@@ -414,7 +423,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         href: "/admin/database-backups",
         icon: "settings",
         roles: SUPER_ADMIN_ONLY,
-        order: 12,
+        order: 13,
       },
     ],
   },

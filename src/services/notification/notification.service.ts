@@ -2110,6 +2110,148 @@ class NotificationService {
     };
   }
 
+
+  /**
+   * ==========================================================
+   * CREATE COURIER ASSIGNMENT CANCELLATION NOTIFICATION
+   * ==========================================================
+   *
+   * Dipanggil ketika assignment courier lama dibatalkan karena
+   * reassignment. Notification in-app, push, dan WAPI dibuat
+   * terpisah dari assignment courier baru.
+   */
+  async createCourierAssignmentCancellationNotification(input: {
+    assignmentId: string;
+    replacementCourierName?: string | null;
+  }) {
+    const assignment = await prisma.courierAssignment.findUnique({
+      where: {
+        id: input.assignmentId,
+      },
+      select: {
+        id: true,
+        courierId: true,
+        orderId: true,
+        status: true,
+        courier: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+            role: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            deletedAt: true,
+          },
+        },
+      },
+    });
+
+    if (
+      !assignment ||
+      assignment.status !== "CANCELLED" ||
+      assignment.order.deletedAt ||
+      !assignment.courier.isActive ||
+      assignment.courier.role !== "COURIER"
+    ) {
+      return {
+        created: false,
+        notification: null,
+        push: null,
+        whatsapp: null,
+      };
+    }
+
+    const eventKey = `COURIER_ASSIGNMENT_CANCELLED:${assignment.id}`;
+    const replacementName =
+      input.replacementCourierName?.trim() || "kurir lain";
+
+    const message = [
+      "⚠️ TUGAS PENGANTARAN DIALIHKAN",
+      "",
+      `Pesanan: ${assignment.order.orderNumber}`,
+      `Status tugas: Dibatalkan`,
+      `Penggantian: ${replacementName}`,
+      "",
+      "Pesanan ini tidak lagi menjadi tugas Anda.",
+      "Silakan buka aplikasi courier untuk melihat tugas aktif terbaru.",
+    ].join("\n");
+
+    const result = await notificationRepository.createIdempotent({
+      userId: assignment.courierId,
+      title: "Tugas Pengantaran Dialihkan",
+      message,
+      type: NotificationType.SYSTEM,
+      href: "/courier",
+      orderId: assignment.orderId,
+      eventKey,
+    });
+
+    let pushResult = null;
+
+    if (result.created) {
+      try {
+        pushResult = await pushDeliveryService.deliver({
+          notifications: [
+            {
+              userId: assignment.courierId,
+              notificationId: result.notification.id,
+              title: result.notification.title,
+              message: result.notification.message,
+              href: result.notification.href,
+              type: result.notification.type,
+              createdAt: result.notification.createdAt,
+            },
+          ],
+        });
+      } catch (error) {
+        console.error("[COURIER_ASSIGNMENT_CANCELLATION_PUSH_ERROR]", {
+          assignmentId: assignment.id,
+          courierId: assignment.courierId,
+          notificationId: result.notification.id,
+          error,
+        });
+      }
+    }
+
+    let whatsappResult = null;
+
+    try {
+      whatsappResult = await WapiCourierDeliveryService.deliver({
+        assignmentId: assignment.id,
+        courierId: assignment.courierId,
+        orderId: assignment.orderId,
+        eventKey,
+        eventType: "CANCELLATION",
+        message,
+      });
+    } catch (error) {
+      console.error("[COURIER_ASSIGNMENT_CANCELLATION_WAPI_ERROR]", {
+        assignmentId: assignment.id,
+        courierId: assignment.courierId,
+        error,
+      });
+
+      whatsappResult = {
+        status: "FAILED" as const,
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : "WAPI courier cancellation delivery gagal.",
+      };
+    }
+
+    return {
+      ...result,
+      push: pushResult,
+      whatsapp: whatsappResult,
+    };
+  }
+
   /**
    * ==========================================================
    * GET LATEST NOTIFICATIONS

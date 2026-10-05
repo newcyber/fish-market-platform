@@ -13,7 +13,7 @@ const MAX_ATTEMPTS = Math.min(
 
 const RETRY_COOLDOWN_MS = 60_000;
 
-export type WapiCourierEventType = "ASSIGNMENT";
+export type WapiCourierEventType = "ASSIGNMENT" | "CANCELLATION";
 
 export interface DeliverCourierWapiInput {
   assignmentId: string;
@@ -93,7 +93,7 @@ export class WapiCourierDeliveryService {
     const eventKey = normalizeRequired(input.eventKey, "Event key");
     const message = normalizeRequired(input.message, "WhatsApp message");
 
-    if (input.eventType !== "ASSIGNMENT") {
+    if (input.eventType !== "ASSIGNMENT" && input.eventType !== "CANCELLATION") {
       throw new Error(
         `Event WhatsApp courier tidak didukung: ${input.eventType}.`,
       );
@@ -124,7 +124,7 @@ export class WapiCourierDeliveryService {
           return {
             status: "BLOCKED" as const,
             errorMessage:
-              "Notifikasi WhatsApp penugasan courier dinonaktifkan admin.",
+              "Notifikasi WhatsApp lifecycle assignment courier dinonaktifkan admin.",
           };
         }
 

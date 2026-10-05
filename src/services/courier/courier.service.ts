@@ -1674,7 +1674,12 @@ export class CourierService {
       );
     }
 
-    const replacement = await prisma.$transaction(
+    const {
+      replacement,
+      cancelledAssignmentId,
+      cancelledCourierId,
+      replacementCourierName,
+    } = await prisma.$transaction(
       async (tx) => {
         const [current, courier] =
           await Promise.all([
@@ -1862,9 +1867,27 @@ export class CourierService {
           },
         });
 
-        return replacement;
+        return {
+          replacement,
+          cancelledAssignmentId: current.id,
+          cancelledCourierId: current.courierId,
+          replacementCourierName: courier.name,
+        };
       },
     );
+
+    try {
+      await notificationService.createCourierAssignmentCancellationNotification({
+        assignmentId: cancelledAssignmentId,
+        replacementCourierName,
+      });
+    } catch (error) {
+      console.error("[COURIER_ASSIGNMENT_CANCELLATION_NOTIFICATION_ERROR]", {
+        assignmentId: cancelledAssignmentId,
+        courierId: cancelledCourierId,
+        error,
+      });
+    }
 
     try {
       await notificationService.createCourierAssignmentNotification({
