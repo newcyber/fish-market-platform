@@ -315,7 +315,7 @@ export function FlashSaleItemsSection({
                 editingItem.product.id,
 
               skuId:
-                editingItem.sku?.id ?? null,
+                editingItem.sku?.id ?? "",
 
               originalPrice:
                 editingItem.originalPrice,

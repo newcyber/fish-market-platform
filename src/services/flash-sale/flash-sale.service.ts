@@ -3,6 +3,8 @@ import {
 } from "@prisma/client";
 
 import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
+import { prisma } from "@/lib/prisma";
+import { createAuditLog } from "@/services/audit/audit-log.service";
 
 /**
  * ============================================================
@@ -459,8 +461,14 @@ static async getActiveItemsByProductId(
    */
 
   static async create(
-    input: CreateFlashSaleInput
+    input: CreateFlashSaleInput,
+    actorId: string
   ) {
+    if (!actorId?.trim()) {
+      throw new Error(
+        "Actor ID admin wajib diisi untuk audit Flash Sale."
+      );
+    }
     /**
      * --------------------------------------------------------
      * VALIDATE NAME
@@ -653,26 +661,50 @@ static async getActiveItemsByProductId(
      * --------------------------------------------------------
      */
 
-    return FlashSaleRepository.create({
-      name,
+    return prisma.$transaction(async (tx) => {
+      const createdFlashSale =
+        await FlashSaleRepository.create(
+          {
+            name,
+            slug,
+            description:
+              input.description?.trim() ||
+              null,
+            banner:
+              input.banner?.trim() ||
+              null,
+            status,
+            startAt,
+            endAt,
+            sortOrder,
+          },
+          tx
+        );
 
-      slug,
+      await createAuditLog(
+        {
+          eventType: "FLASH_SALE_LIFECYCLE",
+          entityType: "FLASH_SALE",
+          entityId: createdFlashSale.id,
+          action: "CREATED",
+          actorType: "ADMIN",
+          actorId: actorId.trim(),
+          beforeData: null,
+          afterData: {
+            name: createdFlashSale.name,
+            slug: createdFlashSale.slug,
+            description: createdFlashSale.description,
+            banner: createdFlashSale.banner,
+            status: createdFlashSale.status,
+            startAt: createdFlashSale.startAt.toISOString(),
+            endAt: createdFlashSale.endAt.toISOString(),
+            sortOrder: createdFlashSale.sortOrder,
+          },
+        },
+        tx
+      );
 
-      description:
-        input.description?.trim() ||
-        null,
-
-      banner:
-        input.banner?.trim() ||
-        null,
-
-      status,
-
-      startAt,
-
-      endAt,
-
-      sortOrder,
+      return createdFlashSale;
     });
   }
 
@@ -688,8 +720,14 @@ static async getActiveItemsByProductId(
 
   static async update(
     id: string,
-    input: UpdateFlashSaleInput
+    input: UpdateFlashSaleInput,
+    actorId: string
   ) {
+    if (!actorId?.trim()) {
+      throw new Error(
+        "Actor ID admin wajib diisi untuk audit Flash Sale."
+      );
+    }
     /**
      * --------------------------------------------------------
      * ENSURE FLASH SALE EXISTS
@@ -1000,10 +1038,48 @@ static async getActiveItemsByProductId(
      * --------------------------------------------------------
      */
 
-    return FlashSaleRepository.update(
-      id,
-      data
-    );
+    return prisma.$transaction(async (tx) => {
+      const updatedFlashSale =
+        await FlashSaleRepository.update(
+          id,
+          data,
+          tx
+        );
+
+      await createAuditLog(
+        {
+          eventType: "FLASH_SALE_LIFECYCLE",
+          entityType: "FLASH_SALE",
+          entityId: updatedFlashSale.id,
+          action: "UPDATED",
+          actorType: "ADMIN",
+          actorId: actorId.trim(),
+          beforeData: {
+            name: current.name,
+            slug: current.slug,
+            description: current.description,
+            banner: current.banner,
+            status: current.status,
+            startAt: current.startAt.toISOString(),
+            endAt: current.endAt.toISOString(),
+            sortOrder: current.sortOrder,
+          },
+          afterData: {
+            name: updatedFlashSale.name,
+            slug: updatedFlashSale.slug,
+            description: updatedFlashSale.description,
+            banner: updatedFlashSale.banner,
+            status: updatedFlashSale.status,
+            startAt: updatedFlashSale.startAt.toISOString(),
+            endAt: updatedFlashSale.endAt.toISOString(),
+            sortOrder: updatedFlashSale.sortOrder,
+          },
+        },
+        tx
+      );
+
+      return updatedFlashSale;
+    });
   }
 
   /**
@@ -1049,14 +1125,28 @@ static async getActiveItemsByProductId(
    */
 
   static async delete(
-    id: string
+    id: string,
+    actorId: string
   ) {
+    if (!id?.trim()) {
+      throw new Error(
+        "Flash Sale ID wajib diisi."
+      );
+    }
+
+    if (!actorId?.trim()) {
+      throw new Error(
+        "Actor ID wajib diisi."
+      );
+    }
+
     await this.getById(
       id
     );
 
     return FlashSaleRepository.softDelete(
-      id
+      id,
+      actorId.trim()
     );
   }
 }

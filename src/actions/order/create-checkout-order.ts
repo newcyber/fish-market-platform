@@ -83,6 +83,8 @@ interface CreateCheckoutOrderResult {
 
   message: string;
 
+  code?: "PRICE_CHANGED";
+
   orderId?: string;
 
   orderNumber?: string;
@@ -308,6 +310,9 @@ const result =
     if (!result.success) {
       return {
         success: false,
+
+        code:
+          result.code,
 
         message:
           result.message ??

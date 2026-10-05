@@ -967,6 +967,16 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
           "Gagal membuat pesanan.",
       );
 
+      /**
+       * Harga canonical dapat berubah setelah halaman checkout
+       * dibuka, misalnya ketika Flash Sale berakhir.
+       * Server sengaja menolak silent repricing.
+       * Refresh akan mengambil harga checkout terbaru.
+       */
+      if (result.code === "PRICE_CHANGED") {
+        router.refresh();
+      }
+
       return;
     }
 

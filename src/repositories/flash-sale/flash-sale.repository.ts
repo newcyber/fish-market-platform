@@ -4,6 +4,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { createAuditLog } from "@/services/audit/audit-log.service";
 
 /**
  * ============================================================
@@ -768,9 +769,10 @@ static async findById(
    */
 
   static async create(
-    data: Prisma.FlashSaleCreateInput
+    data: Prisma.FlashSaleCreateInput,
+    db: Prisma.TransactionClient | typeof prisma = prisma
   ) {
-    return prisma.flashSale.create({
+    return db.flashSale.create({
       data,
     });
   }
@@ -783,9 +785,10 @@ static async findById(
 
   static async update(
     id: string,
-    data: Prisma.FlashSaleUpdateInput
+    data: Prisma.FlashSaleUpdateInput,
+    db: Prisma.TransactionClient | typeof prisma = prisma
   ) {
-    return prisma.flashSale.update({
+    return db.flashSale.update({
       where: {
         id,
       },
@@ -810,8 +813,21 @@ static async findById(
  * tidak pernah berada dalam kondisi setengah berubah.
  */
 static async softDelete(
-  id: string
+  id: string,
+  actorId: string
 ) {
+  if (!id?.trim()) {
+    throw new Error(
+      "Flash Sale ID wajib diisi."
+    );
+  }
+
+  if (!actorId?.trim()) {
+    throw new Error(
+      "Actor ID wajib diisi."
+    );
+  }
+
   return prisma.$transaction(
     async (tx) => {
       const flashSale =
@@ -823,6 +839,8 @@ static async softDelete(
 
           select: {
             id: true,
+            status: true,
+            deletedAt: true,
           },
         });
 
@@ -832,54 +850,88 @@ static async softDelete(
         );
       }
 
-            /**
-       * ========================================================
-       * RELEASE FLASH SALE QUOTA
-       * ========================================================
-       *
-       * Jika order menggunakan Flash Sale:
-       *
-       * - soldQuantity dikembalikan
-       * - FlashSalePurchase dihapus
-       * - perUserLimit otomatis kembali tersedia
-       *
-       * Semuanya masih berada dalam transaction yang sama.
-       */
-
       /**
-        * --------------------------------------------------------
+       * --------------------------------------------------------
        * DEACTIVATE ALL ITEMS
        * --------------------------------------------------------
+       *
+       * Campaign cancellation and item deactivation are atomic.
        */
-      await tx.flashSaleItem.updateMany({
-        where: {
-          flashSaleId: id,
-          isActive: true,
-        },
+      const deactivatedItems =
+        await tx.flashSaleItem.updateMany({
+          where: {
+            flashSaleId: id,
+            isActive: true,
+          },
 
-        data: {
-          isActive: false,
-        },
-      });
+          data: {
+            isActive: false,
+          },
+        });
 
       /**
        * --------------------------------------------------------
        * CANCEL + SOFT DELETE CAMPAIGN
        * --------------------------------------------------------
        */
+      const updatedFlashSale =
+        await tx.flashSale.update({
+          where: {
+            id,
+          },
 
-      return tx.flashSale.update({
-        where: {
-          id,
+          data: {
+            status:
+              FlashSaleStatus.CANCELLED,
+
+            deletedAt:
+              new Date(),
+          },
+        });
+
+      /**
+       * --------------------------------------------------------
+       * AUDIT
+       * --------------------------------------------------------
+       *
+       * Audit uses the same transaction client. If audit fails,
+       * campaign cancellation and item deactivation roll back.
+       */
+      await createAuditLog(
+        {
+          eventType:
+            "FLASH_SALE_LIFECYCLE",
+          entityType:
+            "FLASH_SALE",
+          entityId:
+            updatedFlashSale.id,
+          action:
+            "CANCELLED",
+          actorType:
+            "ADMIN",
+          actorId:
+            actorId.trim(),
+          beforeData: {
+            status:
+              flashSale.status,
+            deletedAt:
+              flashSale.deletedAt,
+          },
+          afterData: {
+            status:
+              updatedFlashSale.status,
+            deletedAt:
+              updatedFlashSale.deletedAt,
+          },
+          metadata: {
+            deactivatedItemCount:
+              deactivatedItems.count,
+          },
         },
+        tx
+      );
 
-        data: {
-          status:
-            FlashSaleStatus.CANCELLED,
-
-          deletedAt: new Date(),
-        },
-      });
+      return updatedFlashSale;
     }
   );
 }
@@ -1607,18 +1659,21 @@ static async findActiveBySlugForCustomer(
  * Legacy weightOptionId sudah tidak digunakan dalam
  * duplicate protection.
  */
-static async findDuplicateItem({
-  flashSaleId,
-  productId,
-  skuId,
-  excludeItemId,
-}: {
-  flashSaleId: string;
-  productId: string;
-  skuId: string;
-  excludeItemId?: string;
-}) {
-  return prisma.flashSaleItem.findFirst({
+static async findDuplicateItem(
+  tx: Prisma.TransactionClient,
+  {
+    flashSaleId,
+    productId,
+    skuId,
+    excludeItemId,
+  }: {
+    flashSaleId: string;
+    productId: string;
+    skuId: string;
+    excludeItemId?: string;
+  }
+) {
+  return tx.flashSaleItem.findFirst({
     where: {
       flashSaleId,
 
@@ -1644,9 +1699,10 @@ static async findDuplicateItem({
    */
 
   static async createItem(
+    tx: Prisma.TransactionClient,
     data: Prisma.FlashSaleItemCreateInput
   ) {
-    return prisma.flashSaleItem.create({
+    return tx.flashSaleItem.create({
       data,
 
       include: {
@@ -1665,28 +1721,39 @@ static async findDuplicateItem({
    * ============================================================
    */
 
-  static async updateItem(
-    flashSaleId: string,
-    itemId: string,
-    data: Prisma.FlashSaleItemUpdateInput
-  ) {
-    return prisma.flashSaleItem.update({
+ static async updateItem(
+  tx: Prisma.TransactionClient,
+  flashSaleId: string,
+  itemId: string,
+  data: Prisma.FlashSaleItemUpdateInput
+) {
+  const result =
+    await tx.flashSaleItem.updateMany({
       where: {
-        id:
-          itemId,
+        id: itemId,
+        flashSaleId,
       },
 
       data,
-
-      include: {
-        product:
-          true,
-
-        sku:
-          true,
-      },
     });
+
+  if (result.count === 0) {
+    throw new Error(
+      "Item Flash Sale tidak ditemukan pada Flash Sale yang dipilih."
+    );
   }
+
+  return tx.flashSaleItem.findUniqueOrThrow({
+    where: {
+      id: itemId,
+    },
+
+    include: {
+      product: true,
+      sku: true,
+    },
+  });
+}
 
     /**
    * ============================================================
@@ -1818,6 +1885,30 @@ static async findDuplicateItem({
        * cancellation rollback.
        */
 
+      const flashSaleItem =
+        await tx.flashSaleItem.findUnique({
+          where: {
+            id: purchase.flashSaleItemId,
+          },
+          select: {
+            flashSaleId: true,
+            soldQuantity: true,
+          },
+        });
+
+      if (!flashSaleItem) {
+        throw new Error(
+          "Flash Sale Item tidak ditemukan saat quota dikembalikan."
+        );
+      }
+
+      const beforeSoldQuantity =
+        flashSaleItem.soldQuantity;
+
+      const afterSoldQuantity =
+        beforeSoldQuantity -
+        purchase.quantity;
+
       const updated =
         await tx.flashSaleItem.updateMany({
           where: {
@@ -1845,6 +1936,31 @@ static async findDuplicateItem({
           "Quota Flash Sale tidak dapat dikembalikan karena data sold quantity tidak konsisten."
         );
       }
+
+      await createAuditLog(
+        {
+          eventType: "FLASH_SALE_LIFECYCLE",
+          entityType: "FLASH_SALE_ITEM",
+          entityId: purchase.flashSaleItemId,
+          action: "QUOTA_RELEASED",
+          beforeData: {
+            soldQuantity:
+              beforeSoldQuantity,
+          },
+          afterData: {
+            soldQuantity:
+              afterSoldQuantity,
+          },
+          metadata: {
+            flashSaleId:
+              flashSaleItem.flashSaleId,
+            orderId,
+            quantity: purchase.quantity,
+            reason: "ORDER_CANCELLED",
+          },
+        },
+        tx,
+      );
 
       releasedQuantity +=
         purchase.quantity;
@@ -1887,14 +2003,27 @@ static async findDuplicateItem({
    */
 
   static async deleteItem(
+    tx: Prisma.TransactionClient,
     flashSaleId: string,
     itemId: string
   ) {
-    return prisma.flashSaleItem.delete({
-      where: {
-        id:
-          itemId,
-      },
-    });
+    const result =
+      await tx.flashSaleItem.deleteMany({
+        where: {
+          id:
+            itemId,
+          flashSaleId,
+        },
+      });
+
+    if (result.count === 0) {
+      throw new Error(
+        "Item Flash Sale tidak ditemukan pada Flash Sale yang dipilih."
+      );
+    }
+
+    return {
+      id: itemId,
+    };
   }
 }

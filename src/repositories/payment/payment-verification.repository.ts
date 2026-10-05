@@ -1,3 +1,4 @@
+import { createAuditLog } from "@/services/audit/audit-log.service";
 import { PaymentStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -604,6 +605,32 @@ export class PaymentVerificationRepository {
         },
       });
 
+      await createAuditLog(
+        {
+          eventType: "PAYMENT_VERIFIED",
+          entityType: "ORDER",
+          entityId: order.id,
+          action: "VERIFY_PAYMENT",
+          actorType: "ADMIN",
+          actorId: verifiedById,
+          beforeData: {
+            paymentStatus: order.paymentStatus,
+            orderStatus: order.status,
+            paymentProofStatus: paymentProof.status,
+          },
+          afterData: {
+            paymentStatus: PaymentStatus.VERIFIED,
+            orderStatus: nextOrderStatus,
+            paymentProofStatus: PaymentStatus.VERIFIED,
+          },
+          metadata: {
+            orderNumber: order.orderNumber,
+            paymentProofId: updatedProof.id,
+          },
+        },
+        tx,
+      );
+
 return {
   updatedProof,
   notificationContext: {
@@ -812,6 +839,33 @@ return {
           status: nextOrderStatus,
         },
       });
+
+      await createAuditLog(
+        {
+          eventType: "PAYMENT_REJECTED",
+          entityType: "ORDER",
+          entityId: order.id,
+          action: "REJECT_PAYMENT",
+          actorType: "ADMIN",
+          actorId: verifiedById,
+          beforeData: {
+            paymentStatus: order.paymentStatus,
+            orderStatus: order.status,
+            paymentProofStatus: paymentProof.status,
+          },
+          afterData: {
+            paymentStatus: PaymentStatus.REJECTED,
+            orderStatus: nextOrderStatus,
+            paymentProofStatus: PaymentStatus.REJECTED,
+          },
+          metadata: {
+            orderNumber: order.orderNumber,
+            paymentProofId: updatedProof.id,
+            rejectionReason: rejectionReason.trim(),
+          },
+        },
+        tx,
+      );
 
 return {
   updatedProof,

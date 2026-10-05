@@ -255,6 +255,52 @@ static async getCart(
  * ============================================================
  */
 
+/**
+ * ============================================================
+ * RESOLVE CURRENT CHECKOUT PRICING
+ * ============================================================
+ *
+ * CartItem.price adalah snapshot yang sengaja dipertahankan agar
+ * cart tidak melakukan write setiap kali dibaca. Namun checkout
+ * membutuhkan harga canonical terbaru.
+ *
+ * Method ini TIDAK mengubah CartItem. Ia hanya menghitung harga
+ * terkini melalui ProductPricingService agar halaman checkout tidak
+ * menampilkan harga snapshot yang sudah stale.
+ */
+static async resolveCheckoutPricing(
+  items: Array<{
+    id: string;
+    productId: string;
+    skuId: string | null;
+    quantity: number;
+    product: {
+      price: Prisma.Decimal;
+    };
+  }>
+) {
+  if (items.length === 0) {
+    return new Map<string, Prisma.Decimal>();
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const pricingMap = new Map<string, Prisma.Decimal>();
+
+    for (const item of items) {
+      const pricing = await ProductPricingService.resolve(tx, {
+        productId: item.productId,
+        skuId: item.skuId,
+        preferredFlashSaleItemId: null,
+        fallbackPrice: item.product.price,
+      });
+
+      pricingMap.set(item.id, pricing.finalPrice);
+    }
+
+    return pricingMap;
+  });
+}
+
 static async getOrCreateCart(
   owner: CartOwner
 ) {

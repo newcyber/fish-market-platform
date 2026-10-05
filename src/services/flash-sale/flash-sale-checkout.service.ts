@@ -3,6 +3,8 @@ import {
   FlashSaleStatus,
 } from "@prisma/client";
 
+import { createAuditLog } from "@/services/audit/audit-log.service";
+
 /**
  * ============================================================
  * FLASH SALE CHECKOUT SERVICE
@@ -361,39 +363,6 @@ for (
     SELECT pg_backend_pid() AS pid
   `;
 
-console.log(
-  "[FLASH-SALE-STATE]",
-  {
-    flashSaleItemId:
-      flashSaleItem.id,
-
-    orderId:
-      input.orderId,
-
-    userId:
-      input.userId,
-
-    pid:
-      backend[0]?.pid ?? 0,
-
-    stockLimit:
-      flashSaleItem.stockLimit,
-
-    soldQuantity:
-      flashSaleItem.soldQuantity,
-
-    requestedQuantity:
-      requirement.quantity,
-
-    remainingQuantity:
-      flashSaleItem.stockLimit -
-      flashSaleItem.soldQuantity,
-
-    timestamp:
-      new Date().toISOString(),
-  }
-);
-
       /**
        * ========================================================
        * VALIDATE ITEM
@@ -562,34 +531,7 @@ if (
           },
         });
 
-        console.log(
-  "[FLASH-SALE-QUOTA-UPDATE]",
-  {
-    flashSaleItemId:
-      flashSaleItem.id,
-
-    orderId:
-      input.orderId,
-
-    userId:
-      input.userId,
-
-    requestedQuantity:
-      requirement.quantity,
-
-    updatedCount:
-      updated.count,
-
-    expectedSoldQuantity:
-      flashSaleItem.soldQuantity +
-      requirement.quantity,
-
-    timestamp:
-      new Date().toISOString(),
-  }
-);
-
-      if (
+              if (
         updated.count !== 1
       ) {
         throw new Error(
@@ -621,6 +563,27 @@ if (
             flashSaleItem.flashPrice,
         },
       });
+
+      await createAuditLog(
+        {
+          eventType: "FLASH_SALE_LIFECYCLE",
+          entityType: "FLASH_SALE_ITEM",
+          entityId: flashSaleItem.id,
+          action: "QUOTA_CONSUMED",
+          beforeData: { soldQuantity: flashSaleItem.soldQuantity },
+          afterData: {
+            soldQuantity: flashSaleItem.soldQuantity + requirement.quantity,
+          },
+          metadata: {
+            flashSaleId: flashSaleItem.flashSaleId,
+            orderId: input.orderId,
+            userId: input.userId,
+            quantity: requirement.quantity,
+            price: flashSaleItem.flashPrice.toString(),
+          },
+        },
+        tx,
+      );
     }
   }
 }

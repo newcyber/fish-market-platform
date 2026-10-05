@@ -152,7 +152,16 @@ export async function POST(
   }
 ) {
   try {
-    await requireAdmin();
+    /**
+     * --------------------------------------------------------
+     * ADMIN AUTHORIZATION
+     * --------------------------------------------------------
+     *
+     * Session disimpan karena actorId diperlukan oleh
+     * FlashSaleItemService.create() untuk audit trail.
+     */
+    const session =
+      await requireAdmin();
 
     const {
       id,
@@ -181,15 +190,15 @@ export async function POST(
     }
 
     const {
-  productId,
-  skuId,
-  originalPrice,
-  flashPrice,
-  stockLimit,
-  perUserLimit,
-  isActive,
-  sortOrder,
-} = body;
+      productId,
+      skuId,
+      originalPrice,
+      flashPrice,
+      stockLimit,
+      perUserLimit,
+      isActive,
+      sortOrder,
+    } = body;
 
     /**
      * --------------------------------------------------------
@@ -214,29 +223,35 @@ export async function POST(
     }
 
     if (
-  typeof skuId !== "string" ||
-  !skuId.trim()
-) {
-  return NextResponse.json(
-    {
-      success: false,
-      message: "SKU ID wajib diisi.",
-    },
-    {
-      status: 400,
-    }
-  );
-}
-
-    if (
-      typeof originalPrice !== "number"
+      typeof skuId !== "string" ||
+      !skuId.trim()
     ) {
       return NextResponse.json(
         {
           success: false,
 
           message:
-            "Harga normal harus berupa angka.",
+            "SKU ID wajib diisi.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      originalPrice !== undefined &&
+      (
+        typeof originalPrice !== "number" ||
+        !Number.isFinite(originalPrice)
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          message:
+            "Harga normal harus berupa angka yang valid.",
         },
         {
           status: 400,
@@ -331,29 +346,33 @@ export async function POST(
      * --------------------------------------------------------
      * CREATE FLASH SALE ITEM
      * --------------------------------------------------------
+     *
+     * actorId diteruskan dari authenticated admin session
+     * agar service dapat membuat audit log CREATE.
      */
-
     const item =
-  await FlashSaleItemService.create(
-    id,
-    {
-      productId,
+      await FlashSaleItemService.create(
+        id,
+        {
+          productId,
 
-      skuId: skuId.trim(),
+          skuId:
+            skuId.trim(),
 
-      originalPrice,
+          originalPrice,
 
-      flashPrice,
+          flashPrice,
 
-      stockLimit,
+          stockLimit,
 
-      perUserLimit,
+          perUserLimit,
 
-      isActive,
+          isActive,
 
-      sortOrder,
-    }
-  );
+          sortOrder,
+        },
+        session.user.id
+      );
 
     return NextResponse.json(
       {

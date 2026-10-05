@@ -96,7 +96,7 @@ export async function PATCH(
      * --------------------------------------------------------
      */
 
-    await requireAdmin();
+    const session = await requireAdmin();
 
     const {
       id: flashSaleId,
@@ -505,12 +505,13 @@ export async function PATCH(
      * --------------------------------------------------------
      */
 
-    const item =
-      await FlashSaleItemService.update(
-        flashSaleId,
-        itemId,
-        input
-      );
+  const item =
+    await FlashSaleItemService.update(
+      flashSaleId,
+      itemId,
+      input,
+      session.user.id
+    );
 
     return NextResponse.json(
       {
@@ -555,7 +556,7 @@ export async function DELETE(
      * --------------------------------------------------------
      */
 
-    await requireAdmin();
+    const session = await requireAdmin();
 
     const {
       id: flashSaleId,
@@ -593,7 +594,8 @@ export async function DELETE(
 
     await FlashSaleItemService.delete(
       flashSaleId,
-      itemId
+      itemId,
+      session.user.id
     );
 
     return NextResponse.json(

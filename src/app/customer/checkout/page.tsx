@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 
 import {
@@ -214,22 +215,51 @@ const checkoutItems =
 
   /**
    * ==========================================================
-   * CALCULATE SUBTOTAL
+   * RESOLVE CURRENT CHECKOUT PRICING
+   * ==========================================================
    *
-   * Important:
-   * Convert Decimal values into plain numbers
-   * before sending data to Client Component.
+   * CartItem.price adalah snapshot. Jangan gunakan snapshot stale
+   * sebagai harga yang ditampilkan pada checkout.
+   *
+   * Harga di-resolve ulang melalui canonical ProductPricingService
+   * tanpa mengubah CartItem di database. OrderService tetap akan
+   * melakukan validasi kedua saat order dibuat.
    * ==========================================================
    */
 
-const subtotal =
-  checkoutItems.reduce(
+  let checkoutPricing = new Map<string, Prisma.Decimal>();
+
+  try {
+    checkoutPricing =
+      await CartService.resolveCheckoutPricing(
+        checkoutItems.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          skuId: item.skuId,
+          quantity: item.quantity,
+          product: {
+            price: item.product.price,
+          },
+        }))
+      );
+  } catch (error) {
+    console.error("[CHECKOUT_PRICING_RESOLVE_ERROR]", error);
+    redirect("/cart");
+  }
+
+  /**
+   * ==========================================================
+   * CALCULATE SUBTOTAL
+   * ==========================================================
+   */
+
+  const subtotal =
+    checkoutItems.reduce(
       (total, item) => {
-        return (
-          total +
-          Number(item.price) *
-          item.quantity
-        );
+        const currentPrice =
+          checkoutPricing.get(item.id) ?? item.price;
+
+        return total + Number(currentPrice) * item.quantity;
       },
       0
     );
@@ -318,12 +348,12 @@ const serializedItems =
 
         price:
           Number(
-            item.price
+            checkoutPricing.get(item.id) ?? item.price
           ),
 
         subtotal:
           Number(
-            item.price
+            checkoutPricing.get(item.id) ?? item.price
           ) *
           item.quantity,
 

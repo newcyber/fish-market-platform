@@ -390,10 +390,6 @@ const productJsonLd = (
     (sku) => sku.isActive && sku.productId === product.id,
   );
 
-  const skuPriceList: number[] = activeSkus
-    .map((sku) => Number(sku.price))
-    .filter((price) => Number.isFinite(price) && price >= 0);
-
   /**
    * ==========================================================
    * ACTIVE FLASH SALE ITEMS
@@ -436,216 +432,68 @@ const productJsonLd = (
 
   /**
    * ==========================================================
-   * PRODUCT BASE PRICE
+   * STOREFRONT DISPLAY PRICE
    * ==========================================================
+   *
+   * /customer/products menggunakan aturan display berikut:
+   *
+   * 1. Product.price sebagai harga normal canonical listing.
+   * 2. Jika ada Flash Sale aktif dengan quota tersisa, gunakan
+   *    Flash Sale dengan flashPrice paling rendah.
+   * 3. Product-level discount TIDAK diterapkan di sini karena
+   *    ProductPricingService untuk SKU menggunakan discount
+   *    pada ProductSku, bukan Product.discount*.
+   *
+   * Sebelumnya /products/[slug] menghitung Product.discount*
+   * langsung terhadap seluruh SKU. Akibatnya harga detail dapat
+   * berbeda dengan /customer/products.
+   *
+   * IMPORTANT:
+   * Harga SKU tetap digunakan oleh AddToCartButton setelah customer
+   * memilih variant. Block ini hanya menentukan harga ringkas yang
+   * ditampilkan sebelum variant dipilih.
    */
 
   const baseProductPrice = Number(product.price);
 
-  /**
-   * ==========================================================
-   * PRODUCT DISCOUNT STATUS
-   * ==========================================================
-   */
-
-  const now = new Date();
-
-  const isProductDiscountActive =
-    product.isDiscountActive &&
-    product.discountType !== null &&
-    product.discountValue !== null &&
-    (product.discountStartAt === null || product.discountStartAt <= now) &&
-    (product.discountEndAt === null || product.discountEndAt > now);
-
-  /**
-   * ==========================================================
-   * PRODUCT DISCOUNT AMOUNT
-   * ==========================================================
-   */
-
-  let productDiscountAmount = 0;
-
-  if (isProductDiscountActive) {
-    const discountValue = Number(product.discountValue);
-
-    if (product.discountType === "PERCENTAGE") {
-      productDiscountAmount = (baseProductPrice * discountValue) / 100;
-    }
-
-    if (product.discountType === "FIXED_AMOUNT") {
-      productDiscountAmount = discountValue;
-    }
-
-    productDiscountAmount = Math.min(
-      baseProductPrice,
-      Math.max(0, productDiscountAmount),
-    );
-  }
-
-  /**
-   * ==========================================================
-   * SKU PRICE LIST
-   * ==========================================================
-   *
-   * Harga range berasal dari SKU.price.
-   * Product.price hanya menjadi fallback untuk product legacy.
-   */
-
-  const originalPriceList: number[] =
-    skuPriceList.length > 0 ? skuPriceList : [baseProductPrice];
-
-  /**
-   * ==========================================================
-   * REMOVE DUPLICATE PRICES
-   * ==========================================================
-   */
-
-  const uniqueOriginalPriceList: number[] = Array.from(
-    new Set<number>(originalPriceList),
+  const availableFlashSaleItems = normalizedFlashSaleItems.filter(
+    (item) => item.stockLimit - item.soldQuantity > 0,
   );
 
-  /**
-   * ==========================================================
-   * ORIGINAL PRICE RANGE
-   * ==========================================================
-   */
+  const storefrontFlashSale =
+    availableFlashSaleItems.reduce<
+      (typeof normalizedFlashSaleItems[number] | null)
+    >((lowest, item) => {
+      if (!lowest || item.flashPrice < lowest.flashPrice) {
+        return item;
+      }
 
-  const minimumOriginalPrice = Math.min(...uniqueOriginalPriceList);
+      return lowest;
+    }, null);
 
-  const maximumOriginalPrice = Math.max(...uniqueOriginalPriceList);
+  const hasFlashSale = storefrontFlashSale !== null;
 
-  /**
-   * ==========================================================
-   * PRODUCT DISCOUNT
-   * ==========================================================
-   */
+  const displayOriginalPrice = storefrontFlashSale
+    ? storefrontFlashSale.originalPrice
+    : baseProductPrice;
 
-  const discountValue =
-    product.discountValue !== null ? Number(product.discountValue) : 0;
+  const displayOriginalPriceMax = displayOriginalPrice;
 
-  const hasDiscountStarted =
-    !product.discountStartAt || new Date(product.discountStartAt) <= now;
+  const displayFinalPrice = storefrontFlashSale
+    ? storefrontFlashSale.flashPrice
+    : baseProductPrice;
 
-  const hasDiscountEnded =
-    !!product.discountEndAt && new Date(product.discountEndAt) <= now;
+  const displayFinalPriceMax = displayFinalPrice;
 
-  const isDiscountCurrentlyActive =
-    product.isDiscountActive &&
-    product.discountType !== null &&
-    discountValue > 0 &&
-    hasDiscountStarted &&
-    !hasDiscountEnded;
-
-  /**
-   * ==========================================================
-   * APPLY PRODUCT DISCOUNT
-   * ==========================================================
-   */
-
-  const applyProductDiscount = (originalPrice: number) => {
-    if (!isDiscountCurrentlyActive) {
-      return originalPrice;
-    }
-
-    if (product.discountType === "PERCENTAGE") {
-      const percentage = Math.min(100, Math.max(0, discountValue));
-
-      const discountAmount = originalPrice * (percentage / 100);
-
-      return Math.max(0, originalPrice - discountAmount);
-    }
-
-    if (product.discountType === "FIXED_AMOUNT") {
-      const discountAmount = Math.min(
-        originalPrice,
-        Math.max(0, discountValue),
-      );
-
-      return Math.max(0, originalPrice - discountAmount);
-    }
-
-    return originalPrice;
-  };
-
-  /**
-   * ==========================================================
-   * FINAL PRICE LIST
-   * ==========================================================
-   */
-
-  const finalPriceList: number[] = uniqueOriginalPriceList.map(
-    (originalPrice) => applyProductDiscount(originalPrice),
+  const displaySaving = Math.max(
+    0,
+    displayOriginalPrice - displayFinalPrice,
   );
 
-  /**
-   * ==========================================================
-   * FINAL PRICE RANGE
-   * ==========================================================
-   */
+  const displaySavingMax = displaySaving;
 
-  const minimumFinalPrice = Math.min(...finalPriceList);
+  const hasPriceDiscount = displaySaving > 0;
 
-  const maximumFinalPrice = Math.max(...finalPriceList);
-
-  /**
-   * ==========================================================
-   * TOTAL SAVING RANGE
-   * ==========================================================
-   */
-
-  const minimumSaving = Math.max(0, minimumOriginalPrice - minimumFinalPrice);
-
-  const maximumSaving = Math.max(0, maximumOriginalPrice - maximumFinalPrice);
-
-  /**
-   * ==========================================================
-   * PRICE RANGE HELPERS
-   * ==========================================================
-   */
-
-  const hasOriginalPriceRange = minimumOriginalPrice !== maximumOriginalPrice;
-
-  const hasFinalPriceRange = minimumFinalPrice !== maximumFinalPrice;
-
-  const hasPriceDiscount =
-    isDiscountCurrentlyActive && (minimumSaving > 0 || maximumSaving > 0);
-
-  /**
-   * ==========================================================
-   * PRODUCT DISPLAY PRICE
-   * ==========================================================
-   *
-   * Flash Sale SKU baru ditentukan setelah customer memilih
-   * variant di AddToCartButton.
-   */
-
-  const displayOriginalPrice = minimumOriginalPrice;
-
-  const displayOriginalPriceMax = maximumOriginalPrice;
-
-  const displayFinalPrice = minimumFinalPrice;
-
-  const displayFinalPriceMax = maximumFinalPrice;
-
-  const displaySaving = minimumSaving;
-
-  const displaySavingMax = maximumSaving;
-
-  const displayDiscountPercentage =
-    displayOriginalPrice > 0
-      ? Math.round(
-          ((displayOriginalPrice - displayFinalPrice) / displayOriginalPrice) *
-            100,
-        )
-      : 0;
-
-  /**
-   * ==========================================================
-   * FLASH SALE AVAILABILITY
-   * ==========================================================
-   */
-
-  const hasFlashSale = normalizedFlashSaleItems.length > 0;
 
   /**
    * ==========================================================

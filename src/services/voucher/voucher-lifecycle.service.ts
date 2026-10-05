@@ -3,6 +3,10 @@ import {
   Prisma,
 } from "@prisma/client";
 
+import {
+  createAuditLog,
+} from "@/services/audit/audit-log.service";
+
 /**
  * ============================================================
  * VOUCHER LIFECYCLE SERVICE
@@ -176,6 +180,21 @@ export class VoucherLifecycleService {
         "Gagal mengembalikan kuota voucher."
       );
     }
+
+    await createAuditLog(
+      {
+        eventType: "VOUCHER_LIFECYCLE",
+        entityType: "VOUCHER",
+        entityId: voucherUsage.voucherId,
+        action: "RELEASED",
+        metadata: {
+          orderId,
+          quantity: 1,
+          reason: "ORDER_CANCELLED",
+        },
+      },
+      tx,
+    );
   }
 }
 

@@ -74,7 +74,7 @@ export interface FlashSaleItemFormInitialItem {
 
   productId: string;
 
-  skuId: string | null;
+  skuId: string;
 
   originalPrice: number;
 

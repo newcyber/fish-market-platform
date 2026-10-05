@@ -16,6 +16,10 @@ import {
   RewardClaimRepository,
 } from "@/repositories/reward/reward-claim.repository";
 
+import {
+  createAuditLog,
+} from "@/services/audit/audit-log.service";
+
 /**
  * ============================================================
  * CLAIM REWARD
@@ -968,6 +972,34 @@ let refundTransaction:
           },
           tx
         );
+
+      await createAuditLog(
+        {
+          eventType: "REWARD_LIFECYCLE",
+          entityType: "REWARD_CLAIM",
+          entityId: updatedClaim.id,
+          action: "STATUS_CHANGED",
+          beforeData: {
+            status: claim.status,
+            refundedAt: claim.refundedAt,
+          },
+          afterData: {
+            status: updatedClaim.status,
+            refundedAt: updatedClaim.refundedAt,
+          },
+          metadata: {
+            userId: claim.userId,
+            rewardCatalogId: claim.rewardCatalogId,
+            pointsSpent: claim.pointsSpent,
+            refund: shouldRefund,
+            rejectionReason:
+              status === RewardClaimStatus.REJECTED
+                ? String(rejectionReason ?? "").trim()
+                : null,
+          },
+        },
+        tx,
+      );
 
       /**
        * ========================================================

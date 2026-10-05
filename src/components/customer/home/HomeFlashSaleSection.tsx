@@ -103,6 +103,10 @@ interface FlashSaleItem {
   stockLimit: number;
   soldQuantity: number;
   product: FlashSaleProduct;
+  /**
+   * SKU can be null for legacy/migrated records.
+   * Customer rendering must remain resilient to that state.
+   */
   sku: FlashSaleSku | null;
 }
 

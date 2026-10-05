@@ -5,6 +5,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { createAuditLog } from "@/services/audit/audit-log.service";
 import { randomUUID } from "node:crypto";
 import OrderRepository, {
   type CustomerOrderCursor,
@@ -46,6 +47,17 @@ export interface AdminOrderListOptions {
   status?: OrderStatus;
   paymentStatus?: PaymentStatus;
 }
+class CheckoutPriceChangedError extends Error {
+  readonly code = "PRICE_CHANGED" as const;
+
+  constructor(productName: string) {
+    super(
+      `Harga produk "${productName}" berubah. Silakan periksa kembali harga di checkout sebelum melanjutkan.`
+    );
+    this.name = "CheckoutPriceChangedError";
+  }
+}
+
 export interface CreateOrderItemInput {
   /**
    * Product parent.
@@ -1038,11 +1050,24 @@ export default class OrderService {
          * GUARDED GLOBAL USAGE COUNT
          * ------------------------------------------------------
          */
+        const voucherConsumeNow = new Date();
         const usageResult = await tx.voucher.updateMany({
           where: {
             id: voucher.id,
             deletedAt: null,
             isActive: true,
+            OR: [
+              { startAt: null },
+              { startAt: { lte: voucherConsumeNow } },
+            ],
+            AND: [
+              {
+                OR: [
+                  { endAt: null },
+                  { endAt: { gt: voucherConsumeNow } },
+                ],
+              },
+            ],
             ...(voucher.usageLimit !== null
               ? {
                   usageCount: {
@@ -1301,6 +1326,12 @@ export default class OrderService {
         },
         include: {
           items: true,
+          paymentProof: {
+            select: {
+              id: true,
+              status: true,
+            },
+          },
         },
       });
       if (!order) {
@@ -1336,6 +1367,29 @@ export default class OrderService {
       if (order.paymentStatus === PaymentStatus.VERIFIED) {
         throw new Error(
           "Order yang pembayarannya sudah terverifikasi tidak dapat diedit.",
+        );
+      }
+
+      /**
+       * ==========================================================
+       * PAYMENT PROOF INTEGRITY GUARD
+       * ==========================================================
+       *
+       * Setelah customer mengirim bukti pembayaran PENDING,
+       * nilai finansial order tidak boleh diubah lagi.
+       *
+       * Jika item / quantity / shipping diubah setelah bukti
+       * dikirim, bukti tersebut dapat merepresentasikan nominal
+       * yang berbeda dari Order.total saat admin melakukan
+       * verifikasi.
+       *
+       * Perubahan hanya dapat dilakukan setelah bukti tersebut
+       * REJECTED sehingga customer dapat mengirim bukti baru
+       * untuk nominal terbaru.
+       */
+      if (order.paymentProof?.status === PaymentStatus.PENDING) {
+        throw new Error(
+          "Order tidak dapat diedit setelah bukti pembayaran dikirim dan masih menunggu verifikasi. Tolak pembayaran terlebih dahulu jika order perlu diubah.",
         );
       }
       /**
@@ -3258,7 +3312,7 @@ export default class OrderService {
      * sehingga tidak ada cancellation paralel
      * yang dapat memproses order ini bersamaan.
      */
-    return await tx.order.update({
+    const cancelledOrder = await tx.order.update({
       where: {
         id: currentOrder.id,
       },
@@ -3277,6 +3331,30 @@ export default class OrderService {
         paymentProof: true,
       },
     });
+
+    await createAuditLog(
+      {
+        eventType: "ORDER_LIFECYCLE",
+        entityType: "ORDER",
+        entityId: cancelledOrder.id,
+        action: "STATUS_CHANGED",
+        beforeData: {
+          status: currentOrder.status,
+          paymentStatus: currentOrder.paymentStatus,
+        },
+        afterData: {
+          status: cancelledOrder.status,
+          paymentStatus: cancelledOrder.paymentStatus,
+        },
+        metadata: {
+          orderNumber: cancelledOrder.orderNumber,
+          reason: "ORDER_CANCELLED",
+        },
+      },
+      tx,
+    );
+
+    return cancelledOrder;
   }
   static async cancelOrder(id: string) {
     if (!id) {
@@ -3851,6 +3929,29 @@ export default class OrderService {
           paymentProof: true,
         },
       });
+
+      await createAuditLog(
+        {
+          eventType: "ORDER_LIFECYCLE",
+          entityType: "ORDER",
+          entityId: completedOrder.id,
+          action: "STATUS_CHANGED",
+          beforeData: {
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+          },
+          afterData: {
+            status: completedOrder.status,
+            paymentStatus: completedOrder.paymentStatus,
+          },
+          metadata: {
+            orderNumber: completedOrder.orderNumber,
+            reason: "ORDER_COMPLETED",
+          },
+        },
+        tx,
+      );
+
       const rewardResult = await awardOrderRewardPointsTx(tx, completedOrder);
 
       return {
@@ -5135,6 +5236,29 @@ export default class OrderService {
             preferredFlashSaleItemId: item.flashSaleItemId,
             fallbackPrice: product.price,
           });
+
+          /**
+           * ========================================================
+           * CHECK CART SNAPSHOT INTEGRITY
+           * ========================================================
+           *
+           * Jangan diam-diam menagih harga berbeda dari yang sedang
+           * dilihat customer pada checkout. CartItem.price adalah
+           * snapshot; pricing engine adalah canonical source.
+           *
+           * Jika berubah antara saat cart dibuka dan saat checkout
+           * dikirim, order dibatalkan dan customer diminta refresh.
+           * Ini mencegah silent repricing.
+           */
+          const cartSnapshotPrice =
+            new Prisma.Decimal(item.price);
+
+          if (!cartSnapshotPrice.equals(pricing.finalPrice)) {
+            throw new CheckoutPriceChangedError(
+              product.name
+            );
+          }
+
           /**
            * ========================================================
            * COLLECT FLASH SALE REQUIREMENT
@@ -5438,11 +5562,24 @@ export default class OrderService {
            *
            * Mencegah usageCount melebihi usageLimit.
            */
+          const voucherConsumeNow = new Date();
           const usageResult = await tx.voucher.updateMany({
             where: {
               id: voucher.id,
               deletedAt: null,
               isActive: true,
+              OR: [
+                { startAt: null },
+                { startAt: { lte: voucherConsumeNow } },
+              ],
+              AND: [
+                {
+                  OR: [
+                    { endAt: null },
+                    { endAt: { gt: voucherConsumeNow } },
+                  ],
+                },
+              ],
               ...(voucher.usageLimit !== null
                 ? {
                     usageCount: {
@@ -5843,6 +5980,14 @@ export default class OrderService {
       };
     } catch (error) {
       console.error("[CREATE_CHECKOUT_ORDER_ERROR]", error);
+      if (error instanceof CheckoutPriceChangedError) {
+        return {
+          success: false,
+          code: error.code,
+          message: error.message,
+        };
+      }
+
       return {
         success: false,
         message:

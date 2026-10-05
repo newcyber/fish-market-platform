@@ -1,7 +1,10 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+
 import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
+
+import { createAuditLog } from "@/services/audit/audit-log.service";
 
 /**
  * ============================================================
@@ -597,8 +600,21 @@ export default class FlashSaleItemService {
    */
   static async create(
     flashSaleId: string,
-    input: CreateFlashSaleItemInput
+    input: CreateFlashSaleItemInput,
+    actorId: string
   ) {
+    if (!flashSaleId?.trim()) {
+      throw new Error(
+        "Flash Sale ID wajib diisi."
+      );
+    }
+
+    if (!actorId?.trim()) {
+      throw new Error(
+        "Actor ID admin wajib diisi untuk audit Flash Sale."
+      );
+    }
+
     const flashSale =
       await this.ensureFlashSaleExists(
         flashSaleId
@@ -722,66 +738,116 @@ export default class FlashSaleItemService {
 
     /**
      * --------------------------------------------------------
-     * DUPLICATE PROTECTION
+     * CREATE ITEM + DUPLICATE PROTECTION + AUDIT
      * --------------------------------------------------------
      *
-     * Canonical uniqueness:
-     *
-     *   flashSaleId + skuId
-     *
-     * ProductId tetap dikirim karena masih menjadi field
-     * compatibility pada FlashSaleItem.
+     * Duplicate check harus berada di transaction yang sama
+     * dengan mutation. Database UNIQUE constraint menjadi
+     * final concurrency guard.
      */
-    const duplicate =
-      await FlashSaleRepository.findDuplicateItem({
-        flashSaleId,
-        productId: product.id,
-        skuId,
-      });
+    return prisma.$transaction(async (tx) => {
+      const duplicate =
+        await FlashSaleRepository.findDuplicateItem(
+          tx,
+          {
+            flashSaleId,
+            productId: product.id,
+            skuId,
+          }
+        );
 
-    if (duplicate) {
-      throw new Error(
-        "SKU tersebut sudah ada di Flash Sale ini."
+      if (duplicate) {
+        throw new Error(
+          "SKU tersebut sudah ada di Flash Sale ini."
+        );
+      }
+
+      const createdItem =
+        await FlashSaleRepository.createItem(
+          tx,
+          {
+            flashSale: {
+              connect: {
+                id: flashSaleId,
+              },
+            },
+
+            product: {
+              connect: {
+                id: product.id,
+              },
+            },
+
+            sku: {
+              connect: {
+                id: sku.id,
+              },
+            },
+
+            originalPrice,
+
+            flashPrice,
+
+            stockLimit,
+
+            soldQuantity: 0,
+
+            perUserLimit,
+
+            isActive,
+
+            sortOrder,
+          }
+        );
+
+      await createAuditLog(
+        {
+          eventType:
+            "FLASH_SALE_LIFECYCLE",
+          entityType:
+            "FLASH_SALE_ITEM",
+          entityId:
+            createdItem.id,
+          action:
+            "CREATED",
+          actorType:
+            "ADMIN",
+          actorId:
+            actorId.trim(),
+          beforeData: null,
+          afterData: {
+            flashSaleId,
+            productId:
+              createdItem.productId,
+            skuId:
+              createdItem.skuId,
+            originalPrice:
+              Number(
+                createdItem.originalPrice
+              ),
+            flashPrice:
+              Number(
+                createdItem.flashPrice
+              ),
+            stockLimit:
+              createdItem.stockLimit,
+            soldQuantity:
+              createdItem.soldQuantity,
+            perUserLimit:
+              createdItem.perUserLimit,
+            isActive:
+              createdItem.isActive,
+            sortOrder:
+              createdItem.sortOrder,
+          },
+          metadata: {
+            flashSaleId,
+          },
+        },
+        tx
       );
-    }
 
-    /**
-     * --------------------------------------------------------
-     * CREATE ITEM
-     * --------------------------------------------------------
-     */
-    return FlashSaleRepository.createItem({
-      flashSale: {
-        connect: {
-          id: flashSaleId,
-        },
-      },
-
-      product: {
-        connect: {
-          id: product.id,
-        },
-      },
-
-      sku: {
-        connect: {
-          id: sku.id,
-        },
-      },
-
-      originalPrice,
-
-      flashPrice,
-
-      stockLimit,
-
-      soldQuantity: 0,
-
-      perUserLimit,
-
-      isActive,
-
-      sortOrder,
+      return createdItem;
     });
   }
 
@@ -793,24 +859,27 @@ export default class FlashSaleItemService {
   static async update(
     flashSaleId: string,
     itemId: string,
-    input: UpdateFlashSaleItemInput
+    input: UpdateFlashSaleItemInput,
+    actorId: string
   ) {
-    const flashSale =
-      await this.ensureFlashSaleExists(
-        flashSaleId
+    if (!flashSaleId?.trim()) {
+      throw new Error(
+        "Flash Sale ID wajib diisi."
       );
+    }
 
-    const current =
-      await this.getById(
-        flashSaleId,
-        itemId
+    if (!itemId?.trim()) {
+      throw new Error(
+        "Item Flash Sale ID wajib diisi."
       );
+    }
 
-    /**
-     * --------------------------------------------------------
-     * PREVENT EMPTY UPDATE
-     * --------------------------------------------------------
-     */
+    if (!actorId?.trim()) {
+      throw new Error(
+        "Actor ID admin wajib diisi untuk audit Flash Sale."
+      );
+    }
+
     if (
       Object.keys(input).length ===
       0
@@ -821,311 +890,468 @@ export default class FlashSaleItemService {
     }
 
     /**
-     * --------------------------------------------------------
-     * RESOLVE PRODUCT
-     * --------------------------------------------------------
+     * ========================================================
+     * ATOMIC UPDATE + AUDIT TRANSACTION
+     * ========================================================
      *
-     * ProductId dapat berubah hanya jika SKU juga sesuai
-     * dengan product tersebut.
-     */
-    const productId =
-      input.productId !== undefined
-        ? input.productId.trim()
-        : current.productId;
-
-    if (!productId) {
-      throw new Error(
-        "Product ID wajib diisi."
-      );
-    }
-
-    const product =
-      await this.ensureProductExists(
-        productId
-      );
-
-    /**
-     * --------------------------------------------------------
-     * RESOLVE SKU
-     * --------------------------------------------------------
+     * Seluruh critical mutation flow berada dalam transaction:
      *
-     * Jika skuId tidak dikirim:
-     * - gunakan SKU existing.
+     * 1. Read Flash Sale state
+     * 2. Read current FlashSaleItem state
+     * 3. Resolve Product + SKU
+     * 4. Validate business rules
+     * 5. Duplicate protection
+     * 6. Update FlashSaleItem
+     * 7. Create immutable AuditLog
      *
-     * Jika existing item masih legacy tanpa skuId:
-     * - update tidak boleh diam-diam membuat item menjadi
-     *   SKU-less lagi.
-     * - caller wajib menyediakan skuId.
+     * Dengan demikian beforeData selalu berasal dari state yang
+     * dibaca pada transaction yang sama dengan mutation.
+     * Jika mutation atau audit gagal, seluruh transaction rollback.
      */
-    const nextSkuId =
-      input.skuId !== undefined
-        ? input.skuId.trim()
-        : current.skuId;
-
-    if (!nextSkuId) {
-      throw new Error(
-        "Item Flash Sale legacy belum memiliki SKU. Kirim skuId untuk melakukan migration."
-      );
-    }
-
-    const sku =
-      await this.ensureProductSkuExists(
-        product.id,
-        nextSkuId
-      );
-
-    /**
-     * --------------------------------------------------------
-     * CANONICAL ORIGINAL PRICE
-     * --------------------------------------------------------
-     *
-     * Jika SKU berubah, snapshot harga harus mengikuti harga
-     * SKU baru.
-     *
-     * Jika SKU tidak berubah, tetap ambil dari SKU saat ini
-     * sehingga originalPrice tidak berasal dari browser.
-     */
-    const originalPrice =
-      this.getCanonicalOriginalPrice(
-        sku
-      );
-
-    /**
-     * Caller lama boleh mengirim originalPrice, tetapi tidak
-     * boleh menentukan nilai canonical.
-     */
-    if (
-      input.originalPrice !==
-      undefined
-    ) {
-      this.validateNumber(
-        input.originalPrice,
-        "Harga normal"
-      );
-    }
-
-    /**
-     * --------------------------------------------------------
-     * FLASH PRICE
-     * --------------------------------------------------------
-     */
-    const flashPrice =
-      input.flashPrice !== undefined
-        ? this.validateFlashPrice(
-            input.flashPrice,
-            originalPrice
-          )
-        : this.validateFlashPrice(
-            Number(current.flashPrice),
-            originalPrice
-          );
-
-    /**
-     * --------------------------------------------------------
-     * STOCK LIMIT
-     * --------------------------------------------------------
-     *
-     * Jika stockLimit tidak dikirim, pertahankan nilai existing.
-     *
-     * Tetap pastikan quota tidak melebihi stock SKU.
-     */
-    const stockLimit =
-      input.stockLimit !== undefined
-        ? this.validateStockLimit(
-            input.stockLimit,
-            sku.stock
-          )
-        : this.validateStockLimit(
-            current.stockLimit,
-            sku.stock
-          );
-
-    /**
-     * Jangan pernah menurunkan quota di bawah quantity
-     * yang sudah terjual.
-     */
-    if (
-      stockLimit <
-      current.soldQuantity
-    ) {
-      throw new Error(
-        "Stock limit tidak boleh lebih kecil dari jumlah yang sudah terjual."
-      );
-    }
-
-    /**
-     * --------------------------------------------------------
-     * PER USER LIMIT
-     * --------------------------------------------------------
-     */
-    const perUserLimit =
-      input.perUserLimit !==
-      undefined
-        ? this.validatePerUserLimit(
-            input.perUserLimit,
-            stockLimit
-          )
-        : this.validatePerUserLimit(
-            current.perUserLimit ??
-              0,
-            stockLimit
-          );
-
-    /**
-     * --------------------------------------------------------
-     * SORT ORDER
-     * --------------------------------------------------------
-     */
-    const sortOrder =
-      input.sortOrder !==
-      undefined
-        ? this.validateSortOrder(
-            input.sortOrder
-          )
-        : current.sortOrder;
-
-    /**
-     * --------------------------------------------------------
-     * ACTIVE STATE
-     * --------------------------------------------------------
-     */
-    const nextIsActive =
-      input.isActive !==
-      undefined
-        ? input.isActive
-        : current.isActive;
-
-    this.validateActiveState(
-      flashSale,
-      nextIsActive
-    );
-
-    /**
-     * --------------------------------------------------------
-     * DUPLICATE PROTECTION
-     * --------------------------------------------------------
-     *
-     * Cek duplicate jika:
-     * - product berubah
-     * - SKU berubah
-     *
-     * ProductId + SKU harus konsisten.
-     */
-    const productChanged =
-      input.productId !==
-      undefined &&
-      input.productId.trim() !==
-        current.productId;
-
-    const skuChanged =
-      input.skuId !==
-      undefined &&
-      input.skuId.trim() !==
-        current.skuId;
-
-    if (
-      productChanged ||
-      skuChanged
-    ) {
-      const duplicate =
-        await FlashSaleRepository.findDuplicateItem({
-          flashSaleId,
-          productId: product.id,
-          skuId: sku.id,
-          excludeItemId: itemId,
+    return prisma.$transaction(async (tx) => {
+      /**
+       * --------------------------------------------------------
+       * READ FLASH SALE INSIDE TRANSACTION
+       * --------------------------------------------------------
+       */
+      const flashSale =
+        await tx.flashSale.findUnique({
+          where: {
+            id: flashSaleId,
+          },
+          select: {
+            id: true,
+            status: true,
+            startAt: true,
+            endAt: true,
+          },
         });
 
-      if (duplicate) {
+      if (!flashSale) {
         throw new Error(
-          "SKU tersebut sudah ada di Flash Sale ini."
+          "Flash Sale tidak ditemukan."
         );
       }
-    }
 
-    /**
-     * --------------------------------------------------------
-     * BUILD UPDATE DATA
-     * --------------------------------------------------------
-     */
-    const data:
-      Prisma.FlashSaleItemUpdateInput =
-      {
-        ...(productChanged
-          ? {
-              product: {
-                connect: {
-                  id: product.id,
-                },
-              },
-            }
-          : {}),
-
-        /**
-         * SKU selalu di-connect pada update ini.
-         *
-         * Ini juga melakukan migration otomatis terhadap
-         * FlashSaleItem lama yang masih skuId = null.
-         */
-        sku: {
-          connect: {
-            id: sku.id,
+      /**
+       * --------------------------------------------------------
+       * READ CURRENT ITEM INSIDE TRANSACTION
+       * --------------------------------------------------------
+       *
+       * Ini sengaja tidak menggunakan getById(), karena method
+       * tersebut membaca melalui Prisma client global di luar
+       * transaction.
+       */
+      const current =
+        await tx.flashSaleItem.findFirst({
+          where: {
+            id: itemId,
+            flashSaleId,
           },
-        },
+          include: {
+            product: true,
+            sku: true,
+            _count: {
+              select: {
+                purchases: true,
+              },
+            },
+          },
+        });
 
-        /**
-         * Harga normal selalu mengikuti ProductSku.price.
-         */
-        originalPrice,
+      if (!current) {
+        throw new Error(
+          "Item Flash Sale tidak ditemukan."
+        );
+      }
 
-        ...(input.flashPrice !==
+      /**
+       * --------------------------------------------------------
+       * RESOLVE PRODUCT
+       * --------------------------------------------------------
+       *
+       * ProductId dapat berubah hanya jika SKU juga sesuai
+       * dengan product tersebut.
+       */
+      const productId =
+        input.productId !== undefined
+          ? input.productId.trim()
+          : current.productId;
+
+      if (!productId) {
+        throw new Error(
+          "Product ID wajib diisi."
+        );
+      }
+
+      const product =
+        await tx.product.findFirst({
+          where: {
+            id: productId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            isPublished: true,
+          },
+        });
+
+      if (!product) {
+        throw new Error(
+          "Produk tidak ditemukan."
+        );
+      }
+
+      /**
+       * --------------------------------------------------------
+       * RESOLVE SKU
+       * --------------------------------------------------------
+       *
+       * SKU adalah canonical sellable unit.
+       */
+      const nextSkuId =
+        input.skuId !== undefined
+          ? input.skuId.trim()
+          : current.skuId;
+
+      if (!nextSkuId) {
+        throw new Error(
+          "Item Flash Sale legacy belum memiliki SKU. Kirim skuId untuk melakukan migration."
+        );
+      }
+
+      const sku =
+        await tx.productSku.findFirst({
+          where: {
+            id: nextSkuId,
+            productId: product.id,
+            isActive: true,
+          },
+          select: {
+            id: true,
+            productId: true,
+            sku: true,
+            price: true,
+            stock: true,
+            isActive: true,
+          },
+        });
+
+      if (!sku) {
+        throw new Error(
+          "SKU tidak ditemukan, tidak aktif, atau bukan milik produk tersebut."
+        );
+      }
+
+      if (sku.stock < 0) {
+        throw new Error(
+          "Stock SKU tidak valid."
+        );
+      }
+
+      /**
+       * --------------------------------------------------------
+       * CANONICAL ORIGINAL PRICE
+       * --------------------------------------------------------
+       */
+      const originalPrice =
+        Number(sku.price);
+
+      if (
+        !Number.isFinite(originalPrice) ||
+        originalPrice <= 0
+      ) {
+        throw new Error(
+          "Harga SKU tidak valid."
+        );
+      }
+
+      if (
+        input.originalPrice !==
         undefined
-          ? {
-              flashPrice,
-            }
-          : {
-              flashPrice,
-            }),
+      ) {
+        this.validateNumber(
+          input.originalPrice,
+          "Harga normal"
+        );
+      }
 
-        ...(input.stockLimit !==
-        undefined
-          ? {
-              stockLimit,
-            }
-          : {}),
+      /**
+       * --------------------------------------------------------
+       * FLASH PRICE
+       * --------------------------------------------------------
+       */
+      const flashPrice =
+        input.flashPrice !== undefined
+          ? this.validateFlashPrice(
+              input.flashPrice,
+              originalPrice
+            )
+          : this.validateFlashPrice(
+              Number(current.flashPrice),
+              originalPrice
+            );
 
-        ...(input.perUserLimit !==
-        undefined
-          ? {
-              perUserLimit,
-            }
-          : {}),
+      /**
+       * --------------------------------------------------------
+       * STOCK LIMIT
+       * --------------------------------------------------------
+       */
+      const stockLimit =
+        input.stockLimit !== undefined
+          ? this.validateStockLimit(
+              input.stockLimit,
+              sku.stock
+            )
+          : this.validateStockLimit(
+              current.stockLimit,
+              sku.stock
+            );
 
-        ...(input.isActive !==
-        undefined
-          ? {
-              isActive:
-                nextIsActive,
-            }
-          : {}),
+      if (
+        stockLimit <
+        current.soldQuantity
+      ) {
+        throw new Error(
+          "Stock limit tidak boleh lebih kecil dari jumlah yang sudah terjual."
+        );
+      }
 
-        ...(input.sortOrder !==
-        undefined
-          ? {
-              sortOrder,
-            }
-          : {}),
+      /**
+       * --------------------------------------------------------
+       * PER USER LIMIT
+       * --------------------------------------------------------
+       */
+      const perUserLimit =
+        input.perUserLimit !== undefined
+          ? this.validatePerUserLimit(
+              input.perUserLimit,
+              stockLimit
+            )
+          : this.validatePerUserLimit(
+              current.perUserLimit ??
+                0,
+              stockLimit
+            );
+
+      /**
+       * --------------------------------------------------------
+       * SORT ORDER
+       * --------------------------------------------------------
+       */
+      const sortOrder =
+        input.sortOrder !== undefined
+          ? this.validateSortOrder(
+              input.sortOrder
+            )
+          : current.sortOrder;
+
+      /**
+       * --------------------------------------------------------
+       * ACTIVE STATE
+       * --------------------------------------------------------
+       */
+      const nextIsActive =
+        input.isActive !== undefined
+          ? input.isActive
+          : current.isActive;
+
+      this.validateActiveState(
+        flashSale,
+        nextIsActive
+      );
+
+      /**
+       * --------------------------------------------------------
+       * DUPLICATE PROTECTION
+       * --------------------------------------------------------
+       *
+       * Check dilakukan di transaction yang sama dengan update.
+       */
+      const productChanged =
+        input.productId !== undefined &&
+        input.productId.trim() !==
+          current.productId;
+
+      const skuChanged =
+        input.skuId !== undefined &&
+        input.skuId.trim() !==
+          current.skuId;
+
+      if (
+        productChanged ||
+        skuChanged
+      ) {
+        const duplicate =
+          await tx.flashSaleItem.findFirst({
+            where: {
+              flashSaleId,
+              productId: product.id,
+              skuId: sku.id,
+              id: {
+                not: itemId,
+              },
+            },
+            select: {
+              id: true,
+            },
+          });
+
+        if (duplicate) {
+          throw new Error(
+            "SKU tersebut sudah ada di Flash Sale ini."
+          );
+        }
+      }
+
+      /**
+       * --------------------------------------------------------
+       * BUILD UPDATE DATA
+       * --------------------------------------------------------
+       */
+      const data:
+        Prisma.FlashSaleItemUpdateInput =
+        {
+          ...(productChanged
+            ? {
+                product: {
+                  connect: {
+                    id: product.id,
+                  },
+                },
+              }
+            : {}),
+
+          sku: {
+            connect: {
+              id: sku.id,
+            },
+          },
+
+          originalPrice,
+          flashPrice,
+
+          ...(input.stockLimit !==
+          undefined
+            ? {
+                stockLimit,
+              }
+            : {}),
+
+          ...(input.perUserLimit !==
+          undefined
+            ? {
+                perUserLimit,
+              }
+            : {}),
+
+          ...(input.isActive !==
+          undefined
+            ? {
+                isActive:
+                  nextIsActive,
+              }
+            : {}),
+
+          ...(input.sortOrder !==
+          undefined
+            ? {
+                sortOrder,
+              }
+            : {}),
+        };
+
+      /**
+       * --------------------------------------------------------
+       * BEFORE SNAPSHOT
+       * --------------------------------------------------------
+       */
+      const beforeData = {
+        productId: current.productId,
+        skuId: current.skuId,
+        originalPrice: Number(
+          current.originalPrice
+        ),
+        flashPrice: Number(
+          current.flashPrice
+        ),
+        stockLimit: current.stockLimit,
+        soldQuantity:
+          current.soldQuantity,
+        perUserLimit:
+          current.perUserLimit,
+        isActive: current.isActive,
+        sortOrder: current.sortOrder,
       };
 
-    /**
-     * --------------------------------------------------------
-     * UPDATE
-     * --------------------------------------------------------
-     */
-    return FlashSaleRepository.updateItem(
-      flashSaleId,
-      itemId,
-      data
-    );
+      /**
+       * --------------------------------------------------------
+       * MUTATION
+       * --------------------------------------------------------
+       */
+      const updatedItem =
+        await FlashSaleRepository.updateItem(
+          tx,
+          flashSaleId,
+          itemId,
+          data
+        );
+
+      /**
+       * --------------------------------------------------------
+       * AUDIT
+       * --------------------------------------------------------
+       *
+       * Audit menggunakan tx yang sama. Jika audit gagal,
+       * mutation FlashSaleItem ikut rollback.
+       */
+      await createAuditLog(
+        {
+          eventType:
+            "FLASH_SALE_LIFECYCLE",
+          entityType:
+            "FLASH_SALE_ITEM",
+          entityId:
+            updatedItem.id,
+          action: "UPDATED",
+          actorType: "ADMIN",
+          actorId: actorId.trim(),
+          beforeData,
+          afterData: {
+            productId:
+              updatedItem.productId,
+            skuId:
+              updatedItem.skuId,
+            originalPrice:
+              Number(
+                updatedItem.originalPrice
+              ),
+            flashPrice:
+              Number(
+                updatedItem.flashPrice
+              ),
+            stockLimit:
+              updatedItem.stockLimit,
+            soldQuantity:
+              updatedItem.soldQuantity,
+            perUserLimit:
+              updatedItem.perUserLimit,
+            isActive:
+              updatedItem.isActive,
+            sortOrder:
+              updatedItem.sortOrder,
+          },
+          metadata: {
+            flashSaleId,
+          },
+        },
+        tx
+      );
+
+      return updatedItem;
+    });
   }
 
   /**
@@ -1145,35 +1371,137 @@ export default class FlashSaleItemService {
    */
   static async delete(
     flashSaleId: string,
-    itemId: string
+    itemId: string,
+    actorId: string
   ) {
-    const item =
-      await this.getById(
+    if (!flashSaleId?.trim()) {
+      throw new Error(
+        "Flash Sale ID wajib diisi."
+      );
+    }
+
+    if (!itemId?.trim()) {
+      throw new Error(
+        "Item Flash Sale ID wajib diisi."
+      );
+    }
+
+    if (!actorId?.trim()) {
+      throw new Error(
+        "Actor ID admin wajib diisi untuk audit Flash Sale."
+      );
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const item =
+        await tx.flashSaleItem.findFirst({
+          where: {
+            id: itemId,
+            flashSaleId,
+          },
+          include: {
+            flashSale: true,
+            product: true,
+            sku: true,
+            _count: {
+              select: {
+                purchases: true,
+              },
+            },
+          },
+        });
+
+      if (!item) {
+        throw new Error(
+          "Item Flash Sale tidak ditemukan."
+        );
+      }
+
+      /**
+       * --------------------------------------------------------
+       * PURCHASE HISTORY PROTECTION
+       * --------------------------------------------------------
+       */
+      if (
+        item._count.purchases > 0
+      ) {
+        throw new Error(
+          "Item Flash Sale yang sudah memiliki riwayat pembelian tidak dapat dihapus. Nonaktifkan item jika ingin menghentikan Flash Sale."
+        );
+      }
+
+      /**
+       * --------------------------------------------------------
+       * BEFORE SNAPSHOT
+       * --------------------------------------------------------
+       */
+      const beforeData = {
+        flashSaleId:
+          item.flashSaleId,
+        productId:
+          item.productId,
+        skuId:
+          item.skuId,
+        originalPrice:
+          Number(
+            item.originalPrice
+          ),
+        flashPrice:
+          Number(
+            item.flashPrice
+          ),
+        stockLimit:
+          item.stockLimit,
+        soldQuantity:
+          item.soldQuantity,
+        perUserLimit:
+          item.perUserLimit,
+        isActive:
+          item.isActive,
+        sortOrder:
+          item.sortOrder,
+      };
+
+      /**
+       * --------------------------------------------------------
+       * HARD DELETE
+       * --------------------------------------------------------
+       */
+      await FlashSaleRepository.deleteItem(
+        tx,
         flashSaleId,
         itemId
       );
 
-    /**
-     * --------------------------------------------------------
-     * PURCHASE HISTORY PROTECTION
-     * --------------------------------------------------------
-     */
-    if (
-      item._count.purchases > 0
-    ) {
-      throw new Error(
-        "Item Flash Sale yang sudah memiliki riwayat pembelian tidak dapat dihapus. Nonaktifkan item jika ingin menghentikan Flash Sale."
+      /**
+       * --------------------------------------------------------
+       * AUDIT
+       * --------------------------------------------------------
+       */
+      await createAuditLog(
+        {
+          eventType:
+            "FLASH_SALE_LIFECYCLE",
+          entityType:
+            "FLASH_SALE_ITEM",
+          entityId:
+            item.id,
+          action:
+            "DELETED",
+          actorType:
+            "ADMIN",
+          actorId:
+            actorId.trim(),
+          beforeData,
+          afterData: null,
+          metadata: {
+            flashSaleId,
+          },
+        },
+        tx
       );
-    }
 
-    /**
-     * --------------------------------------------------------
-     * HARD DELETE
-     * --------------------------------------------------------
-     */
-    return FlashSaleRepository.deleteItem(
-      flashSaleId,
-      itemId
-    );
+      return item;
+    });
   }
 }

@@ -166,7 +166,7 @@ export async function POST(
   request: NextRequest
 ) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
 
     const body =
       await request.json();
@@ -282,36 +282,39 @@ export async function POST(
     }
 
     const flashSale =
-      await FlashSaleService.create({
-        name,
+      await FlashSaleService.create(
+        {
+          name,
 
-        slug:
-          typeof slug === "string"
-            ? slug
-            : undefined,
+          slug:
+            typeof slug === "string"
+              ? slug
+              : undefined,
 
-        description:
-          typeof description === "string"
-            ? description
-            : null,
+          description:
+            typeof description === "string"
+              ? description
+              : null,
 
-        banner:
-          typeof banner === "string"
-            ? banner
-            : null,
+          banner:
+            typeof banner === "string"
+              ? banner
+              : null,
 
-        status:
-          validatedStatus,
+          status:
+            validatedStatus,
 
-        startAt,
+          startAt,
 
-        endAt,
+          endAt,
 
-        sortOrder:
-          typeof sortOrder === "number"
-            ? sortOrder
-            : undefined,
-      });
+          sortOrder:
+            typeof sortOrder === "number"
+              ? sortOrder
+              : undefined,
+        },
+        session.user.id
+      );
 
     return NextResponse.json(
       {

@@ -9,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { addToCartAction } from "@/actions/cart/add-to-cart";
@@ -19,6 +19,10 @@ type NumericValue =
   | {
       toNumber: () => number;
     };
+
+const subscribeToClient = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 interface FlashSaleVariantOption {
   id: string;
@@ -125,8 +129,25 @@ export default function FlashSaleQuickAddModal({
     [product.skus]
   );
 
+  const initialSelectedOptions = useMemo(() => {
+    const selections: Record<string, string> = {};
+
+    if (!item.sku) {
+      return selections;
+    }
+
+    for (const skuOption of item.sku.skuOptions) {
+      selections[skuOption.variantOption.groupId] =
+        skuOption.variantOptionId;
+    }
+
+    return selections;
+  }, [item.sku]);
+
   const [selectedOptions, setSelectedOptions] =
-    useState<Record<string, string>>({});
+    useState<Record<string, string>>(
+      initialSelectedOptions
+    );
 
   const [quantity, setQuantity] =
     useState(1);
@@ -135,50 +156,24 @@ export default function FlashSaleQuickAddModal({
     useState(false);
 
   const [message, setMessage] =
-  useState<string | null>(null);
+    useState<string | null>(null);
 
   const [success, setSuccess] =
-   useState(false);
-
-  const [mounted, setMounted] =
-   useState(false);
-
-  useEffect(() => {
-   setMounted(true);
-
-  return () => {
-    setMounted(false);
-  };
-}, []);
+    useState(false);
 
   /**
    * ============================================================
-   * INITIAL SKU
+   * CLIENT MOUNT STATE
    * ============================================================
    *
-   * Kalau Flash Sale item sudah memiliki SKU,
-   * otomatis pilih variant SKU tersebut.
+   * useSyncExternalStore memberi snapshot berbeda untuk server
+   * dan client tanpa setState sinkron di dalam useEffect.
    */
-  useEffect(() => {
-    if (!item.sku) {
-      return;
-    }
-
-    const initialSelections: Record<
-      string,
-      string
-    > = {};
-
-    for (const skuOption of item.sku.skuOptions) {
-      initialSelections[
-        skuOption.variantOption.groupId
-      ] = skuOption.variantOptionId;
-    }
-
-    setSelectedOptions(
-      initialSelections
-    );
-  }, [item.sku]);
+  const mounted = useSyncExternalStore(
+    subscribeToClient,
+    getClientSnapshot,
+    getServerSnapshot
+  );
 
   /**
    * ============================================================
@@ -287,22 +282,18 @@ export default function FlashSaleQuickAddModal({
       : 0;
 
   /**
-   * Kalau quantity melebihi stock setelah
-   * ganti variant, otomatis clamp.
+   * Quantity efektif selalu berada dalam batas stock/kuota.
+   *
+   * Tidak perlu effect untuk melakukan clamp. Dengan cara ini
+   * perubahan variant tidak memicu setState sinkron tambahan.
    */
-  useEffect(() => {
-    if (maxQuantity <= 0) {
-      setQuantity(1);
-      return;
-    }
-
-    setQuantity((current) =>
-      Math.min(
-        Math.max(1, current),
-        maxQuantity
-      )
-    );
-  }, [maxQuantity]);
+  const effectiveQuantity =
+    maxQuantity <= 0
+      ? 1
+      : Math.min(
+          Math.max(1, quantity),
+          maxQuantity
+        );
 
   /**
    * ============================================================
@@ -398,9 +389,17 @@ export default function FlashSaleQuickAddModal({
    * ============================================================
    */
   function decreaseQuantity() {
-    setQuantity((current) =>
-      Math.max(1, current - 1)
-    );
+    setQuantity((current) => {
+      const currentEffective =
+        maxQuantity > 0
+          ? Math.min(current, maxQuantity)
+          : 1;
+
+      return Math.max(
+        1,
+        currentEffective - 1
+      );
+    });
 
     setMessage(null);
   }
@@ -450,7 +449,9 @@ export default function FlashSaleQuickAddModal({
       return;
     }
 
-    if (quantity > maxQuantity) {
+    const cartQuantity = effectiveQuantity;
+
+    if (cartQuantity > maxQuantity) {
       setMessage(
         `Maksimal pembelian ${maxQuantity} item.`
       );
@@ -464,7 +465,7 @@ export default function FlashSaleQuickAddModal({
         await addToCartAction({
           productId: product.id,
           skuId: selectedSku.id,
-          quantity,
+          quantity: cartQuantity,
           customerNote: null,
         });
 
@@ -544,13 +545,9 @@ export default function FlashSaleQuickAddModal({
     };
   }, []);
 
-if (!mounted) {
-  return null;
-}
-
-if (!mounted) {
-  return null;
-}
+  if (!mounted) {
+    return null;
+  }
 
 return createPortal(
   <div
@@ -970,7 +967,7 @@ return createPortal(
                 type="button"
                 onClick={decreaseQuantity}
                 disabled={
-                  quantity <= 1 ||
+                  effectiveQuantity <= 1 ||
                   isSubmitting ||
                   !selectedSku
                 }
@@ -1006,14 +1003,14 @@ return createPortal(
                   text-slate-800
                 "
               >
-                {quantity}
+                {effectiveQuantity}
               </span>
 
               <button
                 type="button"
                 onClick={increaseQuantity}
                 disabled={
-                  quantity >= maxQuantity ||
+                  effectiveQuantity >= maxQuantity ||
                   isSubmitting ||
                   !selectedSku
                 }

@@ -37,7 +37,8 @@ export async function updateProductStockAction(
   try {
     const result =
       await ProductStockService.updateProductStock(
-        input
+        input,
+        session.user.id,
       );
 
     revalidatePath("/admin/products");

@@ -81,7 +81,7 @@ export async function GET(
   }
 ) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
 
     const {
       id,
@@ -136,7 +136,7 @@ export async function PATCH(
   }
 ) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
 
     const {
       id,
@@ -285,7 +285,8 @@ export async function PATCH(
             typeof sortOrder === "number"
               ? sortOrder
               : undefined,
-        }
+        },
+        session.user.id
       );
 
     return NextResponse.json(
@@ -331,7 +332,8 @@ export async function DELETE(
   }
 ) {
   try {
-    await requireAdmin();
+    const session =
+      await requireAdmin();
 
     const {
       id,
@@ -339,7 +341,8 @@ export async function DELETE(
       await context.params;
 
     await FlashSaleService.delete(
-      id
+      id,
+      session.user.id
     );
 
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { createAuditLog } from "@/services/audit/audit-log.service";
 
 export interface ProductStockUpdateItem {
   skuId: string;
@@ -14,7 +15,8 @@ export interface ProductStockUpdateInput {
 
 export class ProductStockService {
   static async updateProductStock(
-    input: ProductStockUpdateInput
+    input: ProductStockUpdateInput,
+    actorId?: string,
   ) {
     if (
       typeof input.productId !== "string" ||
@@ -165,6 +167,29 @@ export class ProductStockService {
               note: `Penyesuaian stock SKU ${currentSku.sku} melalui Atur Stok Admin.`,
             },
           });
+
+          await createAuditLog(
+            {
+              eventType: "STOCK_ADJUSTED",
+              entityType: "PRODUCT_SKU",
+              entityId: currentSku.id,
+              action: "ADJUST_STOCK",
+              actorType: "ADMIN",
+              actorId: actorId ?? null,
+              beforeData: {
+                stock: stockBefore,
+              },
+              afterData: {
+                stock: stockAfter,
+              },
+              metadata: {
+                productId: input.productId,
+                sku: currentSku.sku,
+                quantity,
+              },
+            },
+            tx,
+          );
 
           changed.push({
             skuId: currentSku.id,

@@ -733,7 +733,7 @@ model CartItem {
 
   weightSku String?
 
-  /// New canonical sellable SKU. Nullable during migration.
+  /// Canonical sellable SKU. Nullable when the Flash Sale applies to the whole product.
   skuId String?
   sku   ProductSku? @relation("CartItemSku", fields: [skuId], references: [id], onDelete: Restrict)
 
@@ -1327,7 +1327,7 @@ model FlashSaleItem {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  /// New canonical sellable SKU. Nullable during migration.
+  /// Canonical sellable SKU. Nullable when the Flash Sale applies to the whole product.
   skuId String?
   sku   ProductSku? @relation("FlashSaleItemSku", fields: [skuId], references: [id], onDelete: Restrict)
 
@@ -1434,6 +1434,7 @@ model FlashSaleItem {
    * ============================================================
    */
 
+  @@unique([flashSaleId, skuId])
   @@index([flashSaleId])
   @@index([productId])
   @@index([skuId])
@@ -2087,7 +2088,7 @@ model OrderItem {
 
   product Product @relation(fields: [productId], references: [id])
 
-  /// New canonical sellable SKU. Nullable during migration.
+  /// Canonical sellable SKU. Nullable when the Flash Sale applies to the whole product.
   skuId String?
   sku   ProductSku? @relation("OrderItemSku", fields: [skuId], references: [id], onDelete: Restrict)
 
@@ -4252,4 +4253,32 @@ model CourierDeliveryProof {
 
   @@index([createdById])
   @@index([capturedAt])
+}
+
+// ============================================================
+// PRODUCTION AUDIT TRAIL
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+
+  eventType  String
+  entityType String
+  entityId   String?
+
+  action     String
+
+  actorType  String   @default("SYSTEM")
+  actorId    String?
+
+  beforeData Json?
+  afterData  Json?
+  metadata   Json?
+
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
 }
