@@ -21,6 +21,7 @@ import PaymentOrderReferencePanel from "@/components/admin/orders/PaymentOrderRe
 import DeleteOrderButton from "@/components/admin/orders/DeleteOrderButton";
 import CreateInternalShipmentButton from "@/components/admin/orders/CreateInternalShipmentButton";
 import PrintInternalShippingLabelButton from "@/components/admin/orders/PrintInternalShippingLabelButton";
+import AssignCourierOrderButton from "@/components/admin/orders/AssignCourierOrderButton";
 
 export const dynamic = "force-dynamic";
 
@@ -336,6 +337,15 @@ export default async function OrderDetailPage({
           </div>
 
           <div className="flex flex-wrap gap-2 xl:justify-end">
+            {isPaid &&
+            (order.status === OrderStatus.PROCESSING ||
+              order.status === OrderStatus.SHIPPING) ? (
+              <AssignCourierOrderButton
+                orderId={order.id}
+                orderNumber={order.orderNumber}
+              />
+            ) : null}
+
             <Link
               href={`/admin/orders/${order.id}/edit`}
               className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-[var(--pisjo-navy)] transition hover:border-[var(--pisjo-primary)]/30 hover:bg-[var(--pisjo-soft-blue)]"

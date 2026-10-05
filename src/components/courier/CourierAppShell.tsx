@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { Fish, LayoutDashboard, Menu, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Fish, LayoutDashboard, Menu, Navigation, X } from "lucide-react";
 
 import { LogoutButton } from "@/components/admin/user/LogoutButton";
 import { APP_CONFIG } from "@/config/app";
@@ -41,10 +42,14 @@ export function CourierAppShell({
   user,
 }: CourierAppShellProps) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
   const initials = getInitials(user.name);
 
+  const isDashboard = pathname === "/courier";
+  const isNavigation = pathname === "/courier/navigation" || pathname.startsWith("/courier/navigation/");
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50">
       {open ? (
         <button
           type="button"
@@ -60,7 +65,7 @@ export function CourierAppShell({
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
-        <div className="flex h-20 shrink-0 items-center border-b px-5">
+        <div className="flex h-16 shrink-0 items-center border-b px-4 sm:h-20 sm:px-5">
           <Link
             href="/courier"
             onClick={() => setOpen(false)}
@@ -101,18 +106,39 @@ export function CourierAppShell({
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          <Link
-            href="/courier"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 rounded-xl bg-[var(--pisjo-soft-blue)] px-4 py-3 text-sm font-semibold text-[var(--pisjo-primary)]"
-          >
-            <LayoutDashboard className="h-5 w-5" />
-            Dashboard Kurir
-          </Link>
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:py-4">
+          <div className="space-y-1">
+            <Link
+              href="/courier"
+              onClick={() => setOpen(false)}
+              className={[
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
+                isDashboard
+                  ? "bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-primary)]"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+              ].join(" ")}
+            >
+              <LayoutDashboard className="h-5 w-5" />
+              Dashboard Kurir
+            </Link>
+
+            <Link
+              href="/courier/navigation"
+              onClick={() => setOpen(false)}
+              className={[
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
+                isNavigation
+                  ? "bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-primary)]"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+              ].join(" ")}
+            >
+              <Navigation className="h-5 w-5" />
+              Navigasi Pengantaran
+            </Link>
+          </div>
         </nav>
 
-        <div className="mt-auto border-t bg-white p-4">
+        <div className="mt-auto border-t bg-white p-3 sm:p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
               {initials}
@@ -139,7 +165,7 @@ export function CourierAppShell({
       </aside>
 
       <div className="min-h-screen lg:pl-72">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b bg-white/95 px-3 py-2.5 backdrop-blur sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -162,13 +188,13 @@ export function CourierAppShell({
 
           <Link
             href="/"
-            className="hidden items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 sm:flex"
+            className="hidden shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 sm:flex"
           >
             Toko PISJO
           </Link>
         </header>
 
-        <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-w-0 p-3 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

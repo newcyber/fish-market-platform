@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Home,
   LayoutGrid,
@@ -49,6 +50,14 @@ const items = [
 export default function CustomerBottomNavigation({
   activePage,
 }: CustomerBottomNavigationProps) {
+  const pathname = usePathname();
+
+  // Courier has its own operational navigation and must not show
+  // the customer bottom navigation on mobile.
+  if (pathname === "/courier" || pathname.startsWith("/courier/")) {
+    return null;
+  }
+
   return (
     <nav
       aria-label="Navigasi customer"

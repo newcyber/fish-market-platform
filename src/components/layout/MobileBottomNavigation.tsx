@@ -302,6 +302,10 @@ export default function MobileBottomNavigation({
   const isCartRoute =
     pathname === "/cart";
 
+  const isCourierRoute =
+    pathname === "/courier" ||
+    pathname.startsWith("/courier/");
+
   /**
    * ==========================================================
    * HIDE NAVIGATION RULE
@@ -333,7 +337,8 @@ const shouldHideNavigation =
   isForgotPasswordRoute ||
   isResetPasswordRoute ||
   isVerifyEmailRoute ||
-  isCartRoute;
+  isCartRoute ||
+  isCourierRoute;
 
 
   /**

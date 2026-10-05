@@ -116,14 +116,14 @@ function StatCard({
   tone: string;
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          <p className="text-xs font-medium text-slate-500 sm:text-sm">{title}</p>
+          <p className="mt-1.5 text-xl font-bold tracking-tight text-slate-900 sm:mt-2 sm:text-3xl">
             {typeof value === "number" ? value.toLocaleString("id-ID") : value}
           </p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+          <p className="mt-1 text-[11px] leading-4 text-slate-500 sm:text-xs sm:leading-5">{description}</p>
         </div>
 
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tone}`}>
@@ -365,9 +365,9 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 p-4 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pisjo-primary)]">
               PISJO Market
@@ -385,15 +385,15 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
             type="button"
             onClick={() => void refreshDashboard()}
             disabled={refreshing}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 sm:w-auto"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
 
-        <div className="border-t bg-slate-50 px-5 py-3 sm:px-6">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+        <div className="border-t bg-slate-50 px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1.5">
               <Clock3 className="h-3.5 w-3.5" />
               Hari ini
@@ -416,7 +416,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           title="Ditugaskan"
           value={stats.assigned}
@@ -462,9 +462,9 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Tugas Pengantaran Aktif</h2>
+            <h2 className="text-base font-bold text-slate-900 sm:text-lg">Tugas Pengantaran Aktif</h2>
             <p className="mt-1 text-sm text-slate-500">
               {activeAssignments.length > 0
                 ? `${activeAssignments.length} tugas aktif menunggu tindakan.`
@@ -472,7 +472,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
             </p>
           </div>
 
-          <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+          <div className="w-fit rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
             Total hari ini: {stats.totalToday.toLocaleString("id-ID")}
           </div>
         </div>
@@ -502,7 +502,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
               const ActionIcon = nextAction?.icon;
 
               return (
-                <article key={assignment.id} className="p-5 sm:p-6">
+                <article key={assignment.id} className="p-4 sm:p-6">
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
@@ -517,7 +517,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
                           </span>
                         </div>
 
-                        <h3 className="mt-2 text-lg font-bold text-slate-900">
+                        <h3 className="mt-2 text-base font-bold text-slate-900 sm:text-lg">
                           {address.receiverName}
                         </h3>
                         <p className="mt-1 text-sm text-slate-500">
@@ -526,7 +526,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
                         </p>
                       </div>
 
-                      <div className="text-left lg:text-right">
+                      <div className="w-full border-t border-slate-100 pt-3 text-left lg:w-auto lg:border-0 lg:pt-0 lg:text-right">
                         <p className="text-xs font-medium text-slate-400">Total pesanan</p>
                         <p className="mt-1 text-lg font-bold text-slate-900">
                           {formatCurrency(assignment.order.total)}
@@ -537,7 +537,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
                       </div>
                     </div>
 
-                    <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 md:grid-cols-2">
+                    <div className="grid gap-3 rounded-2xl bg-slate-50 p-3 sm:p-4 lg:grid-cols-2">
                       <div className="flex gap-3">
                         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm">
                           <MapPin className="h-4 w-4" />
@@ -571,33 +571,35 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
                           <p className="mt-1 text-sm font-semibold text-slate-700">
                             {address.receiverName}
                           </p>
+
                           <a
                             href={`tel:${address.receiverPhone}`}
-                            className="mt-1 inline-flex text-sm font-medium text-[var(--pisjo-primary)] hover:underline"
+                            className="mt-2 inline-flex text-sm font-medium text-[var(--pisjo-primary)] hover:underline"
                           >
                             {address.receiverPhone}
                           </a>
+
                           {hasCoordinates ? (
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${address.latitude},${address.longitude}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--pisjo-primary)] hover:underline"
-                            >
-                              <Navigation className="h-3.5 w-3.5" />
-                              Buka navigasi
-                            </a>
+                            <div className="mt-2 flex justify-start sm:justify-end">
+                              <a
+                                href={`/courier/navigation?assignment=${encodeURIComponent(assignment.id)}`}
+                                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100"
+                              >
+                                <Navigation className="h-4 w-4 text-[var(--pisjo-primary)]" />
+                                Navigasi
+                              </a>
+                            </div>
                           ) : null}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:justify-end">
                       <button
                         type="button"
                         disabled={detailLoading}
                         onClick={() => void openDetail(assignment.id)}
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 sm:w-auto"
                       >
                         <Eye className="h-4 w-4" />
                         Detail
@@ -609,7 +611,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
                           onClick={() =>
                             void transition(assignment, nextAction.status)
                           }
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                         >
                           {ActionIcon ? (
                             <ActionIcon
@@ -626,7 +628,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
                           type="button"
                           disabled={isLoading}
                           onClick={() => { setFailureTarget(assignment); setFailureReason(""); setFailureCode("OTHER"); }}
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                         >
                           <XCircle className="h-4 w-4" />
                           Gagal Antar
@@ -642,19 +644,19 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><History className="h-5 w-5" /></div>
-            <div><h2 className="text-lg font-bold text-slate-900">Riwayat Pengantaran</h2><p className="text-sm text-slate-500">Pesanan selesai, gagal, atau dibatalkan.</p></div>
+            <div><h2 className="text-base font-bold text-slate-900 sm:text-lg">Riwayat Pengantaran</h2><p className="text-sm text-slate-500">Pesanan selesai, gagal, atau dibatalkan.</p></div>
           </div>
-          <button type="button" onClick={() => void loadHistory(true)} disabled={historyLoading} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+          <button type="button" onClick={() => void loadHistory(true)} disabled={historyLoading} className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 sm:w-auto">
             <History className="h-4 w-4" />{historyLoaded ? "Muat Ulang" : "Lihat Riwayat"}
           </button>
         </div>
         {historyLoaded ? (
           <div className="divide-y divide-slate-200 border-t border-slate-200">
             {history.length === 0 ? <div className="px-5 py-10 text-center text-sm text-slate-500">Belum ada riwayat pengantaran.</div> : history.map((item) => (
-              <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div key={item.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold uppercase tracking-wide text-slate-400">{item.order.orderNumber}</span><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_CLASSES[item.status]}`}>{STATUS_LABELS[item.status]}</span></div><p className="mt-1 truncate text-sm font-semibold text-slate-800">{item.order.address.receiverName} · {item.order.address.city}</p>{item.failureReason ? <p className="mt-1 text-xs text-red-600">Alasan: {item.failureReason}</p> : null}</div>
                 <div className="text-left sm:text-right"><p className="text-sm font-bold text-slate-900">{formatCurrency(item.order.total)}</p><p className="text-xs text-slate-500">{item.order.itemsCount} item</p></div>
               </div>
@@ -666,11 +668,11 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
 
       {detail ? (
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4">
-          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-5 py-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Detail Pengantaran</p><h2 className="font-bold text-slate-900">{detail.order.orderNumber}</h2></div><button type="button" onClick={() => setDetail(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100" aria-label="Tutup">×</button></div>
-            <div className="space-y-5 p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3"><span className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${STATUS_CLASSES[detail.status]}`}>{STATUS_LABELS[detail.status]}</span><span className="text-lg font-bold text-slate-900">{formatCurrency(detail.order.total)}</span></div>
-              <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Penerima</p><p className="mt-1 font-bold text-slate-900">{detail.order.address.receiverName}</p><a href={`tel:${detail.order.address.receiverPhone}`} className="mt-1 inline-flex text-sm font-medium text-[var(--pisjo-primary)]">{detail.order.address.receiverPhone}</a><p className="mt-3 text-sm leading-6 text-slate-700">{detail.order.address.fullAddress}</p><p className="text-xs text-slate-500">{detail.order.address.district}, {detail.order.address.city} {detail.order.address.postalCode}</p>{detail.order.address.latitude !== null && detail.order.address.longitude !== null ? <a href={`https://www.google.com/maps/search/?api=1&query=${detail.order.address.latitude},${detail.order.address.longitude}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-4 py-2.5 text-sm font-semibold text-white"><Navigation className="h-4 w-4" />Buka Google Maps</a> : null}</div>
+          <div className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-3xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-4 py-3.5 sm:px-5 sm:py-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Detail Pengantaran</p><h2 className="font-bold text-slate-900">{detail.order.orderNumber}</h2></div><button type="button" onClick={() => setDetail(null)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100" aria-label="Tutup">×</button></div>
+            <div className="min-h-0 space-y-5 overflow-y-auto p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3"><span className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${STATUS_CLASSES[detail.status]}`}>{STATUS_LABELS[detail.status]}</span><span className="text-base font-bold text-slate-900 sm:text-lg">{formatCurrency(detail.order.total)}</span></div>
+              <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Penerima</p><p className="mt-1 font-bold text-slate-900">{detail.order.address.receiverName}</p><a href={`tel:${detail.order.address.receiverPhone}`} className="mt-1 inline-flex text-sm font-medium text-[var(--pisjo-primary)]">{detail.order.address.receiverPhone}</a><p className="mt-3 text-sm leading-6 text-slate-700">{detail.order.address.fullAddress}</p><p className="text-xs text-slate-500">{detail.order.address.district}, {detail.order.address.city} {detail.order.address.postalCode}</p>{detail.order.address.latitude !== null && detail.order.address.longitude !== null ? <a href={`/courier/navigation?assignment=${encodeURIComponent(detail.id)}`} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[var(--pisjo-primary)] px-4 py-2.5 text-sm font-semibold text-white"><Navigation className="h-4 w-4" />Buka Navigasi</a> : null}</div>
               <div><h3 className="font-bold text-slate-900">Produk ({detail.order.items.length})</h3><div className="mt-3 divide-y rounded-2xl border">{detail.order.items.map((item) => <div key={item.id} className="p-4"><div className="flex justify-between gap-4"><div><p className="font-semibold text-slate-900">{item.productName}</p>{item.productVariant ? <p className="text-xs text-slate-500">{item.productVariant}</p> : null}{item.customerNote ? <p className="mt-1 text-xs text-slate-500">Catatan: {item.customerNote}</p> : null}</div><div className="text-right"><p className="font-bold">×{item.quantity}</p><p className="text-xs text-slate-500">{formatCurrency(item.subtotal)}</p></div></div></div>)}</div></div>
               {detail.order.notes ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"><p className="font-semibold">Catatan pesanan</p><p className="mt-1">{detail.order.notes}</p></div> : null}
 
@@ -709,7 +711,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
 
       {proofTarget ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4">
-          <div className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+          <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 pb-6 shadow-2xl sm:max-h-[90vh] sm:rounded-3xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bukti Pengiriman</p>
@@ -741,9 +743,9 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
 
               <div className="rounded-xl bg-sky-50 px-3 py-3 text-xs leading-5 text-sky-700">Lokasi GPS akan dicatat jika izin lokasi tersedia. GPS bersifat opsional.</div>
 
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setProofTarget(null)} disabled={proofSubmitting} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700">Batal</button>
-                <button type="button" onClick={() => void submitDeliveryProof()} disabled={!recipientName.trim() || proofSubmitting} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-50">
+              <div className="grid grid-cols-1 gap-2 pt-1 sm:flex sm:justify-end">
+                <button type="button" onClick={() => setProofTarget(null)} disabled={proofSubmitting} className="min-h-11 w-full rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 sm:w-auto">Batal</button>
+                <button type="button" onClick={() => void submitDeliveryProof()} disabled={!recipientName.trim() || proofSubmitting} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto">
                   {proofSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Simpan & Terkirim
                 </button>
@@ -755,7 +757,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
 
       {failureTarget ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4">
-          <div className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6"><h2 className="font-bold text-slate-900">Catat Gagal Antar</h2><p className="mt-1 text-sm text-slate-500">{failureTarget.order.orderNumber} · {failureTarget.order.address.receiverName}</p><select value={failureCode} onChange={(event) => setFailureCode(event.target.value)} className="mt-4 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[var(--pisjo-primary)]"><option value="CUSTOMER_UNAVAILABLE">Customer tidak tersedia</option><option value="WRONG_ADDRESS">Alamat tidak sesuai</option><option value="ADDRESS_NOT_FOUND">Alamat tidak ditemukan</option><option value="CUSTOMER_REFUSED">Customer menolak menerima</option><option value="CUSTOMER_CANCELLED">Customer membatalkan</option><option value="DAMAGED_PACKAGE">Paket rusak</option><option value="VEHICLE_PROBLEM">Masalah kendaraan</option><option value="WEATHER">Cuaca</option><option value="OTHER">Lainnya</option></select><textarea value={failureReason} onChange={(event) => setFailureReason(event.target.value)} maxLength={500} rows={5} autoFocus className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[var(--pisjo-primary)]" placeholder="Jelaskan kondisi di lapangan..." /><div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setFailureTarget(null)} className="min-h-11 rounded-xl border px-4 text-sm font-semibold">Batal</button><button type="button" disabled={!failureReason.trim() || loadingId === failureTarget.id} onClick={() => void markFailed(failureTarget, failureReason)} className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white disabled:opacity-50">{loadingId === failureTarget.id ? "Menyimpan..." : "Konfirmasi"}</button></div></div>
+          <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 pb-6 shadow-2xl sm:max-h-[90vh] sm:rounded-3xl sm:p-6"><h2 className="font-bold text-slate-900">Catat Gagal Antar</h2><p className="mt-1 text-sm text-slate-500">{failureTarget.order.orderNumber} · {failureTarget.order.address.receiverName}</p><select value={failureCode} onChange={(event) => setFailureCode(event.target.value)} className="mt-4 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[var(--pisjo-primary)]"><option value="CUSTOMER_UNAVAILABLE">Customer tidak tersedia</option><option value="WRONG_ADDRESS">Alamat tidak sesuai</option><option value="ADDRESS_NOT_FOUND">Alamat tidak ditemukan</option><option value="CUSTOMER_REFUSED">Customer menolak menerima</option><option value="CUSTOMER_CANCELLED">Customer membatalkan</option><option value="DAMAGED_PACKAGE">Paket rusak</option><option value="VEHICLE_PROBLEM">Masalah kendaraan</option><option value="WEATHER">Cuaca</option><option value="OTHER">Lainnya</option></select><textarea value={failureReason} onChange={(event) => setFailureReason(event.target.value)} maxLength={500} rows={5} autoFocus className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[var(--pisjo-primary)]" placeholder="Jelaskan kondisi di lapangan..." /><div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:justify-end"><button type="button" onClick={() => setFailureTarget(null)} className="min-h-11 rounded-xl border px-4 text-sm font-semibold">Batal</button><button type="button" disabled={!failureReason.trim() || loadingId === failureTarget.id} onClick={() => void markFailed(failureTarget, failureReason)} className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white disabled:opacity-50">{loadingId === failureTarget.id ? "Menyimpan..." : "Konfirmasi"}</button></div></div>
         </div>
       ) : null}
 
