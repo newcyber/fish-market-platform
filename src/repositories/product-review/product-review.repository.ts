@@ -101,19 +101,71 @@ export class ProductReviewRepository {
     });
   }
 
+  static async getAdminSummary() {
+    const [total, pending, fiveStar, oneStar] = await Promise.all([
+      prisma.productReview.count(),
+      prisma.productReview.count({
+        where: { status: ProductReviewStatus.PENDING },
+      }),
+      prisma.productReview.count({
+        where: { rating: 5 },
+      }),
+      prisma.productReview.count({
+        where: { rating: 1 },
+      }),
+    ]);
+
+    return {
+      total,
+      pending,
+      fiveStar,
+      oneStar,
+    };
+  }
+
   static async findAdminMany(input: {
     status?: ProductReviewStatus;
+    rating?: number;
+    search?: string;
+    sort?: "newest" | "oldest" | "highest-rating" | "lowest-rating";
     page: number;
     limit: number;
   }) {
-    const where: Prisma.ProductReviewWhereInput = input.status
-      ? { status: input.status }
-      : {};
+    const search = input.search?.trim();
+    const where: Prisma.ProductReviewWhereInput = {
+      ...(input.status ? { status: input.status } : {}),
+      ...(typeof input.rating === "number"
+        ? { rating: input.rating }
+        : {}),
+      ...(search
+        ? {
+            OR: [
+              { username: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+              { review: { contains: search, mode: "insensitive" } },
+              {
+                product: {
+                  name: { contains: search, mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const orderBy: Prisma.ProductReviewOrderByWithRelationInput[] =
+      input.sort === "oldest"
+        ? [{ createdAt: "asc" }, { id: "asc" }]
+        : input.sort === "highest-rating"
+          ? [{ rating: "desc" }, { createdAt: "desc" }, { id: "desc" }]
+          : input.sort === "lowest-rating"
+            ? [{ rating: "asc" }, { createdAt: "desc" }, { id: "desc" }]
+            : [{ createdAt: "desc" }, { id: "desc" }];
 
     const [reviews, total] = await Promise.all([
       prisma.productReview.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip: (input.page - 1) * input.limit,
         take: input.limit,
         include: {
@@ -142,6 +194,19 @@ export class ProductReviewRepository {
             id: true,
             name: true,
             slug: true,
+            isPublished: true,
+            images: {
+              orderBy: [
+                { isThumbnail: "desc" },
+                { sortOrder: "asc" },
+              ],
+              take: 1,
+              select: {
+                id: true,
+                image: true,
+                isThumbnail: true,
+              },
+            },
           },
         },
       },

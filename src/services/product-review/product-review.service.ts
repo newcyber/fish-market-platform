@@ -36,13 +36,23 @@ export class ProductReviewService {
     });
   }
 
+  static async getAdminSummary() {
+    return ProductReviewRepository.getAdminSummary();
+  }
+
   static async getAdminReviews(input: {
     status?: ProductReviewStatus;
+    rating?: number;
+    search?: string;
+    sort?: "newest" | "oldest" | "highest-rating" | "lowest-rating";
     page?: number;
     limit?: number;
   }) {
     return ProductReviewRepository.findAdminMany({
       status: input.status,
+      rating: input.rating,
+      search: input.search,
+      sort: input.sort,
       page: Math.max(input.page ?? 1, 1),
       limit: Math.min(Math.max(input.limit ?? 25, 1), 100),
     });

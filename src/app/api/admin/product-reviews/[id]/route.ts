@@ -9,6 +9,59 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+export async function GET(
+  _request: NextRequest,
+  context: RouteContext,
+) {
+  try {
+    await requireAdmin();
+
+    const { id } = await context.params;
+    const review = await ProductReviewService.getAdminReview(id);
+
+    if (!review) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "REVIEW_NOT_FOUND",
+          message: "Review tidak ditemukan.",
+        },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: review,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json(
+        { success: false, code: "UNAUTHORIZED", message: "Unauthorized." },
+        { status: 401 },
+      );
+    }
+
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return NextResponse.json(
+        { success: false, code: "FORBIDDEN", message: "Forbidden." },
+        { status: 403 },
+      );
+    }
+
+    console.error("[ADMIN_PRODUCT_REVIEW_DETAIL_GET_ERROR]", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        code: "INTERNAL_ERROR",
+        message: "Gagal mengambil detail review.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   context: RouteContext,
