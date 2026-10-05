@@ -18,6 +18,7 @@ import CustomerProductQuickAdd from "@/components/customer/products/CustomerProd
 import { CategoryRepository } from "@/repositories/CategoryRepository";
 
 import { prisma } from "@/lib/prisma";
+import { serializeHomepageProduct } from "@/lib/products/serialize-homepage-product";
 
 import { auth } from "@/auth";
 
@@ -1224,7 +1225,15 @@ export default async function CustomerProductsPage({
                    * ============================================
                    */
 
-                  const price = Number(product.price);
+                  /**
+                    * Harga normal harus mengikuti source of truth
+                    * yang sama dengan homepage.
+                    *
+                    * Homepage menggunakan SKU aktif dengan harga
+                    * terendah, lalu fallback ke Product.price.
+                    */
+                   const price =
+                     serializeHomepageProduct(product).price;
 
                   /**
                    * ============================================

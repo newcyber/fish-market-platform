@@ -27,6 +27,7 @@ import HomeProductCard, {
 import { prisma } from "@/lib/prisma";
 
 import { getProductRatings } from "@/lib/products/get-product-ratings";
+import { serializeHomepageProduct } from "@/lib/products/serialize-homepage-product";
 
 import CategoryService from
   "@/services/category/category.service";
@@ -280,6 +281,15 @@ const products =
     },
   },
 
+  variantGroups: {
+    where: {
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  },
+
   skus: {
     where: {
       isActive: true,
@@ -322,87 +332,22 @@ const products =
 
   const serializedProducts:
     HomeProductCardProduct[] =
-    products.map(
-      (product) => ({
-        id:
-          product.id,
-
-        name:
-          product.name,
-
-        slug:
-          product.slug,
-
-        price:
-          typeof product.price ===
-            "number"
-            ? product.price
-            : product.price.toNumber(),
-
-        rating:
-          productRatings.get(product.id)?.averageRating ??
-          null,
-
-        reviewCount:
-          productRatings.get(product.id)?.reviewCount ??
-          0,
-
-        stock:
-          product.stock ?? 0,
-
-        hasVariants:
-  product.skus.length > 1,
-
-lowStockVariantStock: (() => {
-  const lowStocks =
-    product.skus
-      .map((sku) => sku.stock)
-      .filter(
-        (stock) =>
-          stock > 0 &&
-          stock <= 5
+    products.map((product) => {
+      /**
+       * Gunakan serializer yang sama dengan homepage.
+       *
+       * Ini memastikan harga katalog selalu mengikuti
+       * canonical homepage price:
+       * - SKU aktif dengan harga terendah
+       * - fallback ke Product.price jika tidak ada SKU
+       */
+      const serialized = serializeHomepageProduct(
+        product,
+        productRatings.get(product.id),
       );
 
-  return lowStocks.length > 0
-    ? Math.min(...lowStocks)
-    : null;
-})(),
-
-isOutOfStock:
-  product.skus.length > 0
-    ? product.skus.every(
-        (sku) =>
-          sku.stock <= 0
-      )
-    : (product.stock ?? 0) <= 0,
-
-        isPreOrder:
-          product.isPreOrder === true,
-
-        preOrderMinDays:
-          product.preOrderMinDays ?? null,
-
-        preOrderMaxDays:
-          product.preOrderMaxDays ?? null,
-
-        images:
-          product.images.map(
-            (image) => ({
-              id:
-                image.id,
-
-              image:
-                image.image,
-
-              sortOrder:
-                image.sortOrder,
-
-              isThumbnail:
-                image.isThumbnail,
-            })
-          ),
-      })
-    );
+      return serialized;
+    });
 
   /**
    * ==========================================================
