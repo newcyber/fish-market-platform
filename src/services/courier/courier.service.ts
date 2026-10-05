@@ -9,6 +9,8 @@ import {
 
 import { prisma } from "@/lib/prisma";
 
+import notificationService from "@/services/notification/notification.service";
+
 import StorageService from "@/services/storage/storage.service";
 
 export type CourierDashboardStats = {
@@ -998,7 +1000,7 @@ export class CourierService {
       );
     }
 
-    return prisma.$transaction(async (tx) => {
+    const assignment = await prisma.$transaction(async (tx) => {
       const [order, courier] =
         await Promise.all([
           tx.order.findFirst({
@@ -1148,6 +1150,19 @@ export class CourierService {
 
       return assignment;
     });
+
+    try {
+      await notificationService.createCourierAssignmentNotification({
+        assignmentId: assignment.id,
+      });
+    } catch (error) {
+      console.error("[COURIER_ASSIGNMENT_NOTIFICATION_ERROR]", {
+        assignmentId: assignment.id,
+        error,
+      });
+    }
+
+    return assignment;
   }
 
   static async getAssignableOrders(
@@ -1433,7 +1448,7 @@ export class CourierService {
       );
     }
 
-    return prisma.$transaction(
+    const replacement = await prisma.$transaction(
       async (tx) => {
         const [
           failedAssignment,
@@ -1629,6 +1644,19 @@ export class CourierService {
         return replacement;
       },
     );
+
+    try {
+      await notificationService.createCourierAssignmentNotification({
+        assignmentId: replacement.id,
+      });
+    } catch (error) {
+      console.error("[COURIER_REPLACEMENT_NOTIFICATION_ERROR]", {
+        assignmentId: replacement.id,
+        error,
+      });
+    }
+
+    return replacement;
   }
 
   static async reassignOrder(
@@ -1646,7 +1674,7 @@ export class CourierService {
       );
     }
 
-    return prisma.$transaction(
+    const replacement = await prisma.$transaction(
       async (tx) => {
         const [current, courier] =
           await Promise.all([
@@ -1837,6 +1865,19 @@ export class CourierService {
         return replacement;
       },
     );
+
+    try {
+      await notificationService.createCourierAssignmentNotification({
+        assignmentId: replacement.id,
+      });
+    } catch (error) {
+      console.error("[COURIER_REPLACEMENT_NOTIFICATION_ERROR]", {
+        assignmentId: replacement.id,
+        error,
+      });
+    }
+
+    return replacement;
   }
 
   static async createDeliveryProof(

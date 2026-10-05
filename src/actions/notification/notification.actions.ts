@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { auth } from "@/auth";
 
 import notificationService from "@/services/notification/notification.service";
@@ -262,9 +260,6 @@ export async function markNotificationAsReadAction(
       notificationId
     );
 
-    revalidatePath(
-      "/admin"
-    );
 
     return {
       success: true,
@@ -314,9 +309,6 @@ export async function markAllNotificationsAsReadAction() {
       userId
     );
 
-    revalidatePath(
-      "/admin"
-    );
 
     return {
       success: true,

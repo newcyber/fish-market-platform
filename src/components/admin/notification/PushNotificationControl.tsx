@@ -88,7 +88,7 @@ export function PushNotificationControl() {
           );
 
           setMessage(
-            "Browser ini tidak mendukung push notification."
+            "Push notification hanya berlaku di browser."
           );
 
           return;
@@ -248,7 +248,7 @@ if (
           );
 
           setMessage(
-            "Browser ini tidak mendukung push notification."
+            "Push notification hanya berlaku di browser."
           );
 
           return;
@@ -428,7 +428,7 @@ if (
           );
 
           setMessage(
-            "Browser ini tidak mendukung push notification."
+            "Push notification hanya berlaku di browser."
           );
 
           return;
@@ -639,8 +639,7 @@ if (
         />
 
         <span>
-          Browser ini tidak mendukung
-          push notification.
+          Push notification hanya berlaku di browser.
         </span>
       </div>
     );

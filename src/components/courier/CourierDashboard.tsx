@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Camera,
@@ -31,6 +31,7 @@ interface CourierDashboardData {
 
 interface CourierDashboardProps {
   initialData: CourierDashboardData;
+  initialAssignmentId?: string | null;
 }
 
 const STATUS_LABELS: Record<CourierAssignmentListItem["status"], string> = {
@@ -134,7 +135,10 @@ function StatCard({
   );
 }
 
-export function CourierDashboard({ initialData }: CourierDashboardProps) {
+export function CourierDashboard({
+  initialData,
+  initialAssignmentId = null,
+}: CourierDashboardProps) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -153,6 +157,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
   const [historyCursor, setHistoryCursor] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const openedAssignmentRef = useRef<string | null>(null);
 
   async function refreshDashboard() {
     setRefreshing(true);
@@ -161,7 +166,7 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
     window.setTimeout(() => setRefreshing(false), 700);
   }
 
-  async function openDetail(id: string) {
+  const openDetail = useCallback(async (id: string) => {
     setDetailLoading(true);
     setError(null);
     try {
@@ -174,7 +179,18 @@ export function CourierDashboard({ initialData }: CourierDashboardProps) {
     } finally {
       setDetailLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const assignmentId = initialAssignmentId?.trim();
+
+    if (!assignmentId || openedAssignmentRef.current === assignmentId) {
+      return;
+    }
+
+    openedAssignmentRef.current = assignmentId;
+    void openDetail(assignmentId);
+  }, [initialAssignmentId, openDetail]);
 
   async function loadHistory(reset = false) {
     setHistoryLoading(true);

@@ -1947,6 +1947,120 @@ class NotificationService {
 
   /**
    * ==========================================================
+   * COURIER ASSIGNMENT NOTIFICATION
+   * ==========================================================
+   *
+   * Database Notification adalah source of truth.
+   * Push/OneSignal bersifat best-effort.
+   *
+   * eventKey memakai assignmentId sehingga retry/reload tidak
+   * membuat notifikasi assignment yang sama berulang.
+   *
+   * Menggunakan NotificationType.SYSTEM agar tidak membutuhkan
+   * perubahan enum/migration hanya untuk V1 courier notification.
+   */
+  async createCourierAssignmentNotification(input: {
+    assignmentId: string;
+  }) {
+    const assignmentId = input.assignmentId?.trim();
+
+    if (!assignmentId) {
+      throw new Error("Assignment ID tidak valid.");
+    }
+
+    const assignment = await prisma.courierAssignment.findUnique({
+      where: {
+        id: assignmentId,
+      },
+      select: {
+        id: true,
+        courierId: true,
+        orderId: true,
+        status: true,
+        courier: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+            role: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            deletedAt: true,
+          },
+        },
+      },
+    });
+
+    if (
+      !assignment ||
+      assignment.status !== "ASSIGNED" ||
+      assignment.order.deletedAt ||
+      !assignment.courier.isActive ||
+      assignment.courier.role !== "COURIER"
+    ) {
+      return {
+        created: false,
+        notification: null,
+        push: null,
+      };
+    }
+
+    const eventKey = `COURIER_ASSIGNMENT_ASSIGNED:${assignment.id}`;
+
+    const result = await notificationRepository.createIdempotent({
+      userId: assignment.courierId,
+      title: "Tugas Pengantaran Baru",
+      message: `Anda mendapatkan tugas pengantaran pesanan ${assignment.order.orderNumber}.`,
+      type: NotificationType.SYSTEM,
+      href: `/courier?assignment=${encodeURIComponent(assignment.id)}`,
+      orderId: assignment.orderId,
+      eventKey,
+    });
+
+    if (!result.created) {
+      return {
+        ...result,
+        push: null,
+      };
+    }
+
+    let pushResult = null;
+
+    try {
+      pushResult = await pushDeliveryService.deliver({
+        notifications: [
+          {
+            userId: assignment.courierId,
+            notificationId: result.notification.id,
+            title: result.notification.title,
+            message: result.notification.message,
+            href: result.notification.href,
+            type: result.notification.type,
+            createdAt: result.notification.createdAt,
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("[COURIER_ASSIGNMENT_PUSH_ERROR]", {
+        assignmentId: assignment.id,
+        courierId: assignment.courierId,
+        notificationId: result.notification.id,
+        error,
+      });
+    }
+
+    return {
+      ...result,
+      push: pushResult,
+    };
+  }
+
+  /**
+   * ==========================================================
    * GET LATEST NOTIFICATIONS
    * ==========================================================
    */

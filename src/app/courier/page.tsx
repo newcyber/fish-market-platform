@@ -7,7 +7,15 @@ import { CourierService } from "@/services/courier/courier.service";
 
 export const dynamic = "force-dynamic";
 
-export default async function CourierDashboardPage() {
+interface CourierDashboardPageProps {
+  searchParams?: Promise<{
+    assignment?: string | string[] | undefined;
+  }>;
+}
+
+export default async function CourierDashboardPage({
+  searchParams,
+}: CourierDashboardPageProps) {
   const session = await auth();
 
   if (!session?.user?.id || !session.user.isActive) {
@@ -23,6 +31,16 @@ export default async function CourierDashboardPage() {
   }
 
   const dashboard = await CourierService.getDashboard(session.user.id);
+  const params = (await searchParams) ?? {};
+  const assignmentParam = params.assignment;
+  const assignmentId = Array.isArray(assignmentParam)
+    ? assignmentParam[0]?.trim()
+    : assignmentParam?.trim();
 
-  return <CourierDashboard initialData={dashboard} />;
+  return (
+    <CourierDashboard
+      initialData={dashboard}
+      initialAssignmentId={assignmentId || null}
+    />
+  );
 }

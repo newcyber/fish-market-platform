@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Fish, LayoutDashboard, Menu, Navigation, X } from "lucide-react";
 
 import { LogoutButton } from "@/components/admin/user/LogoutButton";
+import { CourierNotificationBell } from "@/components/courier/CourierNotificationBell";
 import { APP_CONFIG } from "@/config/app";
 
 interface CourierAppShellProps {
@@ -186,12 +187,16 @@ export function CourierAppShell({
             </div>
           </div>
 
-          <Link
-            href="/"
-            className="hidden shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 sm:flex"
-          >
-            Toko PISJO
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <CourierNotificationBell />
+
+            <Link
+              href="/"
+              className="hidden shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 sm:flex"
+            >
+              PISJO MARKET
+            </Link>
+          </div>
         </header>
 
         <main className="min-w-0 p-3 sm:p-6 lg:p-8">{children}</main>
