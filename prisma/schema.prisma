@@ -300,6 +300,7 @@ model User {
   wapiDeliveries WapiDelivery[] @relation("UserWapiDeliveries")
   wapiCustomerDeliveries WapiCustomerDelivery[] @relation("UserWapiCustomerDeliveries")
   wapiCustomerAuditLogs WapiCustomerAuditLog[] @relation("WapiCustomerAuditActors")
+  wapiCourierDeliveries WapiCourierDelivery[] @relation("UserWapiCourierDeliveries")
 
   courierAssignments CourierAssignment[] @relation("CourierAssignments")
 
@@ -2053,6 +2054,7 @@ model Order {
 
   wapiDeliveries WapiDelivery[] @relation("OrderWapiDeliveries")
   wapiCustomerDeliveries WapiCustomerDelivery[] @relation("OrderWapiCustomerDeliveries")
+  wapiCourierDeliveries WapiCourierDelivery[] @relation("OrderWapiCourierDeliveries")
 
   courierAssignments CourierAssignment[]
 
@@ -3550,6 +3552,12 @@ model StoreSettings {
    * false = event WAPI customer tidak dikirim dan tidak membuat delivery row baru.
    */
   wapiCustomerNotificationEnabled Boolean @default(true)
+
+  // Global kill switch untuk WhatsApp transactional courier.
+  wapiCourierNotificationEnabled Boolean @default(true)
+  // V1 event switch: courier assignment.
+  wapiCourierAssignmentEnabled Boolean @default(true)
+
   tierSystemEnabled Boolean @default(true)
 
   // Per-event switches for customer transactional WhatsApp.
@@ -4113,6 +4121,51 @@ model WapiCustomerDelivery {
 
 
 // ============================================================
+// COURIER WHATSAPP DELIVERY
+// ============================================================
+// Separate delivery ledger for courier-facing transactional WhatsApp.
+// The eventKey is the idempotency key for each courier notification event.
+// ============================================================
+model WapiCourierDelivery {
+  id String @id @default(uuid())
+
+  assignmentId String
+  assignment CourierAssignment @relation("CourierAssignmentWapiDeliveries", fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  courierId String
+  courier User @relation("UserWapiCourierDeliveries", fields: [courierId], references: [id], onDelete: Cascade)
+
+  orderId String
+  order Order @relation("OrderWapiCourierDeliveries", fields: [orderId], references: [id], onDelete: Cascade)
+
+  eventKey String @unique
+  eventType String
+
+  phone String
+  message String @db.Text
+
+  status WapiDeliveryStatus @default(PENDING)
+
+  messageId String?
+  jid String?
+
+  attempts Int @default(0)
+  errorMessage String? @db.Text
+  processingStartedAt DateTime?
+  sentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignmentId, createdAt])
+  @@index([courierId, createdAt])
+  @@index([orderId, createdAt])
+  @@index([status, createdAt])
+  @@index([eventType, createdAt])
+}
+
+
+// ============================================================
 // COURIER SLA SETTINGS
 // ============================================================
 //
@@ -4184,6 +4237,7 @@ model CourierAssignment {
   failureReason String? @db.Text
 
   events CourierAssignmentEvent[]
+  wapiDeliveries WapiCourierDelivery[] @relation("CourierAssignmentWapiDeliveries")
 
   deliveryProof CourierDeliveryProof?
 

@@ -317,6 +317,11 @@ export interface UpdateWapiAdminNotificationSettingsPayload {
   wapiOrderNotificationTemplate?: string | null;
 }
 
+export interface UpdateWapiCourierNotificationSettingsPayload {
+  wapiCourierNotificationEnabled?: boolean;
+  wapiCourierAssignmentEnabled?: boolean;
+}
+
 export interface UpdateWapiCustomerNotificationSettingsPayload {
   wapiCustomerNotificationEnabled?: boolean;
   wapiCustomerOrderCreatedEnabled?: boolean;
@@ -791,6 +796,49 @@ class SettingsRepository {
     data: UpdateWapiAdminNotificationSettingsPayload,
   ) {
     return this.updateWapiOrderNotificationSettings(data);
+  }
+
+  /**
+   * ============================================================
+   * GET WAPI COURIER NOTIFICATION SETTINGS
+   * ============================================================
+   *
+   * Global kill switch dan per-event switch untuk WhatsApp courier.
+   */
+  async getWapiCourierNotificationSettings() {
+    const settings = await this.getOrCreate();
+
+    return {
+      enabled: settings.wapiCourierNotificationEnabled,
+      events: {
+        ASSIGNMENT: settings.wapiCourierAssignmentEnabled,
+      },
+    };
+  }
+
+  /**
+   * ============================================================
+   * UPDATE WAPI COURIER NOTIFICATION SETTINGS
+   * ============================================================
+   */
+  async updateWapiCourierNotificationSettings(
+    data: UpdateWapiCourierNotificationSettingsPayload,
+  ) {
+    const settings = await this.getOrCreate();
+
+    const updateData = {
+      ...(data.wapiCourierNotificationEnabled !== undefined && {
+        wapiCourierNotificationEnabled: data.wapiCourierNotificationEnabled,
+      }),
+      ...(data.wapiCourierAssignmentEnabled !== undefined && {
+        wapiCourierAssignmentEnabled: data.wapiCourierAssignmentEnabled,
+      }),
+    };
+
+    return prisma.storeSettings.update({
+      where: { id: settings.id },
+      data: updateData,
+    });
   }
 
   /**

@@ -9,6 +9,7 @@ import { whatsappService } from "@/services/whatsapp/whatsapp.service";
 
 import { renderOrderNotificationTemplate } from "@/services/notification/order-notification-template";
 import WapiCustomerDeliveryService from "@/services/notification/wapi-customer-delivery.service";
+import WapiCourierDeliveryService from "@/services/notification/wapi-courier-delivery.service";
 
 import settingsRepository from "@/repositories/settings/settings.repository";
 
@@ -1990,6 +1991,15 @@ class NotificationService {
             id: true,
             orderNumber: true,
             deletedAt: true,
+            address: {
+              select: {
+                receiverName: true,
+                receiverPhone: true,
+                fullAddress: true,
+                district: true,
+                city: true,
+              },
+            },
           },
         },
       },
@@ -2006,56 +2016,97 @@ class NotificationService {
         created: false,
         notification: null,
         push: null,
+        whatsapp: null,
       };
     }
 
     const eventKey = `COURIER_ASSIGNMENT_ASSIGNED:${assignment.id}`;
+    const address = assignment.order.address;
+
+    const message = [
+      "🚚 TUGAS PENGANTARAN BARU",
+      "",
+      `Pesanan: ${assignment.order.orderNumber}`,
+      `Penerima: ${address.receiverName}`,
+      `Telepon: ${address.receiverPhone}`,
+      `Alamat: ${address.fullAddress}`,
+      `${address.district}, ${address.city}`,
+      "",
+      "Silakan buka aplikasi courier untuk melihat detail dan navigasi.",
+    ].join("\n");
 
     const result = await notificationRepository.createIdempotent({
       userId: assignment.courierId,
       title: "Tugas Pengantaran Baru",
-      message: `Anda mendapatkan tugas pengantaran pesanan ${assignment.order.orderNumber}.`,
+      message,
       type: NotificationType.SYSTEM,
       href: `/courier?assignment=${encodeURIComponent(assignment.id)}`,
       orderId: assignment.orderId,
       eventKey,
     });
 
-    if (!result.created) {
-      return {
-        ...result,
-        push: null,
-      };
-    }
-
     let pushResult = null;
 
+    // Push hanya dikirim ketika notification database baru dibuat.
+    if (result.created) {
+      try {
+        pushResult = await pushDeliveryService.deliver({
+          notifications: [
+            {
+              userId: assignment.courierId,
+              notificationId: result.notification.id,
+              title: result.notification.title,
+              message: result.notification.message,
+              href: result.notification.href,
+              type: result.notification.type,
+              createdAt: result.notification.createdAt,
+            },
+          ],
+        });
+      } catch (error) {
+        console.error("[COURIER_ASSIGNMENT_PUSH_ERROR]", {
+          assignmentId: assignment.id,
+          courierId: assignment.courierId,
+          notificationId: result.notification.id,
+          error,
+        });
+      }
+    }
+
+    // WAPI sengaja tetap dipanggil walaupun notification database sudah ada.
+    // Ini memungkinkan retry pada delivery FAILED tanpa membuat notification
+    // database duplikat.
+    let whatsappResult = null;
+
     try {
-      pushResult = await pushDeliveryService.deliver({
-        notifications: [
-          {
-            userId: assignment.courierId,
-            notificationId: result.notification.id,
-            title: result.notification.title,
-            message: result.notification.message,
-            href: result.notification.href,
-            type: result.notification.type,
-            createdAt: result.notification.createdAt,
-          },
-        ],
-      });
-    } catch (error) {
-      console.error("[COURIER_ASSIGNMENT_PUSH_ERROR]", {
+      whatsappResult = await WapiCourierDeliveryService.deliver({
         assignmentId: assignment.id,
         courierId: assignment.courierId,
-        notificationId: result.notification.id,
+        orderId: assignment.orderId,
+        eventKey,
+        eventType: "ASSIGNMENT",
+        message,
+      });
+    } catch (error) {
+      console.error("[COURIER_ASSIGNMENT_WAPI_ERROR]", {
+        assignmentId: assignment.id,
+        courierId: assignment.courierId,
         error,
       });
+
+      whatsappResult = {
+        status: "FAILED" as const,
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : "WAPI courier delivery gagal.",
+      };
     }
 
     return {
       ...result,
       push: pushResult,
+      whatsapp: whatsappResult,
     };
   }
 

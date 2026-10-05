@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { CourierWapiSettings } from "@/components/admin/wapi/CourierWapiSettings";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface WapiStatus {
@@ -771,6 +772,8 @@ export function WapiSetting() {
           )}
         </CardContent>
       </Card>
+
+      <CourierWapiSettings />
 
       <Card>
         <CardHeader>
