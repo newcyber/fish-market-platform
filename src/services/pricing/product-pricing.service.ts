@@ -570,8 +570,12 @@ if (!product) {
       isActive: true,
 
       flashSale: {
-        status:
-          FlashSaleStatus.ACTIVE,
+        status: {
+          in: [
+            FlashSaleStatus.SCHEDULED,
+            FlashSaleStatus.ACTIVE,
+          ],
+        },
 
         deletedAt: null,
 

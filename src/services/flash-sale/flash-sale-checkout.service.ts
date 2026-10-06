@@ -355,15 +355,6 @@ for (
         );
       }
 
-      const backend =
-  await tx.$queryRaw<
-    Array<{
-      pid: number;
-    }>
-  >`
-    SELECT pg_backend_pid() AS pid
-  `;
-
       /**
        * ========================================================
        * VALIDATE ITEM
