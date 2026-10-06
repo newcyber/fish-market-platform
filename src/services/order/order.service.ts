@@ -117,6 +117,50 @@ export interface UpdateOrderInput {
   notes?: string;
   items: CreateOrderItemInput[];
 }
+
+type OrderPromotionSnapshot = {
+  promotionId: string | null;
+  promotionName: string | null;
+  promotionType: string | null;
+  flashSaleId: string | null;
+  normalPriceSnapshot: Prisma.Decimal | null;
+  promoPriceSnapshot: Prisma.Decimal | null;
+  discountAmountSnapshot: Prisma.Decimal | null;
+};
+
+function buildPromotionSnapshot(
+  pricing: Awaited<ReturnType<typeof ProductPricingService.resolve>>,
+): OrderPromotionSnapshot {
+  const hasPricePromotion =
+    pricing.isFlashSaleApplied || pricing.promotionDiscountApplied;
+
+  if (!hasPricePromotion) {
+    return {
+      promotionId: null,
+      promotionName: null,
+      promotionType: null,
+      flashSaleId: null,
+      normalPriceSnapshot: null,
+      promoPriceSnapshot: null,
+      discountAmountSnapshot: null,
+    };
+  }
+
+  return {
+    promotionId: pricing.promotionId,
+    promotionName: pricing.isFlashSaleApplied
+      ? pricing.flashSaleName
+      : pricing.promotionName,
+    promotionType: pricing.isFlashSaleApplied
+      ? "FLASH_SALE"
+      : "PRICE_DISCOUNT",
+    flashSaleId: pricing.flashSaleId,
+    normalPriceSnapshot: pricing.originalPrice,
+    promoPriceSnapshot: pricing.finalPrice,
+    discountAmountSnapshot: pricing.discountAmount,
+  };
+}
+
 export default class OrderService {
   private static encodeOrderCursor(cursor: CustomerOrderCursor): string {
     const payload = JSON.stringify({
@@ -768,6 +812,7 @@ export default class OrderService {
           preferredFlashSaleItemId: item.preferredFlashSaleItemId,
           fallbackPrice: product.price,
         });
+        const promotionSnapshot = buildPromotionSnapshot(pricing);
         console.log("[ORDER-PRICING]", {
           orderUserId: input.userId,
           skuId: item.skuId,
@@ -860,6 +905,7 @@ export default class OrderService {
           weightGrams,
           customerNote: item.customerNote,
           price,
+          ...promotionSnapshot,
           quantity: item.quantity,
           subtotal: itemSubtotal,
         });
@@ -1948,14 +1994,25 @@ export default class OrderService {
             orderItem.skuId === item.skuId,
         );
         let price: Prisma.Decimal;
+        let promotionSnapshot: OrderPromotionSnapshot;
         if (!itemsChanged && existingOrderItem) {
           price = new Prisma.Decimal(existingOrderItem.price);
+          promotionSnapshot = {
+            promotionId: existingOrderItem.promotionId,
+            promotionName: existingOrderItem.promotionName,
+            promotionType: existingOrderItem.promotionType,
+            flashSaleId: existingOrderItem.flashSaleId,
+            normalPriceSnapshot: existingOrderItem.normalPriceSnapshot,
+            promoPriceSnapshot: existingOrderItem.promoPriceSnapshot,
+            discountAmountSnapshot: existingOrderItem.discountAmountSnapshot,
+          };
         } else {
           const pricing = await ProductPricingService.resolve(tx, {
             productId: product.id,
             skuId: sku.id,
             fallbackPrice: product.price,
           });
+          promotionSnapshot = buildPromotionSnapshot(pricing);
           price = pricing.finalPrice;
           /**
            * Flash Sale hanya diproses
@@ -1990,6 +2047,7 @@ export default class OrderService {
           weightGrams,
           customerNote: item.customerNote,
           price,
+          ...promotionSnapshot,
           quantity: item.quantity,
           subtotal: itemSubtotal,
         });
@@ -2362,6 +2420,13 @@ export default class OrderService {
             weightGrams: item.weightGrams ?? null,
             customerNote: item.customerNote,
             price: item.price,
+            promotionId: item.promotionId ?? null,
+            promotionName: item.promotionName ?? null,
+            promotionType: item.promotionType ?? null,
+            flashSaleId: item.flashSaleId ?? null,
+            normalPriceSnapshot: item.normalPriceSnapshot ?? null,
+            promoPriceSnapshot: item.promoPriceSnapshot ?? null,
+            discountAmountSnapshot: item.discountAmountSnapshot ?? null,
             quantity: item.quantity,
             subtotal: item.subtotal,
           })),
@@ -5236,6 +5301,7 @@ export default class OrderService {
             preferredFlashSaleItemId: item.flashSaleItemId,
             fallbackPrice: product.price,
           });
+          const promotionSnapshot = buildPromotionSnapshot(pricing);
 
           /**
            * ========================================================
@@ -5315,6 +5381,7 @@ export default class OrderService {
               : (product.weightGrams ?? null),
             customerNote: item.customerNote,
             price,
+            ...promotionSnapshot,
             quantity: item.quantity,
             subtotal: itemSubtotal,
           });
@@ -5477,6 +5544,13 @@ export default class OrderService {
                 weightGrams: item.weightGrams ?? null,
                 customerNote: item.customerNote ?? null,
                 price: item.price,
+                promotionId: item.promotionId ?? null,
+                promotionName: item.promotionName ?? null,
+                promotionType: item.promotionType ?? null,
+                flashSaleId: item.flashSaleId ?? null,
+                normalPriceSnapshot: item.normalPriceSnapshot ?? null,
+                promoPriceSnapshot: item.promoPriceSnapshot ?? null,
+                discountAmountSnapshot: item.discountAmountSnapshot ?? null,
                 quantity: item.quantity,
                 subtotal: item.subtotal,
               })),

@@ -104,6 +104,48 @@ export default function CartItemRow({
 
   /**
    * ==========================================================
+   * PROMO PRICE DETAIL
+   * ==========================================================
+   *
+   * CartItem.price adalah harga final snapshot yang digunakan
+   * ketika item masuk / diperbarui di Cart.
+   *
+   * SKU.price adalah harga normal SKU.
+   *
+   * Jika harga final lebih rendah dari harga normal:
+   *
+   * - Flash Sale -> tampilkan badge FLASH SALE
+   * - selain Flash Sale -> tampilkan detail HARGA PROMO
+   *
+   * Jangan menghitung ulang konfigurasi promo di UI.
+   * Cart tetap menampilkan snapshot harga yang tersimpan.
+   */
+
+  const normalUnitPrice =
+    Number(
+      item.sku?.price ??
+      item.product.price
+    );
+
+  const finalUnitPrice =
+    Number(item.price);
+
+  const discountAmount =
+    Math.max(
+      0,
+      normalUnitPrice -
+        finalUnitPrice
+    );
+
+  const hasPricePromotion =
+    discountAmount > 0;
+
+  const isFlashSale =
+    item.isFlashSaleApplied === true &&
+    hasPricePromotion;
+
+  /**
+   * ==========================================================
    * STOCK
    * ==========================================================
    *
@@ -505,15 +547,50 @@ export default function CartItemRow({
 
             <div className="min-w-0">
 
-              <p
-                className="
-                  text-sm
-                  font-bold
-                  text-slate-950
-                "
-              >
-                {formatRupiah(item.price)}
-              </p>
+              {hasPricePromotion && (
+                <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={[
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                      isFlashSale
+                        ? "bg-red-100 text-red-700"
+                        : "bg-emerald-100 text-emerald-700",
+                    ].join(" ")}
+                  >
+                    {isFlashSale
+                      ? "FLASH SALE"
+                      : "PROMO"}
+                  </span>
+
+                  <span className="text-[10px] text-slate-400">
+                    Harga normal{" "}
+                    <span className="line-through">
+                      {formatRupiah(normalUnitPrice)}
+                    </span>
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-baseline gap-2">
+                <p
+                  className={[
+                    "text-sm font-bold",
+                    isFlashSale
+                      ? "text-red-600"
+                      : hasPricePromotion
+                        ? "text-emerald-700"
+                        : "text-slate-950",
+                  ].join(" ")}
+                >
+                  {formatRupiah(finalUnitPrice)}
+                </p>
+
+                {hasPricePromotion && (
+                  <span className="text-[10px] font-medium text-emerald-600">
+                    Hemat {formatRupiah(discountAmount)}
+                  </span>
+                )}
+              </div>
 
               {item.quantity > 1 && (
                 <p

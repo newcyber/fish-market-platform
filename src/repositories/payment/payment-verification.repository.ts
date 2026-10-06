@@ -374,7 +374,17 @@ export class PaymentVerificationRepository {
 
             items: {
               include: {
-                product: true,
+                product: {
+                  include: {
+                    images: {
+                      orderBy: [
+                        { isThumbnail: "desc" },
+                        { sortOrder: "asc" },
+                      ],
+                      take: 1,
+                    },
+                  },
+                },
               },
             },
           },

@@ -16,6 +16,18 @@ type TestSku = {
   price: string;
 };
 
+
+function requirePromotion<T>(
+  promotion: T | null,
+  label: string
+): asserts promotion is T {
+  if (!promotion) {
+    throw new Error(
+      `FAIL: ${label} tidak ditemukan.`
+    );
+  }
+}
+
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
@@ -189,6 +201,11 @@ const runIsolatedTest = async ({
           existingEnd,
       });
 
+    requirePromotion(
+      existingPromotion,
+      "Existing promotion"
+    );
+
     existingPromotionId =
       existingPromotion.id;
 
@@ -219,6 +236,11 @@ const runIsolatedTest = async ({
         endAt:
           candidateEnd,
       });
+
+    requirePromotion(
+      candidatePromotion,
+      "Candidate promotion"
+    );
 
     candidatePromotionId =
       candidatePromotion.id;
@@ -598,6 +620,11 @@ const main = async () => {
             existingEnd,
         });
 
+      requirePromotion(
+        existingPromotion,
+        "Active existing promotion"
+      );
+
       existingPromotionId =
         existingPromotion.id;
 
@@ -620,6 +647,11 @@ const main = async () => {
           endAt:
             candidateEnd,
         });
+
+      requirePromotion(
+        candidatePromotion,
+        "Active candidate promotion"
+      );
 
       candidatePromotionId =
         candidatePromotion.id;

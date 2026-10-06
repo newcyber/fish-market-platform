@@ -127,6 +127,27 @@ interface ProductFlashSaleItem {
 }
 
 /**
+ * Server-resolved pricing for each active SKU.
+ * Product detail uses this as the display source so the selected
+ * variant shows the same effective price as Cart/Checkout.
+ */
+interface ProductSkuPricing {
+  skuId: string;
+  originalPrice: number;
+  finalPrice: number;
+  discountAmount: number;
+  isDiscountApplied: boolean;
+  isFlashSaleApplied: boolean;
+  promotionDiscountApplied: boolean;
+  promotionId: string | null;
+  promotionName: string | null;
+  flashSaleName: string | null;
+  discountSource: "NONE" | "PRODUCT_DISCOUNT" | "PROMOTION" | "FLASH_SALE";
+  flashSaleItemId: string | null;
+  flashSaleId: string | null;
+}
+
+/**
  * ============================================================
  * PRODUCT DISCOUNT
  * ============================================================
@@ -166,6 +187,8 @@ interface AddToCartButtonProps {
    * Canonical sellable SKUs.
    */
   skus?: ProductSku[];
+
+  skuPricing?: ProductSkuPricing[];
 
   flashSaleItems?: ProductFlashSaleItem[];
 
@@ -229,6 +252,7 @@ export default function AddToCartButton({
 
   variantGroups = [],
   skus = [],
+  skuPricing = [],
 
   flashSaleItems = [],
 
@@ -422,6 +446,23 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
+   * SELECTED SKU PRICING
+   * ==========================================================
+   *
+   * Harga efektif sudah di-resolve server-side oleh
+   * ProductPricingService. Ini adalah sumber display untuk SKU
+   * agar Promo Price per-SKU tidak hilang di detail produk.
+   */
+  const selectedSkuPricing =
+    selectedSku
+      ? skuPricing.find(
+          (pricing) =>
+            pricing.skuId === selectedSku.id
+        ) ?? null
+      : null;
+
+  /**
+   * ==========================================================
    * SELECTED SKU PRICE
    * ==========================================================
    */
@@ -440,18 +481,23 @@ export default function AddToCartButton({
    * ORIGINAL UNIT PRICE
    * ==========================================================
    *
-   * SKU menjadi sumber harga utama.
-   *
-   * Product-level basePrice hanya fallback untuk
-   * product lama yang belum mempunyai SKU.
+   * Server-resolved SKU pricing wins when available.
+   * Product-level basePrice remains fallback for legacy products.
    */
   const originalUnitPrice =
-    selectedSkuPrice !== null
-      ? selectedSkuPrice
-      : Math.max(
+    selectedSkuPricing
+      ? Math.max(
           0,
-          Number(basePrice)
-        );
+          Number(
+            selectedSkuPricing.originalPrice
+          )
+        )
+      : selectedSkuPrice !== null
+        ? selectedSkuPrice
+        : Math.max(
+            0,
+            Number(basePrice)
+          );
 
   /**
    * ==========================================================
@@ -641,13 +687,20 @@ export default function AddToCartButton({
    * 3. Normal SKU price
    */
   const unitPrice =
-    isFlashSaleApplied
-      ? flashSaleBasePrice
-      : Math.max(
+    selectedSkuPricing
+      ? Math.max(
           0,
-          originalUnitPrice -
-            discountAmount
-        );
+          Number(
+            selectedSkuPricing.finalPrice
+          )
+        )
+      : isFlashSaleApplied
+        ? flashSaleBasePrice
+        : Math.max(
+            0,
+            originalUnitPrice -
+              discountAmount
+          );
 
   /**
    * ==========================================================
@@ -1308,8 +1361,22 @@ setQuantity(
         <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-3 py-2">
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-medium text-slate-500">Harga varian</span>
-            <span className="text-base font-bold text-cyan-700">{formatRupiah(unitPrice)}</span>
+            <div className="flex items-baseline gap-2">
+              {originalUnitPrice > unitPrice && (
+                <span className="text-xs text-slate-400 line-through">
+                  {formatRupiah(originalUnitPrice)}
+                </span>
+              )}
+              <span className="text-base font-bold text-cyan-700">
+                {formatRupiah(unitPrice)}
+              </span>
+            </div>
           </div>
+          {originalUnitPrice > unitPrice && (
+            <p className="mt-0.5 text-right text-[11px] font-semibold text-emerald-600">
+              Hemat {formatRupiah(currentSaving)}
+            </p>
+          )}
           {!isPreOrder && (
             <p className="mt-0.5 text-right text-[11px] text-slate-500">{currentStock} stok tersedia</p>
           )}

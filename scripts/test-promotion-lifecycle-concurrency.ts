@@ -59,7 +59,8 @@ async function main() {
         select: {
           id: true,
           sku: true,
-          isActive: true,
+          price: true,
+      isActive: true,
         },
         orderBy: {
           createdAt: "asc",
@@ -144,7 +145,11 @@ async function main() {
           items: {
             create: {
               skuId,
-            },
+            normalPriceSnapshot:
+                sku.price,
+              promoPrice:
+                sku.price.minus(1000),
+},
           },
         },
 

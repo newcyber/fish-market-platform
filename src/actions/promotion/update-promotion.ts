@@ -177,6 +177,64 @@ export async function updatePromotionAction(
       String(
         formData.get("isFeatured") ?? ""
       ).trim();
+    const skuPricingRaw =
+      String(
+        formData.get("skuPricingJson") ?? ""
+      ).trim();
+
+    let skuPricing:
+      | Array<{
+          skuId: string;
+          promoPrice: string;
+          discountType: PromotionDiscountType | null;
+          discountValue: string | null;
+        }>
+      | undefined;
+
+    if (skuPricingRaw) {
+      try {
+        const parsed: unknown = JSON.parse(skuPricingRaw);
+        if (!Array.isArray(parsed)) {
+          throw new Error("Format SKU pricing tidak valid.");
+        }
+
+        skuPricing = parsed.map((item: unknown, index: number) => {
+          if (!item || typeof item !== "object" || !("skuId" in item) || !("promoPrice" in item)) {
+            throw new Error(`Data SKU pricing baris ${index + 1} tidak valid.`);
+          }
+
+          const row = item as Record<string, unknown>;
+          const skuId = String(row.skuId ?? "").trim();
+          const promoPrice = String(row.promoPrice ?? "").trim();
+
+          if (!skuId || !promoPrice) {
+            throw new Error(`SKU pricing baris ${index + 1} tidak lengkap.`);
+          }
+
+          const discountType =
+            row.discountType == null
+              ? null
+              : String(row.discountType) as PromotionDiscountType;
+
+          if (discountType !== null && !Object.values(PromotionDiscountType).includes(discountType)) {
+            throw new Error(`Jenis discount SKU baris ${index + 1} tidak valid.`);
+          }
+
+          return {
+            skuId,
+            promoPrice,
+            discountType,
+            discountValue: row.discountValue == null ? null : String(row.discountValue).trim(),
+          };
+        });
+      } catch (error) {
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : "Format SKU pricing tidak valid.",
+        };
+      }
+    }
+
 
     if (!name) {
       return {
@@ -281,8 +339,18 @@ export async function updatePromotionAction(
             isFeaturedRaw === "true" ||
             isFeaturedRaw === "on" ||
             isFeaturedRaw === "1",
+
+      skuPricing,
         }
       );
+
+    if (!updated) {
+      return {
+        success: false,
+        message:
+          "Promotion tidak ditemukan atau gagal diperbarui.",
+      };
+    }
 
     revalidatePath(
       "/admin/promotions"

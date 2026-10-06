@@ -138,6 +138,44 @@ function getInitial(
   );
 }
 
+function getOrderItemPromotion(item: {
+  price: number | string;
+  normalPriceSnapshot?: number | string | null;
+  promoPriceSnapshot?: number | string | null;
+  discountAmountSnapshot?: number | string | null;
+  promotionName?: string | null;
+  promotionType?: string | null;
+  flashSaleId?: string | null;
+}) {
+  const normalPrice = Number(item.normalPriceSnapshot);
+  const promoPrice = Number(item.promoPriceSnapshot);
+  const snapshotDiscount = Number(item.discountAmountSnapshot);
+
+  const hasSnapshotPrices =
+    Number.isFinite(normalPrice) &&
+    normalPrice > 0 &&
+    Number.isFinite(promoPrice) &&
+    promoPrice > 0 &&
+    promoPrice < normalPrice;
+
+  const discountAmount =
+    Number.isFinite(snapshotDiscount) && snapshotDiscount > 0
+      ? snapshotDiscount
+      : hasSnapshotPrices
+        ? normalPrice - promoPrice
+        : 0;
+
+  return {
+    hasPromotion: hasSnapshotPrices && discountAmount > 0,
+    isFlashSale: Boolean(item.flashSaleId),
+    normalPrice,
+    promoPrice,
+    discountAmount,
+    promotionName: item.promotionName?.trim() || null,
+    promotionType: item.promotionType ?? null,
+  };
+}
+
 /**
  * ============================================================
  * PAYMENT DISPLAY
@@ -236,8 +274,21 @@ interface AdminPaymentDetail {
       quantity: number | string;
       price: number | string;
 
+      normalPriceSnapshot?: number | string | null;
+      promoPriceSnapshot?: number | string | null;
+      discountAmountSnapshot?: number | string | null;
+      promotionName?: string | null;
+      promotionType?: string | null;
+      flashSaleId?: string | null;
+
       product: {
         name: string;
+        images?: Array<{
+          image: string;
+          mediaType?: string | null;
+          isThumbnail?: boolean | null;
+          sortOrder?: number | null;
+        }>;
       };
     }>;
 
@@ -702,45 +753,91 @@ export default async function AdminPaymentDetailPage({
             <div className="divide-y divide-slate-100">
               {payment.order.items.map(
                 (item) => {
-                  const quantity =
-                    Number(
-                      item.quantity
-                    );
-
-                  const price =
-                    Number(
-                      item.price
-                    );
-
-                  const subtotal =
-                    quantity *
-                    price;
+                  const quantity = Number(item.quantity);
+                  const price = Number(item.price);
+                  const subtotal = quantity * price;
+                  const promotion = getOrderItemPromotion(item);
+                  const thumbnail =
+                    item.product.images?.find(
+                      (image) =>
+                        image.isThumbnail &&
+                        (!image.mediaType || image.mediaType === "IMAGE"),
+                    )?.image ??
+                    item.product.images?.find(
+                      (image) => !image.mediaType || image.mediaType === "IMAGE",
+                    )?.image ??
+                    item.product.images?.[0]?.image;
 
                   return (
                     <div
                       key={item.id}
                       className="flex min-w-0 items-start justify-between gap-4 p-4 sm:p-5"
                     >
-                      <div className="min-w-0">
-                        <p className="break-words font-semibold text-slate-800">
-                          {item.product.name}
-                        </p>
-
-                        <p className="mt-1 text-sm text-[var(--pisjo-text-secondary)]">
-                          {quantity.toLocaleString(
-                            "id-ID"
-                          )}{" "}
-                          ×{" "}
-                          {formatCurrency(
-                            price
+                      <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-20 sm:w-20">
+                          {thumbnail ? (
+                            <img
+                              src={thumbnail}
+                              alt={item.product.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Package className="h-6 w-6 text-slate-300" />
                           )}
-                        </p>
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="break-words font-semibold text-slate-800">
+                            {item.product.name}
+                          </p>
+
+                          {promotion.hasPromotion ? (
+                            <div className="mt-2 space-y-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs font-medium text-slate-400 line-through">
+                                  {formatCurrency(promotion.normalPrice)}
+                                </span>
+                                <span
+                                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${
+                                    promotion.isFlashSale
+                                      ? "bg-orange-50 text-orange-600"
+                                      : "bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]"
+                                  }`}
+                                >
+                                  {promotion.isFlashSale ? "FLASH SALE" : "PROMO"}
+                                </span>
+                              </div>
+
+                              <p className="text-sm font-extrabold text-[var(--pisjo-ocean)]">
+                                {formatCurrency(promotion.promoPrice)}
+                              </p>
+
+                              {promotion.discountAmount > 0 ? (
+                                <p className="text-[11px] font-semibold text-emerald-600">
+                                  Hemat {formatCurrency(promotion.discountAmount)}
+                                </p>
+                              ) : null}
+
+                              {promotion.promotionName ? (
+                                <p className="max-w-[260px] truncate text-[11px] font-medium text-slate-500">
+                                  {promotion.promotionName}
+                                </p>
+                              ) : null}
+
+                              <p className="text-xs text-[var(--pisjo-text-secondary)]">
+                                {quantity.toLocaleString("id-ID")} × {formatCurrency(promotion.promoPrice)}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="mt-1 text-sm text-[var(--pisjo-text-secondary)]">
+                              {quantity.toLocaleString("id-ID")} × {formatCurrency(price)}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       <p className="shrink-0 text-right font-bold text-[var(--pisjo-navy)]">
-                        {formatCurrency(
-                          subtotal
-                        )}
+                        {formatCurrency(subtotal)}
                       </p>
                     </div>
                   );

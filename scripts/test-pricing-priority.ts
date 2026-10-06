@@ -23,6 +23,18 @@ function assert(
   }
 }
 
+
+function requirePromotion<T>(
+  promotion: T | null,
+  label: string
+): asserts promotion is T {
+  if (!promotion) {
+    throw new Error(
+      `FAIL: ${label} tidak ditemukan.`
+    );
+  }
+}
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
@@ -200,6 +212,11 @@ async function main() {
             Date.now() + 3_600_000
           ),
       });
+
+    requirePromotion(
+      promotion,
+      "Promotion pricing priority"
+    );
 
     createdPromotionIds.push(
       promotion.id

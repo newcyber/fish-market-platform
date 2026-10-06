@@ -125,6 +125,26 @@ type ProductSkuRecord = {
   isActive: boolean;
 };
 
+type FlashSaleBulkPreparedItem = {
+  input: CreateFlashSaleItemInput & {
+    productId: string;
+    skuId: string;
+  };
+  product: {
+    id: string;
+    name: string;
+    price: Prisma.Decimal;
+    isPublished: boolean;
+  };
+  sku: ProductSkuRecord;
+  originalPrice: number;
+  flashPrice: number;
+  stockLimit: number;
+  perUserLimit: number;
+  sortOrder: number;
+  isActive: boolean;
+};
+
 /**
  * ============================================================
  * FLASH SALE ITEM SERVICE
@@ -848,6 +868,137 @@ export default class FlashSaleItemService {
       );
 
       return createdItem;
+    });
+  }
+
+  /**
+   * ==========================================================
+   * CREATE MANY
+   * ==========================================================
+   *
+   * Bulk create untuk admin SKU matrix. Seluruh input tetap
+   * melewati validation canonical yang sama dengan create().
+   * Mutation dilakukan dalam satu transaction agar bulk action
+   * tidak meninggalkan sebagian item ketika salah satu SKU gagal.
+   * ==========================================================
+   */
+  static async createMany(
+    flashSaleId: string,
+    inputs: CreateFlashSaleItemInput[],
+    actorId: string
+  ) {
+    if (!flashSaleId?.trim()) {
+      throw new Error("Flash Sale ID wajib diisi.");
+    }
+    if (!actorId?.trim()) {
+      throw new Error("Actor ID admin wajib diisi untuk audit Flash Sale.");
+    }
+    if (!Array.isArray(inputs) || inputs.length === 0) {
+      throw new Error("Minimal satu SKU harus dipilih.");
+    }
+    if (inputs.length > 100) {
+      throw new Error("Maksimal 100 SKU dapat ditambahkan dalam satu bulk action.");
+    }
+
+    const flashSale = await this.ensureFlashSaleExists(flashSaleId);
+    const normalized = inputs.map((input) => ({
+      ...input,
+      productId: input.productId?.trim(),
+      skuId: input.skuId?.trim(),
+    }));
+
+    const duplicateInput = new Set<string>();
+    for (const input of normalized) {
+      if (!input.productId || !input.skuId) {
+        throw new Error("Product ID dan SKU ID wajib diisi.");
+      }
+      if (duplicateInput.has(input.skuId)) {
+        throw new Error("SKU yang sama tidak boleh dipilih lebih dari satu kali.");
+      }
+      duplicateInput.add(input.skuId);
+      if (input.isActive === false) {
+        throw new Error("SKU Flash Sale bulk harus aktif.");
+      }
+    }
+
+    const prepared: FlashSaleBulkPreparedItem[] = [];
+    for (const input of normalized) {
+      const { product, sku } = await this.resolveSku(input.productId!, input.skuId!);
+      const originalPrice = this.getCanonicalOriginalPrice(sku);
+      const flashPrice = this.validateFlashPrice(input.flashPrice, originalPrice);
+      const stockLimit = this.validateStockLimit(input.stockLimit, sku.stock);
+      const perUserLimit = this.validatePerUserLimit(input.perUserLimit ?? 0, stockLimit);
+      const sortOrder = this.validateSortOrder(input.sortOrder ?? 0);
+      const isActive = input.isActive ?? true;
+      this.validateActiveState(flashSale, isActive);
+
+      prepared.push({
+        input,
+        product,
+        sku,
+        originalPrice,
+        flashPrice,
+        stockLimit,
+        perUserLimit,
+        sortOrder,
+        isActive,
+      });
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const createdItems = [];
+
+      for (const item of prepared) {
+        const duplicate = await FlashSaleRepository.findDuplicateItem(tx, {
+          flashSaleId,
+          productId: item.product.id,
+          skuId: item.sku.id,
+        });
+
+        if (duplicate) {
+          throw new Error(`SKU ${item.sku.sku} sudah ada di Flash Sale ini.`);
+        }
+
+        const createdItem = await FlashSaleRepository.createItem(tx, {
+          flashSale: { connect: { id: flashSaleId } },
+          product: { connect: { id: item.product.id } },
+          sku: { connect: { id: item.sku.id } },
+          originalPrice: item.originalPrice,
+          flashPrice: item.flashPrice,
+          stockLimit: item.stockLimit,
+          soldQuantity: 0,
+          perUserLimit: item.perUserLimit,
+          isActive: item.isActive,
+          sortOrder: item.sortOrder,
+        });
+
+        await createAuditLog({
+          eventType: "FLASH_SALE_LIFECYCLE",
+          entityType: "FLASH_SALE_ITEM",
+          entityId: createdItem.id,
+          action: "CREATED",
+          actorType: "ADMIN",
+          actorId: actorId.trim(),
+          beforeData: null,
+          afterData: {
+            flashSaleId,
+            productId: createdItem.productId,
+            skuId: createdItem.skuId,
+            originalPrice: Number(createdItem.originalPrice),
+            flashPrice: Number(createdItem.flashPrice),
+            stockLimit: createdItem.stockLimit,
+            soldQuantity: createdItem.soldQuantity,
+            perUserLimit: createdItem.perUserLimit,
+            isActive: createdItem.isActive,
+            sortOrder: createdItem.sortOrder,
+          },
+          metadata: { flashSaleId, bulk: true },
+        }, tx);
+
+        createdItems.push(createdItem);
+      }
+
+      return createdItems;
     });
   }
 

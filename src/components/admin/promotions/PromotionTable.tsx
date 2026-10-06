@@ -3,7 +3,7 @@ import Link from "next/link";
 import {
   PromotionStatus,
   PromotionType,
-  VoucherDiscountType,
+  PromotionDiscountType,
 } from "@prisma/client";
 
 export type PromotionTableItem = {
@@ -14,7 +14,7 @@ export type PromotionTableItem = {
   type: PromotionType;
 
   discountType:
-    | VoucherDiscountType
+    | PromotionDiscountType
     | null;
 
   discountValue:
@@ -70,18 +70,27 @@ function formatDiscount(
 
   if (
     promotion.discountType ===
-    VoucherDiscountType.PERCENTAGE
+    PromotionDiscountType.PERCENTAGE
   ) {
     return `${promotion.discountValue ?? 0}%`;
   }
 
   if (
     promotion.discountType ===
-    VoucherDiscountType.FIXED_AMOUNT
+    PromotionDiscountType.FIXED_AMOUNT
   ) {
-    return formatCurrency(
+    return `Potong ${formatCurrency(
       promotion.discountValue ?? 0
-    );
+    )}`;
+  }
+
+  if (
+    promotion.discountType ===
+    PromotionDiscountType.FIXED_PRICE
+  ) {
+    return `Harga ${formatCurrency(
+      promotion.discountValue ?? 0
+    )}`;
   }
 
   return "-";

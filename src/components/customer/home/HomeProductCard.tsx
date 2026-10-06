@@ -64,6 +64,24 @@ export interface HomeProductCardProduct {
 
   price: number;
 
+  normalPrice?: number;
+
+  promoPrice?: number | null;
+
+  discountAmount?: number;
+
+  isDiscountApplied?: boolean;
+
+  isFlashSaleApplied?: boolean;
+
+  promotionDiscountApplied?: boolean;
+
+  promotionName?: string | null;
+
+  flashSaleName?: string | null;
+
+  discountSource?: "NONE" | "PRODUCT_DISCOUNT" | "PROMOTION" | "FLASH_SALE";
+
   rating?: number | null;
 
   reviewCount?: number;
@@ -458,6 +476,17 @@ export default function HomeProductCard({
     hasVariants
       ? product.lowStockVariantStock
       : currentStock;
+
+  const hasPricePromotion =
+    product.isDiscountApplied === true &&
+    Number(product.normalPrice ?? product.price) >
+      Number(product.price);
+
+  const priceSaving = Math.max(
+    0,
+    Number(product.normalPrice ?? product.price) -
+      Number(product.price),
+  );
 
   const displayPriceLabel =
     hasVariants
@@ -1226,22 +1255,44 @@ export default function HomeProductCard({
                   </p>
                 )}
 
-                <p
-                  className="
-                    truncate
-                    text-[11px]
-                    font-black
-                    leading-4
-                    text-(--fresh-700)
+                {hasPricePromotion ? (
+                  <>
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="truncate text-[8px] font-semibold text-slate-400 line-through sm:text-[10px]">
+                        {formatRupiah(product.normalPrice ?? product.price)}
+                      </span>
 
-                    sm:text-base
-                    sm:leading-5
-                  "
-                >
-                  {formatRupiah(
-                    product.price
-                  )}
-                </p>
+                      <span className="shrink-0 rounded bg-red-50 px-1 py-0.5 text-[7px] font-black text-red-600 sm:text-[9px]">
+                        {product.isFlashSaleApplied ? "FLASH SALE" : "PROMO"}
+                      </span>
+                    </div>
+
+                    <p className="truncate text-[11px] font-black leading-4 text-red-600 sm:text-base sm:leading-5">
+                      {formatRupiah(product.price)}
+                    </p>
+
+                    {priceSaving > 0 ? (
+                      <p className="hidden text-[9px] font-medium text-(--fresh-700) sm:block">
+                        Hemat {formatRupiah(priceSaving)}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p
+                    className="
+                      truncate
+                      text-[11px]
+                      font-black
+                      leading-4
+                      text-(--fresh-700)
+
+                      sm:text-base
+                      sm:leading-5
+                    "
+                  >
+                    {formatRupiah(product.price)}
+                  </p>
+                )}
               </div>
             </div>
           </div>

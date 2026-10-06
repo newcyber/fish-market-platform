@@ -59,6 +59,21 @@ export interface HomepageProductSerializerInput {
   }>;
 }
 
+export interface HomepageProductPricing {
+  originalPrice: number;
+  finalPrice: number;
+  discountAmount: number;
+  isDiscountApplied: boolean;
+  isFlashSaleApplied: boolean;
+  promotionDiscountApplied: boolean;
+  promotionId: string | null;
+  promotionName: string | null;
+  flashSaleName: string | null;
+  discountSource: "NONE" | "PRODUCT_DISCOUNT" | "PROMOTION" | "FLASH_SALE";
+  flashSaleItemId: string | null;
+  flashSaleId: string | null;
+}
+
 export interface HomepageProductRating {
   averageRating: number | null;
   reviewCount: number;
@@ -67,6 +82,7 @@ export interface HomepageProductRating {
 export function serializeHomepageProduct(
   product: HomepageProductSerializerInput,
   rating?: HomepageProductRating | null,
+  pricing?: HomepageProductPricing | null,
 ) {
   const hasVariants = product.variantGroups.length > 0;
 
@@ -128,7 +144,38 @@ export function serializeHomepageProduct(
 
     slug: product.slug,
 
-    price: displayPrice,
+    price: pricing?.finalPrice ?? displayPrice,
+
+    normalPrice: pricing?.originalPrice ?? displayPrice,
+
+    promoPrice:
+      pricing && pricing.isDiscountApplied
+        ? pricing.finalPrice
+        : null,
+
+    discountAmount:
+      pricing?.discountAmount ?? 0,
+
+    isDiscountApplied:
+      pricing?.isDiscountApplied ?? false,
+
+    isFlashSaleApplied:
+      pricing?.isFlashSaleApplied ?? false,
+
+    promotionDiscountApplied:
+      pricing?.promotionDiscountApplied ?? false,
+
+    promotionId:
+      pricing?.promotionId ?? null,
+
+    promotionName:
+      pricing?.promotionName ?? null,
+
+    flashSaleName:
+      pricing?.flashSaleName ?? null,
+
+    discountSource:
+      pricing?.discountSource ?? "NONE",
 
     rating: rating?.averageRating ?? null,
 

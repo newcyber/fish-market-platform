@@ -209,6 +209,7 @@ enum PromotionType {
 enum PromotionDiscountType {
   PERCENTAGE
   FIXED_AMOUNT
+  FIXED_PRICE
 }
 
 enum WapiDeliveryStatus {
@@ -2147,6 +2148,18 @@ model OrderItem {
 
   price Decimal @db.Decimal(12, 2)
 
+  /// Snapshot sumber harga promo saat transaksi terjadi.
+  /// Null untuk order item yang tidak menggunakan Promo/Flash Sale.
+  promotionId String?
+  promotionName String?
+  promotionType String?
+  flashSaleId String?
+
+  /// Snapshot harga sebelum dan sesudah Promo/Flash Sale.
+  normalPriceSnapshot Decimal? @db.Decimal(12, 2)
+  promoPriceSnapshot Decimal? @db.Decimal(12, 2)
+  discountAmountSnapshot Decimal? @db.Decimal(12, 2)
+
   /// Snapshot status Pre-Order saat order dibuat.
   isPreOrder Boolean @default(false)
 
@@ -2181,6 +2194,8 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([skuId])
+  @@index([promotionId])
+  @@index([flashSaleId])
 }
 
 /**
@@ -4004,7 +4019,20 @@ model PromotionItem {
   skuId String
   sku   ProductSku @relation(fields: [skuId], references: [id], onDelete: Restrict)
 
+  /// Snapshot harga normal saat SKU dimasukkan ke promotion.
+  /// Tidak boleh diisi dari input admin secara manual.
+  normalPriceSnapshot Decimal @db.Decimal(12, 2)
+
+  /// Harga final yang digunakan customer ketika promotion aktif.
+  promoPrice Decimal @db.Decimal(12, 2)
+
+  /// Rule pricing per SKU. Null hanya diperbolehkan untuk data legacy
+  /// yang belum dimigrasikan ke SKU-specific pricing.
+  discountType PromotionDiscountType?
+  discountValue Decimal? @db.Decimal(12, 2)
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([promotionId, skuId])
   @@index([promotionId])
@@ -4116,9 +4144,6 @@ model WapiCustomerDelivery {
   @@index([status, createdAt])
   @@index([eventType, createdAt])
 }
-
-
-
 
 // ============================================================
 // COURIER WHATSAPP DELIVERY

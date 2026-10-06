@@ -173,6 +173,18 @@ export async function schedulePromotionAction(
     );
   }
 
+  if (startAt.getTime() <= Date.now()) {
+    throw new Error(
+      "Tanggal mulai promotion yang dijadwalkan harus berada di masa depan."
+    );
+  }
+
+  if (endAt.getTime() <= startAt.getTime()) {
+    throw new Error(
+      "Tanggal berakhir promotion harus setelah tanggal mulai."
+    );
+  }
+
   /**
    * ----------------------------------------------------------
    * SCHEDULE

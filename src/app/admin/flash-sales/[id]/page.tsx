@@ -15,7 +15,7 @@ import {
 
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
 
-import ProductService from "@/services/product/product.service";
+import { prisma } from "@/lib/prisma";
 
 /**
  * ============================================================
@@ -151,8 +151,36 @@ export default async function FlashSaleDetailPage({
    */
 
   const products =
-    await ProductService.getProducts({
-      published: true,
+    await prisma.product.findMany({
+      where: {
+        isPublished: true,
+        deletedAt: null,
+      },
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        stock: true,
+        skus: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          include: {
+            skuOptions: {
+              include: {
+                variantOption: {
+                  include: {
+                    group: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
   /**

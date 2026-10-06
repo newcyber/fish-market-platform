@@ -176,6 +176,16 @@ export default function PromotionLifecycleActions({
       return;
     }
 
+    if (start.getTime() <= Date.now()) {
+      event.preventDefault();
+
+      setScheduleError(
+        "Tanggal dan waktu mulai harus berada di masa depan."
+      );
+
+      return;
+    }
+
     if (start >= end) {
       event.preventDefault();
 
@@ -385,6 +395,14 @@ export default function PromotionLifecycleActions({
                 <input
                   id="promotion-start-at"
                   type="datetime-local"
+                  min={
+                    new Date(
+                      Date.now() -
+                        new Date().getTimezoneOffset() * 60000
+                    )
+                      .toISOString()
+                      .slice(0, 16)
+                  }
                   value={startAt}
                   onChange={(
                     event

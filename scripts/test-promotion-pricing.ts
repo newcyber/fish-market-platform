@@ -12,6 +12,16 @@ import PromotionService from "@/services/promotion/promotion.service";
 
 const TEST_SKU = "TEST-TUNA-500GR";
 
+function requirePromotion<T>(
+  promotion: T | null,
+  label: string
+): asserts promotion is T {
+  if (!promotion) {
+    throw new Error(`${label}: Promotion tidak ditemukan.`);
+  }
+}
+
+
 async function main() {
   console.log(
     "============================================================"
@@ -111,6 +121,11 @@ async function main() {
 
       isFeatured: false,
     });
+
+  requirePromotion(
+    promotion,
+    "Promotion pricing test"
+  );
 
   console.log(
     "\nPromotion dibuat:"

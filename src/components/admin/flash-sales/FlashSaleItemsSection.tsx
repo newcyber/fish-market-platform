@@ -19,6 +19,8 @@ import {
   FlashSaleProductOption,
 } from "./FlashSaleItemForm";
 
+import { FlashSaleBulkItemForm } from "./FlashSaleBulkItemForm";
+
 /**
  * ============================================================
  * TYPES
@@ -147,6 +149,10 @@ export function FlashSaleItemsSection({
   const [error, setError] =
     useState<string | null>(null);
 
+  const existingSkuIds = items
+    .map((item) => item.sku?.id)
+    .filter((id): id is string => Boolean(id));
+
   /**
    * ==========================================================
    * OPEN ADD FORM
@@ -271,10 +277,10 @@ export function FlashSaleItemsSection({
         </div>
 
         <div className="p-6">
-          <FlashSaleItemForm
+          <FlashSaleBulkItemForm
             flashSaleId={flashSaleId}
             products={products}
-            mode="create"
+            existingSkuIds={existingSkuIds}
             onCancel={handleCancel}
             onSuccess={handleSuccess}
           />

@@ -10,6 +10,7 @@ import {
 import { auth } from "@/auth";
 
 import CartService from "@/services/cart/cart.service";
+import { ProductPricingResult } from "@/services/pricing/product-pricing.service";
 import AddressRepository from "@/repositories/address.repository";
 
 import settingsService from "@/services/settings/settings.service";
@@ -227,7 +228,7 @@ const checkoutItems =
    * ==========================================================
    */
 
-  let checkoutPricing = new Map<string, Prisma.Decimal>();
+  let checkoutPricing: Map<string, ProductPricingResult> = new Map();
 
   try {
     checkoutPricing =
@@ -256,10 +257,12 @@ const checkoutItems =
   const subtotal =
     checkoutItems.reduce(
       (total, item) => {
-        const currentPrice =
-          checkoutPricing.get(item.id) ?? item.price;
+        const pricing = checkoutPricing.get(item.id);
+        const currentPrice = pricing
+          ? Number(pricing.finalPrice)
+          : Number(item.price);
 
-        return total + Number(currentPrice) * item.quantity;
+        return total + currentPrice * item.quantity;
       },
       0
     );
@@ -332,50 +335,64 @@ const checkoutItems =
    * ==========================================================
    * SERIALIZE CART ITEMS
    * ==========================================================
+   *
+   * CheckoutForm menerima harga canonical dari ProductPricingService
+   * beserta metadata promo. Semua Decimal dikonversi menjadi number.
+   * ==========================================================
    */
 
-const serializedItems =
-  checkoutItems.map(
-      (item) => ({
-        id:
-          item.id,
+  const serializedItems = checkoutItems.map((item) => {
+    const pricing = checkoutPricing.get(item.id);
 
-        productId:
-          item.productId,
+    const finalPrice = pricing
+      ? Number(pricing.finalPrice)
+      : Number(item.price);
 
-        quantity:
-          item.quantity,
+    const originalPrice = pricing
+      ? Number(pricing.originalPrice)
+      : Number(item.price);
 
-        price:
-          Number(
-            checkoutPricing.get(item.id) ?? item.price
-          ),
+    const discountAmount = pricing
+      ? Number(pricing.discountAmount)
+      : Math.max(0, originalPrice - finalPrice);
 
-        subtotal:
-          Number(
-            checkoutPricing.get(item.id) ?? item.price
-          ) *
-          item.quantity,
+    const image =
+      item.product.images?.find(
+        (image) =>
+          !image.mediaType ||
+          image.mediaType === "IMAGE"
+      )?.image ?? null;
 
-        product: {
-          id:
-            item.product.id,
-
-          name:
-            item.product.name,
-
-          unit:
-            (item.product as unknown as { unit?: string }).unit ?? "",
-
-          stock:
-            item.product.stock,
-
-          image:
-            item.product.images?.[0]
-              ?.image ?? null,
-        },
-      })
-    );
+    return {
+      id: item.id,
+      productId: item.productId,
+      skuId: item.skuId,
+      quantity: item.quantity,
+      price: finalPrice,
+      subtotal: finalPrice * item.quantity,
+      originalPrice,
+      discountAmount,
+      discountSource:
+        pricing?.discountSource ?? "NONE",
+      promotionId:
+        pricing?.promotionId ?? null,
+      promotionName:
+        pricing?.promotionName ?? null,
+      flashSaleId:
+        pricing?.flashSaleId ?? null,
+      flashSaleName:
+        pricing?.flashSaleName ?? null,
+      isFlashSaleApplied:
+        pricing?.isFlashSaleApplied ?? false,
+      product: {
+        id: item.product.id,
+        name: item.product.name,
+        stock:
+          item.sku?.stock ?? item.product.stock,
+        image,
+      },
+    };
+  });
 
   /**
    * ==========================================================

@@ -62,12 +62,27 @@ interface SkuOption {
   groupName: string;
 }
 
+
 interface ProductSku {
   id: string;
   sku: string;
   price: number;
   stock: number;
   isActive: boolean;
+
+  normalPrice: number;
+  finalPrice: number;
+  discountAmount: number;
+  isDiscountApplied: boolean;
+  isFlashSaleApplied: boolean;
+  promotionName: string | null;
+  flashSaleName: string | null;
+  discountSource:
+    | "NONE"
+    | "PRODUCT_DISCOUNT"
+    | "PROMOTION"
+    | "FLASH_SALE";
+
   options: SkuOption[];
 }
 
@@ -1022,6 +1037,47 @@ export default function CartVariantSheet({
                             text-right
                           "
                         >
+                          {selectedSku.discountAmount > 0 && (
+                            <div
+                              className="
+                                mb-1
+                                flex
+                                items-center
+                                justify-end
+                                gap-1.5
+                              "
+                            >
+                              <span
+                                className="
+                                  inline-flex
+                                  rounded-md
+                                  bg-emerald-100
+                                  px-1.5
+                                  py-0.5
+                                  text-[10px]
+                                  font-bold
+                                  text-emerald-700
+                                "
+                              >
+                                {selectedSku.isFlashSaleApplied
+                                  ? "FLASH SALE"
+                                  : "PROMO"}
+                              </span>
+
+                              <span
+                                className="
+                                  text-[11px]
+                                  text-slate-400
+                                  line-through
+                                "
+                              >
+                                {formatRupiah(
+                                  selectedSku.normalPrice
+                                )}
+                              </span>
+                            </div>
+                          )}
+
                           <p
                             className="
                               text-base
@@ -1030,9 +1086,55 @@ export default function CartVariantSheet({
                             "
                           >
                             {formatRupiah(
-                              selectedSku.price
+                              selectedSku
+                                .finalPrice
                             )}
                           </p>
+
+                          {selectedSku
+                            .discountAmount > 0 && (
+                            <p
+                              className="
+                                mt-0.5
+                                text-[11px]
+                                font-semibold
+                                text-emerald-700
+                              "
+                            >
+                              Hemat{" "}
+                              {formatRupiah(
+                                selectedSku
+                                  .discountAmount
+                              )}
+                            </p>
+                          )}
+
+                          {(selectedSku
+                            .promotionName ||
+                            selectedSku
+                              .flashSaleName) && (
+                            <p
+                              className="
+                                mt-0.5
+                                max-w-[180px]
+                                truncate
+                                text-[10px]
+                                text-emerald-700
+                              "
+                              title={
+                                selectedSku
+                                  .flashSaleName ??
+                                selectedSku
+                                  .promotionName ??
+                                undefined
+                              }
+                            >
+                              {selectedSku
+                                .flashSaleName ??
+                                selectedSku
+                                  .promotionName}
+                            </p>
+                          )}
 
                           {data.isPreOrder ? (
                             <div className="mt-1">

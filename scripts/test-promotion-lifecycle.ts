@@ -25,6 +25,18 @@ function assert(
   }
 }
 
+
+function requirePromotion<T>(
+  promotion: T | null,
+  label: string
+): asserts promotion is T {
+  if (!promotion) {
+    throw new Error(
+      `FAIL: ${label} tidak ditemukan.`
+    );
+  }
+}
+
 function getErrorMessage(
   error: unknown
 ) {
@@ -208,6 +220,11 @@ async function main() {
       await createPriceDiscountPromotion(
         "TEST LIFECYCLE PRIMARY"
       );
+
+    requirePromotion(
+      promotion,
+      "Primary lifecycle promotion"
+    );
 
     assert(
       promotion.status ===
@@ -625,6 +642,11 @@ if (
         }
       );
 
+    requirePromotion(
+      updatedActive,
+      "Updated active promotion"
+    );
+
     assert(
       updatedActive.status ===
         PromotionStatus.ACTIVE,
@@ -669,6 +691,11 @@ if (
       await createPriceDiscountPromotion(
         "TEST LIFECYCLE SECOND"
       );
+
+    requirePromotion(
+      secondPromotion,
+      "Second lifecycle promotion"
+    );
 
     let addSkuConflictRejected =
       false;

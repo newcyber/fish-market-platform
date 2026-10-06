@@ -23,6 +23,9 @@ import type {
   ActionResult,
 } from "@/types/action-result";
 
+import PromotionSkuPricingEditor from "@/components/admin/promotions/PromotionSkuPricingEditor";
+
+
 /**
  * ============================================================
  * TYPES
@@ -42,6 +45,14 @@ export interface PromotionFormInitialData {
   endAt?: Date | string | null;
   sortOrder?: number;
   isFeatured?: boolean;
+  skuPricing?: Array<{
+    skuId: string;
+    productId: string;
+    normalPriceSnapshot: string | number;
+    promoPrice: string | number;
+    discountType: PromotionDiscountType | null;
+    discountValue: string | number | null;
+  }>;
 }
 
 interface PromotionFormProps {
@@ -490,6 +501,15 @@ export default function PromotionForm({
                   >
                     Fixed Amount (Rp)
                   </option>
+
+                  <option
+                    value={
+                      PromotionDiscountType.FIXED_PRICE
+                    }
+                  >
+                    Fixed Price (Rp)
+                  </option>
+
                 </select>
               </div>
 
@@ -549,6 +569,16 @@ export default function PromotionForm({
         )}
 
       </section>
+
+      {/* ================================================== */}
+      {/* SKU PRICING */}
+      {/* ================================================== */}
+
+      {promotionType === PromotionType.PRICE_DISCOUNT && (
+        <PromotionSkuPricingEditor
+          initialItems={initialData?.skuPricing ?? []}
+        />
+      )}
 
       {/* ================================================== */}
       {/* SCHEDULE */}

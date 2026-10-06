@@ -194,7 +194,11 @@ async function main() {
             create: {
               skuId:
                 sku.id,
-            },
+            normalPriceSnapshot:
+                sku.price,
+              promoPrice:
+                sku.price.mul(0.6),
+},
           },
         },
 

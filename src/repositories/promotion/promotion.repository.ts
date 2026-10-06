@@ -13,6 +13,14 @@ export interface FindManyPromotionsInput {
   search?: string;
 }
 
+export interface PromotionItemPricingInput {
+  skuId: string;
+  normalPriceSnapshot: Prisma.Decimal | string | number;
+  promoPrice: Prisma.Decimal | string | number;
+  discountType?: Prisma.PromotionItemCreateInput["discountType"];
+  discountValue?: Prisma.Decimal | string | number | null;
+}
+
 export interface CreatePromotionInput {
   name: string;
   slug: string;
@@ -87,6 +95,128 @@ private static readonly promotionInclude = {
     },
   },
 };
+
+  /**
+   * ============================================================
+   * ADMIN SKU SELECTOR
+   * ============================================================
+   *
+   * Product adalah unit pilihan utama. Semua SKU product tetap
+   * dikembalikan, termasuk SKU inactive, agar admin dapat melihat
+   * struktur lengkap dan hanya mengaktifkan SKU yang valid.
+   */
+  static async findProductsForSkuSelector({
+    search = "",
+    take = 20,
+    ids = [],
+  }: {
+    search?: string;
+    take?: number;
+    ids?: string[];
+  } = {}) {
+    const normalizedSearch = search.trim();
+
+    const products = await prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        ...(ids.length > 0
+          ? { id: { in: ids } }
+          : {})
+        ,
+        ...(normalizedSearch
+          ? {
+              OR: [
+                {
+                  name: {
+                    contains: normalizedSearch,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  slug: {
+                    contains: normalizedSearch,
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: {
+        name: "asc",
+      },
+      take,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        skus: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          select: {
+            id: true,
+            sku: true,
+            price: true,
+            stock: true,
+            isActive: true,
+            skuOptions: {
+              select: {
+                variantOption: {
+                  select: {
+                    id: true,
+                    label: true,
+                    sortOrder: true,
+                    group: {
+                      select: {
+                        id: true,
+                        name: true,
+                        sortOrder: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      category: product.category,
+      skuCount: product.skus.length,
+      skus: product.skus.map((sku) => ({
+        id: sku.id,
+        sku: sku.sku,
+        price: sku.price.toString(),
+        stock: sku.stock,
+        isActive: sku.isActive,
+        options: sku.skuOptions
+          .map((item) => ({
+            id: item.variantOption.id,
+            label: item.variantOption.label,
+            groupName: item.variantOption.group.name,
+            groupSortOrder: item.variantOption.group.sortOrder,
+            optionSortOrder: item.variantOption.sortOrder,
+          }))
+          .sort(
+            (a, b) =>
+              a.groupSortOrder - b.groupSortOrder ||
+              a.optionSortOrder - b.optionSortOrder
+          ),
+      })),
+    }));
+  }
 
   /**
    * ============================================================
@@ -1132,7 +1262,7 @@ static async lockProductSkus(
    */
   static async addSku(
     promotionId: string,
-    skuId: string,
+    item: PromotionItemPricingInput,
     tx?: Prisma.TransactionClient
   ): Promise<
     Prisma.PromotionItemGetPayload<{
@@ -1146,11 +1276,65 @@ static async lockProductSkus(
     return client.promotionItem.create({
       data: {
         promotionId,
-        skuId,
+        skuId: item.skuId,
+        normalPriceSnapshot: new Prisma.Decimal(item.normalPriceSnapshot),
+        promoPrice: new Prisma.Decimal(item.promoPrice),
+        discountType: item.discountType ?? null,
+        discountValue:
+          item.discountValue == null
+            ? null
+            : new Prisma.Decimal(item.discountValue),
       },
       include: {
         sku: true,
       },
+    });
+  }
+
+
+  /**
+   * ============================================================
+   * REPLACE SKU PRICING
+   * ============================================================
+   *
+   * Digunakan oleh admin bulk editor. Semua item dihapus lalu
+   * dibuat ulang dalam transaction yang sama oleh service.
+   */
+  static async replaceSkuPricing(
+    promotionId: string,
+    items: PromotionItemPricingInput[],
+    tx?: Prisma.TransactionClient
+  ) {
+    const client = tx ?? prisma;
+
+    await client.promotionItem.deleteMany({
+      where: {
+        promotionId,
+      },
+    });
+
+    if (items.length === 0) {
+      return [];
+    }
+
+    await client.promotionItem.createMany({
+      data: items.map((item) => ({
+        promotionId,
+        skuId: item.skuId,
+        normalPriceSnapshot: new Prisma.Decimal(item.normalPriceSnapshot),
+        promoPrice: new Prisma.Decimal(item.promoPrice),
+        discountType: item.discountType ?? null,
+        discountValue:
+          item.discountValue == null
+            ? null
+            : new Prisma.Decimal(item.discountValue),
+      })),
+    });
+
+    return client.promotionItem.findMany({
+      where: { promotionId },
+      include: { sku: true },
+      orderBy: { createdAt: "asc" },
     });
   }
 

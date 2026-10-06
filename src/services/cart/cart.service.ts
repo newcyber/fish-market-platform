@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 
 import CartRepository from "@/repositories/cart/cart.repository";
 
-import ProductPricingService from "@/services/pricing/product-pricing.service";
+import ProductPricingService, {
+  type ProductPricingResult,
+} from "@/services/pricing/product-pricing.service";
 
 import { CartError } from "@/services/cart/cart.error";
 
@@ -280,11 +282,11 @@ static async resolveCheckoutPricing(
   }>
 ) {
   if (items.length === 0) {
-    return new Map<string, Prisma.Decimal>();
+    return new Map<string, ProductPricingResult>();
   }
 
   return prisma.$transaction(async (tx) => {
-    const pricingMap = new Map<string, Prisma.Decimal>();
+    const pricingMap = new Map<string, ProductPricingResult>();
 
     for (const item of items) {
       const pricing = await ProductPricingService.resolve(tx, {
@@ -294,7 +296,7 @@ static async resolveCheckoutPricing(
         fallbackPrice: item.product.price,
       });
 
-      pricingMap.set(item.id, pricing.finalPrice);
+      pricingMap.set(item.id, pricing);
     }
 
     return pricingMap;

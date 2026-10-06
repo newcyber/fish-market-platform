@@ -91,6 +91,14 @@ export default async function PromotionEditPage({
             promotion.sortOrder,
           isFeatured:
             promotion.isFeatured,
+          skuPricing: promotion.items.map((item) => ({
+            skuId: item.skuId,
+            productId: item.sku.productId,
+            normalPriceSnapshot: item.normalPriceSnapshot?.toString() ?? item.sku.price.toString(),
+            promoPrice: item.promoPrice?.toString() ?? item.sku.price.toString(),
+            discountType: item.discountType,
+            discountValue: item.discountValue?.toString() ?? null,
+          })),
         }}
       />
     </div>

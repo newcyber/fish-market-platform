@@ -591,17 +591,106 @@ try {
           {item.productName}
         </h3>
 
-        <p className="mt-1 text-sm text-slate-500">
-          {formatCurrency(Number(item.price))}
-          {" × "}
-          {item.quantity}
-        </p>
+        {(() => {
+          const normalPrice = item.normalPriceSnapshot !== null &&
+            item.normalPriceSnapshot !== undefined
+            ? Number(item.normalPriceSnapshot)
+            : null;
+
+          const promoPrice = item.promoPriceSnapshot !== null &&
+            item.promoPriceSnapshot !== undefined
+            ? Number(item.promoPriceSnapshot)
+            : Number(item.price);
+
+          const discountAmount = item.discountAmountSnapshot !== null &&
+            item.discountAmountSnapshot !== undefined
+            ? Number(item.discountAmountSnapshot)
+            : normalPrice !== null
+              ? Math.max(0, normalPrice - promoPrice)
+              : 0;
+
+          const hasPromotion =
+            discountAmount > 0 &&
+            normalPrice !== null &&
+            promoPrice < normalPrice;
+
+          const isFlashSale = Boolean(item.flashSaleId);
+
+          return (
+            <>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                {hasPromotion ? (
+                  <>
+                    <span className="text-slate-400 line-through">
+                      {formatCurrency(normalPrice)}
+                    </span>
+
+                    <span
+                      className={
+                        isFlashSale
+                          ? "font-semibold text-orange-600"
+                          : "font-semibold text-red-600"
+                      }
+                    >
+                      {formatCurrency(promoPrice)}
+                    </span>
+
+                    <span
+                      className={
+                        isFlashSale
+                          ? "rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700"
+                          : "rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700"
+                      }
+                    >
+                      {isFlashSale ? "FLASH SALE" : "PROMO"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-slate-500">
+                    {formatCurrency(Number(item.price))}
+                  </span>
+                )}
+
+                <span className="text-slate-400">
+                  × {item.quantity}
+                </span>
+              </div>
+
+              {hasPromotion && (
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  {item.promotionName && (
+                    <span className="font-medium text-slate-500">
+                      {item.promotionName}
+                    </span>
+                  )}
+
+                  <span className="font-semibold text-emerald-600">
+                    Hemat {formatCurrency(discountAmount)}
+                  </span>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       <div className="shrink-0 text-right">
         <p className="font-semibold text-slate-950">
           {formatCurrency(Number(item.subtotal))}
         </p>
+
+        {(() => {
+          const discountAmount = item.discountAmountSnapshot !== null &&
+            item.discountAmountSnapshot !== undefined
+            ? Number(item.discountAmountSnapshot)
+            : 0;
+
+          return discountAmount > 0 ? (
+            <p className="mt-1 text-xs text-slate-400">
+              setelah promo
+            </p>
+          ) : null;
+        })()}
       </div>
     </div>
   );

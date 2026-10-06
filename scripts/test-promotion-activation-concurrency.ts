@@ -53,6 +53,7 @@ const sku =
     select: {
       id: true,
       sku: true,
+      price: true,
       isActive: true,
     },
     orderBy: {
@@ -132,7 +133,11 @@ console.log(
           items: {
             create: {
               skuId,
-            },
+            normalPriceSnapshot:
+                sku.price,
+              promoPrice:
+                sku.price.minus(1000),
+},
           },
         },
 
@@ -170,7 +175,11 @@ console.log(
           items: {
             create: {
               skuId,
-            },
+            normalPriceSnapshot:
+                sku.price,
+              promoPrice:
+                sku.price.minus(2000),
+},
           },
         },
 

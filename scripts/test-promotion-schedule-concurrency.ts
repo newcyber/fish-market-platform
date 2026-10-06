@@ -54,6 +54,7 @@ const sku =
     select: {
       id: true,
       sku: true,
+      price: true,
       isActive: true,
     },
     orderBy: {
@@ -107,7 +108,11 @@ section(
           items: {
             create: {
               skuId: sku.id,
-            },
+            normalPriceSnapshot:
+                sku.price,
+              promoPrice:
+                sku.price.minus(2000),
+},
           },
         },
 
@@ -142,6 +147,8 @@ section(
           items: {
             create: {
               skuId: sku.id,
+            normalPriceSnapshot: sku.price,
+              promoPrice: sku.price.minus(2000),
             },
           },
         },

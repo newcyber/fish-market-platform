@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 
 import CartService from "@/services/cart/cart.service";
 import ProductService from "@/services/product/product.service";
+import ProductPricingService from "@/services/pricing/product-pricing.service";
+import { prisma } from "@/lib/prisma";
 
 interface GetCartProductVariantsInput {
   cartItemId: string;
@@ -168,9 +170,26 @@ export async function getCartProductVariants(
      * ==========================================================
      */
 
+    const pricingBySkuId = new Map(
+      await prisma.$transaction(async (tx) =>
+        Promise.all(
+          product.skus.map(async (sku) => [
+            sku.id,
+            await ProductPricingService.resolve(tx, {
+              productId: product.id,
+              skuId: sku.id,
+            }),
+          ] as const),
+        ),
+      ),
+    );
+
     const skus =
       product.skus.map(
-        (sku) => ({
+        (sku) => {
+          const pricing = pricingBySkuId.get(sku.id);
+
+          return ({
           id: sku.id,
           sku: sku.sku,
           price:
@@ -178,6 +197,30 @@ export async function getCartProductVariants(
           stock: sku.stock,
           isActive:
             sku.isActive,
+
+          normalPrice:
+            Number(pricing?.originalPrice ?? sku.price),
+
+          finalPrice:
+            Number(pricing?.finalPrice ?? sku.price),
+
+          discountAmount:
+            Number(pricing?.discountAmount ?? 0),
+
+          isDiscountApplied:
+            pricing?.isDiscountApplied ?? false,
+
+          isFlashSaleApplied:
+            pricing?.isFlashSaleApplied ?? false,
+
+          promotionName:
+            pricing?.promotionName ?? null,
+
+          flashSaleName:
+            pricing?.flashSaleName ?? null,
+
+          discountSource:
+            pricing?.discountSource ?? "NONE",
 
           options:
             sku.skuOptions.map(
@@ -198,7 +241,8 @@ export async function getCartProductVariants(
                     .group.name,
               })
             ),
-        })
+          });
+        },
       );
 
     return {

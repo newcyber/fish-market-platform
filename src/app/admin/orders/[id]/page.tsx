@@ -55,6 +55,46 @@ function formatCurrency(value: unknown) {
   return `Rp ${amount.toLocaleString("id-ID")}`;
 }
 
+function getOrderItemPromotion(item: {
+  normalPriceSnapshot?: unknown;
+  promoPriceSnapshot?: unknown;
+  discountAmountSnapshot?: unknown;
+  promotionName?: string | null;
+  promotionType?: string | null;
+  flashSaleId?: string | null;
+}) {
+  const normalPrice = Number(item.normalPriceSnapshot);
+  const promoPrice = Number(item.promoPriceSnapshot);
+  const snapshotDiscount = Number(item.discountAmountSnapshot);
+
+  const hasSnapshotPrices =
+    Number.isFinite(normalPrice) &&
+    normalPrice > 0 &&
+    Number.isFinite(promoPrice) &&
+    promoPrice > 0 &&
+    promoPrice < normalPrice;
+
+  const discountAmount =
+    Number.isFinite(snapshotDiscount) && snapshotDiscount > 0
+      ? snapshotDiscount
+      : hasSnapshotPrices
+        ? normalPrice - promoPrice
+        : 0;
+
+  const isFlashSale = Boolean(item.flashSaleId);
+  const hasPromotion = hasSnapshotPrices && discountAmount > 0;
+
+  return {
+    hasPromotion,
+    isFlashSale,
+    normalPrice,
+    promoPrice,
+    discountAmount,
+    promotionName: item.promotionName?.trim() || null,
+    promotionType: item.promotionType ?? null,
+  };
+}
+
 function formatDate(value: Date | null) {
   if (!value) {
     return "-";
@@ -583,8 +623,50 @@ export default async function OrderDetailPage({
                       ) : null}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-5 py-4 text-right align-top text-[var(--pisjo-navy)]">
-                    {formatCurrency(item.price)}
+                  <td className="px-5 py-4 text-right align-top text-[var(--pisjo-navy)]">
+                    {(() => {
+                      const promotion = getOrderItemPromotion(item);
+
+                      if (!promotion.hasPromotion) {
+                        return (
+                          <span className="whitespace-nowrap">
+                            {formatCurrency(item.price)}
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div className="flex min-w-[150px] flex-col items-end gap-1">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <span className="text-xs font-medium text-slate-400 line-through">
+                              {formatCurrency(promotion.normalPrice)}
+                            </span>
+                            <span
+                              className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${
+                                promotion.isFlashSale
+                                  ? "bg-orange-50 text-orange-600"
+                                  : "bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]"
+                              }`}
+                            >
+                              {promotion.isFlashSale ? "FLASH SALE" : "PROMO"}
+                            </span>
+                          </div>
+                          <span className="whitespace-nowrap text-sm font-extrabold text-[var(--pisjo-ocean)]">
+                            {formatCurrency(promotion.promoPrice)}
+                          </span>
+                          {promotion.discountAmount > 0 ? (
+                            <span className="whitespace-nowrap text-[11px] font-semibold text-emerald-600">
+                              Hemat {formatCurrency(promotion.discountAmount)}
+                            </span>
+                          ) : null}
+                          {promotion.promotionName ? (
+                            <span className="max-w-[180px] truncate text-[10px] font-medium text-slate-500">
+                              {promotion.promotionName}
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-5 py-4 text-center align-top font-semibold text-[var(--pisjo-navy)]">
                     {item.quantity}
@@ -638,14 +720,69 @@ export default async function OrderDetailPage({
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                  <span className="text-xs text-[var(--pisjo-text-secondary)]">
-                    Harga
-                  </span>
-                  <span className="text-sm font-semibold text-[var(--pisjo-navy)]">
-                    {formatCurrency(item.price)}
-                  </span>
-                </div>
+                {(() => {
+                  const promotion = getOrderItemPromotion(item);
+
+                  if (!promotion.hasPromotion) {
+                    return (
+                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                        <span className="text-xs text-[var(--pisjo-text-secondary)]">
+                          Harga
+                        </span>
+                        <span className="text-sm font-semibold text-[var(--pisjo-navy)]">
+                          {formatCurrency(item.price)}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-[var(--pisjo-text-secondary)]">
+                          Harga normal
+                        </span>
+                        <span className="text-xs font-medium text-slate-400 line-through">
+                          {formatCurrency(promotion.normalPrice)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-[var(--pisjo-text-secondary)]">
+                          Harga promo
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${
+                              promotion.isFlashSale
+                                ? "bg-orange-50 text-orange-600"
+                                : "bg-[var(--pisjo-soft-blue)] text-[var(--pisjo-ocean)]"
+                            }`}
+                          >
+                            {promotion.isFlashSale ? "FLASH SALE" : "PROMO"}
+                          </span>
+                          <span className="text-sm font-extrabold text-[var(--pisjo-ocean)]">
+                            {formatCurrency(promotion.promoPrice)}
+                          </span>
+                        </div>
+                      </div>
+                      {promotion.discountAmount > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-[var(--pisjo-text-secondary)]">
+                            Hemat
+                          </span>
+                          <span className="text-xs font-bold text-emerald-600">
+                            {formatCurrency(promotion.discountAmount)}
+                          </span>
+                        </div>
+                      ) : null}
+                      {promotion.promotionName ? (
+                        <p className="text-[11px] font-medium text-slate-500">
+                          {promotion.promotionName}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })()}
 
                 <div className="mt-1 flex items-center justify-between gap-3">
                   <span className="text-xs text-[var(--pisjo-text-secondary)]">

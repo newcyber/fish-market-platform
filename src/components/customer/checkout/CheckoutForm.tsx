@@ -103,6 +103,26 @@ interface CheckoutItem {
 
   subtotal: number;
 
+  originalPrice: number;
+
+  discountAmount: number;
+
+  discountSource:
+    | "NONE"
+    | "PRODUCT_DISCOUNT"
+    | "PROMOTION"
+    | "FLASH_SALE";
+
+  promotionId: string | null;
+
+  promotionName: string | null;
+
+  flashSaleId: string | null;
+
+  flashSaleName: string | null;
+
+  isFlashSaleApplied: boolean;
+
   product: {
     id: string;
 
@@ -1525,9 +1545,46 @@ console.log("[CHECKOUT SHIPPING DEBUG]", {
                         </p>
                       )}
 
-                      <p className="mt-1 text-sm font-bold text-red-600">
-                        {formatRupiah(item.price)}
-                      </p>
+                      {item.discountAmount > 0 ? (
+                        <div className="mt-1.5 space-y-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={
+                                item.isFlashSaleApplied
+                                  ? "rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600"
+                                  : "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700"
+                              }
+                            >
+                              {item.isFlashSaleApplied ? "FLASH SALE" : "PROMO"}
+                            </span>
+
+                            {(item.promotionName || item.flashSaleName) && (
+                              <span className="min-w-0 truncate text-[11px] font-semibold text-slate-600">
+                                {item.isFlashSaleApplied
+                                  ? item.flashSaleName
+                                  : item.promotionName}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-baseline gap-2">
+                            <span className="text-xs text-slate-400 line-through">
+                              {formatRupiah(item.originalPrice)}
+                            </span>
+                            <span className="text-sm font-bold text-red-600">
+                              {formatRupiah(item.price)}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] font-medium text-emerald-600">
+                            Hemat {formatRupiah(item.discountAmount)} / item
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm font-bold text-red-600">
+                          {formatRupiah(item.price)}
+                        </p>
+                      )}
 
                       <div className="mt-2 inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1">
                         <span className="text-[11px] font-semibold text-sky-700">

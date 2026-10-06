@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 
 import ProductService from "@/services/product/product.service";
+import ProductPricingService from "@/services/pricing/product-pricing.service";
+import { prisma } from "@/lib/prisma";
 import settingsService from "@/services/settings/settings.service";
 import { getSiteUrls } from "@/services/site/site-url.service";
 
@@ -435,64 +437,100 @@ const productJsonLd = (
    * STOREFRONT DISPLAY PRICE
    * ==========================================================
    *
-   * /customer/products menggunakan aturan display berikut:
+   * Detail produk wajib menggunakan canonical ProductPricingService
+   * agar harga yang ditampilkan konsisten dengan Cart/Checkout.
    *
-   * 1. Product.price sebagai harga normal canonical listing.
-   * 2. Jika ada Flash Sale aktif dengan quota tersisa, gunakan
-   *    Flash Sale dengan flashPrice paling rendah.
-   * 3. Product-level discount TIDAK diterapkan di sini karena
-   *    ProductPricingService untuk SKU menggunakan discount
-   *    pada ProductSku, bukan Product.discount*.
+   * Ini penting untuk Promotion PRICE_DISCOUNT:
    *
-   * Sebelumnya /products/[slug] menghitung Product.discount*
-   * langsung terhadap seluruh SKU. Akibatnya harga detail dapat
-   * berbeda dengan /customer/products.
+   * - PromotionItem.promoPrice adalah harga promo per-SKU.
+   * - Flash Sale tetap memiliki prioritas lebih tinggi.
+   * - SKU yang tidak masuk promotion tetap menggunakan harga normal.
+   * - Hanya SKU aktif yang dipakai untuk harga storefront.
    *
-   * IMPORTANT:
-   * Harga SKU tetap digunakan oleh AddToCartButton setelah customer
-   * memilih variant. Block ini hanya menentukan harga ringkas yang
-   * ditampilkan sebelum variant dipilih.
+   * Dengan demikian halaman detail tidak lagi hanya membaca
+   * Product.price dan tidak akan melewatkan promotion per-SKU.
    */
 
-  const baseProductPrice = Number(product.price);
+  const storefrontPricing = await prisma.$transaction(async (tx) => {
+    if (activeSkus.length === 0) {
+      return [
+        await ProductPricingService.resolve(tx, {
+          productId: product.id,
+          fallbackPrice: product.price,
+        }),
+      ];
+    }
 
-  const availableFlashSaleItems = normalizedFlashSaleItems.filter(
-    (item) => item.stockLimit - item.soldQuantity > 0,
+    return Promise.all(
+      activeSkus.map((sku) =>
+        ProductPricingService.resolve(tx, {
+          productId: product.id,
+          skuId: sku.id,
+        }),
+      ),
+    );
+  });
+
+  const displayPricing =
+    storefrontPricing.length > 0
+      ? storefrontPricing
+      : [
+          {
+            originalPrice: product.price,
+            finalPrice: product.price,
+            discountAmount: 0,
+            isDiscountApplied: false,
+            isFlashSaleApplied: false,
+            promotionDiscountApplied: false,
+            promotionId: null,
+            promotionName: null,
+            flashSaleName: null,
+            discountSource: "NONE" as const,
+            flashSaleItemId: null,
+            flashSaleId: null,
+          },
+        ];
+
+  const displayOriginalPrices = displayPricing.map((pricing) =>
+    Number(pricing.originalPrice),
   );
 
-  const storefrontFlashSale =
-    availableFlashSaleItems.reduce<
-      (typeof normalizedFlashSaleItems[number] | null)
-    >((lowest, item) => {
-      if (!lowest || item.flashPrice < lowest.flashPrice) {
-        return item;
-      }
-
-      return lowest;
-    }, null);
-
-  const hasFlashSale = storefrontFlashSale !== null;
-
-  const displayOriginalPrice = storefrontFlashSale
-    ? storefrontFlashSale.originalPrice
-    : baseProductPrice;
-
-  const displayOriginalPriceMax = displayOriginalPrice;
-
-  const displayFinalPrice = storefrontFlashSale
-    ? storefrontFlashSale.flashPrice
-    : baseProductPrice;
-
-  const displayFinalPriceMax = displayFinalPrice;
-
-  const displaySaving = Math.max(
-    0,
-    displayOriginalPrice - displayFinalPrice,
+  const displayFinalPrices = displayPricing.map((pricing) =>
+    Number(pricing.finalPrice),
   );
 
-  const displaySavingMax = displaySaving;
+  const displayOriginalPrice = Math.min(...displayOriginalPrices);
+  const displayOriginalPriceMax = Math.max(...displayOriginalPrices);
 
-  const hasPriceDiscount = displaySaving > 0;
+  const displayFinalPrice = Math.min(...displayFinalPrices);
+  const displayFinalPriceMax = Math.max(...displayFinalPrices);
+
+  const displaySavings = displayPricing
+  .filter(
+    (pricing) =>
+      Number(pricing.discountAmount) > 0
+  )
+  .map((pricing) =>
+    Number(pricing.discountAmount)
+  );
+
+  const displaySaving = displaySavings.length > 0
+    ? Math.min(...displaySavings)
+    : 0;
+
+  const displaySavingMax = displaySavings.length > 0
+    ? Math.max(...displaySavings)
+    : 0;
+
+  const hasPriceDiscount = displayPricing.some(
+  (pricing) =>
+    pricing.isDiscountApplied &&
+    Number(pricing.discountAmount) > 0,
+  );
+
+  const hasFlashSale = displayPricing.some(
+    (pricing) => pricing.isFlashSaleApplied,
+  );
 
 
   /**
@@ -745,6 +783,21 @@ const productJsonLd = (
                           skuId: skuOption.skuId,
                           variantOptionId: skuOption.variantOptionId,
                         })),
+                      }))}
+                      skuPricing={storefrontPricing.map((pricing, index) => ({
+                        skuId: activeSkus[index]?.id ?? "",
+                        originalPrice: Number(pricing.originalPrice),
+                        finalPrice: Number(pricing.finalPrice),
+                        discountAmount: Number(pricing.discountAmount),
+                        isDiscountApplied: pricing.isDiscountApplied,
+                        isFlashSaleApplied: pricing.isFlashSaleApplied,
+                        promotionDiscountApplied: pricing.promotionDiscountApplied,
+                        promotionId: pricing.promotionId,
+                        promotionName: pricing.promotionName,
+                        flashSaleName: pricing.flashSaleName,
+                        discountSource: pricing.discountSource,
+                        flashSaleItemId: pricing.flashSaleItemId,
+                        flashSaleId: pricing.flashSaleId,
                       }))}
                       flashSaleItems={normalizedFlashSaleItems}
                       isDiscountActive={product.isDiscountActive}

@@ -19,6 +19,7 @@ import { CategoryRepository } from "@/repositories/CategoryRepository";
 
 import { prisma } from "@/lib/prisma";
 import { serializeHomepageProduct } from "@/lib/products/serialize-homepage-product";
+import { getProductCardPricing } from "@/lib/products/get-product-card-pricing";
 
 import { auth } from "@/auth";
 
@@ -184,6 +185,9 @@ export default async function CustomerProductsPage({
   const now = new Date();
 
   const productIds = products.map((product) => product.id);
+
+  const productPricing =
+    await getProductCardPricing(productIds);
 
   const flashSaleItems =
     productIds.length > 0
@@ -1232,7 +1236,11 @@ export default async function CustomerProductsPage({
                     * Homepage menggunakan SKU aktif dengan harga
                     * terendah, lalu fallback ke Product.price.
                     */
+                   const pricing =
+                     productPricing.get(product.id) ?? null;
+
                    const price =
+                     pricing?.finalPrice ??
                      serializeHomepageProduct(product).price;
 
                   /**
@@ -1244,13 +1252,24 @@ export default async function CustomerProductsPage({
                   const flashSale =
                     flashSaleByProductId.get(product.id) ?? null;
 
-                  const isFlashSale = flashSale !== null;
+                  const isFlashSale =
+                    pricing?.isFlashSaleApplied === true ||
+                    flashSale !== null;
 
-                  const originalPrice = isFlashSale
-                    ? flashSale.originalPrice
-                    : price;
+                  const hasPromotion =
+                    pricing?.isDiscountApplied === true;
 
-                  const finalPrice = isFlashSale ? flashSale.flashPrice : price;
+                  const originalPrice =
+                    pricing?.originalPrice ??
+                    (isFlashSale && flashSale
+                      ? flashSale.originalPrice
+                      : price);
+
+                  const finalPrice =
+                    pricing?.finalPrice ??
+                    (isFlashSale && flashSale
+                      ? flashSale.flashPrice
+                      : price);
 
                   const saving = Math.max(0, originalPrice - finalPrice);
 
@@ -1703,7 +1722,7 @@ export default async function CustomerProductsPage({
                             sm:min-h-14.5
                           "
                           >
-                            {isFlashSale ? (
+                            {isFlashSale || hasPromotion ? (
                               <>
                                 <div
                                   className="
@@ -1748,7 +1767,7 @@ export default async function CustomerProductsPage({
                                       sm:text-[9px]
                                     "
                                     >
-                                      -{discountPercentage}%
+                                      {pricing?.isFlashSaleApplied ? "FLASH SALE" : "PROMO"}
                                     </span>
                                   )}
                                 </div>
@@ -1789,6 +1808,14 @@ export default async function CustomerProductsPage({
                                     Hemat {formatRupiah(saving)}
                                   </p>
                                 )}
+
+                                {pricing?.promotionName || pricing?.flashSaleName ? (
+                                  <p className="hidden truncate text-[9px] font-semibold text-slate-500 sm:block">
+                                    {pricing.isFlashSaleApplied
+                                      ? pricing.flashSaleName
+                                      : pricing.promotionName}
+                                  </p>
+                                ) : null}
                               </>
                             ) : (
                               <p

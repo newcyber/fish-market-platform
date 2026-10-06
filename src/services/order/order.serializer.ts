@@ -58,6 +58,13 @@ type OrderListWithRelations = Prisma.OrderGetPayload<{
         weightSku: true;
         customerNote: true;
         price: true;
+        promotionId: true;
+        promotionName: true;
+        promotionType: true;
+        flashSaleId: true;
+        normalPriceSnapshot: true;
+        promoPriceSnapshot: true;
+        discountAmountSnapshot: true;
         quantity: true;
         subtotal: true;
       };
@@ -161,6 +168,17 @@ function serializeOrderItem(
     weightSku: item.weightSku,
     customerNote: item.customerNote,
     price: serializeDecimal(item.price),
+    promotion: item.promotionId || item.flashSaleId || item.promotionType
+      ? {
+          promotionId: item.promotionId,
+          promotionName: item.promotionName,
+          promotionType: item.promotionType,
+          flashSaleId: item.flashSaleId,
+          normalPrice: serializeDecimal(item.normalPriceSnapshot),
+          promoPrice: serializeDecimal(item.promoPriceSnapshot),
+          discountAmount: serializeDecimal(item.discountAmountSnapshot),
+        }
+      : null,
     quantity: item.quantity,
     subtotal: serializeDecimal(item.subtotal),
   };

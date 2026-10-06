@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { serializeHomepageProduct } from "@/lib/products/serialize-homepage-product";
+import { getProductCardPricing } from "@/lib/products/get-product-card-pricing";
 
 import { getProductRatings } from "@/lib/products/get-product-ratings";
 
@@ -851,6 +852,8 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
 
   const productRatings = await getProductRatings(homepageProductIds);
 
+  const homepagePricing = await getProductCardPricing(homepageProductIds);
+
   /**
    * ==========================================================
    * SERIALIZE FLASH SALE
@@ -866,7 +869,7 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
    */
 
   const serializedFeaturedProducts = featuredProducts.map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id)),
+    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
   );
 
   /**
@@ -953,7 +956,7 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
       }
 
       return {
-        ...serializeHomepageProduct(product, productRatings.get(product.id)),
+        ...serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
 
         soldQuantity: group._sum.quantity ?? 0,
       };
@@ -969,7 +972,7 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
    */
 
   const serializedNewestProducts = newestProducts.map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id)),
+    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
   );
 
   /**
@@ -979,7 +982,7 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
    */
 
   const serializedAllProducts = allProducts.map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id)),
+    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
   );
 
   /**
@@ -1013,7 +1016,7 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
   const serializedRepeatPurchaseProducts = Array.from(
     repeatPurchaseProductMap.values(),
   ).map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id)),
+    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
   );
 
   /**

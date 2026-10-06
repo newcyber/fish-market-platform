@@ -164,6 +164,18 @@ export interface ProductPricingResult {
     string | null;
 
   /**
+   * Nama promotion yang menghasilkan harga final.
+   */
+  promotionName:
+    string | null;
+
+  /**
+   * Nama Flash Sale yang menghasilkan harga final.
+   */
+  flashSaleName:
+    string | null;
+
+  /**
    * Sumber pricing final.
    */
   discountSource:
@@ -579,6 +591,10 @@ if (!product) {
 
           flashSaleId: string;
 
+          flashSale: {
+            name: string;
+          };
+
           flashPrice:
             Prisma.Decimal;
 
@@ -633,6 +649,12 @@ if (!product) {
             id: true,
 
             flashSaleId: true,
+
+            flashSale: {
+              select: {
+                name: true,
+              },
+            },
 
             flashPrice: true,
 
@@ -705,6 +727,12 @@ if (!product) {
             id: true,
 
             flashSaleId: true,
+
+            flashSale: {
+              select: {
+                name: true,
+              },
+            },
 
             flashPrice: true,
 
@@ -791,6 +819,12 @@ if (!product) {
             id: true,
 
             flashSaleId: true,
+
+            flashSale: {
+              select: {
+                name: true,
+              },
+            },
 
             flashPrice: true,
 
@@ -924,6 +958,12 @@ if (!product) {
         promotionId:
           null,
 
+        promotionName:
+          null,
+
+        flashSaleName:
+          flashSaleItem.flashSale.name,
+
         discountSource:
           "FLASH_SALE",
 
@@ -955,100 +995,118 @@ if (!product) {
     let activePromotion:
       | {
           id: string;
-          discountType:
-            | PromotionDiscountType
-            | null;
-          discountValue:
-            | Prisma.Decimal
-            | null;
+          name: string;
+          discountType: PromotionDiscountType | null;
+          discountValue: Prisma.Decimal | null;
+          items: Array<{
+            normalPriceSnapshot: Prisma.Decimal;
+            promoPrice: Prisma.Decimal;
+            discountType: PromotionDiscountType | null;
+            discountValue: Prisma.Decimal | null;
+          }>;
         }
       | null = null;
 
     if (skuId) {
-      activePromotion =
+      const promotionRecord =
         await tx.promotion.findFirst({
           where: {
             deletedAt: null,
-
-            type:
-              PromotionType.PRICE_DISCOUNT,
-
-            status:
-              PromotionStatus.ACTIVE,
-
+            type: PromotionType.PRICE_DISCOUNT,
+            status: PromotionStatus.ACTIVE,
             items: {
-              some: {
-                skuId,
-              },
+              some: { skuId },
             },
-
             AND: [
               {
                 OR: [
-                  {
-                    startAt: null,
-                  },
-                  {
-                    startAt: {
-                      lte: now,
-                    },
-                  },
+                  { startAt: null },
+                  { startAt: { lte: now } },
                 ],
               },
               {
                 OR: [
-                  {
-                    endAt: null,
-                  },
-                  {
-                    endAt: {
-                      gt: now,
-                    },
-                  },
+                  { endAt: null },
+                  { endAt: { gt: now } },
                 ],
               },
             ],
           },
-
           select: {
             id: true,
+            name: true,
             discountType: true,
             discountValue: true,
+            items: {
+              where: { skuId },
+              take: 1,
+              select: {
+                normalPriceSnapshot: true,
+                promoPrice: true,
+                discountType: true,
+                discountValue: true,
+              },
+            },
           },
-
-          /**
-           * Conflict prevention pada PromotionService
-           * seharusnya memastikan hanya satu pricing campaign
-           * yang aktif untuk SKU/periode yang sama.
-           *
-           * Sorting tetap dibuat deterministic sebagai
-           * defensive fallback.
-           */
           orderBy: [
-            {
-              sortOrder: "asc",
-            },
-            {
-              isFeatured: "desc",
-            },
-            {
-              createdAt: "asc",
-            },
+            { sortOrder: "asc" },
+            { isFeatured: "desc" },
+            { createdAt: "asc" },
           ],
         });
+
+      activePromotion = promotionRecord;
     }
 
     /**
      * ==========================================================
      * PROMOTION PRICE DISCOUNT
      * ==========================================================
+     *
+     * New promotions use PromotionItem.promoPrice as the
+     * authoritative SKU-specific price. Legacy records that do
+     * not yet have item pricing fall back to the campaign-level
+     * discount fields so existing data keeps working.
      */
     if (activePromotion) {
+      const promotionItem = activePromotion.items[0] ?? null;
+
+      if (promotionItem) {
+        const promoPrice = new Prisma.Decimal(promotionItem.promoPrice);
+
+        if (!promoPrice.greaterThan(0)) {
+          throw new Error(
+            "Harga promo promotion harus lebih besar dari 0."
+          );
+        }
+
+        if (!promoPrice.lessThan(originalPrice)) {
+          throw new Error(
+            "Harga promo promotion harus lebih kecil dari harga normal SKU."
+          );
+        }
+
+        const discountAmount = originalPrice.minus(promoPrice);
+
+        return {
+          originalPrice,
+          discountAmount,
+          finalPrice: promoPrice,
+          isDiscountApplied: discountAmount.greaterThan(0),
+          isFlashSaleApplied: false,
+          promotionDiscountApplied: discountAmount.greaterThan(0),
+          promotionId: activePromotion.id,
+          promotionName: activePromotion.name,
+          flashSaleName: null,
+          discountSource: "PROMOTION",
+          flashSaleItemId: null,
+          flashSaleId: null,
+        };
+      }
+
       if (
-        activePromotion.discountType ===
-          null ||
-        activePromotion.discountValue ===
-          null
+        activePromotion.discountType === null ||
+        activePromotion.discountValue === null
       ) {
         throw new Error(
           "Promotion PRICE_DISCOUNT aktif memiliki konfigurasi discount yang tidak lengkap."
@@ -1056,88 +1114,64 @@ if (!product) {
       }
 
       const promotionDiscountValue =
-        new Prisma.Decimal(
-          activePromotion.discountValue
-        );
+        new Prisma.Decimal(activePromotion.discountValue);
 
-      if (
-        !promotionDiscountValue.greaterThan(
-          0
-        )
-      ) {
+      if (!promotionDiscountValue.greaterThan(0)) {
         throw new Error(
           "Nilai discount promotion harus lebih besar dari 0."
         );
       }
 
-      let promotionDiscountAmount =
-        new Prisma.Decimal(0);
+      let promotionDiscountAmount = new Prisma.Decimal(0);
 
-      /**
-       * --------------------------------------------------------
-       * PROMOTION PERCENTAGE
-       * --------------------------------------------------------
-       */
       if (
         activePromotion.discountType ===
         PromotionDiscountType.PERCENTAGE
       ) {
-        if (
-          promotionDiscountValue.greaterThan(
-            100
-          )
-        ) {
+        if (promotionDiscountValue.greaterThan(100)) {
           throw new Error(
             "Discount percentage promotion tidak boleh lebih dari 100%."
           );
         }
 
-        promotionDiscountAmount =
-          originalPrice
-            .mul(
-              promotionDiscountValue
-            )
-            .div(100);
-      }
-
-      /**
-       * --------------------------------------------------------
-       * PROMOTION FIXED AMOUNT
-       * --------------------------------------------------------
-       */
-      if (
+        promotionDiscountAmount = originalPrice
+          .mul(promotionDiscountValue)
+          .div(100);
+      } else if (
         activePromotion.discountType ===
         PromotionDiscountType.FIXED_AMOUNT
       ) {
-        promotionDiscountAmount =
-          promotionDiscountValue;
+        promotionDiscountAmount = promotionDiscountValue;
+      } else if (
+        activePromotion.discountType ===
+        PromotionDiscountType.FIXED_PRICE
+      ) {
+        const legacyPromoPrice = promotionDiscountValue;
+
+        if (!legacyPromoPrice.lessThan(originalPrice)) {
+          throw new Error(
+            "Harga promo promotion harus lebih kecil dari harga normal SKU."
+          );
+        }
+
+        promotionDiscountAmount = originalPrice.minus(legacyPromoPrice);
       }
 
-      /**
-       * Defensive clamp.
-       *
-       * Discount tidak boleh melebihi harga original.
-       */
-      promotionDiscountAmount =
-        Prisma.Decimal.max(
-          new Prisma.Decimal(0),
-          promotionDiscountAmount
-        );
+      promotionDiscountAmount = Prisma.Decimal.max(
+        new Prisma.Decimal(0),
+        promotionDiscountAmount
+      );
 
-      promotionDiscountAmount =
-        Prisma.Decimal.min(
-          promotionDiscountAmount,
-          originalPrice
-        );
+      promotionDiscountAmount = Prisma.Decimal.min(
+        promotionDiscountAmount,
+        originalPrice
+      );
 
-      const promotionFinalPrice =
-        originalPrice.minus(
-          promotionDiscountAmount
-        );
+      const promotionFinalPrice = originalPrice.minus(
+        promotionDiscountAmount
+      );
 
-      if (
-        promotionFinalPrice.lessThan(0)
-      ) {
+      if (promotionFinalPrice.lessThan(0)) {
         throw new Error(
           "Harga final promotion tidak boleh kurang dari nol."
         );
@@ -1145,37 +1179,15 @@ if (!product) {
 
       return {
         originalPrice,
-
-        discountAmount:
-          promotionDiscountAmount,
-
-        finalPrice:
-          promotionFinalPrice,
-
-        /**
-         * Backward compatibility:
-         *
-         * Promotion juga merupakan discount.
-         */
-        isDiscountApplied:
-          promotionDiscountAmount.greaterThan(
-            0
-          ),
-
-        isFlashSaleApplied:
-          false,
-
-        promotionDiscountApplied:
-          promotionDiscountAmount.greaterThan(
-            0
-          ),
-
-        promotionId:
-          activePromotion.id,
-
-        discountSource:
-          "PROMOTION",
-
+        discountAmount: promotionDiscountAmount,
+        finalPrice: promotionFinalPrice,
+        isDiscountApplied: promotionDiscountAmount.greaterThan(0),
+        isFlashSaleApplied: false,
+        promotionDiscountApplied: promotionDiscountAmount.greaterThan(0),
+        promotionId: activePromotion.id,
+        promotionName: activePromotion.name,
+        flashSaleName: null,
+        discountSource: "PROMOTION",
         flashSaleItemId: null,
         flashSaleId: null,
       };
@@ -1319,6 +1331,8 @@ if (!product) {
         false,
 
       promotionId: null,
+      promotionName: null,
+      flashSaleName: null,
 
       discountSource:
         isDiscountApplied

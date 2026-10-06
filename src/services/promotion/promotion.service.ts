@@ -10,7 +10,23 @@ import { prisma } from "@/lib/prisma";
 import PromotionRepository, {
   CreatePromotionInput,
   UpdatePromotionInput,
+  PromotionItemPricingInput,
 } from "@/repositories/promotion/promotion.repository";
+
+export type PromotionSkuPricingRequest = {
+  skuId: string;
+  promoPrice: Prisma.Decimal | string | number;
+  discountType?: PromotionDiscountType | null;
+  discountValue?: Prisma.Decimal | string | number | null;
+};
+
+type PromotionServiceCreateInput = CreatePromotionInput & {
+  skuPricing?: PromotionSkuPricingRequest[];
+};
+
+type PromotionServiceUpdateInput = UpdatePromotionInput & {
+  skuPricing?: PromotionSkuPricingRequest[];
+};
 
 type PromotionValidationInput = {
   type?: PromotionType;
@@ -147,6 +163,21 @@ export default class PromotionService {
       ) {
         throw new Error(
           "Discount percentage tidak boleh lebih dari 100%."
+        );
+      }
+
+      /**
+       * Fixed price is supported at PromotionItem level.
+       * Global Promotion tetap boleh menyimpan field ini untuk
+       * compatibility, tetapi pricing SKU-specific menjadi authority.
+       */
+      if (
+        data.discountType ===
+          PromotionDiscountType.FIXED_PRICE &&
+        !value.greaterThan(0)
+      ) {
+        throw new Error(
+          "Fixed price harus lebih besar dari 0."
         );
       }
 
@@ -293,27 +324,177 @@ export default class PromotionService {
 
   /**
    * ============================================================
+   * VALIDATE / SYNC SKU PRICING
+   * ============================================================
+   *
+   * Server adalah authority untuk:
+   * - SKU yang valid
+   * - harga normal snapshot
+   * - harga promo
+   * - discount rule
+   *
+   * Client tidak boleh mengirim normalPriceSnapshot sebagai
+   * sumber kebenaran. Snapshot selalu dibaca dari ProductSku.
+   */
+  private static async syncSkuPricingInTransaction(
+    promotionId: string,
+    items: PromotionSkuPricingRequest[],
+    tx: Prisma.TransactionClient
+  ) {
+    if (items.length === 0) {
+      throw new Error("Minimal satu SKU harus dipilih untuk promotion harga.");
+    }
+
+    const uniqueSkuIds = [...new Set(items.map((item) => item.skuId))];
+    if (uniqueSkuIds.length !== items.length) {
+      throw new Error("SKU promotion tidak boleh duplikat.");
+    }
+
+    const promotion = await PromotionRepository.findById(promotionId, tx);
+    if (!promotion) throw new Error("Promotion tidak ditemukan.");
+
+    if (promotion.type !== PromotionType.PRICE_DISCOUNT) {
+      throw new Error("SKU pricing hanya dapat digunakan untuk promotion PRICE_DISCOUNT.");
+    }
+
+    if (!promotion.startAt || !promotion.endAt) {
+      throw new Error("Promotion harga wajib memiliki startAt dan endAt sebelum SKU pricing disimpan.");
+    }
+
+    await this.assertNoPriceDiscountConflict(
+      promotionId,
+      uniqueSkuIds,
+      promotion.startAt,
+      promotion.endAt,
+      tx
+    );
+
+    const skus = await tx.productSku.findMany({
+      where: { id: { in: uniqueSkuIds } },
+      select: { id: true, productId: true, price: true, isActive: true },
+    });
+
+    const skuMap = new Map(skus.map((sku) => [sku.id, sku]));
+    if (skus.length !== uniqueSkuIds.length) {
+      const missing = uniqueSkuIds.find((skuId) => !skuMap.has(skuId));
+      throw new Error(`SKU "${missing ?? "unknown"}" tidak ditemukan.`);
+    }
+
+    const existingItems = await tx.promotionItem.findMany({
+      where: { promotionId },
+      select: { skuId: true, normalPriceSnapshot: true },
+    });
+    const existingSnapshotMap = new Map(
+      existingItems.map((item) => [item.skuId, item.normalPriceSnapshot])
+    );
+
+    const normalizedItems: PromotionItemPricingInput[] = items.map((item) => {
+      const sku = skuMap.get(item.skuId)!;
+      if (!sku.isActive) {
+        throw new Error(`SKU "${item.skuId}" tidak aktif dan tidak dapat dijadikan promotion aktif.`);
+      }
+
+      const normalPriceSnapshot = existingSnapshotMap.get(item.skuId) ?? sku.price;
+      const promoPrice = new Prisma.Decimal(item.promoPrice);
+
+      if (!promoPrice.greaterThan(0)) {
+        throw new Error(`Harga promo untuk SKU "${item.skuId}" harus lebih besar dari 0.`);
+      }
+      if (!promoPrice.lessThan(sku.price)) {
+        throw new Error(`Harga promo untuk SKU "${item.skuId}" harus lebih kecil dari harga normal SKU (${sku.price.toString()}).`);
+      }
+
+      const discountType = item.discountType ?? null;
+      const discountValue = item.discountValue == null ? null : new Prisma.Decimal(item.discountValue);
+
+      if (discountType === null || discountValue === null) {
+        throw new Error(`Discount rule untuk SKU "${item.skuId}" wajib diisi.`);
+      }
+      if (!discountValue.greaterThan(0)) {
+        throw new Error(`Nilai discount untuk SKU "${item.skuId}" harus lebih besar dari 0.`);
+      }
+      if (
+        discountType === PromotionDiscountType.PERCENTAGE &&
+        discountValue.greaterThan(100)
+      ) {
+        throw new Error(`Discount percentage untuk SKU "${item.skuId}" tidak boleh lebih dari 100%.`);
+      }
+      if (
+        discountType === PromotionDiscountType.FIXED_AMOUNT &&
+        !discountValue.lessThan(sku.price)
+      ) {
+        throw new Error(`Potongan nominal untuk SKU "${item.skuId}" harus lebih kecil dari harga normal.`);
+      }
+      if (
+        discountType === PromotionDiscountType.FIXED_PRICE &&
+        !discountValue.lessThan(sku.price)
+      ) {
+        throw new Error(`Harga promo untuk SKU "${item.skuId}" harus lebih kecil dari harga normal.`);
+      }
+
+      return {
+        skuId: item.skuId,
+        normalPriceSnapshot,
+        promoPrice,
+        discountType,
+        discountValue,
+      };
+    });
+
+    return PromotionRepository.replaceSkuPricing(
+      promotionId,
+      normalizedItems,
+      tx
+    );
+  }
+
+  static async syncSkuPricing(
+    promotionId: string,
+    items: PromotionSkuPricingRequest[]
+  ) {
+    return prisma.$transaction((tx) =>
+      this.syncSkuPricingInTransaction(promotionId, items, tx)
+    );
+  }
+
+  /**
+   * ============================================================
    * CREATE
    * ============================================================
    */
   static async create(
-    data: CreatePromotionInput
+    data: PromotionServiceCreateInput
   ) {
+    const { skuPricing, ...promotionData } = data;
+
     this.validatePromotionData({
-      type: data.type,
-      discountType: data.discountType,
+      type: promotionData.type,
+      discountType: promotionData.discountType,
       discountValue:
-        data.discountValue !== undefined &&
-        data.discountValue !== null
-          ? data.discountValue.toString()
+        promotionData.discountValue !== undefined && promotionData.discountValue !== null
+          ? promotionData.discountValue.toString()
           : null,
-      startAt: data.startAt,
-      endAt: data.endAt,
+      startAt: promotionData.startAt,
+      endAt: promotionData.endAt,
     });
 
-    return PromotionRepository.create(
-      data
-    );
+    return prisma.$transaction(async (tx) => {
+      const created = await PromotionRepository.create(promotionData, tx);
+
+      if (created.type === PromotionType.PRICE_DISCOUNT) {
+        if (!skuPricing || skuPricing.length === 0) {
+          throw new Error("Promotion PRICE_DISCOUNT wajib memiliki minimal satu SKU.");
+        }
+
+        await this.syncSkuPricingInTransaction(
+          created.id,
+          skuPricing,
+          tx
+        );
+      }
+
+      return PromotionRepository.findById(created.id, tx);
+    });
   }
 
   /**
@@ -353,8 +534,10 @@ export default class PromotionService {
    */
   static async update(
     id: string,
-    data: UpdatePromotionInput
+    data: PromotionServiceUpdateInput
   ) {
+    const { skuPricing, ...promotionData } = data;
+
     const existing =
       await PromotionRepository.findById(
         id
@@ -612,10 +795,31 @@ export default class PromotionService {
      * PERSIST
      * ----------------------------------------------------------
      */
-    return PromotionRepository.update(
-      id,
-      data
-    );
+    return prisma.$transaction(async (tx) => {
+      const updated = await PromotionRepository.update(
+        id,
+        promotionData,
+        tx
+      );
+
+      if (mergedType === PromotionType.MARKETING) {
+        await tx.promotionItem.deleteMany({
+          where: { promotionId: id },
+        });
+      } else if (skuPricing !== undefined) {
+        if (!skuPricing.length) {
+          throw new Error("Promotion PRICE_DISCOUNT wajib memiliki minimal satu SKU.");
+        }
+
+        await this.syncSkuPricingInTransaction(
+          id,
+          skuPricing,
+          tx
+        );
+      }
+
+      return PromotionRepository.findById(id, tx);
+    });
   }
 
 /**
@@ -1637,9 +1841,66 @@ this.assertStatusTransition(
       );
     }
 
+    if (promotion.type !== PromotionType.PRICE_DISCOUNT) {
+      throw new Error(
+        "SKU pricing hanya dapat ditambahkan ke promotion PRICE_DISCOUNT."
+      );
+    }
+
+    const sku = await prisma.productSku.findUnique({
+      where: { id: skuId },
+      select: {
+        id: true,
+        price: true,
+        isActive: true,
+      },
+    });
+
+    if (!sku) {
+      throw new Error("SKU tidak ditemukan.");
+    }
+
+    if (!sku.isActive) {
+      throw new Error("SKU nonaktif tidak dapat dijadikan promotion aktif.");
+    }
+
+    if (!promotion.discountType || promotion.discountValue == null) {
+      throw new Error(
+        "Promotion PRICE_DISCOUNT wajib memiliki discount rule sebelum SKU ditambahkan."
+      );
+    }
+
+    const discountValue = new Prisma.Decimal(promotion.discountValue);
+    let promoPrice: Prisma.Decimal;
+
+    if (promotion.discountType === PromotionDiscountType.PERCENTAGE) {
+      if (discountValue.greaterThan(100)) {
+        throw new Error("Discount percentage tidak boleh lebih dari 100%.");
+      }
+      promoPrice = sku.price.minus(
+        sku.price.mul(discountValue).div(100)
+      );
+    } else if (promotion.discountType === PromotionDiscountType.FIXED_AMOUNT) {
+      promoPrice = sku.price.minus(discountValue);
+    } else {
+      promoPrice = discountValue;
+    }
+
+    if (!promoPrice.greaterThan(0) || !promoPrice.lessThan(sku.price)) {
+      throw new Error(
+        "Harga promo hasil perhitungan harus lebih besar dari 0 dan lebih kecil dari harga normal SKU."
+      );
+    }
+
     return PromotionRepository.addSku(
       promotionId,
-      skuId
+      {
+        skuId,
+        normalPriceSnapshot: sku.price,
+        promoPrice,
+        discountType: promotion.discountType,
+        discountValue,
+      }
     );
   }
 

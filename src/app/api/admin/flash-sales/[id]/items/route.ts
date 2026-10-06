@@ -189,6 +189,93 @@ export async function POST(
       );
     }
 
+    /**
+     * --------------------------------------------------------
+     * BULK CREATE
+     * --------------------------------------------------------
+     *
+     * Dipakai oleh SKU matrix admin. Backend tetap menjadi
+     * sumber kebenaran untuk harga normal, stok, duplicate,
+     * quota, dan limit customer melalui service.
+     */
+    if (Array.isArray(body.items)) {
+      if (body.items.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "Minimal satu SKU harus dipilih." },
+          { status: 400 }
+        );
+      }
+
+      if (body.items.length > 100) {
+        return NextResponse.json(
+          { success: false, message: "Maksimal 100 SKU dapat ditambahkan dalam satu bulk action." },
+          { status: 400 }
+        );
+      }
+
+      const items = body.items.map((item: unknown, index: number) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          throw new Error(`Data SKU ke-${index + 1} tidak valid.`);
+        }
+
+        const value = item as Record<string, unknown>;
+        const productId = value.productId;
+        const skuId = value.skuId;
+        const flashPrice = value.flashPrice;
+        const stockLimit = value.stockLimit;
+        const perUserLimit = value.perUserLimit;
+        const isActive = value.isActive;
+        const sortOrder = value.sortOrder;
+
+        if (typeof productId !== "string" || !productId.trim()) {
+          throw new Error(`Product ID SKU ke-${index + 1} wajib diisi.`);
+        }
+        if (typeof skuId !== "string" || !skuId.trim()) {
+          throw new Error(`SKU ID ke-${index + 1} wajib diisi.`);
+        }
+        if (typeof flashPrice !== "number" || !Number.isFinite(flashPrice)) {
+          throw new Error(`Harga Flash Sale SKU ke-${index + 1} tidak valid.`);
+        }
+        if (typeof stockLimit !== "number" || !Number.isInteger(stockLimit)) {
+          throw new Error(`Stock limit SKU ke-${index + 1} tidak valid.`);
+        }
+        if (perUserLimit !== undefined && (typeof perUserLimit !== "number" || !Number.isInteger(perUserLimit))) {
+          throw new Error(`Per user limit SKU ke-${index + 1} tidak valid.`);
+        }
+        if (isActive !== undefined && typeof isActive !== "boolean") {
+          throw new Error(`Status aktif SKU ke-${index + 1} tidak valid.`);
+        }
+        if (sortOrder !== undefined && (typeof sortOrder !== "number" || !Number.isInteger(sortOrder))) {
+          throw new Error(`Sort order SKU ke-${index + 1} tidak valid.`);
+        }
+
+        return {
+          productId: productId.trim(),
+          skuId: skuId.trim(),
+          flashPrice,
+          stockLimit,
+          perUserLimit,
+          isActive: isActive ?? true,
+          sortOrder: sortOrder ?? 0,
+        };
+      });
+
+      const createdItems = await FlashSaleItemService.createMany(
+        id,
+        items,
+        session.user.id
+      );
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: `${createdItems.length} SKU berhasil ditambahkan ke Flash Sale.`,
+          data: createdItems,
+        },
+        { status: 201 }
+      );
+    }
+
     const {
       productId,
       skuId,

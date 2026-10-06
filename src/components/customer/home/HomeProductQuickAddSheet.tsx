@@ -43,6 +43,14 @@ interface ProductSku {
   id: string;
   sku: string;
   price: number;
+  normalPrice: number;
+  finalPrice: number;
+  discountAmount: number;
+  isDiscountApplied: boolean;
+  isFlashSaleApplied: boolean;
+  promotionName: string | null;
+  flashSaleName: string | null;
+  discountSource: "NONE" | "PRODUCT_DISCOUNT" | "PROMOTION" | "FLASH_SALE";
   stock: number;
   isActive: boolean;
   options: ProductSkuOption[];
@@ -386,7 +394,7 @@ export default function HomeProductQuickAddSheet({
    */
   const selectedStock = selectedSku ? Math.max(0, selectedSku.stock) : 0;
 
-  const totalPrice = selectedSku ? selectedSku.price * quantity : 0;
+  const totalPrice = selectedSku ? selectedSku.finalPrice * quantity : 0;
 
   /**
    * ==========================================================
@@ -660,9 +668,25 @@ export default function HomeProductQuickAddSheet({
                         {selectedSku.sku}
                       </span>
 
-                      <span className="text-base font-bold text-slate-900">
-                        {formatRupiah(selectedSku.price)}
-                      </span>
+                      <div className="text-right">
+                        {selectedSku.isDiscountApplied ? (
+                          <>
+                            <p className="text-xs text-slate-400 line-through">
+                              {formatRupiah(selectedSku.normalPrice)}
+                            </p>
+                            <p className="text-base font-bold text-red-600">
+                              {formatRupiah(selectedSku.finalPrice)}
+                            </p>
+                            <p className="text-[10px] font-semibold text-(--fresh-700)">
+                              {selectedSku.isFlashSaleApplied ? "FLASH SALE" : "PROMO"} · Hemat {formatRupiah(selectedSku.discountAmount)}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-base font-bold text-slate-900">
+                            {formatRupiah(selectedSku.finalPrice)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <p className="mt-2 text-sm text-red-600">
@@ -734,9 +758,30 @@ export default function HomeProductQuickAddSheet({
                         </p>
                       </div>
 
-                      <p className="shrink-0 text-lg font-bold text-slate-900">
-                        {formatRupiah(selectedSku.price)}
-                      </p>
+                      <div className="shrink-0 text-right">
+                        {selectedSku.isDiscountApplied ? (
+                          <>
+                            <p className="text-xs text-slate-400 line-through">
+                              {formatRupiah(selectedSku.normalPrice)}
+                            </p>
+                            <p className="text-lg font-bold text-red-600">
+                              {formatRupiah(selectedSku.finalPrice)}
+                            </p>
+                            <p className="text-[10px] font-semibold text-(--fresh-700)">
+                              {selectedSku.isFlashSaleApplied
+                                ? selectedSku.flashSaleName || "FLASH SALE"
+                                : selectedSku.promotionName || "PROMO"}
+                              {selectedSku.discountAmount > 0
+                                ? ` · Hemat ${formatRupiah(selectedSku.discountAmount)}`
+                                : ""}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-lg font-bold text-slate-900">
+                            {formatRupiah(selectedSku.finalPrice)}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="mt-3 text-xs text-slate-500">
