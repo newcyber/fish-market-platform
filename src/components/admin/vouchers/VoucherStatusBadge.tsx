@@ -1,5 +1,6 @@
 type VoucherStatusBadgeProps = {
   isActive: boolean;
+  deletedAt?: Date | string | null;
   usageLimit: number | null;
   usageCount: number;
   startAt: Date | string | null;
@@ -8,12 +9,21 @@ type VoucherStatusBadgeProps = {
 
 function getVoucherStatus({
   isActive,
+  deletedAt,
   usageLimit,
   usageCount,
   startAt,
   endAt,
 }: VoucherStatusBadgeProps) {
   const now = new Date();
+
+  if (deletedAt) {
+    return {
+      label: "Dihapus",
+      className:
+        "bg-red-50 text-red-700 border-red-200",
+    };
+  }
 
   if (!isActive) {
     return {

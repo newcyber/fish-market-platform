@@ -85,8 +85,16 @@ export interface UpdateAdminVoucherInput {
   isActive?: boolean;
 }
 
+export type AdminVoucherStatus =
+  | "ALL"
+  | "ACTIVE"
+  | "INACTIVE"
+  | "DELETED";
+
 export interface AdminVoucherListOptions {
   search?: string;
+
+  status?: AdminVoucherStatus;
 
   isActive?: boolean;
 
@@ -291,10 +299,22 @@ export class AdminVoucherService {
     const skip =
       (page - 1) * limit;
 
+    const status = options.status ?? "ALL";
+
     const filters = {
       search: options.search,
 
-      isActive: options.isActive,
+      isActive:
+        status === "ACTIVE"
+          ? true
+          : status === "INACTIVE"
+            ? false
+            : status === "DELETED"
+              ? undefined
+              : options.isActive,
+
+      deletedOnly:
+        status === "DELETED",
 
       discountType: options.discountType,
     };
@@ -346,6 +366,18 @@ export class AdminVoucherService {
       throw new Error(
         "Voucher tidak ditemukan."
       );
+    }
+
+    return voucher;
+  }
+
+  static async getByIdIncludingDeleted(
+    id: string
+  ) {
+    const voucher = await VoucherRepository.findByIdIncludingDeleted(id);
+
+    if (!voucher) {
+      throw new Error("Voucher tidak ditemukan.");
     }
 
     return voucher;
@@ -744,6 +776,24 @@ export class AdminVoucherService {
     return VoucherRepository.softDelete(
       id
     );
+  }
+
+  /**
+   * Restore hanya tersedia untuk voucher yang memang sudah di-soft-delete.
+   * Voucher yang pernah digunakan tetap aman karena histori tidak dihapus.
+   */
+  static async restore(id: string) {
+    const voucher = await this.getByIdIncludingDeleted(id);
+
+    if (!voucher.deletedAt) {
+      throw new Error("Voucher belum dihapus.");
+    }
+
+    if (voucher.usageCount > 0) {
+      throw new Error("Voucher yang sudah digunakan tidak dapat dipulihkan.");
+    }
+
+    return VoucherRepository.restore(id);
   }
 
   /**

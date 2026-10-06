@@ -8,6 +8,14 @@ import {
   VoucherStatusBadge,
 } from "./VoucherStatusBadge";
 
+import {
+  DeleteVoucherButton,
+} from "./DeleteVoucherButton";
+
+import {
+  RestoreVoucherButton,
+} from "./RestoreVoucherButton";
+
 export type VoucherTableItem = {
   id: string;
   code: string;
@@ -25,6 +33,7 @@ export type VoucherTableItem = {
   endAt: Date | string | null;
 
   isActive: boolean;
+  deletedAt: Date | string | null;
 };
 
 type VoucherTableProps = {
@@ -230,6 +239,9 @@ export function VoucherTable({
                       isActive={
                         voucher.isActive
                       }
+                      deletedAt={
+                        voucher.deletedAt
+                      }
                       usageLimit={
                         voucher.usageLimit
                       }
@@ -262,6 +274,20 @@ export function VoucherTable({
                       >
                         Edit
                       </Link>
+
+                      {voucher.deletedAt ? (
+                        <RestoreVoucherButton
+                          voucherId={voucher.id}
+                          voucherCode={voucher.code}
+                          usageCount={voucher.usageCount}
+                        />
+                      ) : (
+                        <DeleteVoucherButton
+                          voucherId={voucher.id}
+                          voucherCode={voucher.code}
+                          usageCount={voucher.usageCount}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>

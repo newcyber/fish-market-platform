@@ -73,6 +73,17 @@ export class VoucherRepository {
     });
   }
 
+  static async findByIdIncludingDeleted(
+    id: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<Voucher | null> {
+    const client = this.getClient(tx);
+
+    return client.voucher.findUnique({
+      where: { id },
+    });
+  }
+
   /**
    * ============================================================
    * FIND BY CODE
@@ -182,6 +193,8 @@ export class VoucherRepository {
     options?: {
       includeDeleted?: boolean;
 
+      deletedOnly?: boolean;
+
       isActive?: boolean;
 
       search?: string;
@@ -200,6 +213,7 @@ export class VoucherRepository {
 
     const {
       includeDeleted = false,
+      deletedOnly = false,
       isActive,
       search,
       discountType,
@@ -209,11 +223,15 @@ export class VoucherRepository {
     } = options ?? {};
 
     const where: Prisma.VoucherWhereInput = {
-      ...(includeDeleted
-        ? {}
-        : {
-            deletedAt: null,
-          }),
+      ...(deletedOnly
+        ? {
+            deletedAt: { not: null },
+          }
+        : includeDeleted
+          ? {}
+          : {
+              deletedAt: null,
+            }),
 
       ...(typeof isActive === "boolean"
         ? {
@@ -461,6 +479,8 @@ export class VoucherRepository {
     options?: {
       includeDeleted?: boolean;
 
+      deletedOnly?: boolean;
+
       isActive?: boolean;
 
       search?: string;
@@ -475,6 +495,7 @@ export class VoucherRepository {
 
     const {
       includeDeleted = false,
+      deletedOnly = false,
       isActive,
       search,
       discountType,
@@ -482,11 +503,15 @@ export class VoucherRepository {
     } = options ?? {};
 
     const where: Prisma.VoucherWhereInput = {
-      ...(includeDeleted
-        ? {}
-        : {
-            deletedAt: null,
-          }),
+      ...(deletedOnly
+        ? {
+            deletedAt: { not: null },
+          }
+        : includeDeleted
+          ? {}
+          : {
+              deletedAt: null,
+            }),
 
       ...(typeof isActive === "boolean"
         ? {

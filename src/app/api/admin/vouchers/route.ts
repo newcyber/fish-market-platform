@@ -12,6 +12,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 
 import {
   AdminVoucherService,
+  type AdminVoucherStatus,
   type CreateAdminVoucherInput,
 } from "@/services/voucher/admin-voucher.service";
 
@@ -273,6 +274,19 @@ export async function GET(
         discountTypeParam;
     }
 
+    const statusParam = searchParams.get("status");
+    let status: AdminVoucherStatus = "ALL";
+
+    if (statusParam) {
+      if (!["ACTIVE", "INACTIVE", "DELETED"].includes(statusParam)) {
+        return NextResponse.json(
+          { success: false, message: "Status voucher tidak valid." },
+          { status: 400 }
+        );
+      }
+      status = statusParam as AdminVoucherStatus;
+    }
+
     /**
      * ----------------------------------------------------------
      * GET VOUCHERS
@@ -284,6 +298,7 @@ export async function GET(
         search,
         page,
         limit,
+        status,
         isActive,
         discountType,
       });

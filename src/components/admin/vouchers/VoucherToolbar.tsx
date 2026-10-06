@@ -3,12 +3,14 @@ import Link from "next/link";
 type VoucherToolbarProps = {
   search?: string;
   isActive?: string;
+  status?: string;
   discountType?: string;
 };
 
 export function VoucherToolbar({
   search = "",
   isActive = "",
+  status = "",
   discountType = "",
 }: VoucherToolbarProps) {
   return (
@@ -42,29 +44,22 @@ export function VoucherToolbar({
 
           <div className="w-full sm:w-48">
             <label
-              htmlFor="isActive"
+              htmlFor="status"
               className="mb-1 block text-sm font-medium text-gray-700"
             >
               Status
             </label>
 
             <select
-              id="isActive"
-              name="isActive"
-              defaultValue={isActive}
+              id="status"
+              name="status"
+              defaultValue={status}
               className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
             >
-              <option value="">
-                Semua Status
-              </option>
-
-              <option value="true">
-                Aktif
-              </option>
-
-              <option value="false">
-                Nonaktif
-              </option>
+              <option value="">Semua Status</option>
+              <option value="ACTIVE">Aktif</option>
+              <option value="INACTIVE">Nonaktif</option>
+              <option value="DELETED">Dihapus</option>
             </select>
           </div>
 
