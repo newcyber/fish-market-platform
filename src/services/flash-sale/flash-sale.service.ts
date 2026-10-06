@@ -405,7 +405,21 @@ export default class FlashSaleService {
     return flashSale;
   }
 
-    /**
+      /**
+   * ==========================================================
+   * GET PERFORMANCE
+   * ==========================================================
+   */
+
+  static async getPerformance(flashSaleId: string) {
+    if (!flashSaleId?.trim()) {
+      throw new Error("Flash Sale ID wajib diisi.");
+    }
+
+    return FlashSaleRepository.getPerformance(flashSaleId);
+  }
+
+/**
    * ==========================================================
    * GET ACTIVE FLASH SALES FOR CUSTOMER
    * ==========================================================

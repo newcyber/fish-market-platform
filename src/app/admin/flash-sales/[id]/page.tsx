@@ -13,6 +13,10 @@ import {
   FlashSaleItemsSection,
 } from "@/components/admin/flash-sales/FlashSaleItemsSection";
 
+import {
+  FlashSalePerformanceSection,
+} from "@/components/admin/flash-sales/FlashSalePerformanceSection";
+
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
 
 import { getEffectiveFlashSaleStatus } from "@/services/flash-sale/flash-sale-lifecycle.service";
@@ -304,6 +308,9 @@ export default async function FlashSaleDetailPage({
 
           name:
             item.product.name,
+
+          image:
+            item.product.images[0]?.image ?? null,
         },
 
         sku:
@@ -359,6 +366,11 @@ export default async function FlashSaleDetailPage({
       flashSale.status,
       new Date(flashSale.startAt),
       new Date(flashSale.endAt)
+    );
+
+  const performance =
+    await FlashSaleService.getPerformance(
+      flashSale.id
     );
 
   const status =
@@ -558,6 +570,22 @@ export default async function FlashSaleDetailPage({
           </div>
         </div>
       </div>
+
+      {/* ==================================================== */}
+      {/* FLASH SALE PERFORMANCE */}
+      {/* ==================================================== */}
+
+      <FlashSalePerformanceSection
+        totalItems={performance.totalItems}
+        totalQuota={performance.totalQuota}
+        totalSoldQuantity={performance.totalSoldQuantity}
+        totalRemainingQuantity={performance.totalRemainingQuantity}
+        totalOrders={performance.totalOrders}
+        totalRevenue={performance.totalRevenue}
+        totalDiscount={performance.totalDiscount}
+        sellThroughRate={performance.sellThroughRate}
+        items={performance.items}
+      />
 
       {/* ==================================================== */}
       {/* FLASH SALE ITEMS */}

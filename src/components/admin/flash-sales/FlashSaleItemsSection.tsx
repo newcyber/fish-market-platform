@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import Image from "next/image";
+
 import {
   Loader2,
   Package,
@@ -47,6 +49,7 @@ interface FlashSaleItem {
   product: {
     id: string;
     name: string;
+    image: string | null;
   };
 
   sku: {
@@ -455,7 +458,25 @@ export function FlashSaleItemsSection({
               >
                 {/* PRODUCT */}
 
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-muted">
+                    {item.product.image ? (
+                      <Image
+                        src={item.product.image}
+                        alt={item.product.name}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] font-medium text-muted-foreground">
+                        No Image
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">
                       {item.product.name}
@@ -503,6 +524,7 @@ export function FlashSaleItemsSection({
                         {item.sku.stock}
                       </span>
                     ) : null}
+                  </div>
                   </div>
                 </div>
 

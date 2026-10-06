@@ -1,5 +1,6 @@
 import {
   FlashSaleStatus,
+  OrderStatus,
   Prisma,
 } from "@prisma/client";
 
@@ -728,8 +729,17 @@ static async findById(
         ],
 
         include: {
-          product:
-            true,
+          product: {
+            include: {
+              images: {
+                orderBy: [
+                  { isThumbnail: "desc" },
+                  { sortOrder: "asc" },
+                ],
+                take: 1,
+              },
+            },
+          },
 
           sku: {
             include: {
@@ -757,6 +767,213 @@ static async findById(
     },
   });
 }
+  /**
+   * ============================================================
+   * ADMIN - FLASH SALE PERFORMANCE
+   * ============================================================
+   *
+   * Performance menggunakan dua sumber kebenaran:
+   *
+   * - FlashSaleItem: quota, soldQuantity, remainingQuantity
+   * - OrderItem snapshot: transaksi, omzet, dan diskon historis
+   *
+   * Order yang cancelled / soft-deleted tidak dihitung.
+   * Harga tidak dihitung ulang dari konfigurasi Flash Sale saat ini.
+   */
+  static async getPerformance(
+    flashSaleId: string
+  ) {
+    const [flashSaleItems, orderItems] =
+      await Promise.all([
+        prisma.flashSaleItem.findMany({
+          where: {
+            flashSaleId,
+          },
+          orderBy: [
+            { sortOrder: "asc" },
+            { createdAt: "asc" },
+          ],
+          select: {
+            id: true,
+            productId: true,
+            skuId: true,
+            stockLimit: true,
+            soldQuantity: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+            sku: {
+              select: {
+                sku: true,
+                skuOptions: {
+                  select: {
+                    variantOption: {
+                      select: {
+                        label: true,
+                        group: {
+                          select: {
+                            name: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+
+        prisma.orderItem.findMany({
+          where: {
+            flashSaleId,
+            order: {
+              deletedAt: null,
+              status: {
+                not: OrderStatus.CANCELLED,
+              },
+            },
+          },
+          select: {
+            id: true,
+            orderId: true,
+            productId: true,
+            skuId: true,
+            productName: true,
+            price: true,
+            quantity: true,
+            normalPriceSnapshot: true,
+            promoPriceSnapshot: true,
+            discountAmountSnapshot: true,
+            sku: {
+              select: {
+                sku: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+    type Aggregate = {
+      orderIds: Set<string>;
+      revenue: number;
+      discount: number;
+      soldQuantity: number;
+    };
+
+    const aggregates = new Map<string, Aggregate>();
+
+    for (const item of orderItems) {
+      const key = `${item.productId}:${item.skuId ?? "null"}`;
+      const current = aggregates.get(key) ?? {
+        orderIds: new Set<string>(),
+        revenue: 0,
+        discount: 0,
+        soldQuantity: 0,
+      };
+
+      const quantity = Number(item.quantity ?? 0);
+      const finalUnitPrice = Number(
+        item.promoPriceSnapshot ?? item.price ?? 0
+      );
+      const discountPerUnit = Number(
+        item.discountAmountSnapshot ?? 0
+      );
+
+      current.orderIds.add(item.orderId);
+      current.revenue += finalUnitPrice * quantity;
+      current.discount += discountPerUnit * quantity;
+      current.soldQuantity += quantity;
+
+      aggregates.set(key, current);
+    }
+
+    const items = flashSaleItems.map((item) => {
+      const key = `${item.productId}:${item.skuId ?? "null"}`;
+      const aggregate = aggregates.get(key);
+
+      const quota = Number(item.stockLimit ?? 0);
+      const soldQuantity = Number(item.soldQuantity ?? 0);
+      const remainingQuantity = Math.max(
+        0,
+        quota - soldQuantity
+      );
+      const sellThroughRate =
+        quota > 0
+          ? Math.min(100, (soldQuantity / quota) * 100)
+          : 0;
+
+      const skuLabel =
+        item.sku?.skuOptions
+          ?.map(
+            (option) =>
+              `${option.variantOption.group.name}: ${option.variantOption.label}`
+          )
+          .join(" • ") ||
+        item.sku?.sku ||
+        "SKU tidak tersedia";
+
+      return {
+        id: item.id,
+        productName: item.product.name,
+        sku: item.sku?.sku ?? null,
+        skuLabel,
+        quota,
+        soldQuantity,
+        remainingQuantity,
+        sellThroughRate,
+        revenue: aggregate?.revenue ?? 0,
+        discount: aggregate?.discount ?? 0,
+      };
+    });
+
+    const totalItems = items.length;
+    const totalQuota = items.reduce(
+      (sum, item) => sum + item.quota,
+      0
+    );
+    const totalSoldQuantity = items.reduce(
+      (sum, item) => sum + item.soldQuantity,
+      0
+    );
+    const totalRemainingQuantity = items.reduce(
+      (sum, item) => sum + item.remainingQuantity,
+      0
+    );
+    const totalRevenue = items.reduce(
+      (sum, item) => sum + item.revenue,
+      0
+    );
+    const totalDiscount = items.reduce(
+      (sum, item) => sum + item.discount,
+      0
+    );
+    const totalOrders = new Set(
+      orderItems.map((item) => item.orderId)
+    ).size;
+    const sellThroughRate =
+      totalQuota > 0
+        ? Math.min(
+            100,
+            (totalSoldQuantity / totalQuota) * 100
+          )
+        : 0;
+
+    return {
+      totalItems,
+      totalQuota,
+      totalSoldQuantity,
+      totalRemainingQuantity,
+      totalOrders,
+      totalRevenue,
+      totalDiscount,
+      sellThroughRate,
+      items,
+    };
+  }
+
   /**
    * ============================================================
    * ADMIN - FIND FLASH SALE BY SLUG
