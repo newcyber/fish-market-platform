@@ -4,6 +4,7 @@ import {
 } from "@prisma/client";
 
 import { createAuditLog } from "@/services/audit/audit-log.service";
+import { getEffectiveFlashSaleStatus } from "@/services/flash-sale/flash-sale-lifecycle.service";
 
 /**
  * ============================================================
@@ -384,14 +385,17 @@ for (
       const now =
         new Date();
 
+      const effectiveStatus =
+        getEffectiveFlashSaleStatus(
+          flashSaleItem.flashSale.status,
+          flashSaleItem.flashSale.startAt,
+          flashSaleItem.flashSale.endAt,
+          now
+        );
+
       if (
         flashSaleItem.flashSale.deletedAt ||
-        flashSaleItem.flashSale.status !==
-          FlashSaleStatus.ACTIVE ||
-        flashSaleItem.flashSale.startAt >
-          now ||
-        flashSaleItem.flashSale.endAt <=
-          now
+        effectiveStatus !== FlashSaleStatus.ACTIVE
       ) {
         throw new Error(
           "Flash Sale sudah tidak aktif atau telah berakhir."

@@ -4,6 +4,8 @@ import {
 
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
 
+import { getEffectiveFlashSaleStatus } from "@/services/flash-sale/flash-sale-lifecycle.service";
+
 import {
   FlashSaleTable,
   type FlashSaleTableItem,

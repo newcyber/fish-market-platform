@@ -15,6 +15,8 @@ import {
 
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
 
+import { getEffectiveFlashSaleStatus } from "@/services/flash-sale/flash-sale-lifecycle.service";
+
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -352,9 +354,16 @@ export default async function FlashSaleDetailPage({
       })
     );
 
+  const effectiveStatus =
+    getEffectiveFlashSaleStatus(
+      flashSale.status,
+      new Date(flashSale.startAt),
+      new Date(flashSale.endAt)
+    );
+
   const status =
     getStatusStyle(
-      flashSale.status
+      effectiveStatus
     );
 
   /**

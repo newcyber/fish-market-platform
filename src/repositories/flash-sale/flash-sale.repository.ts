@@ -89,7 +89,12 @@ export default class FlashSaleRepository {
         gt: 0,
       },
       flashSale: {
-        status: FlashSaleStatus.ACTIVE,
+        status: {
+          in: [
+            FlashSaleStatus.SCHEDULED,
+            FlashSaleStatus.ACTIVE,
+          ],
+        },
         deletedAt: null,
         startAt: {
           lte: now,
@@ -247,7 +252,12 @@ export default class FlashSaleRepository {
           },
 
           flashSale: {
-            status: FlashSaleStatus.ACTIVE,
+            status: {
+              in: [
+                FlashSaleStatus.SCHEDULED,
+                FlashSaleStatus.ACTIVE,
+              ],
+            },
 
             deletedAt: null,
 
@@ -337,8 +347,12 @@ static async findActiveForHomepage() {
 
   return prisma.flashSale.findFirst({
     where: {
-      status:
-        FlashSaleStatus.ACTIVE,
+      status: {
+        in: [
+          FlashSaleStatus.SCHEDULED,
+          FlashSaleStatus.ACTIVE,
+        ],
+      },
 
       deletedAt:
         null,
@@ -981,8 +995,12 @@ static async findActiveForCustomer() {
   const flashSales =
     await prisma.flashSale.findMany({
       where: {
-        status:
-          FlashSaleStatus.ACTIVE,
+        status: {
+          in: [
+            FlashSaleStatus.SCHEDULED,
+            FlashSaleStatus.ACTIVE,
+          ],
+        },
 
         deletedAt:
           null,
@@ -1325,8 +1343,12 @@ static async findActiveBySlugForCustomer(
         slug:
           slug.trim(),
 
-        status:
-          FlashSaleStatus.ACTIVE,
+        status: {
+          in: [
+            FlashSaleStatus.SCHEDULED,
+            FlashSaleStatus.ACTIVE,
+          ],
+        },
 
         deletedAt:
           null,
