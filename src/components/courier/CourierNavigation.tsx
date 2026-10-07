@@ -35,7 +35,7 @@ const courierIcon = new L.DivIcon({
   iconAnchor: [17, 17],
 });
 
-const ACTIVE_STATUSES = new Set(["ASSIGNED", "ON_ROUTE", "PICKED_UP"]);
+const ACTIVE_STATUSES = new Set(["ASSIGNED", "PICKED_UP", "ON_ROUTE", "ARRIVED"]);
 
 interface CourierNavigationProps {
   assignments: CourierAssignmentListItem[];
@@ -52,6 +52,9 @@ function formatStatus(status: CourierAssignmentListItem["status"]) {
 
     case "PICKED_UP":
       return "Sudah diambil";
+
+    case "ARRIVED":
+      return "Tiba di lokasi";
 
     default:
       return status;

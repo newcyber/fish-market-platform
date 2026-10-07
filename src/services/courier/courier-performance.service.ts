@@ -28,8 +28,9 @@ const DEFAULT_SLA = {
 
 const ACTIVE_STATUSES: CourierAssignmentStatus[] = [
   CourierAssignmentStatus.ASSIGNED,
-  CourierAssignmentStatus.ON_ROUTE,
   CourierAssignmentStatus.PICKED_UP,
+  CourierAssignmentStatus.ON_ROUTE,
+  CourierAssignmentStatus.ARRIVED,
 ];
 
 function getJakartaDateParts(date: Date) {
@@ -388,7 +389,10 @@ export class CourierPerformanceService {
           sla.startToPickupMinutes;
       }
 
-      if (assignment.status === CourierAssignmentStatus.PICKED_UP) {
+      if (
+        assignment.status === CourierAssignmentStatus.PICKED_UP ||
+        assignment.status === CourierAssignmentStatus.ARRIVED
+      ) {
         stage = "PICKUP_TO_DELIVERY";
         elapsed = minutesBetween(assignment.pickedUpAt, now) ?? 0;
         limit =

@@ -5,8 +5,9 @@ import { CourierPerformanceService } from "@/services/courier/courier-performanc
 
 const ACTIVE_ASSIGNMENT_STATUSES: CourierAssignmentStatus[] = [
   CourierAssignmentStatus.ASSIGNED,
-  CourierAssignmentStatus.ON_ROUTE,
   CourierAssignmentStatus.PICKED_UP,
+  CourierAssignmentStatus.ON_ROUTE,
+  CourierAssignmentStatus.ARRIVED,
 ];
 
 const WEIGHTS = {

@@ -100,6 +100,10 @@ export interface CreateOrderInput {
   addressId: string;
   paymentMethod: PaymentMethod;
   shippingCost?: number;
+  /** Shipping tariff before internal/free-shipping subsidy. */
+  shippingNormalCost?: number;
+  /** Internal/free-shipping subsidy applied to the shipping tariff. */
+  shippingDiscount?: number;
   /**
    * Kode voucher opsional.
    *
@@ -114,6 +118,10 @@ export interface UpdateOrderInput {
   userId: string;
   addressId: string;
   shippingCost?: number;
+  /** Optional shipping tariff snapshot for admin/manual order creation. */
+  shippingNormalCost?: number;
+  /** Optional internal shipping subsidy snapshot for admin/manual order creation. */
+  shippingDiscount?: number;
   notes?: string;
   items: CreateOrderItemInput[];
 }
@@ -512,8 +520,21 @@ export default class OrderService {
       throw new Error("Metode pembayaran tidak valid.");
     }
     const shippingCost = input.shippingCost ?? 0;
+    const shippingNormalCost =
+      input.shippingNormalCost ?? shippingCost;
+    const shippingDiscount = input.shippingDiscount ?? 0;
+
     if (!Number.isFinite(shippingCost) || shippingCost < 0) {
       throw new Error("Biaya pengiriman tidak valid.");
+    }
+    if (
+      !Number.isFinite(shippingNormalCost) ||
+      shippingNormalCost < 0
+    ) {
+      throw new Error("Tarif normal pengiriman tidak valid.");
+    }
+    if (!Number.isFinite(shippingDiscount) || shippingDiscount < 0) {
+      throw new Error("Diskon pengiriman tidak valid.");
     }
     if (input.notes && input.notes.length > 2000) {
       throw new Error("Catatan order terlalu panjang.");
@@ -989,8 +1010,10 @@ export default class OrderService {
           voucherDiscount,
           voucherShippingDiscount,
           /**
-           * Ongkir.
+           * Shipping economics snapshot.
            */
+          shippingNormalCost: new Prisma.Decimal(shippingNormalCost),
+          shippingDiscount: new Prisma.Decimal(shippingDiscount),
           shippingCost: shipping,
           /**
            * Total:
@@ -1315,8 +1338,29 @@ export default class OrderService {
       throw new Error("Produk order tidak valid.");
     }
     const shippingCost = Number(input.shippingCost ?? 0);
+    const shippingNormalCost =
+      input.shippingNormalCost !== undefined
+        ? Number(input.shippingNormalCost)
+        : undefined;
+    const shippingDiscount =
+      input.shippingDiscount !== undefined
+        ? Number(input.shippingDiscount)
+        : undefined;
+
     if (!Number.isFinite(shippingCost) || shippingCost < 0) {
       throw new Error("Biaya pengiriman tidak valid.");
+    }
+    if (
+      shippingNormalCost !== undefined &&
+      (!Number.isFinite(shippingNormalCost) || shippingNormalCost < 0)
+    ) {
+      throw new Error("Tarif normal pengiriman tidak valid.");
+    }
+    if (
+      shippingDiscount !== undefined &&
+      (!Number.isFinite(shippingDiscount) || shippingDiscount < 0)
+    ) {
+      throw new Error("Diskon pengiriman tidak valid.");
     }
     return prisma.$transaction(async (tx) => {
       /**
@@ -2482,6 +2526,16 @@ export default class OrderService {
           data: {
             addressId: input.addressId,
             subtotal,
+            shippingNormalCost:
+              input.shippingNormalCost ??
+              (order.shippingNormalCost.gt(0)
+                ? order.shippingNormalCost
+                : shipping),
+            shippingDiscount:
+              input.shippingDiscount ??
+              (order.shippingNormalCost.gt(0)
+                ? order.shippingDiscount
+                : new Prisma.Decimal(0)),
             shippingCost: shipping,
             total,
             notes: input.notes?.trim() || null,
@@ -5482,7 +5536,11 @@ export default class OrderService {
          * Pertahankan shippingCost karena masih digunakan
          * saat membuat Order.
          */
-        const { shippingCost } = shippingResult;
+        const shippingCost = shippingResult.shippingCost ?? 0;
+        const shippingNormalCost =
+          shippingResult.normalShippingCost ?? shippingCost;
+        const shippingDiscount =
+          shippingResult.shippingDiscount ?? 0;
         /**
          * ====================================================
          * DECIMAL SHIPPING VALUE
@@ -5537,7 +5595,9 @@ export default class OrderService {
             voucherDiscount,
             voucherShippingDiscount,
             shippingProvider: normalizedShippingProvider,
-            shippingCost: shippingCost,
+            shippingNormalCost: new Prisma.Decimal(shippingNormalCost),
+            shippingDiscount: new Prisma.Decimal(shippingDiscount),
+            shippingCost: new Prisma.Decimal(shippingCost),
             total,
             notes: notes?.trim() || null,
             items: {

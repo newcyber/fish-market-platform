@@ -149,6 +149,8 @@ export interface ShippingQuote {
    * Biaya pengiriman final.
    */
   shippingCost: number;
+  normalShippingCost?: number | null;
+  shippingDiscount?: number | null;
 
   /**
    * Jarak dalam kilometer.

@@ -12,7 +12,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 // ============================================================
 // DATABASE BACKUP
 // ============================================================
@@ -22,19 +21,19 @@ datasource db {
 // ============================================================
 
 model DatabaseBackup {
-  id           String             @id @default(uuid())
-  filename     String             @unique
+  id           String               @id @default(uuid())
+  filename     String               @unique
   storageKey   String?
   sizeBytes    BigInt?
   checksum     String?
   status       DatabaseBackupStatus @default(RUNNING)
-  backupType   DatabaseBackupType  @default(MANUAL)
-  startedAt    DateTime            @default(now())
+  backupType   DatabaseBackupType   @default(MANUAL)
+  startedAt    DateTime             @default(now())
   completedAt  DateTime?
   verifiedAt   DateTime?
-  errorMessage String?             @db.Text
+  errorMessage String?              @db.Text
   createdById  String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime             @default(now())
 
   @@index([createdAt])
   @@index([status])
@@ -64,8 +63,9 @@ enum Role {
 
 enum CourierAssignmentStatus {
   ASSIGNED
-  ON_ROUTE
   PICKED_UP
+  ON_ROUTE
+  ARRIVED
   DELIVERED
   FAILED
   CANCELLED
@@ -76,9 +76,20 @@ enum CourierAssignmentEventType {
   REASSIGNED
   ON_ROUTE
   PICKED_UP
+  ARRIVED
   DELIVERED
   FAILED
   CANCELLED
+}
+
+enum CourierPayoutStatus {
+  UNPAID
+  PAID
+}
+
+enum CourierPayoutPaymentMethod {
+  CASH
+  TRANSFER
 }
 
 enum CourierFailureCode {
@@ -227,17 +238,17 @@ model User {
   password          String
   passwordChangedAt DateTime?
 
-  phone         String?   @unique
+  phone String? @unique
 
   // ============================================================
   // WHATSAPP CUSTOMER NOTIFICATION PREFERENCES
   // ============================================================
   // Transactional messages are enabled by default for customers
   // with a WhatsApp number. Marketing remains opt-in separately.
-  wapiTransactionalEnabled Boolean  @default(true)
-  wapiMarketingOptIn      Boolean  @default(false)
-  wapiMarketingOptInAt    DateTime?
-  wapiMarketingOptOutAt   DateTime?
+  wapiTransactionalEnabled Boolean   @default(true)
+  wapiMarketingOptIn       Boolean   @default(false)
+  wapiMarketingOptInAt     DateTime?
+  wapiMarketingOptOutAt    DateTime?
 
   avatar        String?
   emailVerified DateTime?
@@ -298,10 +309,10 @@ model User {
 
   productReviews ProductReview[]
 
-  wapiDeliveries WapiDelivery[] @relation("UserWapiDeliveries")
+  wapiDeliveries         WapiDelivery[]         @relation("UserWapiDeliveries")
   wapiCustomerDeliveries WapiCustomerDelivery[] @relation("UserWapiCustomerDeliveries")
-  wapiCustomerAuditLogs WapiCustomerAuditLog[] @relation("WapiCustomerAuditActors")
-  wapiCourierDeliveries WapiCourierDelivery[] @relation("UserWapiCourierDeliveries")
+  wapiCustomerAuditLogs  WapiCustomerAuditLog[] @relation("WapiCustomerAuditActors")
+  wapiCourierDeliveries  WapiCourierDelivery[]  @relation("UserWapiCourierDeliveries")
 
   courierAssignments CourierAssignment[] @relation("CourierAssignments")
 
@@ -310,7 +321,9 @@ model User {
   courierAssignmentEvents CourierAssignmentEvent[] @relation("CourierAssignmentEventActor")
 
   courierDeliveryProofs CourierDeliveryProof[] @relation("CourierDeliveryProofCreatedBy")
-  courierSlaSettings CourierSlaSettings[]
+  courierPayouts        CourierPayout[]        @relation("CourierPayoutsCourier")
+  courierPayoutsPaid    CourierPayout[]        @relation("CourierPayoutsPaidBy")
+  courierSlaSettings    CourierSlaSettings[]
 
   @@index([email])
   @@index([role])
@@ -473,7 +486,6 @@ model RewardPointTransaction {
    * ============================================================
    * IDEMPOTENCY REFERENCE
    * ============================================================
-   *
    * Digunakan untuk transaksi reward non-order seperti bonus
    * pendaftaran. Nilai unik memastikan bonus yang sama tidak
    * pernah diberikan dua kali walaupun terjadi retry/concurrent request.
@@ -1973,7 +1985,16 @@ model Order {
 
   voucher Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
 
-  shippingCost Decimal @db.Decimal(12, 2)
+  /**
+   * Shipping economics snapshot.
+   *
+   * shippingNormalCost = tariff before internal/free-shipping subsidy.
+   * shippingDiscount = internal shipping subsidy applied before voucher.
+   * shippingCost = customer shipping before voucher discount (legacy/customer quote snapshot).
+   */
+  shippingNormalCost Decimal @default(0) @db.Decimal(12, 2)
+  shippingDiscount   Decimal @default(0) @db.Decimal(12, 2)
+  shippingCost       Decimal @db.Decimal(12, 2)
 
   total Decimal @db.Decimal(12, 2)
 
@@ -2053,11 +2074,12 @@ model Order {
   updatedAt    DateTime      @updatedAt
   voucherUsage VoucherUsage?
 
-  wapiDeliveries WapiDelivery[] @relation("OrderWapiDeliveries")
+  wapiDeliveries         WapiDelivery[]         @relation("OrderWapiDeliveries")
   wapiCustomerDeliveries WapiCustomerDelivery[] @relation("OrderWapiCustomerDeliveries")
-  wapiCourierDeliveries WapiCourierDelivery[] @relation("OrderWapiCourierDeliveries")
+  wapiCourierDeliveries  WapiCourierDelivery[]  @relation("OrderWapiCourierDeliveries")
 
   courierAssignments CourierAssignment[]
+  courierPayouts     CourierPayout[]
 
   @@index([orderNumber])
   @@index([userId])
@@ -2150,14 +2172,14 @@ model OrderItem {
 
   /// Snapshot sumber harga promo saat transaksi terjadi.
   /// Null untuk order item yang tidak menggunakan Promo/Flash Sale.
-  promotionId String?
+  promotionId   String?
   promotionName String?
   promotionType String?
-  flashSaleId String?
+  flashSaleId   String?
 
   /// Snapshot harga sebelum dan sesudah Promo/Flash Sale.
-  normalPriceSnapshot Decimal? @db.Decimal(12, 2)
-  promoPriceSnapshot Decimal? @db.Decimal(12, 2)
+  normalPriceSnapshot    Decimal? @db.Decimal(12, 2)
+  promoPriceSnapshot     Decimal? @db.Decimal(12, 2)
   discountAmountSnapshot Decimal? @db.Decimal(12, 2)
 
   /// Snapshot status Pre-Order saat order dibuat.
@@ -3293,7 +3315,6 @@ model WishlistItem {
 // STORE SETTINGS
 // ============================================================
 
-
 // ============================================================
 // PRODUCT GOOGLE SHEETS SYNC
 // ============================================================
@@ -3333,9 +3354,9 @@ model ProductGoogleSheetsSyncConfig {
   /// Baris header relatif terhadap hasil range, 1-based.
   headerRow Int @default(1)
 
-  lastSyncAt DateTime?
-  lastSyncType String?
-  lastSyncStatus String?
+  lastSyncAt      DateTime?
+  lastSyncType    String?
+  lastSyncStatus  String?
   lastSyncSummary Json?
 
   createdAt DateTime @default(now())
@@ -3556,7 +3577,7 @@ model StoreSettings {
    * Mengaktifkan atau menonaktifkan notifikasi pesanan baru
    * melalui WhatsApp kepada admin.
    */
-  wapiOrderNotificationEnabled Boolean @default(true)
+  wapiOrderNotificationEnabled        Boolean @default(true)
   /**
    * Mengaktifkan atau menonaktifkan notifikasi upload bukti pembayaran
    * melalui WhatsApp kepada admin.
@@ -3566,22 +3587,22 @@ model StoreSettings {
    * Global kill switch untuk seluruh notifikasi WhatsApp transaksional customer.
    * false = event WAPI customer tidak dikirim dan tidak membuat delivery row baru.
    */
-  wapiCustomerNotificationEnabled Boolean @default(true)
+  wapiCustomerNotificationEnabled     Boolean @default(true)
 
   // Global kill switch untuk WhatsApp transactional courier.
   wapiCourierNotificationEnabled Boolean @default(true)
   // V1 event switch: courier assignment.
-  wapiCourierAssignmentEnabled Boolean @default(true)
+  wapiCourierAssignmentEnabled   Boolean @default(true)
 
   tierSystemEnabled Boolean @default(true)
 
   // Per-event switches for customer transactional WhatsApp.
   // Global switch above remains the master kill switch.
-  wapiCustomerOrderCreatedEnabled Boolean @default(true)
-  wapiCustomerOrderStatusEnabled Boolean @default(true)
+  wapiCustomerOrderCreatedEnabled    Boolean @default(true)
+  wapiCustomerOrderStatusEnabled     Boolean @default(true)
   wapiCustomerPaymentVerifiedEnabled Boolean @default(true)
   wapiCustomerPaymentRejectedEnabled Boolean @default(true)
-  wapiCustomerRewardPointsEnabled Boolean @default(true)
+  wapiCustomerRewardPointsEnabled    Boolean @default(true)
 
   /**
    * Template pesan WhatsApp pesanan baru.
@@ -4028,8 +4049,8 @@ model PromotionItem {
 
   /// Rule pricing per SKU. Null hanya diperbolehkan untuk data legacy
   /// yang belum dimigrasikan ke SKU-specific pricing.
-  discountType PromotionDiscountType?
-  discountValue Decimal? @db.Decimal(12, 2)
+  discountType  PromotionDiscountType?
+  discountValue Decimal?               @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4070,7 +4091,6 @@ model WapiDelivery {
   @@index([userId])
 }
 
-
 // ============================================================
 // CUSTOMER WHATSAPP DELIVERY
 // ============================================================
@@ -4086,20 +4106,20 @@ model WapiCustomerAuditLog {
   id String @id @default(uuid())
 
   actorId String?
-  actor User? @relation("WapiCustomerAuditActors", fields: [actorId], references: [id], onDelete: SetNull)
+  actor   User?   @relation("WapiCustomerAuditActors", fields: [actorId], references: [id], onDelete: SetNull)
 
   deliveryId String?
-  delivery WapiCustomerDelivery? @relation("WapiCustomerDeliveryAuditLogs", fields: [deliveryId], references: [id], onDelete: SetNull)
+  delivery   WapiCustomerDelivery? @relation("WapiCustomerDeliveryAuditLogs", fields: [deliveryId], references: [id], onDelete: SetNull)
 
-  action String
+  action     String
   settingKey String?
-  eventType String?
+  eventType  String?
   fromStatus WapiDeliveryStatus?
-  toStatus WapiDeliveryStatus?
+  toStatus   WapiDeliveryStatus?
 
   previousValue Json?
-  newValue Json?
-  metadata Json?
+  newValue      Json?
+  metadata      Json?
 
   createdAt DateTime @default(now())
 
@@ -4113,28 +4133,28 @@ model WapiCustomerDelivery {
   id String @id @default(uuid())
 
   userId String
-  user User @relation("UserWapiCustomerDeliveries", fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation("UserWapiCustomerDeliveries", fields: [userId], references: [id], onDelete: Cascade)
 
   orderId String?
-  order Order? @relation("OrderWapiCustomerDeliveries", fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order?  @relation("OrderWapiCustomerDeliveries", fields: [orderId], references: [id], onDelete: Cascade)
 
   auditLogs WapiCustomerAuditLog[] @relation("WapiCustomerDeliveryAuditLogs")
 
-  eventKey String @unique
+  eventKey  String @unique
   eventType String
 
-  phone String
+  phone   String
   message String @db.Text
 
   status WapiDeliveryStatus @default(PENDING)
 
   messageId String?
-  jid String?
+  jid       String?
 
-  attempts Int @default(0)
-  errorMessage String? @db.Text
+  attempts            Int       @default(0)
+  errorMessage        String?   @db.Text
   processingStartedAt DateTime?
-  sentAt DateTime?
+  sentAt              DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4155,29 +4175,29 @@ model WapiCourierDelivery {
   id String @id @default(uuid())
 
   assignmentId String
-  assignment CourierAssignment @relation("CourierAssignmentWapiDeliveries", fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment   CourierAssignment @relation("CourierAssignmentWapiDeliveries", fields: [assignmentId], references: [id], onDelete: Cascade)
 
   courierId String
-  courier User @relation("UserWapiCourierDeliveries", fields: [courierId], references: [id], onDelete: Cascade)
+  courier   User   @relation("UserWapiCourierDeliveries", fields: [courierId], references: [id], onDelete: Cascade)
 
   orderId String
-  order Order @relation("OrderWapiCourierDeliveries", fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order  @relation("OrderWapiCourierDeliveries", fields: [orderId], references: [id], onDelete: Cascade)
 
-  eventKey String @unique
+  eventKey  String @unique
   eventType String
 
-  phone String
+  phone   String
   message String @db.Text
 
   status WapiDeliveryStatus @default(PENDING)
 
   messageId String?
-  jid String?
+  jid       String?
 
-  attempts Int @default(0)
-  errorMessage String? @db.Text
+  attempts            Int       @default(0)
+  errorMessage        String?   @db.Text
   processingStartedAt DateTime?
-  sentAt DateTime?
+  sentAt              DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4188,7 +4208,6 @@ model WapiCourierDelivery {
   @@index([status, createdAt])
   @@index([eventType, createdAt])
 }
-
 
 // ============================================================
 // COURIER SLA SETTINGS
@@ -4213,7 +4232,7 @@ model CourierSlaSettings {
   updatedAt DateTime @updatedAt
 
   updatedById String?
-  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([isActive])
   @@index([updatedById])
@@ -4227,13 +4246,13 @@ model CourierAssignment {
   id String @id @default(uuid())
 
   orderId String
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   courierId String
-  courier User @relation("CourierAssignments", fields: [courierId], references: [id], onDelete: Restrict)
+  courier   User   @relation("CourierAssignments", fields: [courierId], references: [id], onDelete: Restrict)
 
   assignedById String?
-  assignedBy User? @relation("CourierAssignmentsAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  assignedBy   User?   @relation("CourierAssignmentsAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
   status CourierAssignmentStatus @default(ASSIGNED)
 
@@ -4251,20 +4270,22 @@ model CourierAssignment {
   /// A nullable unique key gives one active assignment per order while preserving history.
   activeAssignmentKey String? @unique
 
-  assignedAt DateTime @default(now())
-  startedAt DateTime?
-  pickedUpAt DateTime?
+  assignedAt  DateTime  @default(now())
+  startedAt   DateTime?
+  pickedUpAt  DateTime?
+  arrivedAt   DateTime?
   deliveredAt DateTime?
-  failedAt DateTime?
+  failedAt    DateTime?
 
   failureCode CourierFailureCode?
 
   failureReason String? @db.Text
 
-  events CourierAssignmentEvent[]
-  wapiDeliveries WapiCourierDelivery[] @relation("CourierAssignmentWapiDeliveries")
+  events         CourierAssignmentEvent[]
+  wapiDeliveries WapiCourierDelivery[]    @relation("CourierAssignmentWapiDeliveries")
 
   deliveryProof CourierDeliveryProof?
+  courierPayout CourierPayout?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4277,7 +4298,6 @@ model CourierAssignment {
   @@index([failureCode])
 }
 
-
 // ============================================================
 // COURIER ASSIGNMENT AUDIT EVENT
 // ============================================================
@@ -4286,15 +4306,15 @@ model CourierAssignmentEvent {
   id String @id @default(uuid())
 
   assignmentId String
-  assignment CourierAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment   CourierAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
   actorId String?
-  actor User? @relation("CourierAssignmentEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actor   User?   @relation("CourierAssignmentEventActor", fields: [actorId], references: [id], onDelete: SetNull)
 
-  type CourierAssignmentEventType
+  type       CourierAssignmentEventType
   fromStatus CourierAssignmentStatus?
-  toStatus CourierAssignmentStatus?
-  note String? @db.Text
+  toStatus   CourierAssignmentStatus?
+  note       String?                    @db.Text
 
   createdAt DateTime @default(now())
 
@@ -4310,20 +4330,27 @@ model CourierAssignmentEvent {
 model CourierDeliveryProof {
   id String @id @default(uuid())
 
-  assignmentId String @unique
-  assignment CourierAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignmentId String            @unique
+  assignment   CourierAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
-  recipientName String
+  // Legacy fields retained for backward compatibility with existing proof rows.
+  recipientName String?
   recipientNote String? @db.Text
-  photoUrl String?
+  photoUrl      String?
 
-  latitude Decimal? @db.Decimal(10, 7)
+  latitude  Decimal? @db.Decimal(10, 7)
   longitude Decimal? @db.Decimal(10, 7)
 
   capturedAt DateTime @default(now())
 
+  // Final courier proof contract.
+  proofPhotoUrl  String?
+  proofLatitude  Decimal?  @db.Decimal(10, 7)
+  proofLongitude Decimal?  @db.Decimal(10, 7)
+  proofTakenAt   DateTime?
+
   createdById String?
-  createdBy User? @relation("CourierDeliveryProofCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation("CourierDeliveryProofCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   usedAt DateTime?
 
@@ -4335,26 +4362,68 @@ model CourierDeliveryProof {
 }
 
 // ============================================================
+// COURIER PAYOUT
+// ============================================================
+//
+// Hak kurir dipisahkan dari ongkir yang dibayar customer.
+// Payout dibuat ketika assignment DELIVERED dan default UNPAID.
+// Hanya Super Admin yang boleh mengubahnya menjadi PAID.
+// ============================================================
+
+model CourierPayout {
+  id String @id @default(uuid())
+
+  assignmentId String            @unique
+  assignment   CourierAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  courierId String
+  courier   User   @relation("CourierPayoutsCourier", fields: [courierId], references: [id], onDelete: Restrict)
+
+  // Snapshot finansial saat delivery selesai.
+  shippingFeeCustomer Decimal @db.Decimal(12, 2)
+  shippingSubsidy     Decimal @db.Decimal(12, 2)
+  courierPayout       Decimal @db.Decimal(12, 2)
+
+  payoutStatus  CourierPayoutStatus         @default(UNPAID)
+  paymentMethod CourierPayoutPaymentMethod?
+  paidAt        DateTime?
+  paidById      String?
+  paidBy        User?                       @relation("CourierPayoutsPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  paymentNote   String?                     @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courierId, payoutStatus])
+  @@index([courierId, createdAt])
+  @@index([orderId])
+  @@index([paidAt])
+}
+
+// ============================================================
 // PRODUCTION AUDIT TRAIL
 // ============================================================
 
 model AuditLog {
-  id         String   @id @default(uuid())
+  id String @id @default(uuid())
 
   eventType  String
   entityType String
   entityId   String?
 
-  action     String
+  action String
 
-  actorType  String   @default("SYSTEM")
-  actorId    String?
+  actorType String  @default("SYSTEM")
+  actorId   String?
 
   beforeData Json?
   afterData  Json?
   metadata   Json?
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([entityType, entityId, createdAt])
   @@index([eventType, createdAt])

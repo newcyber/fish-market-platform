@@ -5,6 +5,7 @@ import {
 } from "@/components/admin/layout";
 import CourierAssignmentPanel from "@/components/admin/courier/CourierAssignmentPanel";
 import CourierPerformancePanel from "@/components/admin/courier/CourierPerformancePanel";
+import CourierPayoutPanel from "@/components/admin/courier/CourierPayoutPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default function AdminCouriersPage() {
         <CourierAssignmentPanel />
       </SectionCard>
       <CourierPerformancePanel />
+      <CourierPayoutPanel />
     </PageContainer>
   );
 }

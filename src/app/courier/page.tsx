@@ -37,6 +37,10 @@ export default async function CourierDashboardPage({
     ? assignmentParam[0]?.trim()
     : assignmentParam?.trim();
 
+  if (assignmentId) {
+    redirect(`/courier/tasks/${encodeURIComponent(assignmentId)}`);
+  }
+
   return (
     <CourierDashboard
       initialData={dashboard}

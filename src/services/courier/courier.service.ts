@@ -17,9 +17,12 @@ export type CourierDashboardStats = {
   assigned: number;
   onRoute: number;
   pickedUp: number;
+  arrived: number;
   deliveredToday: number;
   failedToday: number;
   totalToday: number;
+  earningsToday: number;
+  unpaidToday: number;
   completionRate: number;
 };
 
@@ -29,6 +32,7 @@ export type CourierAssignmentListItem = {
   assignedAt: string;
   startedAt: string | null;
   pickedUpAt: string | null;
+  arrivedAt: string | null;
   deliveredAt: string | null;
   failedAt: string | null;
   failureCode: CourierFailureCode | null;
@@ -39,6 +43,9 @@ export type CourierAssignmentListItem = {
     status: OrderStatus;
     paymentStatus: PaymentStatus;
     total: number;
+    shippingCost: number;
+    voucherShippingDiscount: number;
+    courierPayoutEstimate: number;
     createdAt: string;
     customer: {
       name: string;
@@ -70,8 +77,6 @@ export type CourierAssignmentEventItem = {
 
 export type CourierDeliveryProofItem = {
   id: string;
-  recipientName: string;
-  recipientNote: string | null;
   photoUrl: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -79,9 +84,23 @@ export type CourierDeliveryProofItem = {
   usedAt: string | null;
 };
 
+export type CourierPayoutItem = {
+  id: string;
+  assignmentId: string;
+  orderId: string;
+  courierId: string;
+  shippingFeeCustomer: number;
+  shippingSubsidy: number;
+  courierPayout: number;
+  payoutStatus: "UNPAID" | "PAID";
+  paymentMethod: "CASH" | "TRANSFER" | null;
+  paidAt: string | null;
+};
+
 export type CourierAssignmentDetail = CourierAssignmentListItem & {
   events: CourierAssignmentEventItem[];
   deliveryProof: CourierDeliveryProofItem | null;
+  courierPayout: CourierPayoutItem | null;
   order: CourierAssignmentListItem["order"] & {
     subtotal: number;
     shippingCost: number;
@@ -101,8 +120,9 @@ export type CourierAssignmentDetail = CourierAssignmentListItem & {
 
 const ACTIVE_STATUSES: CourierAssignmentStatus[] = [
   CourierAssignmentStatus.ASSIGNED,
-  CourierAssignmentStatus.ON_ROUTE,
   CourierAssignmentStatus.PICKED_UP,
+  CourierAssignmentStatus.ON_ROUTE,
+  CourierAssignmentStatus.ARRIVED,
 ];
 
 const DEFAULT_COURIER_SLA = {
@@ -188,6 +208,9 @@ function getAssignmentEventType(
     case CourierAssignmentStatus.PICKED_UP:
       return CourierAssignmentEventType.PICKED_UP;
 
+    case CourierAssignmentStatus.ARRIVED:
+      return CourierAssignmentEventType.ARRIVED;
+
     case CourierAssignmentStatus.DELIVERED:
       return CourierAssignmentEventType.DELIVERED;
 
@@ -268,6 +291,7 @@ function serializeAssignment(
     assignedAt: assignment.assignedAt.toISOString(),
     startedAt: assignment.startedAt?.toISOString() ?? null,
     pickedUpAt: assignment.pickedUpAt?.toISOString() ?? null,
+    arrivedAt: assignment.arrivedAt?.toISOString() ?? null,
     deliveredAt: assignment.deliveredAt?.toISOString() ?? null,
     failedAt: assignment.failedAt?.toISOString() ?? null,
     failureCode: assignment.failureCode ?? null,
@@ -279,6 +303,13 @@ function serializeAssignment(
       status: order.status,
       paymentStatus: order.paymentStatus,
       total: Number(order.total),
+      shippingCost: Number(order.shippingCost),
+      voucherShippingDiscount: Number(order.voucherShippingDiscount),
+      courierPayoutEstimate: Number(
+        order.shippingNormalCost.gt(0)
+          ? order.shippingNormalCost
+          : order.shippingCost,
+      ),
       createdAt: order.createdAt.toISOString(),
 
       customer: {
@@ -321,6 +352,7 @@ export class CourierService {
       deliveredToday,
       failedToday,
       totalToday,
+      payoutsToday,
     ] = await Promise.all([
       prisma.courierAssignment.findMany({
         where: {
@@ -408,6 +440,20 @@ export class CourierService {
           },
         },
       }),
+
+      prisma.courierPayout.findMany({
+        where: {
+          courierId,
+          createdAt: {
+            gte: start,
+            lte: end,
+          },
+        },
+        select: {
+          courierPayout: true,
+          payoutStatus: true,
+        },
+      }),
     ]);
 
     const assigned = activeAssignments.filter(
@@ -425,6 +471,11 @@ export class CourierService {
         item.status === CourierAssignmentStatus.PICKED_UP,
     ).length;
 
+    const arrived = activeAssignments.filter(
+      (item) =>
+        item.status === CourierAssignmentStatus.ARRIVED,
+    ).length;
+
     const completionRate =
       totalToday > 0
         ? Math.round((deliveredToday / totalToday) * 100)
@@ -435,9 +486,20 @@ export class CourierService {
         assigned,
         onRoute,
         pickedUp,
+        arrived,
         deliveredToday,
         failedToday,
         totalToday,
+        earningsToday: payoutsToday.reduce(
+          (sum, row) => sum + Number(row.courierPayout),
+          0,
+        ),
+        unpaidToday: payoutsToday
+          .filter((row) => row.payoutStatus === "UNPAID")
+          .reduce(
+            (sum, row) => sum + Number(row.courierPayout),
+            0,
+          ),
         completionRate,
       } satisfies CourierDashboardStats,
 
@@ -607,13 +669,29 @@ export class CourierService {
           deliveryProof: {
             select: {
               id: true,
-              recipientName: true,
-              recipientNote: true,
               photoUrl: true,
               latitude: true,
               longitude: true,
               capturedAt: true,
               usedAt: true,
+              proofPhotoUrl: true,
+              proofLatitude: true,
+              proofLongitude: true,
+              proofTakenAt: true,
+            },
+          },
+          courierPayout: {
+            select: {
+              id: true,
+              assignmentId: true,
+              orderId: true,
+              courierId: true,
+              shippingFeeCustomer: true,
+              shippingSubsidy: true,
+              courierPayout: true,
+              payoutStatus: true,
+              paymentMethod: true,
+              paidAt: true,
             },
           },
         },
@@ -640,25 +718,50 @@ export class CourierService {
       deliveryProof: assignment.deliveryProof
         ? {
             id: assignment.deliveryProof.id,
-            recipientName:
-              assignment.deliveryProof.recipientName,
-            recipientNote:
-              assignment.deliveryProof.recipientNote ?? null,
             photoUrl:
-              assignment.deliveryProof.photoUrl ?? null,
+              assignment.deliveryProof.proofPhotoUrl ??
+              assignment.deliveryProof.photoUrl ??
+              null,
             latitude:
-              assignment.deliveryProof.latitude === null
-                ? null
-                : Number(assignment.deliveryProof.latitude),
+              assignment.deliveryProof.proofLatitude !== null
+                ? Number(assignment.deliveryProof.proofLatitude)
+                : assignment.deliveryProof.latitude === null
+                  ? null
+                  : Number(assignment.deliveryProof.latitude),
             longitude:
-              assignment.deliveryProof.longitude === null
-                ? null
-                : Number(assignment.deliveryProof.longitude),
+              assignment.deliveryProof.proofLongitude !== null
+                ? Number(assignment.deliveryProof.proofLongitude)
+                : assignment.deliveryProof.longitude === null
+                  ? null
+                  : Number(assignment.deliveryProof.longitude),
             capturedAt:
-              assignment.deliveryProof.capturedAt.toISOString(),
+              (assignment.deliveryProof.proofTakenAt ??
+                assignment.deliveryProof.capturedAt).toISOString(),
             usedAt:
               assignment.deliveryProof.usedAt?.toISOString() ??
               null,
+          }
+        : null,
+
+      courierPayout: assignment.courierPayout
+        ? {
+            id: assignment.courierPayout.id,
+            assignmentId: assignment.courierPayout.assignmentId,
+            orderId: assignment.courierPayout.orderId,
+            courierId: assignment.courierPayout.courierId,
+            shippingFeeCustomer: Number(
+              assignment.courierPayout.shippingFeeCustomer,
+            ),
+            shippingSubsidy: Number(
+              assignment.courierPayout.shippingSubsidy,
+            ),
+            courierPayout: Number(
+              assignment.courierPayout.courierPayout,
+            ),
+            payoutStatus: assignment.courierPayout.payoutStatus,
+            paymentMethod: assignment.courierPayout.paymentMethod,
+            paidAt:
+              assignment.courierPayout.paidAt?.toISOString() ?? null,
           }
         : null,
 
@@ -695,15 +798,21 @@ export class CourierService {
       CourierAssignmentStatus[]
     > = {
       ASSIGNED: [
-        CourierAssignmentStatus.ON_ROUTE,
-      ],
-
-      ON_ROUTE: [
         CourierAssignmentStatus.PICKED_UP,
         CourierAssignmentStatus.FAILED,
       ],
 
       PICKED_UP: [
+        CourierAssignmentStatus.ON_ROUTE,
+        CourierAssignmentStatus.FAILED,
+      ],
+
+      ON_ROUTE: [
+        CourierAssignmentStatus.ARRIVED,
+        CourierAssignmentStatus.FAILED,
+      ],
+
+      ARRIVED: [
         CourierAssignmentStatus.DELIVERED,
         CourierAssignmentStatus.FAILED,
       ],
@@ -809,6 +918,13 @@ export class CourierService {
         CourierAssignmentStatus.PICKED_UP
       ) {
         data.pickedUpAt = now;
+      }
+
+      if (
+        nextStatus ===
+        CourierAssignmentStatus.ARRIVED
+      ) {
+        data.arrivedAt = now;
       }
 
       if (
@@ -932,6 +1048,56 @@ export class CourierService {
             completedAt: now,
           },
         });
+
+        // Shipping economics are snapshotted on the Order at checkout.
+        // Customer shipping is reduced by the voucher only; internal
+        // shipping subsidy and voucher subsidy are both absorbed by PISJO.
+        // Courier payout always uses the normal shipping tariff and is never
+        // reduced by either subsidy.
+        const orderFinancials = await tx.order.findUniqueOrThrow({
+          where: { id: current.orderId },
+          select: {
+            shippingNormalCost: true,
+            shippingDiscount: true,
+            shippingCost: true,
+            voucherShippingDiscount: true,
+          },
+        });
+
+        const shippingNormalCost =
+          orderFinancials.shippingNormalCost.gt(0)
+            ? orderFinancials.shippingNormalCost
+            : orderFinancials.shippingCost;
+        const internalShippingSubsidy =
+          orderFinancials.shippingDiscount ?? new Prisma.Decimal(0);
+        const voucherShippingSubsidy =
+          orderFinancials.voucherShippingDiscount ??
+          new Prisma.Decimal(0);
+        const shippingSubsidy = internalShippingSubsidy.plus(
+          voucherShippingSubsidy,
+        );
+        const shippingFeeCustomer = Prisma.Decimal.max(
+          new Prisma.Decimal(0),
+          orderFinancials.shippingCost.minus(voucherShippingSubsidy),
+        );
+
+        await tx.courierPayout.upsert({
+          where: { assignmentId: current.id },
+          create: {
+            assignmentId: current.id,
+            orderId: current.orderId,
+            courierId: current.courierId,
+            shippingFeeCustomer,
+            shippingSubsidy,
+            courierPayout: shippingNormalCost,
+            payoutStatus: "UNPAID",
+          },
+          update: {
+            shippingFeeCustomer,
+            shippingSubsidy,
+            courierPayout: shippingNormalCost,
+          },
+        });
       } else if (
         nextStatus ===
         CourierAssignmentStatus.ON_ROUTE
@@ -982,6 +1148,8 @@ export class CourierService {
           id: true,
           status: true,
           isActive: true,
+          pickedUpAt: true,
+          arrivedAt: true,
           deliveredAt: true,
           failedAt: true,
         },
@@ -1907,51 +2075,28 @@ export class CourierService {
     courierId: string,
     assignmentId: string,
     input: {
-      recipientName: string;
-      recipientNote?: string | null;
-      photo?: File | null;
-      latitude?: number | null;
-      longitude?: number | null;
+      photo: File;
+      latitude: number;
+      longitude: number;
     },
   ) {
-    const recipientName =
-      input.recipientName.trim();
-
-    if (!recipientName) {
-      throw new Error(
-        "RECIPIENT_NAME_REQUIRED",
-      );
+    if (
+      !input.photo ||
+      input.photo.size <= 0 ||
+      !input.photo.type.startsWith("image/")
+    ) {
+      throw new Error("PROOF_PHOTO_REQUIRED");
     }
 
     if (
-      input.recipientNote &&
-      input.recipientNote.length > 1000
+      !Number.isFinite(input.latitude) ||
+      input.latitude < -90 ||
+      input.latitude > 90 ||
+      !Number.isFinite(input.longitude) ||
+      input.longitude < -180 ||
+      input.longitude > 180
     ) {
-      throw new Error(
-        "RECIPIENT_NOTE_TOO_LONG",
-      );
-    }
-
-    if (
-      input.latitude !== null &&
-      input.latitude !== undefined &&
-      (input.latitude < -90 ||
-        input.latitude > 90)
-    ) {
-      throw new Error(
-        "INVALID_PROOF_LOCATION",
-      );
-    }
-
-    if (
-      input.longitude !== null &&
-      input.longitude !== undefined &&
-      (input.longitude < -180 ||
-        input.longitude > 180)
-    ) {
-      throw new Error(
-        "INVALID_PROOF_LOCATION",
-      );
+      throw new Error("INVALID_PROOF_LOCATION");
     }
 
     const assignment =
@@ -1960,130 +2105,210 @@ export class CourierService {
           id: assignmentId,
           courierId,
           isActive: true,
-          status:
-            CourierAssignmentStatus.PICKED_UP,
+          status: CourierAssignmentStatus.ARRIVED,
         },
-
         select: {
           id: true,
         },
       });
 
     if (!assignment) {
-      throw new Error(
-        "DELIVERY_PROOF_NOT_ALLOWED",
-      );
+      throw new Error("DELIVERY_PROOF_NOT_ALLOWED");
     }
 
     const existing =
-      await prisma.courierDeliveryProof.findUnique(
-        {
-          where: {
-            assignmentId,
-          },
-
-          select: {
-            id: true,
-            photoUrl: true,
-            usedAt: true,
-          },
+      await prisma.courierDeliveryProof.findUnique({
+        where: { assignmentId },
+        select: {
+          id: true,
+          proofPhotoUrl: true,
+          photoUrl: true,
+          usedAt: true,
         },
-      );
+      });
 
     if (existing?.usedAt) {
-      throw new Error(
-        "DELIVERY_PROOF_ALREADY_USED",
-      );
+      throw new Error("DELIVERY_PROOF_ALREADY_USED");
     }
 
-    const photoUrl = input.photo
-      ? await StorageService.saveCourierDeliveryProof(
-          input.photo,
-        )
-      : existing?.photoUrl ?? null;
+    const photoUrl = await StorageService.saveCourierDeliveryProof(
+      input.photo,
+    );
+    const takenAt = new Date();
 
     try {
       const proof =
-        await prisma.courierDeliveryProof.upsert(
-          {
-            where: {
-              assignmentId,
-            },
-
-            create: {
-              assignmentId,
-              recipientName,
-              recipientNote:
-                input.recipientNote?.trim() ||
-                null,
-              photoUrl,
-              latitude:
-                input.latitude ?? null,
-              longitude:
-                input.longitude ?? null,
-              createdById: courierId,
-            },
-
-            update: {
-              recipientName,
-              recipientNote:
-                input.recipientNote?.trim() ||
-                null,
-              photoUrl,
-              latitude:
-                input.latitude ?? null,
-              longitude:
-                input.longitude ?? null,
-              createdById: courierId,
-              capturedAt: new Date(),
-            },
+        await prisma.courierDeliveryProof.upsert({
+          where: { assignmentId },
+          create: {
+            assignmentId,
+            photoUrl,
+            latitude: input.latitude,
+            longitude: input.longitude,
+            proofPhotoUrl: photoUrl,
+            proofLatitude: input.latitude,
+            proofLongitude: input.longitude,
+            proofTakenAt: takenAt,
+            capturedAt: takenAt,
+            createdById: courierId,
           },
-        );
+          update: {
+            photoUrl,
+            latitude: input.latitude,
+            longitude: input.longitude,
+            proofPhotoUrl: photoUrl,
+            proofLatitude: input.latitude,
+            proofLongitude: input.longitude,
+            proofTakenAt: takenAt,
+            capturedAt: takenAt,
+            createdById: courierId,
+          },
+        });
 
-      if (
-        input.photo &&
-        existing?.photoUrl &&
-        existing.photoUrl !== photoUrl
-      ) {
+      const previousPhoto =
+        existing?.proofPhotoUrl ?? existing?.photoUrl ?? null;
+
+      if (previousPhoto && previousPhoto !== photoUrl) {
         await StorageService.deleteCourierDeliveryProof(
-          existing.photoUrl,
+          previousPhoto,
         );
       }
 
       return {
         id: proof.id,
-        recipientName:
-          proof.recipientName,
-        recipientNote:
-          proof.recipientNote,
-        photoUrl: proof.photoUrl,
-
-        latitude:
-          proof.latitude === null
-            ? null
-            : Number(proof.latitude),
-
-        longitude:
-          proof.longitude === null
-            ? null
-            : Number(proof.longitude),
-
-        capturedAt:
-          proof.capturedAt.toISOString(),
+        photoUrl,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        capturedAt: takenAt.toISOString(),
       };
     } catch (error) {
-      if (
-        input.photo &&
-        photoUrl &&
-        photoUrl !== existing?.photoUrl
-      ) {
-        await StorageService.deleteCourierDeliveryProof(
-          photoUrl,
-        );
-      }
-
+      await StorageService.deleteCourierDeliveryProof(photoUrl);
       throw error;
     }
+  }
+
+  static async getEarnings(
+    courierId: string,
+    period: "today" | "7d" | "month" = "today",
+  ) {
+    const now = new Date();
+    const { start: todayStart } = getJakartaDayRange(now);
+    let start = todayStart;
+
+    if (period === "7d") {
+      start = new Date(todayStart);
+      start.setDate(start.getDate() - 6);
+    } else if (period === "month") {
+      const jakartaDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+      const [year, month] = jakartaDate.split("-").map(Number);
+      start = new Date(
+        `${year}-${String(month).padStart(2, "0")}-01T00:00:00+07:00`,
+      );
+    }
+
+    const payouts = await prisma.courierPayout.findMany({
+      where: {
+        courierId,
+        assignment: {
+          deliveredAt: { gte: start },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        order: {
+          select: {
+            orderNumber: true,
+            address: {
+              select: {
+                receiverName: true,
+                fullAddress: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const total = payouts.reduce(
+      (sum, row) => sum + Number(row.courierPayout),
+      0,
+    );
+    const unpaid = payouts
+      .filter((row) => row.payoutStatus === "UNPAID")
+      .reduce((sum, row) => sum + Number(row.courierPayout), 0);
+    const paid = payouts
+      .filter((row) => row.payoutStatus === "PAID")
+      .reduce((sum, row) => sum + Number(row.courierPayout), 0);
+
+    return {
+      period,
+      total,
+      unpaid,
+      paid,
+      average: payouts.length ? total / payouts.length : 0,
+      items: payouts.map((row) => ({
+        id: row.id,
+        orderId: row.orderId,
+        orderNumber: row.order.orderNumber,
+        customerName: row.order.address.receiverName,
+        address: row.order.address.fullAddress,
+        courierPayout: Number(row.courierPayout),
+        payoutStatus: row.payoutStatus,
+        paymentMethod: row.paymentMethod,
+        paidAt: row.paidAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  static async settlePayout(
+    adminId: string,
+    payoutId: string,
+    paymentMethod: "CASH" | "TRANSFER",
+    note?: string | null,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const payout = await tx.courierPayout.findUnique({
+        where: { id: payoutId },
+        select: {
+          id: true,
+          payoutStatus: true,
+        },
+      });
+
+      if (!payout) {
+        throw new Error("COURIER_PAYOUT_NOT_FOUND");
+      }
+
+      if (payout.payoutStatus === "PAID") {
+        throw new Error("COURIER_PAYOUT_ALREADY_PAID");
+      }
+
+      const paidAt = new Date();
+
+      return tx.courierPayout.update({
+        where: { id: payoutId },
+        data: {
+          payoutStatus: "PAID",
+          paymentMethod,
+          paidAt,
+          paidById: adminId,
+          paymentNote: note?.trim() || null,
+        },
+        select: {
+          id: true,
+          payoutStatus: true,
+          paymentMethod: true,
+          paidAt: true,
+          courierPayout: true,
+        },
+      });
+    });
   }
 
   static async getCouriers() {

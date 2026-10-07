@@ -134,6 +134,8 @@ export class InternalShippingProvider
 
       shippingCost:
         result.shippingCost ?? 0,
+      normalShippingCost: result.normalShippingCost ?? null,
+      shippingDiscount: result.shippingDiscount ?? null,
 
       distanceKm:
         result.distanceKm ?? null,
