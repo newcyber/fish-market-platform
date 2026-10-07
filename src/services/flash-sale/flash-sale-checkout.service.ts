@@ -441,11 +441,29 @@ const remainingQuantity =
         flashSaleItem.perUserLimit !==
         null
       ) {
+        const campaignItems =
+          await tx.flashSaleItem.findMany({
+            where: {
+              flashSaleId:
+                flashSaleItem.flashSaleId,
+
+              skuId:
+                flashSaleItem.skuId,
+            },
+
+            select: {
+              id: true,
+            },
+          });
+
         const usage =
           await tx.flashSalePurchase.aggregate({
             where: {
-              flashSaleItemId:
-                flashSaleItem.id,
+              flashSaleItemId: {
+                in: campaignItems.map(
+                  (item) => item.id
+                ),
+              },
 
               userId:
                 input.userId,
@@ -468,7 +486,7 @@ const remainingQuantity =
           flashSaleItem.perUserLimit
         ) {
           throw new Error(
-            `Batas pembelian Flash Sale adalah ${flashSaleItem.perUserLimit} item per customer.`
+            `Hak Flash Sale customer tidak mencukupi untuk quantity ini. Maksimal ${flashSaleItem.perUserLimit} item per customer untuk campaign dan SKU ini.`
           );
         }
       }

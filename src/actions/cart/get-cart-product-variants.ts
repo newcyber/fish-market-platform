@@ -178,6 +178,11 @@ export async function getCartProductVariants(
             await ProductPricingService.resolve(tx, {
               productId: product.id,
               skuId: sku.id,
+              customerId:
+                owner.type === "customer"
+                  ? owner.userId
+                  : null,
+              quantity: cartItem.quantity,
             }),
           ] as const),
         ),

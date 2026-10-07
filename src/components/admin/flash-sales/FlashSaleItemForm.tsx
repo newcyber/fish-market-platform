@@ -550,7 +550,7 @@ export function FlashSaleItemForm({
       parsedPerUserLimit < 1
     ) {
       setError(
-        "Batas pembelian per user minimal adalah 1."
+        "Maks. Qty Flash Sale / Customer minimal adalah 1."
       );
 
       return;
@@ -561,7 +561,7 @@ export function FlashSaleItemForm({
         parsedStockLimit
     ) {
       setError(
-        "Batas pembelian per user tidak boleh lebih besar dari kuota Flash Sale."
+        "Maks. Qty Flash Sale / Customer tidak boleh lebih besar dari Kuota Promo."
       );
 
       return;
@@ -997,7 +997,7 @@ export function FlashSaleItemForm({
           htmlFor="stockLimit"
           className="text-sm font-medium"
         >
-          Kuota Flash Sale
+          Kuota Promo
         </label>
 
         <Input
@@ -1044,7 +1044,7 @@ export function FlashSaleItemForm({
           htmlFor="perUserLimit"
           className="text-sm font-medium"
         >
-          Batas Pembelian per User
+          Maks. Qty Flash Sale / Customer
         </label>
 
         <Input

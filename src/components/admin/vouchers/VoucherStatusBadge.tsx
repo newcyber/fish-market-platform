@@ -25,6 +25,7 @@ function getVoucherStatus({
     };
   }
 
+
   if (!isActive) {
     return {
       label: "Nonaktif",

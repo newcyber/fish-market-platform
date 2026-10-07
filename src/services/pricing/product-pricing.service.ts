@@ -86,6 +86,19 @@ export interface ResolveProductPriceInput {
    */
   preferredFlashSaleItemId?: string | null;
 
+  /** Customer yang meminta pricing. Digunakan untuk eligibility Flash Sale per customer. */
+  customerId?: string | null;
+
+  /** Final quantity SKU yang sedang dihitung. */
+  quantity?: number;
+
+  /**
+   * Saat update order, purchase lama order tersebut masih ada
+   * sampai tahap reconcile. Purchase ini harus dikeluarkan dari
+   * perhitungan quota dan limit customer sementara.
+   */
+  excludeOrderId?: string | null;
+
   /**
    * Legacy inputs.
    *
@@ -208,6 +221,12 @@ export default class ProductPricingService {
 
       preferredFlashSaleItemId,
 
+      customerId,
+
+      quantity = 1,
+
+      excludeOrderId = null,
+
       productVariant,
 
       productWeight,
@@ -239,6 +258,15 @@ export default class ProductPricingService {
     ) {
       throw new Error(
         "Pricing sekarang berbasis SKU. skuId wajib dikirim untuk produk dengan variant."
+      );
+    }
+
+    if (
+      !Number.isInteger(quantity) ||
+      quantity <= 0
+    ) {
+      throw new Error(
+        "Quantity pricing harus berupa angka bulat lebih dari 0."
       );
     }
 
@@ -605,6 +633,8 @@ if (!product) {
           stockLimit: number;
 
           soldQuantity: number;
+
+          perUserLimit: number | null;
         }
       | null = null;
 
@@ -644,9 +674,6 @@ if (!product) {
                     null,
                 }),
 
-            stockLimit: {
-              gt: 0,
-            },
           },
 
           select: {
@@ -665,6 +692,8 @@ if (!product) {
             stockLimit: true,
 
             soldQuantity: true,
+
+            perUserLimit: true,
           },
         });
 
@@ -675,25 +704,28 @@ if (!product) {
        * Jangan memilih Flash Sale lain secara diam-diam.
        */
       if (!preferredItem) {
-        throw new Error(
-          "Flash Sale yang dipilih sudah tidak aktif atau tidak berlaku untuk SKU ini."
-        );
+        /**
+         * Preferred Flash Sale yang sudah tidak valid tidak boleh
+         * diam-diam diganti dengan campaign lain.
+         * Pricing kembali ke harga normal SKU.
+         */
+        return {
+          originalPrice,
+          discountAmount: new Prisma.Decimal(0),
+          finalPrice: originalPrice,
+          isDiscountApplied: false,
+          isFlashSaleApplied: false,
+          promotionDiscountApplied: false,
+          promotionId: null,
+          promotionName: null,
+          flashSaleName: null,
+          discountSource: "NONE" as const,
+          flashSaleItemId: null,
+          flashSaleId: null,
+        };
       }
 
-      /**
-       * Flash Sale harus masih memiliki quota.
-       */
-      if (
-        preferredItem.soldQuantity >=
-        preferredItem.stockLimit
-      ) {
-        throw new Error(
-          "Kuota Flash Sale yang dipilih sudah habis."
-        );
-      }
-
-      flashSaleItem =
-        preferredItem;
+      flashSaleItem = preferredItem;
     }
 
     /**
@@ -710,6 +742,7 @@ if (!product) {
 
     if (
   !product.isPreOrder &&
+  !preferredFlashSaleItemId &&
   !flashSaleItem &&
   skuId
     ) {
@@ -722,9 +755,6 @@ if (!product) {
 
             skuId,
 
-            stockLimit: {
-              gt: 0,
-            },
           },
 
           select: {
@@ -743,6 +773,8 @@ if (!product) {
             stockLimit: true,
 
             soldQuantity: true,
+
+            perUserLimit: true,
           },
 
           orderBy: [
@@ -778,7 +810,7 @@ if (!product) {
           (item) =>
             item.soldQuantity <
             item.stockLimit
-        ) ?? null;
+        ) ?? skuFlashSaleItems[0] ?? null;
     }
 
     /**
@@ -799,6 +831,7 @@ if (!product) {
 
     if (
   !product.isPreOrder &&
+  !preferredFlashSaleItemId &&
   !flashSaleItem &&
   skuId
     ) {
@@ -813,10 +846,6 @@ if (!product) {
 
             weightOptionId:
               null,
-
-            stockLimit: {
-              gt: 0,
-            },
           },
 
           select: {
@@ -835,6 +864,8 @@ if (!product) {
             stockLimit: true,
 
             soldQuantity: true,
+
+            perUserLimit: true,
           },
 
           orderBy: [
@@ -862,7 +893,7 @@ if (!product) {
           (item) =>
             item.soldQuantity <
             item.stockLimit
-        ) ?? null;
+        ) ?? legacyFlashSaleItems[0] ?? null;
     }
 
     /**
@@ -917,20 +948,130 @@ if (!product) {
       }
 
       /**
-       * Pastikan quota masih tersedia pada saat pricing.
+       * ========================================================
+       * ALL OR NOTHING ELIGIBILITY
+       * ========================================================
        *
-       * Ini bukan pengganti atomic consume.
+       * Flash Sale hanya berlaku jika seluruh quantity memenuhi:
        *
-       * FlashSaleCheckoutService tetap wajib melakukan
-       * validasi + advisory lock + atomic increment.
+       * - quota global masih cukup
+       * - customer masih memiliki hak promo
+       *
+       * Jika satu syarat gagal, SELURUH quantity menggunakan
+       * harga normal SKU. Tidak ada harga campuran.
        */
+      const campaignItems =
+        await tx.flashSaleItem.findMany({
+          where: {
+            flashSaleId: flashSaleItem.flashSaleId,
+            skuId: skuId ?? null,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      const campaignItemIds =
+        campaignItems.map((item) => item.id);
+
+      const excludedOrderUsage =
+        excludeOrderId && campaignItemIds.length > 0
+          ? await tx.flashSalePurchase.aggregate({
+              where: {
+                orderId: excludeOrderId,
+                flashSaleItemId: {
+                  in: campaignItemIds,
+                },
+              },
+              _sum: {
+                quantity: true,
+              },
+            })
+          : {
+              _sum: {
+                quantity: null,
+              },
+            };
+
+      const excludedOrderQuantity =
+        excludedOrderUsage._sum.quantity ?? 0;
+
+      const effectiveSoldQuantity = Math.max(
+        0,
+        flashSaleItem.soldQuantity -
+          excludedOrderQuantity
+      );
+
+      const remainingQuota = Math.max(
+        0,
+        flashSaleItem.stockLimit -
+          effectiveSoldQuantity
+      );
+
+      let remainingCustomerLimit =
+        flashSaleItem.perUserLimit ??
+        Number.MAX_SAFE_INTEGER;
+
       if (
-        flashSaleItem.soldQuantity >=
-        flashSaleItem.stockLimit
+        customerId &&
+        flashSaleItem.perUserLimit !== null
       ) {
-        throw new Error(
-          "Kuota Flash Sale baru saja habis."
-        );
+        const usage =
+          campaignItemIds.length > 0
+            ? await tx.flashSalePurchase.aggregate({
+                where: {
+                  userId: customerId,
+                  flashSaleItemId: {
+                    in: campaignItemIds,
+                  },
+                  ...(excludeOrderId
+                    ? {
+                        orderId: {
+                          not: excludeOrderId,
+                        },
+                      }
+                    : {}),
+                },
+                _sum: {
+                  quantity: true,
+                },
+              })
+            : {
+                _sum: {
+                  quantity: null,
+                },
+              };
+
+        const purchasedQuantity =
+          usage._sum.quantity ?? 0;
+
+        remainingCustomerLimit =
+          Math.max(
+            0,
+            flashSaleItem.perUserLimit -
+              purchasedQuantity
+          );
+      }
+
+      const flashSaleEligible =
+        remainingQuota >= quantity &&
+        remainingCustomerLimit >= quantity;
+
+      if (!flashSaleEligible) {
+        return {
+          originalPrice,
+          discountAmount: new Prisma.Decimal(0),
+          finalPrice: originalPrice,
+          isDiscountApplied: false,
+          isFlashSaleApplied: false,
+          promotionDiscountApplied: false,
+          promotionId: null,
+          promotionName: null,
+          flashSaleName: null,
+          discountSource: "NONE" as const,
+          flashSaleItemId: null,
+          flashSaleId: null,
+        };
       }
 
       const discountAmount =

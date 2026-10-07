@@ -408,6 +408,101 @@ const productJsonLd = (
     product.id,
   );
 
+  const flashSalePurchaseUsage = new Map<string, number>();
+
+  if (session?.user?.id && flashSaleItems.length > 0) {
+    const campaignSkuPairs = new Map<
+      string,
+      {
+        campaignId: string;
+        skuId: string;
+      }
+    >();
+
+    for (const item of flashSaleItems) {
+      if (!item.skuId) continue;
+
+      campaignSkuPairs.set(
+        `${item.flashSale.id}::${item.skuId}`,
+        {
+          campaignId: item.flashSale.id,
+          skuId: item.skuId,
+        },
+      );
+    }
+
+    const allCampaignItemIds =
+      campaignSkuPairs.size > 0
+        ? await prisma.flashSaleItem.findMany({
+            where: {
+              OR: Array.from(campaignSkuPairs.values()).map(
+                ({ campaignId, skuId }) => ({
+                  flashSaleId: campaignId,
+                  skuId,
+                }),
+              ),
+            },
+            select: {
+              id: true,
+              flashSaleId: true,
+              skuId: true,
+            },
+          })
+        : [];
+
+    const purchaseRows =
+      allCampaignItemIds.length > 0
+        ? await prisma.flashSalePurchase.findMany({
+            where: {
+              userId: session.user.id,
+              flashSaleItemId: {
+                in: allCampaignItemIds.map(
+                  (item) => item.id
+                ),
+              },
+            },
+            select: {
+              flashSaleItemId: true,
+              quantity: true,
+            },
+          })
+        : [];
+
+    const usageByCampaignSku = new Map<string, number>();
+
+    const itemKeyById = new Map(
+      allCampaignItemIds.map((item) => [
+        item.id,
+        `${item.flashSaleId}::${item.skuId}`,
+      ]),
+    );
+
+    for (const purchase of purchaseRows) {
+      const key = itemKeyById.get(
+        purchase.flashSaleItemId
+      );
+
+      if (!key) continue;
+
+      usageByCampaignSku.set(
+        key,
+        (usageByCampaignSku.get(key) ?? 0) +
+          purchase.quantity,
+      );
+    }
+
+    for (const item of flashSaleItems) {
+      if (!item.skuId) continue;
+
+      const key = `${item.flashSale.id}::${item.skuId}`;
+
+      flashSalePurchaseUsage.set(
+        item.id,
+        usageByCampaignSku.get(key) ?? 0,
+      );
+    }
+  }
+
   /**
    * ==========================================================
    * NORMALIZE FLASH SALE ITEMS
@@ -426,6 +521,13 @@ const productJsonLd = (
     stockLimit: item.stockLimit,
 
     soldQuantity: item.soldQuantity,
+
+    perUserLimit: item.perUserLimit,
+
+    userPurchasedQuantity:
+      flashSalePurchaseUsage.get(item.id) ?? 0,
+
+    campaignId: item.flashSale.id,
 
     campaignName: item.flashSale.name,
 
@@ -456,6 +558,8 @@ const productJsonLd = (
       return [
         await ProductPricingService.resolve(tx, {
           productId: product.id,
+          customerId: session?.user?.id ?? null,
+          quantity: 1,
           fallbackPrice: product.price,
         }),
       ];
@@ -466,6 +570,8 @@ const productJsonLd = (
         ProductPricingService.resolve(tx, {
           productId: product.id,
           skuId: sku.id,
+          customerId: session?.user?.id ?? null,
+          quantity: 1,
         }),
       ),
     );
@@ -528,9 +634,11 @@ const productJsonLd = (
     Number(pricing.discountAmount) > 0,
   );
 
-  const hasFlashSale = displayPricing.some(
-    (pricing) => pricing.isFlashSaleApplied,
-  );
+  const hasFlashSale =
+    normalizedFlashSaleItems.length > 0 ||
+    displayPricing.some(
+      (pricing) => pricing.isFlashSaleApplied,
+    );
 
 
   /**
@@ -684,7 +792,9 @@ const productJsonLd = (
                 {/* ================================================= */}
 
                 <div className="min-w-0 p-5 pb-8 lg:p-6 lg:pl-4">
-                  {/* PRODUCT SUMMARY */}
+                  {!hasFlashSale && (
+                    <>
+                    {/* PRODUCT SUMMARY */}
 
                   <div className="mb-4 flex flex-wrap items-center gap-2">
                     <span className="rounded-md bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
@@ -726,6 +836,9 @@ const productJsonLd = (
                     </span>
                   </div>
 
+                    </>
+                  )}
+
                   {isPreOrder && product.preOrderMinDays != null && product.preOrderMaxDays != null && (
                     <p className="mt-1 text-xs text-slate-500">
                       Estimasi {product.preOrderMinDays}–{product.preOrderMaxDays} hari
@@ -734,6 +847,7 @@ const productJsonLd = (
 
                   {/* PRODUCT PRICE */}
 
+                  {!hasFlashSale && (
                   <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Harga Produk
@@ -759,10 +873,17 @@ const productJsonLd = (
                       </p>
                     )}
                   </div>
+                  )}
 
                   {/* CART ACTION */}
 
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
+                  <div
+                    className={
+                      hasFlashSale
+                        ? "mt-0"
+                        : "mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5"
+                    }
+                  >
                     <AddToCartButton
                       productId={product.id}
                       stock={product.stock}

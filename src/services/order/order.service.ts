@@ -810,6 +810,8 @@ export default class OrderService {
           productId: product.id,
           skuId: sku.id,
           preferredFlashSaleItemId: item.preferredFlashSaleItemId,
+          customerId: input.userId,
+          quantity: item.quantity,
           fallbackPrice: product.price,
         });
         const promotionSnapshot = buildPromotionSnapshot(pricing);
@@ -2010,6 +2012,9 @@ export default class OrderService {
           const pricing = await ProductPricingService.resolve(tx, {
             productId: product.id,
             skuId: sku.id,
+            customerId: input.userId,
+            quantity: item.quantity,
+            excludeOrderId: order.id,
             fallbackPrice: product.price,
           });
           promotionSnapshot = buildPromotionSnapshot(pricing);
@@ -5299,6 +5304,8 @@ export default class OrderService {
             productId: product.id,
             skuId: sku.id,
             preferredFlashSaleItemId: item.flashSaleItemId,
+            customerId: userId,
+            quantity: item.quantity,
             fallbackPrice: product.price,
           });
           const promotionSnapshot = buildPromotionSnapshot(pricing);

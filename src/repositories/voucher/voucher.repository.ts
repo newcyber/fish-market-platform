@@ -73,14 +73,25 @@ export class VoucherRepository {
     });
   }
 
+  /**
+   * ============================================================
+   * FIND BY ID INCLUDING DELETED
+   * ============================================================
+   *
+   * Digunakan untuk kebutuhan lifecycle admin voucher
+   * yang tetap membutuhkan akses ke voucher ter-soft-delete.
+   */
   static async findByIdIncludingDeleted(
     id: string,
     tx?: Prisma.TransactionClient
   ): Promise<Voucher | null> {
-    const client = this.getClient(tx);
+    const client =
+      this.getClient(tx);
 
     return client.voucher.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
   }
 
@@ -193,8 +204,6 @@ export class VoucherRepository {
     options?: {
       includeDeleted?: boolean;
 
-      deletedOnly?: boolean;
-
       isActive?: boolean;
 
       search?: string;
@@ -213,7 +222,6 @@ export class VoucherRepository {
 
     const {
       includeDeleted = false,
-      deletedOnly = false,
       isActive,
       search,
       discountType,
@@ -223,15 +231,11 @@ export class VoucherRepository {
     } = options ?? {};
 
     const where: Prisma.VoucherWhereInput = {
-      ...(deletedOnly
-        ? {
-            deletedAt: { not: null },
-          }
-        : includeDeleted
-          ? {}
-          : {
-              deletedAt: null,
-            }),
+      ...(includeDeleted
+        ? {}
+        : {
+            deletedAt: null,
+          }),
 
       ...(typeof isActive === "boolean"
         ? {
@@ -479,8 +483,6 @@ export class VoucherRepository {
     options?: {
       includeDeleted?: boolean;
 
-      deletedOnly?: boolean;
-
       isActive?: boolean;
 
       search?: string;
@@ -495,7 +497,6 @@ export class VoucherRepository {
 
     const {
       includeDeleted = false,
-      deletedOnly = false,
       isActive,
       search,
       discountType,
@@ -503,15 +504,11 @@ export class VoucherRepository {
     } = options ?? {};
 
     const where: Prisma.VoucherWhereInput = {
-      ...(deletedOnly
-        ? {
-            deletedAt: { not: null },
-          }
-        : includeDeleted
-          ? {}
-          : {
-              deletedAt: null,
-            }),
+      ...(includeDeleted
+        ? {}
+        : {
+            deletedAt: null,
+          }),
 
       ...(typeof isActive === "boolean"
         ? {

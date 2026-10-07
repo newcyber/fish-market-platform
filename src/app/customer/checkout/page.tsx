@@ -241,7 +241,8 @@ const checkoutItems =
           product: {
             price: item.product.price,
           },
-        }))
+        })),
+        userId
       );
   } catch (error) {
     console.error("[CHECKOUT_PRICING_RESOLVE_ERROR]", error);

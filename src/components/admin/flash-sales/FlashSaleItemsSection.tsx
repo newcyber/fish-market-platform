@@ -499,7 +499,7 @@ export function FlashSaleItemsSection({
 
                   <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                     <span>
-                      Kuota:{" "}
+                      Kuota Promo:{" "}
                       {item.stockLimit}
                     </span>
 
@@ -514,7 +514,7 @@ export function FlashSaleItemsSection({
                     </span>
 
                     <span>
-                      Maks. per user:{" "}
+                      Maks. Qty Flash Sale / Customer:{" "}
                       {item.perUserLimit}
                     </span>
 

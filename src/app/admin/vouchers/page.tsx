@@ -27,7 +27,6 @@ type AdminVouchersPageProps = {
   searchParams: Promise<{
     search?: string;
     isActive?: string;
-    status?: string;
     discountType?: string;
     page?: string;
   }>;
@@ -94,16 +93,23 @@ function buildVoucherPageUrl({
   params: {
     search?: string;
     isActive?: string;
-    status?: string;
     discountType?: string;
   };
   page: number;
 }) {
   const query = new URLSearchParams();
 
-  if (params.search) query.set("search", params.search);
-  if (params.status) query.set("status", params.status);
-  if (params.discountType) query.set("discountType", params.discountType);
+  if (params.search) {
+    query.set("search", params.search);
+  }
+
+  if (params.isActive) {
+    query.set("isActive", params.isActive);
+  }
+
+  if (params.discountType) {
+    query.set("discountType", params.discountType);
+  }
 
   query.set("page", String(page));
 
@@ -126,13 +132,6 @@ export default async function AdminVouchersPage({
       search:
         params.search?.trim() ||
         undefined,
-
-      status:
-        params.status === "ACTIVE" ||
-        params.status === "INACTIVE" ||
-        params.status === "DELETED"
-          ? params.status
-          : "ALL",
 
       isActive:
         parseBoolean(
@@ -182,7 +181,6 @@ export default async function AdminVouchersPage({
 
         isActive:
           voucher.isActive,
-
         deletedAt:
           voucher.deletedAt,
       })
@@ -216,9 +214,6 @@ export default async function AdminVouchersPage({
         isActive={
           params.isActive
         }
-        status={
-          params.status
-        }
         discountType={
           params.discountType
         }
@@ -246,22 +241,36 @@ export default async function AdminVouchersPage({
       {result.pagination.totalPages > 1 && (
         <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-500">
-            Halaman <span className="font-semibold text-gray-900">{result.pagination.page}</span> dari <span className="font-semibold text-gray-900">{result.pagination.totalPages}</span>
+            Halaman{" "}
+            <span className="font-semibold text-gray-900">
+              {result.pagination.page}
+            </span>{" "}
+            dari{" "}
+            <span className="font-semibold text-gray-900">
+              {result.pagination.totalPages}
+            </span>
           </p>
 
           <div className="flex items-center gap-2">
             {result.pagination.page > 1 && (
               <Link
-                href={buildVoucherPageUrl({ params, page: result.pagination.page - 1 })}
+                href={buildVoucherPageUrl({
+                  params,
+                  page: result.pagination.page - 1,
+                })}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Sebelumnya
               </Link>
             )}
 
-            {result.pagination.page < result.pagination.totalPages && (
+            {result.pagination.page <
+              result.pagination.totalPages && (
               <Link
-                href={buildVoucherPageUrl({ params, page: result.pagination.page + 1 })}
+                href={buildVoucherPageUrl({
+                  params,
+                  page: result.pagination.page + 1,
+                })}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Berikutnya
@@ -270,6 +279,7 @@ export default async function AdminVouchersPage({
           </div>
         </div>
       )}
+
     </div>
   );
 }

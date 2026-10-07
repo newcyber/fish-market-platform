@@ -239,10 +239,11 @@ export function VoucherTable({
                       isActive={
                         voucher.isActive
                       }
-                      deletedAt={
-                        voucher.deletedAt
-                      }
-                      usageLimit={
+
+                        deletedAt={
+                          voucher.deletedAt
+                        }
+usageLimit={
                         voucher.usageLimit
                       }
                       usageCount={
@@ -274,7 +275,6 @@ export function VoucherTable({
                       >
                         Edit
                       </Link>
-
                       {voucher.deletedAt ? (
                         <RestoreVoucherButton
                           voucherId={voucher.id}

@@ -279,11 +279,11 @@ export function FlashSaleBulkItemForm({
               <Input value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} inputMode="numeric" placeholder={bulkType === "PERCENTAGE" ? "15" : "25000"} />
             </div>
             <div>
-              <label className="mb-2 block text-xs font-semibold">Kuota</label>
+              <label className="mb-2 block text-xs font-semibold">Kuota Promo</label>
               <Input value={bulkStockLimit} onChange={(event) => setBulkStockLimit(event.target.value)} inputMode="numeric" placeholder="20" />
             </div>
             <div>
-              <label className="mb-2 block text-xs font-semibold">Limit / Customer</label>
+              <label className="mb-2 block text-xs font-semibold">Maks. Qty Flash Sale / Customer</label>
               <Input value={bulkPerUserLimit} onChange={(event) => setBulkPerUserLimit(event.target.value)} inputMode="numeric" placeholder="2" />
             </div>
           </div>
@@ -313,8 +313,8 @@ export function FlashSaleBulkItemForm({
                 <th className="px-3 py-3 text-left">Produk / SKU</th>
                 <th className="px-3 py-3 text-right">Harga Normal</th>
                 <th className="w-40 px-3 py-3 text-right">Harga Flash</th>
-                <th className="w-32 px-3 py-3 text-right">Kuota</th>
-                <th className="w-36 px-3 py-3 text-right">Limit / Customer</th>
+                <th className="w-32 px-3 py-3 text-right">Kuota Promo</th>
+                <th className="w-36 px-3 py-3 text-right">Maks. Qty Flash Sale / Customer</th>
               </tr>
             </thead>
             <tbody className="divide-y">

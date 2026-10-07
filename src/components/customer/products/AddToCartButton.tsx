@@ -12,8 +12,13 @@ import {
 
 import {
   Check,
+  Clock3,
+  Flame,
   Minus,
+  Package,
   Plus,
+  ShoppingCart,
+  Zap,
 } from "lucide-react";
 
 import {
@@ -122,6 +127,9 @@ interface ProductFlashSaleItem {
   flashPrice: number;
   stockLimit: number;
   soldQuantity: number;
+  perUserLimit: number | null;
+  userPurchasedQuantity: number;
+  campaignId: string;
   campaignName: string;
   endsAt: string | Date;
 }
@@ -321,12 +329,91 @@ export default function AddToCartButton({
    *   [groupId]: optionId
    * }
    */
+  const preferredSkuForFlashSale = useMemo(() => {
+    if (flashSaleItems.length === 0 || activeSkus.length === 0) {
+      return null;
+    }
+
+    const activeFlashSkuIds = new Set(
+      flashSaleItems
+        .filter(
+          (item) =>
+            Number(item.stockLimit) > Number(item.soldQuantity) &&
+            item.skuId !== null,
+        )
+        .map((item) => item.skuId as string),
+    );
+
+    return (
+      activeSkus.find(
+        (sku) =>
+          activeFlashSkuIds.has(sku.id) &&
+          (isPreOrder || Number(sku.stock) > 0),
+      ) ?? null
+    );
+  }, [
+    activeSkus,
+    flashSaleItems,
+    isPreOrder,
+  ]);
+
+  const defaultSkuForDisplay = useMemo(() => {
+    if (preferredSkuForFlashSale) {
+      return preferredSkuForFlashSale;
+    }
+
+    if (flashSaleItems.length === 0) {
+      return null;
+    }
+
+    return (
+      activeSkus.find(
+        (sku) =>
+          isPreOrder || Number(sku.stock) > 0,
+      ) ?? null
+    );
+  }, [
+    activeSkus,
+    flashSaleItems.length,
+    isPreOrder,
+    preferredSkuForFlashSale,
+  ]);
+
+  const initialSelectedOptions = useMemo(() => {
+    if (!defaultSkuForDisplay || activeVariantGroups.length === 0) {
+      return {};
+    }
+
+    const skuOptionIds = new Set(
+      defaultSkuForDisplay.skuOptions.map(
+        (skuOption) => skuOption.variantOptionId,
+      ),
+    );
+
+    return Object.fromEntries(
+      activeVariantGroups
+        .map((group) => {
+          const option = group.options.find((item) =>
+            skuOptionIds.has(item.id),
+          );
+
+          return option ? [group.id, option.id] : null;
+        })
+        .filter(
+          (entry): entry is [string, string] => entry !== null,
+        ),
+    );
+  }, [
+    activeVariantGroups,
+    defaultSkuForDisplay,
+  ]);
+
   const [
     selectedOptions,
     setSelectedOptions,
-  ] = useState<
-    Record<string, string>
-  >({});
+  ] = useState<Record<string, string>>(
+    initialSelectedOptions,
+  );
 
   const [
     customerNote,
@@ -668,39 +755,67 @@ export default function AddToCartButton({
 
   /**
    * ==========================================================
-   * FLASH SALE APPLIED
+   * FLASH SALE ELIGIBILITY — ALL OR NOTHING
    * ==========================================================
+   *
+   * Qty <= remaining promo rights + remaining global quota
+   *     -> seluruh qty harga Flash Sale
+   * Qty > salah satu limit
+   *     -> seluruh qty harga normal
+   *
+   * Tidak ada split price dalam satu SKU.
    */
+  const flashSaleRemainingCustomerLimit =
+    activeFlashSaleItem?.perUserLimit !== null &&
+    activeFlashSaleItem
+      ? Math.max(
+          0,
+          Number(activeFlashSaleItem.perUserLimit) -
+            Number(activeFlashSaleItem.userPurchasedQuantity ?? 0)
+        )
+      : Number.MAX_SAFE_INTEGER;
+
+  const flashSaleEligibleQuantity =
+    activeFlashSaleItem
+      ? Math.min(
+          activeFlashSaleItem
+            ? Math.max(
+                0,
+                Number(activeFlashSaleItem.stockLimit) -
+                  Number(activeFlashSaleItem.soldQuantity)
+              )
+            : 0,
+          flashSaleRemainingCustomerLimit
+        )
+      : 0;
+
   const isFlashSaleApplied =
-    activeFlashSaleItem !==
-    null;
+    activeFlashSaleItem !== null &&
+    quantity <= flashSaleEligibleQuantity &&
+    flashSaleEligibleQuantity > 0;
+
+  const normalUnitPrice =
+    selectedSkuPricing?.isFlashSaleApplied
+      ? originalUnitPrice
+      : selectedSkuPricing
+        ? Math.max(
+            0,
+            Number(selectedSkuPricing.finalPrice)
+          )
+        : Math.max(
+            0,
+            originalUnitPrice - discountAmount
+          );
 
   /**
    * ==========================================================
    * FINAL UNIT PRICE
    * ==========================================================
-   *
-   * Priority:
-   *
-   * 1. Flash Sale
-   * 2. Product Discount
-   * 3. Normal SKU price
    */
   const unitPrice =
-    selectedSkuPricing
-      ? Math.max(
-          0,
-          Number(
-            selectedSkuPricing.finalPrice
-          )
-        )
-      : isFlashSaleApplied
-        ? flashSaleBasePrice
-        : Math.max(
-            0,
-            originalUnitPrice -
-              discountAmount
-          );
+    isFlashSaleApplied
+      ? flashSaleBasePrice
+      : normalUnitPrice;
 
   /**
    * ==========================================================
@@ -754,33 +869,43 @@ export default function AddToCartButton({
         )
       : null;
 
-  /**
-   * ==========================================================
-   * FLASH SALE SOLD PERCENTAGE
-   * ==========================================================
-   */
-  const flashSaleSoldPercentage =
-    isFlashSaleApplied &&
-    activeFlashSaleItem &&
-    Number(
-      activeFlashSaleItem.stockLimit
-    ) > 0
+
+  const flashSaleRemainingPercentage =
+    isFlashSaleApplied && activeFlashSaleItem && Number(activeFlashSaleItem.stockLimit) > 0
       ? Math.min(
           100,
           Math.max(
             0,
-            (
-              Number(
-                activeFlashSaleItem.soldQuantity
-              ) /
-              Number(
-                activeFlashSaleItem.stockLimit
-              )
-            ) *
-              100
-          )
+            (Number(activeFlashSaleItem.stockLimit) -
+              Number(activeFlashSaleItem.soldQuantity)) /
+              Number(activeFlashSaleItem.stockLimit) *
+              100,
+          ),
         )
       : 0;
+
+  const flashSaleSaving = isFlashSaleApplied && activeFlashSaleItem
+    ? Math.max(
+        0,
+        Number(activeFlashSaleItem.originalPrice) -
+          Number(activeFlashSaleItem.flashPrice),
+      )
+    : 0;
+
+  const flashSaleDiscountPercentage =
+    isFlashSaleApplied && activeFlashSaleItem && Number(activeFlashSaleItem.originalPrice) > 0
+      ? Math.round(
+          (flashSaleSaving / Number(activeFlashSaleItem.originalPrice)) * 100,
+        )
+      : 0;
+
+  const selectedVariantSummary = activeVariantGroups
+    .map((group) => {
+      const selectedOptionId = selectedOptions[group.id];
+      return group.options.find((option) => option.id === selectedOptionId)?.label ?? null;
+    })
+    .filter((label): label is string => Boolean(label))
+    .join(' • ');
 
   /**
    * ==========================================================
@@ -789,15 +914,8 @@ export default function AddToCartButton({
    */
 const effectiveMaxQuantity =
   isPreOrder
-    ? flashSaleRemainingStock !== null
-      ? flashSaleRemainingStock
-      : Number.MAX_SAFE_INTEGER
-    : flashSaleRemainingStock !== null
-      ? Math.min(
-          currentStock,
-          flashSaleRemainingStock
-        )
-      : currentStock;
+    ? Number.MAX_SAFE_INTEGER
+    : currentStock;
 
   /**
    * ==========================================================
@@ -820,12 +938,7 @@ const outOfStock =
    * FLASH SALE SOLD OUT
    * ==========================================================
    */
-  const isFlashSaleSoldOut =
-    isFlashSaleApplied &&
-    flashSaleRemainingStock !==
-      null &&
-    flashSaleRemainingStock <=
-      0;
+  const isFlashSaleSoldOut = false;
 
   /**
    * ==========================================================
@@ -1234,8 +1347,96 @@ setQuantity(
   return (
     <div className="w-full space-y-3">
 
-      {/* Harga awal ditampilkan oleh halaman produk. Setelah varian dipilih,
-          harga SKU tampil ringkas di bawah pilihan varian. */}
+      {/* ====================================================== */}
+      {/* ACTIVE PRICE PANEL */}
+      {/* ====================================================== */}
+
+      {selectedSku && flashSaleItems.length > 0 && !isFlashSaleApplied && (
+        <section
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5"
+          aria-label="Harga normal"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Harga Normal
+          </p>
+          <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1">
+            <span className="text-3xl font-black tracking-tight text-[#075bb5] sm:text-4xl">
+              {formatRupiah(normalUnitPrice)}
+            </span>
+          </div>
+        </section>
+      )}
+
+      {/* ====================================================== */}
+      {/* FLASH SALE */}
+      {/* ====================================================== */}
+
+      {isFlashSaleApplied && activeFlashSaleItem && (
+        <section
+          className="overflow-hidden rounded-2xl border border-cyan-200 bg-white shadow-sm"
+          aria-label="Flash Sale"
+        >
+          <div className="bg-linear-to-br from-[#0877df] via-[#0b8ff2] to-[#35d8f4] px-4 py-3.5 text-white sm:px-5 sm:py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white shadow-sm">
+                    <Zap className="h-5 w-5 fill-current" />
+                  </span>
+                  <div>
+                    <p className="text-xl font-black italic tracking-wide sm:text-[25px]">FLASH SALE</p>
+                    <p className="mt-0.5 text-xs font-medium text-white/85">
+                      Kesempatan terbatas! Dapatkan sekarang sebelum kehabisan!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-950/35 px-3 py-2 sm:px-3.5">
+                <Clock3 className="h-4 w-4 text-white/90" />
+                <FlashSaleCountdown endsAt={activeFlashSaleItem.endsAt} />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-linear-to-b from-cyan-50/90 to-white px-4 py-4 sm:px-5 sm:py-4.5">
+            <div className="flex flex-wrap items-end gap-x-3 gap-y-1.5">
+              <span className="text-3xl font-black tracking-tight text-[#075bb5] sm:text-4xl">
+                {formatRupiah(unitPrice)}
+              </span>
+              <span className="pb-1 text-base font-medium text-slate-500 line-through sm:text-lg">
+                {formatRupiah(Number(activeFlashSaleItem.originalPrice))}
+              </span>
+              <span className="mb-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-black text-rose-600">
+                -{flashSaleDiscountPercentage}%
+              </span>
+            </div>
+
+            <p className="mt-1 text-base font-bold text-emerald-600 sm:text-lg">
+              Hemat {formatRupiah(flashSaleSaving)}
+            </p>
+
+            <div className="mt-3.5">
+              <div className="mb-1.5 flex items-center justify-between gap-3 text-xs sm:text-sm">
+                <span className="inline-flex items-center gap-1.5 font-bold text-rose-600">
+                  <Flame className="h-4 w-4 fill-current" />
+                  Tersisa {flashSaleRemainingStock} dari {activeFlashSaleItem.stockLimit} kuota promo
+                </span>
+                <span className="font-bold text-slate-500">
+                  {Math.round(flashSaleRemainingPercentage)}%
+                </span>
+              </div>
+
+              <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-[#1687e8] transition-all duration-500"
+                  style={{ width: `${flashSaleRemainingPercentage}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ====================================================== */}
       {/* VARIANT GROUPS */}
@@ -1358,31 +1559,30 @@ setQuantity(
       )}
 
       {selectedSku && (
-        <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-3 py-2">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium text-slate-500">Harga varian</span>
-            <div className="flex items-baseline gap-2">
-              {originalUnitPrice > unitPrice && (
-                <span className="text-xs text-slate-400 line-through">
-                  {formatRupiah(originalUnitPrice)}
-                </span>
-              )}
-              <span className="text-base font-bold text-cyan-700">
-                {formatRupiah(unitPrice)}
-              </span>
+        <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 px-4 py-3 sm:px-4.5">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-cyan-600 shadow-sm ring-1 ring-cyan-100">
+              <Package className="h-5 w-5" />
+            </span>
+
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900">Varian terpilih</p>
+              <p className="mt-0.5 truncate text-xs text-slate-500">
+                {selectedVariantSummary || "Varian terpilih"}
+              </p>
             </div>
           </div>
-          {originalUnitPrice > unitPrice && (
-            <p className="mt-0.5 text-right text-[11px] font-semibold text-emerald-600">
+
+          {isFlashSaleApplied ? (
+            <div className="mt-2 ml-12 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+              <Zap className="h-3.5 w-3.5 fill-current" />
+              Flash Sale aktif untuk varian ini
+            </div>
+          ) : originalUnitPrice > unitPrice ? (
+            <p className="mt-1 ml-12 text-xs font-semibold text-emerald-600">
               Hemat {formatRupiah(currentSaving)}
             </p>
-          )}
-          {!isPreOrder && (
-            <p className="mt-0.5 text-right text-[11px] text-slate-500">{currentStock} stok tersedia</p>
-          )}
-          {isPreOrder && (
-            <p className="mt-1 text-right text-xs text-cyan-700">Pre-Order</p>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -1396,10 +1596,13 @@ setQuantity(
 
           <label
             htmlFor="customer-note"
-            className="text-sm text-slate-500"
+            className="block text-sm text-slate-500"
           >
-            Catatan Pesanan <span className="font-normal text-slate-400">(opsional)</span>
+            Catatan Pesanan
           </label>
+          <span className="mt-0.5 block text-xs text-slate-400">
+            (opsional)
+          </span>
 
         </div>
 
@@ -1546,13 +1749,8 @@ setQuantity(
 
           {!outOfStock && (
             <span className="text-xs text-slate-400">
-              {isFlashSaleApplied &&
-              flashSaleRemainingStock !==
-                null
-                ? flashSaleRemainingStock <=
-                  0
-                  ? "Kuota Flash Sale habis"
-                  : `${flashSaleRemainingStock} kuota Flash Sale tersisa`
+              {isFlashSaleApplied
+                ? `${flashSaleRemainingStock ?? 0} kuota Flash Sale tersisa`
                 : `${currentStock} tersedia`}
             </span>
           )}
@@ -1565,16 +1763,19 @@ setQuantity(
       {/* TOTAL PRICE */}
       {/* ====================================================== */}
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="rounded-xl bg-cyan-50 px-3.5 py-3 ring-1 ring-cyan-100 sm:px-4">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-semibold text-slate-700">Total Harga</span>
-          <span className={isFlashSaleApplied ? "text-base font-bold text-red-600" : "text-base font-bold text-slate-950"}>
+          <div>
+            <span className="block text-base font-bold text-[#075bb5]">Total Harga</span>
+            <span className="text-xs text-slate-500">
+              {quantity} × {selectedVariantSummary || "produk"}
+            </span>
+          </div>
+          <span className="text-2xl font-black tracking-tight text-[#075bb5] sm:text-3xl">
             {formatRupiah(totalPrice)}
           </span>
         </div>
-        {quantity > 1 && (
-          <p className="mt-1 text-right text-xs text-slate-400">{formatRupiah(unitPrice)} × {quantity}</p>
-        )}
+
         {totalDiscountAmount > 0 && (
           <p className="mt-1 text-right text-xs font-medium text-emerald-600">
             Total hemat {formatRupiah(totalDiscountAmount)}
@@ -1598,13 +1799,14 @@ setQuantity(
               effectiveMaxQuantity <= 0
             }
             className={[
-              "flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-cyan-600 px-2 py-2 text-sm font-bold text-cyan-700 transition active:scale-[0.99]",
+              "flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-cyan-600 px-2 py-2.5 text-sm font-bold text-cyan-700 transition active:scale-[0.99]",
               outOfStock || isFlashSaleSoldOut || isPending || effectiveMaxQuantity <= 0
                 ? "cursor-not-allowed border-slate-200 text-slate-400"
                 : "bg-white hover:bg-cyan-50",
             ].join(" ")}
           >
-            {isPending ? "Memproses..." : selectionIncomplete ? "Pilih Varian" : "Tambah ke Keranjang"}
+            <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+            {isPending ? "Memproses..." : selectionIncomplete ? "Pilih Varian" : "Masukkan Keranjang"}
           </button>
 
           <button
@@ -1617,12 +1819,13 @@ setQuantity(
               effectiveMaxQuantity <= 0
             }
             className={[
-              "flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-sm font-bold text-white shadow-sm transition active:scale-[0.99]",
+              "flex min-h-12 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-bold text-white shadow-sm transition active:scale-[0.99]",
               outOfStock || isFlashSaleSoldOut || isPending || effectiveMaxQuantity <= 0
                 ? "cursor-not-allowed bg-slate-300"
                 : "bg-cyan-600 hover:bg-cyan-700",
             ].join(" ")}
           >
+            <Zap className="h-4 w-4 fill-current sm:h-5 sm:w-5" />
             {isPending ? "Memproses..." : isFlashSaleSoldOut ? "Kuota Habis" : selectionIncomplete ? "Pilih Varian" : outOfStock ? "Produk Habis" : "Beli Sekarang"}
           </button>
         </div>

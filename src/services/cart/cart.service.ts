@@ -279,7 +279,8 @@ static async resolveCheckoutPricing(
     product: {
       price: Prisma.Decimal;
     };
-  }>
+  }>,
+  customerId?: string | null
 ) {
   if (items.length === 0) {
     return new Map<string, ProductPricingResult>();
@@ -293,6 +294,8 @@ static async resolveCheckoutPricing(
         productId: item.productId,
         skuId: item.skuId,
         preferredFlashSaleItemId: null,
+        customerId,
+        quantity: item.quantity,
         fallbackPrice: item.product.price,
       });
 
@@ -963,6 +966,13 @@ if (
                   existingItem?.flashSaleItemId ??
                   null,
 
+                customerId:
+                  owner.type === "customer"
+                    ? owner.userId
+                    : null,
+
+                quantity: newQuantity,
+
                 fallbackPrice:
                   product.price,
               }
@@ -1370,6 +1380,13 @@ if (!hasOwnership) {
             preferredFlashSaleItemId:
               cartItem.flashSaleItemId,
 
+            customerId:
+              owner.type === "customer"
+                ? owner.userId
+                : null,
+
+            quantity,
+
             fallbackPrice:
               product.price,
           }
@@ -1773,6 +1790,13 @@ if (
             preferredFlashSaleItemId:
               targetCartItem?.flashSaleItemId ??
               null,
+
+            customerId:
+              owner.type === "customer"
+                ? owner.userId
+                : null,
+
+            quantity: finalQuantity,
 
             fallbackPrice:
               product.price,
@@ -2605,6 +2629,8 @@ static async mergeGuestCartIntoCustomerCart({
           existingCustomerItem?.flashSaleItemId ??
           guestItem.flashSaleItemId ??
           null,
+        customerId: userId,
+        quantity: finalQuantity,
         fallbackPrice: product.price,
       });
 

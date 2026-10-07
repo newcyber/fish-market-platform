@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type MouseEvent,
   useState,
 } from "react";
 
@@ -58,7 +59,12 @@ export function DeleteVoucherButton({
   const isUsed =
     usageCount > 0;
 
-  function openDialog() {
+  function openDialog(
+    event?: MouseEvent<HTMLButtonElement>
+  ) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     if (
       isDeleting ||
       isUsed
@@ -70,7 +76,12 @@ export function DeleteVoucherButton({
     setIsOpen(true);
   }
 
-  function closeDialog() {
+  function closeDialog(
+    event?: MouseEvent<HTMLButtonElement>
+  ) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     if (isDeleting) {
       return;
     }
@@ -79,7 +90,12 @@ export function DeleteVoucherButton({
     setError(null);
   }
 
-  async function handleDelete() {
+  async function handleDelete(
+    event?: MouseEvent<HTMLButtonElement>
+  ) {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     if (isDeleting) {
       return;
     }
@@ -169,11 +185,11 @@ export function DeleteVoucherButton({
               <span className="font-semibold text-gray-900">
                 {voucherCode}
               </span>{" "}
-              akan dinonaktifkan dan dipindahkan dari daftar voucher aktif.
+              akan dihapus dari daftar voucher aktif.
             </p>
 
             <p className="mt-2 text-xs leading-5 text-gray-500">
-              Data tidak dihapus secara fisik agar histori transaksi tetap aman.
+              Data tidak dihapus secara fisik dan histori transaksi tetap aman.
             </p>
 
             {error ? (
