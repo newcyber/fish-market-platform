@@ -5,7 +5,7 @@ import {
 
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import notificationService from "@/services/notification/notification.service";
@@ -21,7 +21,7 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
-    const user = await requireMobileAuth(request);
+    const user = await requireMobileCustomer(request);
 
     const { notificationId } = await context.params;
     const normalizedNotificationId = notificationId.trim();
@@ -56,6 +56,13 @@ export async function DELETE(
             error.code,
             error.message,
             401
+          );
+
+        case "ROLE_NOT_ALLOWED":
+          return mobileError(
+            error.code,
+            error.message,
+            403
           );
 
         case "ACCOUNT_INACTIVE":

@@ -44,7 +44,8 @@ export type MobileAuthErrorCode =
   | "INVALID_ACCESS_TOKEN"
   | "ACCOUNT_INACTIVE"
   | "EMAIL_NOT_VERIFIED"
-  | "SESSION_INVALIDATED";
+  | "SESSION_INVALIDATED"
+  | "ROLE_NOT_ALLOWED";
 
 /**
  * ============================================================
@@ -324,4 +325,29 @@ export async function requireMobileAuth(
 
     role: user.role,
   };
+}
+
+
+/**
+ * ============================================================
+ * REQUIRE MOBILE CUSTOMER
+ * ============================================================
+ *
+ * Customer-facing Mobile API guard. Authentication saja tidak
+ * cukup untuk endpoint customer karena access token mobile juga
+ * dapat dimiliki role internal.
+ */
+export async function requireMobileCustomer(
+  request: Request
+): Promise<MobileAuthenticatedUser> {
+  const user = await requireMobileAuth(request);
+
+  if (user.role !== "CUSTOMER") {
+    throw new MobileAuthError(
+      "ROLE_NOT_ALLOWED",
+      "Endpoint ini hanya dapat digunakan oleh akun customer."
+    );
+  }
+
+  return user;
 }

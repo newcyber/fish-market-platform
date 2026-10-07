@@ -5,7 +5,7 @@ import {
 
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import OrderService from "@/services/order/order.service";
@@ -351,7 +351,7 @@ export async function POST(
      */
 
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 
@@ -488,6 +488,13 @@ export async function POST(
               error.code
             ),
             401
+          );
+
+        case "ROLE_NOT_ALLOWED":
+          return mobileError(
+            error.code,
+            error.message,
+            403
           );
 
         case "ACCOUNT_INACTIVE":

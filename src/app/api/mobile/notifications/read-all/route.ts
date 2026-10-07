@@ -5,14 +5,14 @@ import {
 
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import notificationService from "@/services/notification/notification.service";
 
 export async function PATCH(request: Request) {
   try {
-    const user = await requireMobileAuth(request);
+    const user = await requireMobileCustomer(request);
 
     const updatedCount = await notificationService.markAllAsRead(
       user.id
@@ -34,6 +34,13 @@ export async function PATCH(request: Request) {
             error.code,
             error.message,
             401
+          );
+
+        case "ROLE_NOT_ALLOWED":
+          return mobileError(
+            error.code,
+            error.message,
+            403
           );
 
         case "ACCOUNT_INACTIVE":

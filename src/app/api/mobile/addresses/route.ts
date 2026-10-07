@@ -5,7 +5,7 @@ import {
 } from "@/lib/api/mobile-response";
 
 
-import { requireMobileAuth } from "@/lib/auth/mobile-auth";
+import { requireMobileCustomer } from "@/lib/auth/mobile-auth";
 import AddressService from "@/services/address/address.service";
 import {
   addressSchema,
@@ -25,7 +25,7 @@ import {
  *
  * User ID TIDAK pernah diterima dari request.
  * User ID selalu berasal dari access token yang sudah
- * diverifikasi oleh requireMobileAuth().
+ * diverifikasi oleh requireMobileCustomer().
  *
  * ============================================================
  */
@@ -49,7 +49,7 @@ export async function GET(
      */
 
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 
@@ -179,7 +179,7 @@ export async function POST(
      */
 
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 
@@ -394,6 +394,13 @@ function handleMobileAddressError(
           "INVALID_ACCESS_TOKEN",
           "Access token tidak valid atau sudah kedaluwarsa.",
           401
+        );
+
+      case "ROLE_NOT_ALLOWED":
+        return mobileError(
+          "ROLE_NOT_ALLOWED",
+          "Endpoint ini hanya dapat digunakan oleh akun customer.",
+          403
         );
 
       case "ACCOUNT_INACTIVE":

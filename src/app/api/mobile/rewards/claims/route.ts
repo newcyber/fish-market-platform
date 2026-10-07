@@ -5,7 +5,7 @@ import {
 
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import {
@@ -26,7 +26,7 @@ import {
  *
  * userId selalu berasal dari:
  *
- * requireMobileAuth(request)
+ * requireMobileCustomer(request)
  *
  * ============================================================
  */
@@ -42,7 +42,7 @@ export async function GET(
      */
 
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 
@@ -179,6 +179,13 @@ export async function GET(
             error.code,
             error.message,
             401
+          );
+
+        case "ROLE_NOT_ALLOWED":
+          return mobileError(
+            error.code,
+            error.message,
+            403
           );
 
         case "ACCOUNT_INACTIVE":

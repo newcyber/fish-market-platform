@@ -1,6 +1,6 @@
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import CartService from "@/services/cart/cart.service";
@@ -66,7 +66,7 @@ export async function PATCH(
 ) {
   try {
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 
@@ -133,6 +133,13 @@ return mobileSuccess({
       401
     );
 
+        case "ROLE_NOT_ALLOWED":
+          return mobileError(
+            error.code,
+            error.message,
+            403
+          );
+
         case "ACCOUNT_INACTIVE":
         case "EMAIL_NOT_VERIFIED":
           return mobileError(
@@ -177,7 +184,7 @@ export async function DELETE(
 ) {
   try {
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 

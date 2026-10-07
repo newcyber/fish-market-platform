@@ -6,7 +6,7 @@ import {
 
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import AddressRepository from "@/repositories/address/address.repository";
@@ -31,7 +31,7 @@ import {
  *
  * User ID TIDAK pernah diterima dari request.
  * User ID selalu berasal dari access token yang sudah
- * diverifikasi oleh requireMobileAuth().
+ * diverifikasi oleh requireMobileCustomer().
  *
  * ============================================================
  */
@@ -104,7 +104,7 @@ export async function GET(
 ) {
   try {
     const user =
-      await requireMobileAuth(request);
+      await requireMobileCustomer(request);
 
     const { addressId } =
       await context.params;
@@ -177,7 +177,7 @@ async function updateAddressHandler(
 ) {
   try {
     const user =
-      await requireMobileAuth(request);
+      await requireMobileCustomer(request);
 
     const { addressId } =
       await context.params;
@@ -305,7 +305,7 @@ export async function DELETE(
 ) {
   try {
     const user =
-      await requireMobileAuth(request);
+      await requireMobileCustomer(request);
 
     const { addressId } =
       await context.params;
@@ -380,6 +380,13 @@ function handleMobileAddressError(
           "INVALID_ACCESS_TOKEN",
           "Access token tidak valid atau sudah kedaluwarsa.",
           401
+        );
+
+      case "ROLE_NOT_ALLOWED":
+        return mobileError(
+          "ROLE_NOT_ALLOWED",
+          "Endpoint ini hanya dapat digunakan oleh akun customer.",
+          403
         );
 
       case "ACCOUNT_INACTIVE":

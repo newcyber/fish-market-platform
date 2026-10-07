@@ -5,7 +5,7 @@ import {
 
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import OrderService from "@/services/order/order.service";
@@ -26,7 +26,7 @@ export async function GET(
 ) {
   try {
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 
@@ -73,6 +73,7 @@ export async function GET(
     ]);
 
     const forbiddenCodes = new Set([
+      "ROLE_NOT_ALLOWED",
       "ACCOUNT_INACTIVE",
       "EMAIL_NOT_VERIFIED",
     ]);

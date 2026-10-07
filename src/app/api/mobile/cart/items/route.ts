@@ -1,6 +1,6 @@
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import CartService from "@/services/cart/cart.service";
@@ -110,7 +110,7 @@ export async function POST(
      * ==========================================================
      */
     const user =
-      await requireMobileAuth(
+      await requireMobileCustomer(
         request
       );
 
@@ -228,6 +228,13 @@ const cart =
       error.message,
       401
     );
+
+        case "ROLE_NOT_ALLOWED":
+          return mobileError(
+            error.code,
+            error.message,
+            403
+          );
 
         case "ACCOUNT_INACTIVE":
         case "EMAIL_NOT_VERIFIED":

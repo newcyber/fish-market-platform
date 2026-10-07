@@ -5,7 +5,7 @@ import {
 
 import {
   MobileAuthError,
-  requireMobileAuth,
+  requireMobileCustomer,
 } from "@/lib/auth/mobile-auth";
 
 import notificationService from "@/services/notification/notification.service";
@@ -30,7 +30,7 @@ function parsePositiveInteger(
 
 export async function GET(request: Request) {
   try {
-    const user = await requireMobileAuth(request);
+    const user = await requireMobileCustomer(request);
 
     const url = new URL(request.url);
 
@@ -94,6 +94,13 @@ export async function GET(request: Request) {
             error.code,
             error.message,
             401
+          );
+
+        case "ROLE_NOT_ALLOWED":
+          return mobileError(
+            error.code,
+            error.message,
+            403
           );
 
         case "ACCOUNT_INACTIVE":
