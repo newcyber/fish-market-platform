@@ -153,13 +153,8 @@ export class WapiCustomerDeliveryService {
      * action once the provider supports idempotency or the process is known
      * to have terminated.
      */
-    return prisma.$transaction(
+    const claim = await prisma.$transaction(
       async (tx) => {
-        // PostgreSQL advisory transaction locks are released automatically
-        // on commit/rollback, including when the process throws.
-        // pg_advisory_xact_lock() returns PostgreSQL VOID.
-        // $queryRaw tries to deserialize that VOID result and causes Prisma P2010.
-        // $executeRaw is the correct API because we only need the lock side-effect.
         await tx.$executeRaw`
           SELECT pg_advisory_xact_lock(hashtext(${eventKey}))
         `;
@@ -177,9 +172,12 @@ export class WapiCustomerDeliveryService {
 
         if (!storeSettings?.wapiCustomerNotificationEnabled) {
           return {
-            status: "BLOCKED" as const,
-            errorMessage:
-              "Notifikasi WhatsApp transaksional customer dinonaktifkan admin.",
+            action: "RESULT" as const,
+            result: {
+              status: "BLOCKED" as const,
+              errorMessage:
+                "Notifikasi WhatsApp transaksional customer dinonaktifkan admin.",
+            },
           };
         }
 
@@ -196,8 +194,11 @@ export class WapiCustomerDeliveryService {
 
         if (!eventEnabled) {
           return {
-            status: "BLOCKED" as const,
-            errorMessage: `Notifikasi WhatsApp customer untuk event ${eventType} dinonaktifkan admin.`,
+            action: "RESULT" as const,
+            result: {
+              status: "BLOCKED" as const,
+              errorMessage: `Notifikasi WhatsApp customer untuk event ${eventType} dinonaktifkan admin.`,
+            },
           };
         }
 
@@ -214,39 +215,49 @@ export class WapiCustomerDeliveryService {
 
         if (!user || !user.isActive || user.deletedAt) {
           return {
-            status: "SKIPPED" as const,
-            errorMessage: "Customer tidak aktif atau tidak ditemukan.",
+            action: "RESULT" as const,
+            result: {
+              status: "SKIPPED" as const,
+              errorMessage: "Customer tidak aktif atau tidak ditemukan.",
+            },
           };
         }
 
         if (!user.wapiTransactionalEnabled) {
           return {
-            status: "SKIPPED" as const,
-            errorMessage:
-              "Notifikasi WhatsApp transaksional dinonaktifkan customer.",
+            action: "RESULT" as const,
+            result: {
+              status: "SKIPPED" as const,
+              errorMessage:
+                "Notifikasi WhatsApp transaksional dinonaktifkan customer.",
+            },
           };
         }
 
         const rawPhone = user.phone?.trim();
-
         if (!rawPhone) {
           return {
-            status: "SKIPPED" as const,
-            errorMessage: "Customer tidak memiliki nomor WhatsApp.",
+            action: "RESULT" as const,
+            result: {
+              status: "SKIPPED" as const,
+              errorMessage: "Customer tidak memiliki nomor WhatsApp.",
+            },
           };
         }
 
         let phone: string;
-
         try {
           phone = normalizeWhatsAppPhone(rawPhone);
         } catch (error) {
           return {
-            status: "SKIPPED" as const,
-            errorMessage:
-              error instanceof Error
-                ? error.message
-                : "Nomor WhatsApp customer tidak valid.",
+            action: "RESULT" as const,
+            result: {
+              status: "SKIPPED" as const,
+              errorMessage:
+                error instanceof Error
+                  ? error.message
+                  : "Nomor WhatsApp customer tidak valid.",
+            },
           };
         }
 
@@ -254,29 +265,35 @@ export class WapiCustomerDeliveryService {
           where: { eventKey },
           select: {
             id: true,
-              status: true,
-              attempts: true,
-              messageId: true,
-              errorMessage: true,
-              updatedAt: true,
+            status: true,
+            attempts: true,
+            messageId: true,
+            errorMessage: true,
+            updatedAt: true,
             createdAt: true,
           },
         });
 
         if (existing?.status === WapiDeliveryStatus.SENT) {
           return {
-            status: "ALREADY_SENT" as const,
-            deliveryId: existing.id,
-            messageId: existing.messageId ?? undefined,
-            attempts: existing.attempts,
+            action: "RESULT" as const,
+            result: {
+              status: "ALREADY_SENT" as const,
+              deliveryId: existing.id,
+              messageId: existing.messageId ?? undefined,
+              attempts: existing.attempts,
+            },
           };
         }
 
         if (existing?.status === WapiDeliveryStatus.PROCESSING) {
           return {
-            status: "IN_PROGRESS" as const,
-            deliveryId: existing.id,
-            attempts: existing.attempts,
+            action: "RESULT" as const,
+            result: {
+              status: "IN_PROGRESS" as const,
+              deliveryId: existing.id,
+              attempts: existing.attempts,
+            },
           };
         }
 
@@ -302,50 +319,53 @@ export class WapiCustomerDeliveryService {
 
         if (delivery.attempts >= MAX_ATTEMPTS) {
           return {
-            status: "FAILED" as const,
-            deliveryId: delivery.id,
-            attempts: delivery.attempts,
-            errorMessage:
-              delivery.errorMessage ||
-              `Batas retry ${MAX_ATTEMPTS} kali telah tercapai.`,
+            action: "RESULT" as const,
+            result: {
+              status: "FAILED" as const,
+              deliveryId: delivery.id,
+              attempts: delivery.attempts,
+              errorMessage:
+                delivery.errorMessage ||
+                `Batas retry ${MAX_ATTEMPTS} kali telah tercapai.`,
+            },
           };
         }
 
         if (delivery.status === WapiDeliveryStatus.FAILED && delivery.errorMessage) {
           const classified = parseWapiCustomerError(delivery.errorMessage);
-
           if (classified && !classified.retryable) {
             return {
-              status: "BLOCKED" as const,
-              deliveryId: delivery.id,
-              attempts: delivery.attempts,
-              errorMessage: `Retry diblokir: ${classified.code}. ${classified.message}`,
+              action: "RESULT" as const,
+              result: {
+                status: "BLOCKED" as const,
+                deliveryId: delivery.id,
+                attempts: delivery.attempts,
+                errorMessage: `Retry diblokir: ${classified.code}. ${classified.message}`,
+              },
             };
           }
 
           const cooldown = getRetryCooldown(delivery);
           if (cooldown?.blocked) {
             return {
-              status: "BLOCKED" as const,
-              deliveryId: delivery.id,
-              attempts: delivery.attempts,
-              errorMessage: `Retry berikutnya baru dapat dilakukan sekitar ${cooldown.delayMinutes} menit setelah kegagalan terakhir.`,
+              action: "RESULT" as const,
+              result: {
+                status: "BLOCKED" as const,
+                deliveryId: delivery.id,
+                attempts: delivery.attempts,
+                errorMessage: `Retry berikutnya baru dapat dilakukan sekitar ${cooldown.delayMinutes} menit setelah kegagalan terakhir.`,
+              },
             };
           }
         }
 
-        const claim = await tx.wapiCustomerDelivery.updateMany({
+        const claimResult = await tx.wapiCustomerDelivery.updateMany({
           where: {
             id: delivery.id,
             status: {
-              in: [
-                WapiDeliveryStatus.PENDING,
-                WapiDeliveryStatus.FAILED,
-              ],
+              in: [WapiDeliveryStatus.PENDING, WapiDeliveryStatus.FAILED],
             },
-            attempts: {
-              lt: MAX_ATTEMPTS,
-            },
+            attempts: { lt: MAX_ATTEMPTS },
           },
           data: {
             status: WapiDeliveryStatus.PROCESSING,
@@ -354,7 +374,7 @@ export class WapiCustomerDeliveryService {
           },
         });
 
-        if (claim.count !== 1) {
+        if (claimResult.count !== 1) {
           const current = await tx.wapiCustomerDelivery.findUnique({
             where: { id: delivery.id },
             select: {
@@ -367,99 +387,140 @@ export class WapiCustomerDeliveryService {
 
           if (current?.status === WapiDeliveryStatus.SENT) {
             return {
-              status: "ALREADY_SENT" as const,
-              deliveryId: delivery.id,
-              messageId: current.messageId ?? undefined,
-              attempts: current.attempts,
+              action: "RESULT" as const,
+              result: {
+                status: "ALREADY_SENT" as const,
+                deliveryId: delivery.id,
+                messageId: current.messageId ?? undefined,
+                attempts: current.attempts,
+              },
             };
           }
 
           return {
-            status: "IN_PROGRESS" as const,
-            deliveryId: delivery.id,
-            attempts: current?.attempts ?? delivery.attempts,
-            errorMessage: current?.errorMessage ?? undefined,
+            action: "RESULT" as const,
+            result: {
+              status: "IN_PROGRESS" as const,
+              deliveryId: delivery.id,
+              attempts: current?.attempts ?? delivery.attempts,
+              errorMessage: current?.errorMessage ?? undefined,
+            },
           };
         }
 
-        try {
-          const result = await whatsappService.sendText({
-            phone,
-            message,
-          });
-
-          const updated = await tx.wapiCustomerDelivery.update({
-            where: {
-              id: delivery.id,
-            },
-            data: {
-              status: WapiDeliveryStatus.SENT,
-              messageId: result.messageId,
-              jid: result.jid,
-              attempts: {
-                increment: 1,
-              },
-              errorMessage: null,
-              processingStartedAt: null,
-              sentAt: new Date(),
-            },
-            select: {
-              attempts: true,
-            },
-          });
-
-          return {
-            status: "SENT" as const,
-            deliveryId: delivery.id,
-            messageId: result.messageId,
-            attempts: updated.attempts,
-          };
-        } catch (error) {
-          const classified = classifyWapiCustomerError(error);
-          const errorMessage = formatWapiCustomerError(classified);
-
-          const updated = await tx.wapiCustomerDelivery.update({
-            where: {
-              id: delivery.id,
-            },
-            data: {
-              status: WapiDeliveryStatus.FAILED,
-              attempts: {
-                increment: 1,
-              },
-              errorMessage,
-              processingStartedAt: null,
-            },
-            select: {
-              attempts: true,
-            },
-          });
-
-          console.error("[WAPI_CUSTOMER_DELIVERY_ERROR]", {
-            userId,
-            orderId,
-            eventKey,
-            eventType,
-            attempts: updated.attempts,
-            error,
-          });
-
-          return {
-            status: "FAILED" as const,
-            deliveryId: delivery.id,
-            attempts: updated.attempts,
-            errorMessage,
-          };
-        }
+        return {
+          action: "SEND" as const,
+          deliveryId: delivery.id,
+          phone,
+          message,
+          attempts: delivery.attempts,
+        };
       },
-      {
-        maxWait: 10_000,
-        timeout: Math.max(
-          30_000,
-          Number(process.env.WAPI_CUSTOMER_TRANSACTION_TIMEOUT_MS || 30_000),
-        ),
-      },
+      { maxWait: 10_000, timeout: 10_000 },
     );
+
+    if (claim.action === "RESULT") {
+      return claim.result;
+    }
+
+    let result: Awaited<ReturnType<typeof whatsappService.sendText>>;
+
+    try {
+      result = await whatsappService.sendText({
+        phone: claim.phone,
+        message: claim.message,
+      });
+    } catch (error) {
+      const classified = classifyWapiCustomerError(error);
+      const errorMessage = formatWapiCustomerError(classified);
+
+      const updated = await prisma.wapiCustomerDelivery.updateMany({
+        where: {
+          id: claim.deliveryId,
+          status: WapiDeliveryStatus.PROCESSING,
+        },
+        data: {
+          status: WapiDeliveryStatus.FAILED,
+          attempts: { increment: 1 },
+          errorMessage,
+          processingStartedAt: null,
+        },
+      });
+
+      console.error("[WAPI_CUSTOMER_DELIVERY_ERROR]", {
+        userId,
+        orderId,
+        eventKey,
+        eventType,
+        attempts: claim.attempts + 1,
+        persistenceUpdated: updated.count === 1,
+        error,
+      });
+
+      return {
+        status: "FAILED" as const,
+        deliveryId: claim.deliveryId,
+        attempts: claim.attempts + 1,
+        errorMessage,
+      };
+    }
+
+    try {
+      const updated = await prisma.wapiCustomerDelivery.updateMany({
+        where: {
+          id: claim.deliveryId,
+          status: WapiDeliveryStatus.PROCESSING,
+        },
+        data: {
+          status: WapiDeliveryStatus.SENT,
+          messageId: result.messageId,
+          jid: result.jid,
+          attempts: { increment: 1 },
+          errorMessage: null,
+          processingStartedAt: null,
+          sentAt: new Date(),
+        },
+      });
+
+      if (updated.count !== 1) {
+        console.error("[WAPI_CUSTOMER_DELIVERY_PERSISTENCE_ERROR]", {
+          deliveryId: claim.deliveryId,
+          eventKey,
+          messageId: result.messageId,
+          reason: "Delivery sudah tidak berada pada status PROCESSING.",
+        });
+
+        return {
+          status: "IN_PROGRESS" as const,
+          deliveryId: claim.deliveryId,
+          attempts: claim.attempts,
+          errorMessage:
+            "WhatsApp berhasil dikirim tetapi status delivery belum dapat disimpan. Retry otomatis diblokir untuk mencegah duplicate message.",
+        };
+      }
+
+      return {
+        status: "SENT" as const,
+        deliveryId: claim.deliveryId,
+        messageId: result.messageId,
+        attempts: claim.attempts + 1,
+      };
+    } catch (error) {
+      console.error("[WAPI_CUSTOMER_DELIVERY_PERSISTENCE_ERROR]", {
+        deliveryId: claim.deliveryId,
+        eventKey,
+        messageId: result.messageId,
+        error,
+      });
+
+      return {
+        status: "IN_PROGRESS" as const,
+        deliveryId: claim.deliveryId,
+        attempts: claim.attempts + 1,
+        errorMessage:
+          "WhatsApp berhasil dikirim tetapi status delivery belum dapat disimpan. Retry otomatis diblokir untuk mencegah duplicate message.",
+      };
+    }
   }
 
   /**
