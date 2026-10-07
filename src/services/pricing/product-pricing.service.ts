@@ -1,5 +1,6 @@
 import {
   Prisma,
+  type PrismaClient,
   ProductDiscountType,
   PromotionDiscountType,
   PromotionStatus,
@@ -211,7 +212,7 @@ export default class ProductPricingService {
    * ============================================================
    */
   static async resolve(
-    tx: Prisma.TransactionClient,
+    tx: Prisma.TransactionClient | PrismaClient,
     input: ResolveProductPriceInput
   ): Promise<ProductPricingResult> {
     const {

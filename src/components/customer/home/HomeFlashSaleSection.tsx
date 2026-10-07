@@ -5,10 +5,10 @@ import Link from "next/link";
 
 import {
   ChevronRight,
-  Flame,
   Package,
   Plus,
   Timer,
+  Zap,
 } from "lucide-react";
 
 import {
@@ -173,6 +173,36 @@ function getProductImage(
   );
 }
 
+function getSoldStatus(
+  soldQuantity: number,
+  stockLimit: number
+): string {
+  if (stockLimit <= 0) {
+    return "Stok habis";
+  }
+
+  const percent = Math.min(
+    100,
+    Math.round(
+      (soldQuantity / stockLimit) * 100
+    )
+  );
+
+  if (percent >= 90) {
+    return "Hampir habis";
+  }
+
+  if (percent >= 70) {
+    return "Banyak dibeli";
+  }
+
+  if (percent >= 40) {
+    return "Mulai diminati";
+  }
+
+  return "Masih tersedia";
+}
+
 function getDiscountPercent(
   originalPrice: NumericValue,
   flashPrice: NumericValue
@@ -240,14 +270,16 @@ function Countdown({
         className="
           rounded-xl
           border
-          border-white/20
-          bg-white/10
+          border-red-300/50
+          bg-gradient-to-r
+          from-red-700/70
+          to-orange-500/40
           px-2.5
           py-1.5
           text-[10px]
-          font-bold
+          font-black
           text-white
-          shadow-sm
+          shadow-[0_0_18px_rgba(239,68,68,0.40)]
           backdrop-blur-md
           sm:rounded-2xl
           sm:px-3
@@ -294,26 +326,55 @@ function Countdown({
   return (
     <div
       className="
+        group/timer
+        relative
         flex
         items-center
         gap-1.5
         rounded-xl
         border
-        border-white/20
-        bg-white/10
+        border-orange-300/50
+        bg-gradient-to-br
+        from-red-950/55
+        via-red-700/25
+        to-orange-500/15
         px-2
         py-1.5
-        shadow-sm
+        shadow-[0_0_18px_rgba(239,68,68,0.25)]
+        ring-1
+        ring-red-400/20
         backdrop-blur-md
+        transition-all
+        duration-300
+        hover:border-orange-200/80
+        hover:shadow-[0_0_28px_rgba(239,68,68,0.55)]
+        hover:ring-orange-300/40
         sm:gap-2
         sm:rounded-2xl
         sm:px-3
         sm:py-2
       "
     >
+      <span
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          -inset-1
+          rounded-2xl
+          bg-red-500/15
+          blur-md
+          opacity-70
+          transition-opacity
+          duration-300
+          group-hover/timer:opacity-100
+        "
+      />
       {/* TIMER ICON */}
       <div
         className="
+          relative
+          z-10
           flex
           h-7
           w-7
@@ -321,10 +382,19 @@ function Countdown({
           items-center
           justify-center
           rounded-lg
-          bg-white/10
-          text-[var(--fresh-400)]
+          border
+          border-orange-300/40
+          bg-gradient-to-br
+          from-red-500/30
+          to-orange-400/15
+          text-orange-200
+          shadow-[0_0_12px_rgba(249,115,22,0.35)]
           ring-1
           ring-white/10
+          transition
+          duration-300
+          group-hover/timer:scale-105
+          group-hover/timer:shadow-[0_0_18px_rgba(249,115,22,0.65)]
           sm:h-8
           sm:w-8
           sm:rounded-xl
@@ -332,12 +402,18 @@ function Countdown({
       >
         <Timer
           aria-hidden="true"
-          className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+          className="
+            h-3.5
+            w-3.5
+            drop-shadow-[0_0_5px_rgba(253,224,71,0.8)]
+            sm:h-4
+            sm:w-4
+          "
         />
       </div>
 
       {/* COUNTDOWN CONTENT */}
-      <div className="min-w-0">
+      <div className="relative z-10 min-w-0">
         <p
           className="
             text-[8px]
@@ -345,7 +421,8 @@ function Countdown({
             uppercase
             leading-none
             tracking-[0.12em]
-            text-white/70
+            text-orange-100/85
+            drop-shadow-[0_0_5px_rgba(251,146,60,0.35)]
             sm:text-[9px]
             sm:tracking-[0.14em]
           "
@@ -365,14 +442,22 @@ function Countdown({
                   min-w-[34px]
                   rounded-lg
                   border
-                  border-white/15
-                  bg-white/10
+                  border-red-300/30
+                  bg-gradient-to-b
+                  from-red-500/20
+                  via-red-900/30
+                  to-black/15
                   px-1
                   py-1
                   text-center
-                  shadow-none
-                  ring-0
+                  shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_10px_rgba(239,68,68,0.18)]
+                  ring-1
+                  ring-red-400/10
                   backdrop-blur-sm
+                  transition
+                  duration-300
+                  group-hover/timer:border-orange-300/50
+                  group-hover/timer:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_14px_rgba(239,68,68,0.30)]
                   sm:min-w-[40px]
                   sm:rounded-xl
                   sm:px-1.5
@@ -385,7 +470,12 @@ function Countdown({
     font-black
     leading-4
     tabular-nums
-    text-rose-500
+    text-red-300
+    drop-shadow-[0_0_7px_rgba(248,113,113,0.85)]
+    transition
+    duration-300
+    group-hover/timer:text-orange-200
+    group-hover/timer:drop-shadow-[0_0_10px_rgba(251,146,60,0.95)]
     sm:text-sm
   "
 >
@@ -417,7 +507,8 @@ function Countdown({
                     text-[10px]
                     font-black
                     leading-none
-                    text-white/45
+                    text-orange-200/70
+                    drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]
                     sm:text-xs
                   "
                 >
@@ -468,6 +559,11 @@ function FlashSaleProductCard({
         )
       : 0;
 
+  const soldStatus = getSoldStatus(
+    item.soldQuantity,
+    item.stockLimit
+  );
+
   return (
     <div
   className="
@@ -484,6 +580,8 @@ function FlashSaleProductCard({
         transition
         duration-200
         active:scale-[0.99]
+        hover:border-red-100
+        hover:shadow-[0_10px_26px_rgba(239,68,68,0.12)]
         sm:w-auto
         sm:min-w-0
         sm:rounded-xl
@@ -564,44 +662,83 @@ function FlashSaleProductCard({
       </span>
     )}
 
-    {/* FLASH SALE BADGE */}
-    <span
-      className="
-        absolute
-        bottom-1.5
-        left-1.5
-        z-10
-        inline-flex
-        items-center
-        gap-1
-        rounded-md
-        bg-[var(--ocean-950)]/90
-        px-1.5
-        py-1
-        text-[7px]
-        font-black
-        uppercase
-        leading-none
-        tracking-wide
-        text-white
-        shadow-sm
-        backdrop-blur-sm
-        sm:text-[8px]
-      "
-    >
-      <Flame
+    {/* FLASH SALE BADGE — FIERY RED */}
+    <div className="absolute bottom-1.5 left-1.5 z-10">
+      <span
         aria-hidden="true"
         className="
-          h-2.5
-          w-2.5
-          shrink-0
-          text-[var(--fresh-400)]
-          sm:h-3
-          sm:w-3
+          absolute
+          inset-0
+          rounded-md
+          bg-red-500/70
+          blur-[5px]
         "
       />
-      Flash Sale
-    </span>
+      <span
+        className="
+          group/flashbadge
+          relative
+          inline-flex
+          items-center
+          gap-1
+          overflow-hidden
+          rounded-md
+          border
+          border-orange-300/70
+          bg-gradient-to-r
+          from-red-700
+          via-red-500
+          to-orange-500
+          px-1.5
+          py-1
+          text-[7px]
+          font-black
+          uppercase
+          leading-none
+          tracking-wide
+          text-white
+          shadow-[0_2px_8px_rgba(239,68,68,0.55)]
+          ring-1
+          ring-red-400/40
+          sm:text-[8px]
+        "
+      >
+        <span
+          aria-hidden="true"
+          className="
+            pointer-events-none
+            absolute
+            inset-y-0
+            left-0
+            w-6
+            -translate-x-[160%]
+            bg-white/35
+            blur-[2px]
+            transition-transform
+            duration-500
+            group-hover/flashbadge:translate-x-[520%]
+          "
+        />
+
+        <Zap
+          aria-hidden="true"
+          className="
+            h-2.5
+            w-2.5
+            shrink-0
+            fill-yellow-300
+            text-yellow-200
+            drop-shadow-[0_0_3px_rgba(253,224,71,0.9)]
+            transition
+            duration-300
+            group-hover/flashbadge:drop-shadow-[0_0_7px_rgba(253,224,71,1)]
+            sm:h-3
+            sm:w-3
+          "
+        />
+        Flash Sale
+      </span>
+    </div>
   </div>
 </Link>
 
@@ -693,25 +830,86 @@ function FlashSaleProductCard({
 
   {/* STOCK */}
   <div className="mt-2">
+    {/* FLASH SALE PROGRESS */}
     <div
       className="
-        h-1.5
+        relative
+        h-2.5
         overflow-hidden
         rounded-full
+        border
+        border-red-100
         bg-slate-100
+        shadow-[inset_0_1px_2px_rgba(15,23,42,0.08)]
+        sm:h-3
       "
+      aria-label={`${soldPercent}% produk terjual`}
+      role="progressbar"
+      aria-valuenow={soldPercent}
+      aria-valuemin={0}
+      aria-valuemax={100}
     >
+      {/* Soft glow around the filled portion */}
       <div
+        aria-hidden="true"
         className="
-          h-full
+          absolute
+          inset-y-0
+          left-0
           rounded-full
-          bg-rose-500
+          bg-red-500/50
+          blur-[5px]
           transition-all
+          duration-500
         "
         style={{
           width: `${soldPercent}%`,
         }}
       />
+
+      {/* Main fiery progress fill */}
+      <div
+        className="
+          relative
+          h-full
+          overflow-hidden
+          rounded-full
+          bg-gradient-to-r
+          from-red-600
+          via-red-500
+          to-orange-400
+          shadow-[0_0_10px_rgba(239,68,68,0.65)]
+          transition-all
+          duration-500
+        "
+        style={{
+          width: `${soldPercent}%`,
+          boxShadow:
+            soldPercent >= 70
+              ? "0 0 12px rgba(239,68,68,0.78)"
+              : "0 0 8px rgba(239,68,68,0.55)",
+        }}
+      >
+        {/* Moving hot highlight */}
+        <span
+          aria-hidden="true"
+          className="
+            absolute
+            inset-y-0
+            left-0
+            w-8
+            -translate-x-full
+            bg-gradient-to-r
+            from-transparent
+            via-white/55
+            to-transparent
+            blur-[1px]
+            transition-transform
+            duration-700
+            group-hover:translate-x-[850%]
+          "
+        />
+      </div>
     </div>
 
     <div
@@ -725,29 +923,61 @@ function FlashSaleProductCard({
     >
       <p
         className="
+          flex
+          min-w-0
+          items-center
+          gap-1
+          truncate
           text-[9px]
-          font-semibold
+          font-bold
           leading-3
-          text-slate-400
+          text-slate-500
           sm:text-[10px]
         "
       >
-        {soldPercent}% terjual
-      </p>
-
-      {soldPercent >= 50 && (
         <span
+          aria-hidden="true"
           className="
-            shrink-0
             text-[8px]
-            font-bold
-            text-rose-500
+            text-red-500
+            drop-shadow-[0_0_4px_rgba(239,68,68,0.45)]
             sm:text-[9px]
           "
         >
-          Hampir habis
+          🔥
         </span>
-      )}
+        <span className="truncate">
+          {item.soldQuantity > 0
+            ? `${item.soldQuantity} terjual`
+            : `${soldPercent}% terjual`}
+        </span>
+      </p>
+
+      <span
+        className={`
+          shrink-0
+          rounded-full
+          px-1.5
+          py-0.5
+          text-[7px]
+          font-black
+          uppercase
+          leading-none
+          tracking-wide
+          sm:text-[8px]
+          ${
+            soldPercent >= 90
+              ? "bg-red-50 text-red-600"
+              : soldPercent >= 70
+                ? "bg-orange-50 text-orange-600"
+                : soldPercent >= 40
+                  ? "bg-amber-50 text-amber-600"
+                  : "bg-slate-50 text-slate-500"
+          }
+        `}
+      >
+        {soldStatus}
+      </span>
   </div>
 </div>
 </div>
@@ -763,7 +993,6 @@ function FlashSaleProductCard({
 
 export default function HomeFlashSaleSection({
   flashSale,
-  productsHref,
   bannerImage,
   bannerContent,
 }: HomeFlashSaleSectionProps) {
@@ -930,10 +1159,13 @@ export default function HomeFlashSaleSection({
               w-full
               overflow-hidden
               rounded-3xl
+              group
               border
               border-white/70
               bg-[var(--ocean-900)]
-              shadow-[0_10px_30px_rgba(0,80,150,0.12)]
+              shadow-[0_14px_38px_rgba(0,80,150,0.18)]
+              ring-1
+              ring-cyan-300/20
               sm:mb-6
             "
           >
@@ -968,16 +1200,119 @@ export default function HomeFlashSaleSection({
               />
             )}
 
-            {/* OVERLAY */}
+            {/* FIERY PROMO LIGHTING */}
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+                absolute
+                -right-20
+                -top-24
+                h-72
+                w-72
+                rounded-full
+                bg-red-500/30
+                opacity-70
+                blur-3xl
+                transition-all
+                duration-500
+                group-hover:scale-125
+                group-hover:bg-red-500/45
+                group-hover:opacity-100
+              "
+            />
 
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+                absolute
+                right-8
+                bottom-[-110px]
+                h-64
+                w-64
+                rounded-full
+                bg-orange-400/25
+                opacity-60
+                blur-3xl
+                transition-all
+                duration-500
+                group-hover:scale-125
+                group-hover:bg-orange-400/40
+                group-hover:opacity-100
+              "
+            />
+
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+                absolute
+                right-0
+                top-0
+                h-1
+                w-2/3
+                bg-gradient-to-r
+                from-transparent
+                via-orange-300/70
+                to-red-500/80
+                shadow-[0_0_18px_rgba(249,115,22,0.85)]
+                opacity-75
+                transition-all
+                duration-500
+                group-hover:h-1.5
+                group-hover:opacity-100
+                group-hover:shadow-[0_0_26px_rgba(249,115,22,1)]
+              "
+            />
+
+            {/* HOVER SHEEN */}
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+                absolute
+                inset-y-0
+                left-0
+                z-[1]
+                w-1/3
+                -translate-x-full
+                skew-x-[-18deg]
+                bg-gradient-to-r
+                from-transparent
+                via-white/12
+                to-transparent
+                transition-transform
+                duration-700
+                group-hover:translate-x-[430%]
+              "
+            />
+
+            {/* OVERLAY */}
             <div
               aria-hidden="true"
               className="
                 absolute
                 inset-0
                 bg-gradient-to-r
-                from-[var(--ocean-950)]/90
-                via-[var(--ocean-900)]/65
+                from-[var(--ocean-950)]/95
+                via-[var(--ocean-900)]/72
+                to-[var(--ocean-500)]/40
+              "
+            />
+
+            {/* SUBTLE HOT SHEEN */}
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+                absolute
+                inset-y-0
+                right-0
+                w-1/2
+                bg-gradient-to-l
+                from-red-500/10
+                via-orange-400/5
                 to-transparent
               "
             />
@@ -1019,13 +1354,18 @@ export default function HomeFlashSaleSection({
 
                   <div
                     className="
+                      relative
                       inline-flex
                       items-center
                       gap-1.5
+                      overflow-hidden
                       rounded-full
                       border
-                      border-white/20
-                      bg-white/10
+                      border-orange-300/70
+                      bg-gradient-to-r
+                      from-red-700/95
+                      via-red-500/95
+                      to-orange-500/95
                       px-3
                       py-1.5
                       text-[9px]
@@ -1033,21 +1373,49 @@ export default function HomeFlashSaleSection({
                       uppercase
                       tracking-[0.14em]
                       text-white
+                      shadow-[0_0_18px_rgba(239,68,68,0.45)]
+                      ring-1
+                      ring-red-300/30
                       backdrop-blur-sm
+                      transition
+                      duration-300
+                      hover:scale-[1.02]
+                      hover:shadow-[0_0_26px_rgba(239,68,68,0.72)]
                       sm:text-[10px]
                     "
                   >
-                    <Flame
+                    <span
                       aria-hidden="true"
                       className="
-                        h-3.5
-                        w-3.5
-                        text-[var(--fresh-400)]
+                        absolute
+                        inset-y-0
+                        left-0
+                        w-8
+                        -translate-x-full
+                        bg-white/25
+                        blur-sm
+                        transition-transform
+                        duration-700
+                        hover:translate-x-[500%]
                       "
                     />
 
-                    {bannerContent?.label ||
-                      "Flash Sale"}
+                    <Zap
+                      aria-hidden="true"
+                      className="
+                        relative
+                        h-3.5
+                        w-3.5
+                        fill-yellow-300
+                        text-yellow-100
+                        drop-shadow-[0_0_5px_rgba(253,224,71,0.95)]
+                      "
+                    />
+
+                    <span className="relative">
+                      {bannerContent?.label ||
+                        "Flash Sale"}
+                    </span>
                   </div>
 
                   {/* TITLE */}
@@ -1072,6 +1440,7 @@ export default function HomeFlashSaleSection({
                       className="
                         block
                         text-[var(--fresh-400)]
+                        drop-shadow-[0_0_10px_rgba(132,204,22,0.28)]
                       "
                     >
                       {bannerContent?.highlight ||
