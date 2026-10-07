@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 
 import { auth } from "@/auth";
 import { VoucherClaimService } from "@/services/voucher/voucher-claim.service";
@@ -12,6 +13,13 @@ export async function GET() {
       return NextResponse.json(
         { success: false, message: "Silakan login terlebih dahulu." },
         { status: 401 },
+      );
+    }
+
+    if (session.user.role !== Role.CUSTOMER) {
+      return NextResponse.json(
+        { success: false, message: "Akses customer diperlukan." },
+        { status: 403 },
       );
     }
 

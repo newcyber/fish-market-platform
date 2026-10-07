@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Role } from "@prisma/client";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +16,13 @@ export async function GET() {
           message: "Silakan login terlebih dahulu.",
         },
         { status: 401 },
+      );
+    }
+
+    if (session.user.role !== Role.CUSTOMER) {
+      return NextResponse.json(
+        { success: false, message: "Akses customer diperlukan." },
+        { status: 403 },
       );
     }
 
