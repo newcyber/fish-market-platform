@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { requireAdmin } from "@/lib/auth/admin";
+
 import { StorageService } from "@/services/storage/storage.service";
 
 import {
@@ -28,6 +30,8 @@ export async function POST(
   request: Request
 ) {
   try {
+    await requireAdmin();
+
     const formData =
       await request.formData();
 

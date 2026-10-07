@@ -364,6 +364,49 @@ export class PaymentVerificationService {
    * tidak menghasilkan state yang tidak konsisten.
    */
 
+  /**
+   * Verify the pending payment proof attached to an order.
+   *
+   * This is the canonical order-based entry point for admin flows.
+   * The actual state transition remains inside verify(), which locks
+   * the Order row and re-validates the PaymentProof state transactionally.
+   */
+  static async verifyByOrderId(
+    orderId: string,
+    verifiedById: string,
+  ): Promise<PaymentVerificationResult> {
+    const normalizedOrderId = String(orderId ?? "").trim();
+    const normalizedVerifierId = String(verifiedById ?? "").trim();
+
+    if (!normalizedOrderId) {
+      return {
+        success: false,
+        message: "ID pesanan tidak valid.",
+      };
+    }
+
+    if (!normalizedVerifierId) {
+      return {
+        success: false,
+        message: "Admin verifier tidak valid.",
+      };
+    }
+
+    const pendingProof =
+      await PaymentVerificationRepository.findPendingByOrderId(
+        normalizedOrderId,
+      );
+
+    if (!pendingProof) {
+      return {
+        success: false,
+        message: "Tidak ada bukti pembayaran PENDING untuk pesanan ini.",
+      };
+    }
+
+    return this.verify(pendingProof.id, normalizedVerifierId);
+  }
+
   static async verify(
     id: string,
     verifiedById: string,
@@ -451,6 +494,61 @@ export class PaymentVerificationService {
    *
    * Customer dapat mengirim ulang bukti pembayaran.
    */
+  /**
+   * Reject the pending payment proof attached to an order.
+   *
+   * The actual state transition remains inside reject(), which locks
+   * the Order row and re-validates the PaymentProof state transactionally.
+   */
+  static async rejectByOrderId(
+    orderId: string,
+    rejectionReason: string,
+    verifiedById: string,
+  ): Promise<PaymentVerificationResult> {
+    const normalizedOrderId = String(orderId ?? "").trim();
+    const normalizedReason = String(rejectionReason ?? "").trim();
+    const normalizedVerifierId = String(verifiedById ?? "").trim();
+
+    if (!normalizedOrderId) {
+      return {
+        success: false,
+        message: "ID pesanan tidak valid.",
+      };
+    }
+
+    if (!normalizedReason) {
+      return {
+        success: false,
+        message: "Alasan penolakan wajib diisi.",
+      };
+    }
+
+    if (!normalizedVerifierId) {
+      return {
+        success: false,
+        message: "Admin verifier tidak valid.",
+      };
+    }
+
+    const pendingProof =
+      await PaymentVerificationRepository.findPendingByOrderId(
+        normalizedOrderId,
+      );
+
+    if (!pendingProof) {
+      return {
+        success: false,
+        message: "Tidak ada bukti pembayaran PENDING untuk pesanan ini.",
+      };
+    }
+
+    return this.reject(
+      pendingProof.id,
+      normalizedReason,
+      normalizedVerifierId,
+    );
+  }
+
   static async reject(
     id: string,
     rejectionReason: string,

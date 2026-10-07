@@ -314,6 +314,27 @@ export class PaymentVerificationRepository {
    * ==========================================================
    */
 
+  /**
+   * Find the single pending payment proof belonging to an order.
+   *
+   * PaymentProof.orderId is unique, so an order can have at most one
+   * active proof record. The caller must still perform the actual
+   * verification through verify(), which re-checks and locks state
+   * inside the transaction.
+   */
+  static async findPendingByOrderId(orderId: string) {
+    return prisma.paymentProof.findFirst({
+      where: {
+        orderId,
+        deletedAt: null,
+        status: PaymentStatus.PENDING,
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
   static async findById(id: string) {
     return prisma.paymentProof.findFirst({
       where: {

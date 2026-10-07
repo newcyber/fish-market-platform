@@ -40,6 +40,12 @@ export class ProductImageService {
       );
     }
 
+    if (files.length > 10) {
+      throw new Error(
+        "Maksimal upload 10 gambar sekaligus."
+      );
+    }
+
     for (const file of files) {
       const validation =
         ProductImageSchema.safeParse(

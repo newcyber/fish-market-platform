@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import notificationService from "@/services/notification/notification.service";
 
 import StorageService from "@/services/storage/storage.service";
+import { completeOrderInTransaction } from "@/services/order/order.service";
 
 export type CourierDashboardStats = {
   assigned: number;
@@ -823,17 +824,82 @@ export class CourierService {
     };
 
     return prisma.$transaction(async (tx) => {
-      const current =
+      /**
+       * Lock ordering:
+       *
+       * Order is the parent lifecycle row shared by cancellation,
+       * assignment/reassignment, and completion.
+       *
+       * Therefore transition() must acquire:
+       *
+       *     Order -> CourierAssignment
+       *
+       * and not the reverse. This prevents a deadlock such as:
+       *
+       *     transition: assignment -> order
+       *     reassign:  order -> assignment
+       *
+       * The first assignment read only gives us orderId. After the
+       * Order row is locked, the assignment is read again so all
+       * validation uses the state serialized by that Order lock.
+       */
+      let current =
         await tx.courierAssignment.findFirst({
           where: {
             id: assignmentId,
             courierId,
+          },
+
+          select: {
+            id: true,
+            orderId: true,
+            courierId: true,
+            status: true,
+            isActive: true,
           },
         });
 
       if (!current) {
         throw new Error(
           "COURIER_ASSIGNMENT_NOT_FOUND",
+        );
+      }
+
+      const lockedOrderRows = await tx.$queryRaw<{
+        id: string;
+      }[]>`
+        SELECT "id"
+        FROM "Order"
+        WHERE "id" = ${current.orderId}
+          AND "deletedAt" IS NULL
+        FOR UPDATE
+      `;
+
+      if (lockedOrderRows.length !== 1) {
+        throw new Error(
+          "ORDER_NOT_FOUND",
+        );
+      }
+
+      current =
+        await tx.courierAssignment.findFirst({
+          where: {
+            id: assignmentId,
+            courierId,
+          },
+
+          select: {
+            id: true,
+            orderId: true,
+            courierId: true,
+            status: true,
+            isActive: true,
+          },
+        });
+
+      if (!current) {
+        throw new Error(
+          "COURIER_ASSIGNMENT_CONFLICT",
         );
       }
 
@@ -1038,16 +1104,10 @@ export class CourierService {
         nextStatus ===
         CourierAssignmentStatus.DELIVERED
       ) {
-        await tx.order.update({
-          where: {
-            id: current.orderId,
-          },
-
-          data: {
-            status: OrderStatus.COMPLETED,
-            completedAt: now,
-          },
-        });
+        // Order completion must use the canonical lifecycle command.
+        // This enforces SHIPPING + VERIFIED payment, writes the lifecycle
+        // audit entry, and awards reward points idempotently in the same tx.
+        await completeOrderInTransaction(tx, current.orderId);
 
         // Shipping economics are snapshotted on the Order at checkout.
         // Customer shipping is reduced by the voucher only; internal
@@ -1169,22 +1229,8 @@ export class CourierService {
     }
 
     const assignment = await prisma.$transaction(async (tx) => {
-      const [order, courier] =
-        await Promise.all([
-          tx.order.findFirst({
-            where: {
-              id: orderId,
-              deletedAt: null,
-            },
-
-            select: {
-              id: true,
-              status: true,
-              paymentStatus: true,
-            },
-          }),
-
-          tx.user.findFirst({
+      const courier =
+        await tx.user.findFirst({
             where: {
               id: courierId,
               role: "COURIER",
@@ -1196,10 +1242,19 @@ export class CourierService {
               id: true,
               name: true,
             },
-          }),
-        ]);
+          });
 
-      if (!order) {
+      const orderRows = await tx.$queryRaw<{
+        id: string;
+      }[]>`
+        SELECT "id"
+        FROM "Order"
+        WHERE "id" = ${orderId}
+          AND "deletedAt" IS NULL
+        FOR UPDATE
+      `;
+
+      if (orderRows.length !== 1) {
         throw new Error(
           "ORDER_NOT_FOUND",
         );
@@ -1208,6 +1263,21 @@ export class CourierService {
       if (!courier) {
         throw new Error(
           "COURIER_NOT_FOUND",
+        );
+      }
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          id: true,
+          status: true,
+          paymentStatus: true,
+        },
+      });
+
+      if (!order) {
+        throw new Error(
+          "ORDER_NOT_FOUND",
         );
       }
 
@@ -1686,8 +1756,39 @@ export class CourierService {
           );
         }
 
+        const lockedOrderRows = await tx.$queryRaw<{
+          id: string;
+        }[]>`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${order.id}
+            AND "deletedAt" IS NULL
+          FOR UPDATE
+        `;
+
+        if (lockedOrderRows.length !== 1) {
+          throw new Error(
+            "ORDER_NOT_FOUND",
+          );
+        }
+
+        const lockedOrder = await tx.order.findUnique({
+          where: { id: order.id },
+          select: {
+            id: true,
+            status: true,
+            paymentStatus: true,
+          },
+        });
+
+        if (!lockedOrder) {
+          throw new Error(
+            "ORDER_NOT_FOUND",
+          );
+        }
+
         if (
-          order.paymentStatus !==
+          lockedOrder.paymentStatus !==
           PaymentStatus.VERIFIED
         ) {
           throw new Error(
@@ -1696,9 +1797,9 @@ export class CourierService {
         }
 
         if (
-          order.status !==
+          lockedOrder.status !==
             OrderStatus.PROCESSING &&
-          order.status !==
+          lockedOrder.status !==
             OrderStatus.SHIPPING
         ) {
           throw new Error(
@@ -1889,6 +1990,85 @@ export class CourierService {
         if (!courier) {
           throw new Error(
             "COURIER_NOT_FOUND",
+          );
+        }
+
+        const lockedOrderRows = await tx.$queryRaw<{
+          id: string;
+        }[]>`
+          SELECT "id"
+          FROM "Order"
+          WHERE "id" = ${current.orderId}
+            AND "deletedAt" IS NULL
+          FOR UPDATE
+        `;
+
+        if (lockedOrderRows.length !== 1) {
+          throw new Error(
+            "ORDER_NOT_FOUND",
+          );
+        }
+
+        const order = await tx.order.findUnique({
+          where: { id: current.orderId },
+          select: {
+            id: true,
+            status: true,
+            paymentStatus: true,
+          },
+        });
+
+        if (!order) {
+          throw new Error(
+            "ORDER_NOT_FOUND",
+          );
+        }
+
+        if (
+          order.paymentStatus !==
+          PaymentStatus.VERIFIED
+        ) {
+          throw new Error(
+            "ORDER_PAYMENT_NOT_VERIFIED",
+          );
+        }
+
+        if (
+          order.status !== OrderStatus.PROCESSING &&
+          order.status !== OrderStatus.SHIPPING
+        ) {
+          throw new Error(
+            "ORDER_NOT_READY_FOR_REASSIGNMENT",
+          );
+        }
+
+        const lockedCurrent =
+          await tx.courierAssignment.findFirst({
+            where: {
+              id: assignmentId,
+              orderId: current.orderId,
+              isActive: true,
+              status: CourierAssignmentStatus.ASSIGNED,
+            },
+            select: {
+              id: true,
+              orderId: true,
+              courierId: true,
+              status: true,
+            },
+          });
+
+        if (!lockedCurrent) {
+          throw new Error(
+            "COURIER_ASSIGNMENT_CONFLICT",
+          );
+        }
+
+        if (
+          current.courierId !== lockedCurrent.courierId
+        ) {
+          throw new Error(
+            "COURIER_ASSIGNMENT_CONFLICT",
           );
         }
 
@@ -2099,6 +2279,8 @@ export class CourierService {
       throw new Error("INVALID_PROOF_LOCATION");
     }
 
+    // Cheap preflight only. The authoritative lifecycle check happens
+    // again after the file upload inside a transaction.
     const assignment =
       await prisma.courierAssignment.findFirst({
         where: {
@@ -2116,63 +2298,125 @@ export class CourierService {
       throw new Error("DELIVERY_PROOF_NOT_ALLOWED");
     }
 
-    const existing =
-      await prisma.courierDeliveryProof.findUnique({
-        where: { assignmentId },
-        select: {
-          id: true,
-          proofPhotoUrl: true,
-          photoUrl: true,
-          usedAt: true,
-        },
-      });
-
-    if (existing?.usedAt) {
-      throw new Error("DELIVERY_PROOF_ALREADY_USED");
-    }
-
-    const photoUrl = await StorageService.saveCourierDeliveryProof(
-      input.photo,
-    );
+    const photoUrl =
+      await StorageService.saveCourierDeliveryProof(
+        input.photo,
+      );
     const takenAt = new Date();
 
     try {
       const proof =
-        await prisma.courierDeliveryProof.upsert({
-          where: { assignmentId },
-          create: {
-            assignmentId,
-            photoUrl,
-            latitude: input.latitude,
-            longitude: input.longitude,
-            proofPhotoUrl: photoUrl,
-            proofLatitude: input.latitude,
-            proofLongitude: input.longitude,
-            proofTakenAt: takenAt,
-            capturedAt: takenAt,
-            createdById: courierId,
-          },
-          update: {
-            photoUrl,
-            latitude: input.latitude,
-            longitude: input.longitude,
-            proofPhotoUrl: photoUrl,
-            proofLatitude: input.latitude,
-            proofLongitude: input.longitude,
-            proofTakenAt: takenAt,
-            capturedAt: takenAt,
-            createdById: courierId,
-          },
+        await prisma.$transaction(async (tx) => {
+          /*
+           * Do not perform external storage I/O while holding the DB lock.
+           * The file is uploaded before this transaction, then the lifecycle
+           * state is revalidated under the Order lock. If the assignment
+           * reaches DELIVERED/FAILED while the upload is in flight, this
+           * transaction rejects and the catch below removes the new file.
+           *
+           * Lock order is intentionally:
+           *
+           *   Order -> CourierAssignment -> CourierDeliveryProof
+           *
+           * This matches the courier lifecycle transaction ordering and
+           * prevents proof creation from racing a DELIVERED transition.
+           */
+          const lockedAssignment =
+            await tx.courierAssignment.findFirst({
+              where: {
+                id: assignmentId,
+                courierId,
+              },
+              select: {
+                id: true,
+                orderId: true,
+                isActive: true,
+                status: true,
+              },
+            });
+
+          if (!lockedAssignment) {
+            throw new Error(
+              "COURIER_ASSIGNMENT_NOT_FOUND",
+            );
+          }
+
+          const lockedOrderRows = await tx.$queryRaw<{
+            id: string;
+          }[]>`
+            SELECT "id"
+            FROM "Order"
+            WHERE "id" = ${lockedAssignment.orderId}
+              AND "deletedAt" IS NULL
+            FOR UPDATE
+          `;
+
+          if (lockedOrderRows.length !== 1) {
+            throw new Error("ORDER_NOT_FOUND");
+          }
+
+          const current =
+            await tx.courierAssignment.findFirst({
+              where: {
+                id: assignmentId,
+                courierId,
+                isActive: true,
+                status:
+                  CourierAssignmentStatus.ARRIVED,
+              },
+              select: {
+                id: true,
+                orderId: true,
+              },
+            });
+
+          if (!current) {
+            throw new Error(
+              "DELIVERY_PROOF_NOT_ALLOWED",
+            );
+          }
+
+          const existing =
+            await tx.courierDeliveryProof.findUnique({
+              where: { assignmentId },
+              select: {
+                id: true,
+                usedAt: true,
+              },
+            });
+
+          if (existing?.usedAt) {
+            throw new Error(
+              "DELIVERY_PROOF_ALREADY_USED",
+            );
+          }
+
+          /*
+           * A proof is one-per-assignment. Never overwrite an existing
+           * unused proof: concurrent uploads must not silently replace the
+           * photo that another request already registered.
+           */
+          if (existing) {
+            throw new Error(
+              "DELIVERY_PROOF_ALREADY_EXISTS",
+            );
+          }
+
+          return tx.courierDeliveryProof.create({
+            data: {
+              assignmentId,
+              photoUrl,
+              latitude: input.latitude,
+              longitude: input.longitude,
+              proofPhotoUrl: photoUrl,
+              proofLatitude: input.latitude,
+              proofLongitude: input.longitude,
+              proofTakenAt: takenAt,
+              capturedAt: takenAt,
+              createdById: courierId,
+            },
+          });
         });
-
-      const previousPhoto =
-        existing?.proofPhotoUrl ?? existing?.photoUrl ?? null;
-
-      if (previousPhoto && previousPhoto !== photoUrl) {
-        await StorageService.deleteCourierDeliveryProof(
-          previousPhoto,
-        );
-      }
 
       return {
         id: proof.id,
@@ -2182,10 +2426,13 @@ export class CourierService {
         capturedAt: takenAt.toISOString(),
       };
     } catch (error) {
-      await StorageService.deleteCourierDeliveryProof(photoUrl);
+      await StorageService.deleteCourierDeliveryProof(
+        photoUrl,
+      );
       throw error;
     }
   }
+
 
   static async getEarnings(
     courierId: string,
@@ -2273,26 +2520,15 @@ export class CourierService {
     note?: string | null,
   ) {
     return prisma.$transaction(async (tx) => {
-      const payout = await tx.courierPayout.findUnique({
-        where: { id: payoutId },
-        select: {
-          id: true,
-          payoutStatus: true,
-        },
-      });
-
-      if (!payout) {
-        throw new Error("COURIER_PAYOUT_NOT_FOUND");
-      }
-
-      if (payout.payoutStatus === "PAID") {
-        throw new Error("COURIER_PAYOUT_ALREADY_PAID");
-      }
-
       const paidAt = new Date();
 
-      return tx.courierPayout.update({
-        where: { id: payoutId },
+      // Atomic settlement guard:
+      // only the first concurrent request can transition UNPAID -> PAID.
+      const result = await tx.courierPayout.updateMany({
+        where: {
+          id: payoutId,
+          payoutStatus: "UNPAID",
+        },
         data: {
           payoutStatus: "PAID",
           paymentMethod,
@@ -2300,6 +2536,30 @@ export class CourierService {
           paidById: adminId,
           paymentNote: note?.trim() || null,
         },
+      });
+
+      if (result.count === 0) {
+        const payout = await tx.courierPayout.findUnique({
+          where: { id: payoutId },
+          select: {
+            id: true,
+            payoutStatus: true,
+          },
+        });
+
+        if (!payout) {
+          throw new Error("COURIER_PAYOUT_NOT_FOUND");
+        }
+
+        if (payout.payoutStatus === "PAID") {
+          throw new Error("COURIER_PAYOUT_ALREADY_PAID");
+        }
+
+        throw new Error("COURIER_PAYOUT_CONFLICT");
+      }
+
+      return tx.courierPayout.findUniqueOrThrow({
+        where: { id: payoutId },
         select: {
           id: true,
           payoutStatus: true,

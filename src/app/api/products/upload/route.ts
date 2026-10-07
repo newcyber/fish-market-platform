@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { requireAdmin } from "@/lib/auth/admin";
+
 import { revalidatePath } from "next/cache";
 
 import {
@@ -10,6 +12,8 @@ export async function POST(
   request: Request
 ) {
   try {
+    await requireAdmin();
+
     const formData =
       await request.formData();
 
@@ -46,6 +50,18 @@ export async function POST(
           success: false,
           message:
             "Pilih minimal satu gambar.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (files.length > 10) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Maksimal upload 10 gambar sekaligus.",
         },
         {
           status: 400,

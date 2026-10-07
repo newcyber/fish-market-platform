@@ -227,6 +227,16 @@ export class AddressRepository {
   ) {
     return prisma.$transaction(
       async (tx) => {
+        // Serialize default-address mutations for this user.
+        // Without a row lock, two concurrent requests can both observe
+        // no/current default and leave multiple addresses marked default.
+        await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id"
+          FROM "User"
+          WHERE "id" = ${userId}
+          FOR UPDATE
+        `;
+
         /**
          * ========================================================
          * COUNT ACTIVE ADDRESSES
@@ -496,6 +506,14 @@ export class AddressRepository {
     addressId: string
   ) {
     return prisma.$transaction(async (tx) => {
+      // Serialize default-address mutations for this user.
+      await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "User"
+        WHERE "id" = ${userId}
+        FOR UPDATE
+      `;
+
       /**
        * --------------------------------------------------------
        * CLEAR CURRENT DEFAULT
@@ -585,6 +603,15 @@ export class AddressRepository {
   ) {
     return prisma.$transaction(
       async (tx) => {
+        // Serialize delete/promote operations for this user so concurrent
+        // requests cannot produce two defaults or promote stale state.
+        await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id"
+          FROM "User"
+          WHERE "id" = ${userId}
+          FOR UPDATE
+        `;
+
         /**
          * --------------------------------------------------------
          * FIND ACTIVE ADDRESS

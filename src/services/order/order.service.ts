@@ -169,7 +169,218 @@ function buildPromotionSnapshot(
   };
 }
 
-export default class OrderService {
+export async function completeOrderInTransaction(
+  tx: Prisma.TransactionClient,
+  id: string,
+) {
+  /**
+   * ========================================================
+   * 1. LOCK ORDER ROW
+   * ========================================================
+   *
+   * Gunakan FOR UPDATE agar:
+   *
+   * markAsCompleted()
+   * cancelOrder()
+   * updatePaymentStatus()
+   *
+   * tidak dapat memproses row Order yang sama
+   * secara bersamaan.
+   */
+  const lockedOrder = await tx.$queryRaw<
+    Array<{
+      id: string;
+    }>
+  >`
+      SELECT "id"
+      FROM "Order"
+      WHERE "id" = ${id}
+      FOR UPDATE
+    `;
+  /**
+   * ========================================================
+   * 2. ORDER NOT FOUND
+   * ========================================================
+   */
+  if (lockedOrder.length === 0) {
+    throw new Error("Order tidak ditemukan.");
+  }
+  /**
+   * ========================================================
+   * 3. GET CURRENT ORDER
+   * ========================================================
+   *
+   * Row sudah di-lock.
+   *
+   * Karena itu status dan paymentStatus yang dibaca
+   * adalah state yang menjadi dasar keputusan transaction
+   * ini.
+   */
+  const order = await tx.order.findUnique({
+    where: {
+      id,
+    },
+    include: {
+      user: true,
+      address: true,
+      items: {
+        include: {
+          product: true,
+          sku: {
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption: {
+                    include: {
+                      group: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      paymentProof: true,
+    },
+  });
+  if (!order) {
+    throw new Error("Order tidak ditemukan.");
+  }
+  /**
+   * ========================================================
+   * 4. PREVENT UPDATE DELETED ORDER
+   * ========================================================
+   */
+  if (order.deletedAt) {
+    throw new Error("Order yang sudah dihapus tidak dapat diselesaikan.");
+  }
+  /**
+   * ========================================================
+   * 5. PREVENT COMPLETING CANCELLED ORDER
+   * ========================================================
+   */
+  if (order.status === OrderStatus.CANCELLED) {
+    throw new Error(
+      "Order yang sudah dibatalkan tidak dapat diselesaikan.",
+    );
+  }
+  /**
+   * ========================================================
+   * 6. IDEMPOTENT COMPLETED CHECK
+   * ========================================================
+   *
+   * Jangan menganggap COMPLETED sebagai error teknis.
+   *
+   * Tetapi karena method ini adalah command untuk menyelesaikan
+   * order, kita pertahankan perilaku sebelumnya:
+   *
+   * COMPLETED → COMPLETED
+   *
+   * ditolak agar tidak membuat completedAt baru.
+   */
+  if (order.status === OrderStatus.COMPLETED) {
+    throw new Error("Order sudah berstatus selesai.");
+  }
+  /**
+   * ========================================================
+   * 7. VALIDATE ORDER STATUS
+   * ========================================================
+   *
+   * Hanya SHIPPING yang boleh menjadi COMPLETED.
+   */
+  if (order.status !== OrderStatus.SHIPPING) {
+    throw new Error(
+      "Order harus berstatus SHIPPING sebelum dapat diselesaikan.",
+    );
+  }
+  /**
+   * ========================================================
+   * 8. VALIDATE PAYMENT STATUS
+   * ========================================================
+   *
+   * Order tidak boleh COMPLETED sebelum pembayaran
+   * diverifikasi.
+   */
+  if (order.paymentStatus !== PaymentStatus.VERIFIED) {
+    throw new Error("Order belum memiliki pembayaran yang terverifikasi.");
+  }
+  /**
+   * ========================================================
+   * 9. UPDATE ORDER → COMPLETED
+   * ========================================================
+   *
+   * Row Order sudah di-lock dengan FOR UPDATE.
+   *
+   * Tidak ada perubahan Product.stock / ProductSku.stock
+   * di tahap ini.
+   *
+   * Stock sudah diproses pada lifecycle sebelumnya.
+   */
+  const completedOrder = await tx.order.update({
+    where: {
+      id: order.id,
+    },
+    data: {
+      status: OrderStatus.COMPLETED,
+      completedAt: new Date(),
+    },
+    include: {
+      user: true,
+      address: true,
+      items: {
+        include: {
+          product: true,
+          sku: {
+            include: {
+              skuOptions: {
+                include: {
+                  variantOption: {
+                    include: {
+                      group: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      paymentProof: true,
+    },
+  });
+
+  await createAuditLog(
+    {
+      eventType: "ORDER_LIFECYCLE",
+      entityType: "ORDER",
+      entityId: completedOrder.id,
+      action: "STATUS_CHANGED",
+      beforeData: {
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+      },
+      afterData: {
+        status: completedOrder.status,
+        paymentStatus: completedOrder.paymentStatus,
+      },
+      metadata: {
+        orderNumber: completedOrder.orderNumber,
+        reason: "ORDER_COMPLETED",
+      },
+    },
+    tx,
+  );
+
+  const rewardResult = await awardOrderRewardPointsTx(tx, completedOrder);
+
+  return {
+    completedOrder,
+    rewardResult,
+  };
+}
+
+class OrderService {
   private static encodeOrderCursor(cursor: CustomerOrderCursor): string {
     const payload = JSON.stringify({
       createdAt: cursor.createdAt.toISOString(),
@@ -3281,7 +3492,36 @@ export default class OrderService {
     }
     /**
      * ========================================================
-     * 7. RESTORE SKU STOCK + CREATE LEDGER
+     * 7. RELEASE FLASH SALE
+     * ========================================================
+     *
+     * Jika order menggunakan Flash Sale:
+     *
+     * - soldQuantity dikembalikan
+     * - FlashSalePurchase dihapus
+     * - quota customer kembali tersedia
+     *
+     * Semua tetap berada dalam transaction yang sama.
+     */
+    await FlashSaleRepository.releasePurchasesByOrderId(tx, currentOrder.id);
+    /**
+     * ========================================================
+     * 8. RELEASE VOUCHER
+     * ========================================================
+     *
+     * VoucherLifecycleService menentukan apakah voucher
+     * memang boleh dikembalikan berdasarkan paymentStatus.
+     *
+     * Tetap menggunakan transaction client yang sama.
+     */
+    await VoucherLifecycleService.releaseForCancelledOrder(
+      currentOrder.id,
+      currentOrder.paymentStatus,
+      tx,
+    );
+    /**
+     * ========================================================
+     * 9. RESTORE SKU STOCK + CREATE LEDGER
      * ========================================================
      *
      * Canonical stock:
@@ -3398,35 +3638,6 @@ export default class OrderService {
         },
       });
     }
-    /**
-     * ========================================================
-     * 8. RELEASE VOUCHER
-     * ========================================================
-     *
-     * VoucherLifecycleService menentukan apakah voucher
-     * memang boleh dikembalikan berdasarkan paymentStatus.
-     *
-     * Tetap menggunakan transaction client yang sama.
-     */
-    await VoucherLifecycleService.releaseForCancelledOrder(
-      currentOrder.id,
-      currentOrder.paymentStatus,
-      tx,
-    );
-    /**
-     * ========================================================
-     * 9. RELEASE FLASH SALE
-     * ========================================================
-     *
-     * Jika order menggunakan Flash Sale:
-     *
-     * - soldQuantity dikembalikan
-     * - FlashSalePurchase dihapus
-     * - quota customer kembali tersedia
-     *
-     * Semua tetap berada dalam transaction yang sama.
-     */
-    await FlashSaleRepository.releasePurchasesByOrderId(tx, currentOrder.id);
     /**
      * ========================================================
      * 10. SET ORDER = CANCELLED
@@ -3871,217 +4082,9 @@ export default class OrderService {
     if (!id) {
       throw new Error("Order ID wajib diisi.");
     }
-    /**
-     * ==========================================================
-     * TRANSACTION
-     * ==========================================================
-     */
+
     return prisma.$transaction(async (tx) => {
-      /**
-       * ========================================================
-       * 1. LOCK ORDER ROW
-       * ========================================================
-       *
-       * Gunakan FOR UPDATE agar:
-       *
-       * markAsCompleted()
-       * cancelOrder()
-       * updatePaymentStatus()
-       *
-       * tidak dapat memproses row Order yang sama
-       * secara bersamaan.
-       */
-      const lockedOrder = await tx.$queryRaw<
-        Array<{
-          id: string;
-        }>
-      >`
-          SELECT "id"
-          FROM "Order"
-          WHERE "id" = ${id}
-          FOR UPDATE
-        `;
-      /**
-       * ========================================================
-       * 2. ORDER NOT FOUND
-       * ========================================================
-       */
-      if (lockedOrder.length === 0) {
-        throw new Error("Order tidak ditemukan.");
-      }
-      /**
-       * ========================================================
-       * 3. GET CURRENT ORDER
-       * ========================================================
-       *
-       * Row sudah di-lock.
-       *
-       * Karena itu status dan paymentStatus yang dibaca
-       * adalah state yang menjadi dasar keputusan transaction
-       * ini.
-       */
-      const order = await tx.order.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          user: true,
-          address: true,
-          items: {
-            include: {
-              product: true,
-              sku: {
-                include: {
-                  skuOptions: {
-                    include: {
-                      variantOption: {
-                        include: {
-                          group: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-          paymentProof: true,
-        },
-      });
-      if (!order) {
-        throw new Error("Order tidak ditemukan.");
-      }
-      /**
-       * ========================================================
-       * 4. PREVENT UPDATE DELETED ORDER
-       * ========================================================
-       */
-      if (order.deletedAt) {
-        throw new Error("Order yang sudah dihapus tidak dapat diselesaikan.");
-      }
-      /**
-       * ========================================================
-       * 5. PREVENT COMPLETING CANCELLED ORDER
-       * ========================================================
-       */
-      if (order.status === OrderStatus.CANCELLED) {
-        throw new Error(
-          "Order yang sudah dibatalkan tidak dapat diselesaikan.",
-        );
-      }
-      /**
-       * ========================================================
-       * 6. IDEMPOTENT COMPLETED CHECK
-       * ========================================================
-       *
-       * Jangan menganggap COMPLETED sebagai error teknis.
-       *
-       * Tetapi karena method ini adalah command untuk menyelesaikan
-       * order, kita pertahankan perilaku sebelumnya:
-       *
-       * COMPLETED → COMPLETED
-       *
-       * ditolak agar tidak membuat completedAt baru.
-       */
-      if (order.status === OrderStatus.COMPLETED) {
-        throw new Error("Order sudah berstatus selesai.");
-      }
-      /**
-       * ========================================================
-       * 7. VALIDATE ORDER STATUS
-       * ========================================================
-       *
-       * Hanya SHIPPING yang boleh menjadi COMPLETED.
-       */
-      if (order.status !== OrderStatus.SHIPPING) {
-        throw new Error(
-          "Order harus berstatus SHIPPING sebelum dapat diselesaikan.",
-        );
-      }
-      /**
-       * ========================================================
-       * 8. VALIDATE PAYMENT STATUS
-       * ========================================================
-       *
-       * Order tidak boleh COMPLETED sebelum pembayaran
-       * diverifikasi.
-       */
-      if (order.paymentStatus !== PaymentStatus.VERIFIED) {
-        throw new Error("Order belum memiliki pembayaran yang terverifikasi.");
-      }
-      /**
-       * ========================================================
-       * 9. UPDATE ORDER → COMPLETED
-       * ========================================================
-       *
-       * Row Order sudah di-lock dengan FOR UPDATE.
-       *
-       * Tidak ada perubahan Product.stock / ProductSku.stock
-       * di tahap ini.
-       *
-       * Stock sudah diproses pada lifecycle sebelumnya.
-       */
-      const completedOrder = await tx.order.update({
-        where: {
-          id: order.id,
-        },
-        data: {
-          status: OrderStatus.COMPLETED,
-          completedAt: new Date(),
-        },
-        include: {
-          user: true,
-          address: true,
-          items: {
-            include: {
-              product: true,
-              sku: {
-                include: {
-                  skuOptions: {
-                    include: {
-                      variantOption: {
-                        include: {
-                          group: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-          paymentProof: true,
-        },
-      });
-
-      await createAuditLog(
-        {
-          eventType: "ORDER_LIFECYCLE",
-          entityType: "ORDER",
-          entityId: completedOrder.id,
-          action: "STATUS_CHANGED",
-          beforeData: {
-            status: order.status,
-            paymentStatus: order.paymentStatus,
-          },
-          afterData: {
-            status: completedOrder.status,
-            paymentStatus: completedOrder.paymentStatus,
-          },
-          metadata: {
-            orderNumber: completedOrder.orderNumber,
-            reason: "ORDER_COMPLETED",
-          },
-        },
-        tx,
-      );
-
-      const rewardResult = await awardOrderRewardPointsTx(tx, completedOrder);
-
-      return {
-        completedOrder,
-        rewardResult,
-      };
+      return completeOrderInTransaction(tx, id);
     });
   }
   /**
@@ -6398,3 +6401,5 @@ export default class OrderService {
     }
   }
 }
+
+export default OrderService;

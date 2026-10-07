@@ -16,6 +16,17 @@ export async function updatePaymentStatusAction(
     // Never rely on the admin UI; Server Actions can be invoked directly.
     await requireAdmin();
 
+    if (
+      paymentStatus === PaymentStatus.VERIFIED ||
+      paymentStatus === PaymentStatus.REJECTED
+    ) {
+      return {
+        success: false,
+        message:
+          "Verifikasi pembayaran wajib menggunakan Payment Verification flow agar PaymentProof dan Order diperbarui secara atomik.",
+      };
+    }
+
     const order =
       await OrderService.updatePaymentStatus(
         id,

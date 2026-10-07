@@ -5,7 +5,9 @@ import {
 } from "@prisma/client";
 
 import { requireAdmin } from "@/lib/auth/admin";
-import OrderService from "@/services/order/order.service";
+import {
+  PaymentVerificationService,
+} from "@/services/payment/payment-verification.service";
 
 export async function verifyOrderPaymentAction(
   orderId: string
@@ -19,7 +21,7 @@ export async function verifyOrderPaymentAction(
      * Hanya ADMIN / SUPER_ADMIN yang boleh memverifikasi
      * pembayaran.
      */
-    await requireAdmin();
+    const session = await requireAdmin();
 
     /**
      * ========================================================
@@ -44,25 +46,29 @@ export async function verifyOrderPaymentAction(
      * markAsPaid() tetap menjadi satu-satunya pintu
      * perubahan payment menjadi VERIFIED.
      */
-    const order =
-      await OrderService.markAsPaid(
-        normalizedOrderId
+    const result =
+      await PaymentVerificationService.verifyByOrderId(
+        normalizedOrderId,
+        session.user.id,
       );
+
+    if (!result.success) {
+      return result;
+    }
+
+    const payment = result.data as {
+      orderId: string;
+      status: PaymentStatus;
+      verifiedAt: Date | null;
+    };
 
     return {
       success: true,
-
-      message:
-        "Pembayaran berhasil diverifikasi.",
-
+      message: "Pembayaran berhasil diverifikasi.",
       data: {
-        id: order.id,
-
-        paymentStatus:
-          PaymentStatus.VERIFIED,
-
-        paidAt:
-          order.paidAt,
+        id: payment.orderId,
+        paymentStatus: payment.status,
+        paidAt: payment.verifiedAt,
       },
     };
   } catch (error) {
@@ -83,7 +89,8 @@ export async function verifyOrderPaymentAction(
 }
 
 export async function rejectOrderPaymentAction(
-  orderId: string
+  orderId: string,
+  rejectionReason: string,
 ) {
   try {
     /**
@@ -94,7 +101,7 @@ export async function rejectOrderPaymentAction(
      * Hanya ADMIN / SUPER_ADMIN yang boleh menolak
      * pembayaran.
      */
-    await requireAdmin();
+    const session = await requireAdmin();
 
     /**
      * ========================================================
@@ -119,25 +126,14 @@ export async function rejectOrderPaymentAction(
      * Tetap menggunakan lifecycle payment yang sudah
      * diaudit di OrderService.
      */
-    const order =
-      await OrderService.updatePaymentStatus(
+    const result =
+      await PaymentVerificationService.rejectByOrderId(
         normalizedOrderId,
-        PaymentStatus.REJECTED
+        rejectionReason,
+        session.user.id,
       );
 
-    return {
-      success: true,
-
-      message:
-        "Pembayaran order ditolak.",
-
-      data: {
-        id: order.id,
-
-        paymentStatus:
-          PaymentStatus.REJECTED,
-      },
-    };
+    return result;
   } catch (error) {
     console.error(
       "[REJECT_ORDER_PAYMENT_ACTION_ERROR]",

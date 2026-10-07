@@ -94,6 +94,8 @@ export class VoucherLifecycleService {
           id: true,
 
           voucherId: true,
+
+          userId: true,
         },
       });
 
@@ -110,6 +112,37 @@ export class VoucherLifecycleService {
 
     if (!voucherUsage) {
       return;
+    }
+
+    /**
+     * ========================================================
+     * SERIALIZE PER-USER VOUCHER RELEASE
+     * ========================================================
+     *
+     * Checkout menggunakan advisory lock yang sama ketika
+     * voucher memiliki perUserLimit. Cancellation wajib ikut
+     * mengambil lock tersebut agar release tidak berjalan
+     * bersamaan dengan checkout user yang sama.
+     */
+
+    const voucher =
+      await tx.voucher.findUnique({
+        where: {
+          id: voucherUsage.voucherId,
+        },
+        select: {
+          perUserLimit: true,
+        },
+      });
+
+    if (voucher?.perUserLimit !== null && voucher) {
+      await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(
+          hashtext(
+            ${voucherUsage.voucherId} || ':' || ${voucherUsage.userId}
+          )::bigint
+        )
+      `;
     }
 
     /**
