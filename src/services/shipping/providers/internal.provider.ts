@@ -121,28 +121,44 @@ export class InternalShippingProvider
           request.subtotal,
       });
 
+    if (
+      result.available &&
+      (
+        result.shippingCost === null ||
+        result.shippingCost === undefined ||
+        !Number.isFinite(result.shippingCost) ||
+        result.shippingCost < 0
+      )
+    ) {
+      throw new Error("INTERNAL_SHIPPING_COST_INVALID");
+    }
+
+    if (
+      result.available &&
+      (
+        result.normalShippingCost === null ||
+        result.normalShippingCost === undefined ||
+        !Number.isFinite(result.normalShippingCost) ||
+        result.normalShippingCost <= 0
+      )
+    ) {
+      throw new Error("INTERNAL_SHIPPING_NORMAL_COST_INVALID");
+    }
+
     return {
-      provider:
-        this.code,
-
-      available:
-        result.available,
-
-      serviceName:
-        result.serviceName ??
-        this.config.name,
-
+      provider: this.code,
+      available: result.available,
+      serviceName: result.serviceName ?? this.config.name,
       shippingCost:
         result.shippingCost ?? 0,
-      normalShippingCost: result.normalShippingCost ?? null,
-      shippingDiscount: result.shippingDiscount ?? null,
-
+      normalShippingCost:
+        result.normalShippingCost ?? null,
+      shippingDiscount:
+        result.shippingDiscount ?? null,
       distanceKm:
         result.distanceKm ?? null,
-
       isFreeShipping:
         result.isFreeShipping ?? false,
-
       reason:
         result.reason ?? null,
     };

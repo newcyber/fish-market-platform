@@ -62,6 +62,22 @@ class ShippingProviderRegistry {
 
   /**
    * ==========================================================
+   * UNREGISTER PROVIDER
+   * ==========================================================
+   *
+   * Digunakan ketika provider dinonaktifkan agar singleton
+   * registry tidak mempertahankan konfigurasi lama.
+   * ==========================================================
+   */
+
+  unregister(
+    code: ShippingProviderCode
+  ): void {
+    this.providers.delete(code);
+  }
+
+  /**
+   * ==========================================================
    * GET PROVIDER
    * ==========================================================
    */

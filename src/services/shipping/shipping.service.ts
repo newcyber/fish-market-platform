@@ -116,6 +116,7 @@ class ShippingService {
      * kurir internal sedang dinonaktifkan.
      */
     if (!config.enabled) {
+      shippingProviderRegistry.unregister("INTERNAL");
       return;
     }
 

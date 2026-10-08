@@ -4938,10 +4938,14 @@ class OrderService {
     addressId: string,
     paymentChannelId: string,
     notes?: string | null,
-    shippingProvider: ShippingProviderCode = "INTERNAL",
+    shippingProvider?: ShippingProviderCode,
     voucherCode?: string | null,
     selectedItemIds?: string[] | null,
   ) {
+    if (!shippingProvider) {
+      throw new Error("SHIPPING_PROVIDER_REQUIRED");
+    }
+
     const normalizedVoucherCode = voucherCode?.trim().toUpperCase() || null;
     try {
       /**
@@ -5520,30 +5524,98 @@ class OrderService {
            */
           subtotal: subtotal.toNumber(),
         });
+
         /**
          * ====================================================
-         * VALIDATE SHIPPING AVAILABILITY
+         * VALIDATE SHIPPING QUOTE CONTRACT
          * ====================================================
+         *
+         * Provider yang dipilih customer harus sama dengan
+         * provider yang menghasilkan quote. Nilai finansial
+         * tidak boleh fallback ke 0 ketika provider gagal
+         * mengembalikan angka.
          */
+        if (shippingResult.provider !== normalizedShippingProvider) {
+          throw new Error("SHIPPING_PROVIDER_MISMATCH");
+        }
+
         if (!shippingResult.available) {
           throw new Error(
             shippingResult.reason ??
               "Pengiriman tidak tersedia untuk alamat ini.",
           );
         }
-        /**
-         * ====================================================
-         * FINAL SHIPPING COST
-         * ====================================================
-         *
-         * Pertahankan shippingCost karena masih digunakan
-         * saat membuat Order.
-         */
-        const shippingCost = shippingResult.shippingCost ?? 0;
+
+        const shippingCost = shippingResult.shippingCost;
+
+        if (
+          !Number.isFinite(shippingCost) ||
+          shippingCost < 0
+        ) {
+          throw new Error("SHIPPING_COST_INVALID");
+        }
+
         const shippingNormalCost =
           shippingResult.normalShippingCost ?? shippingCost;
+
         const shippingDiscount =
           shippingResult.shippingDiscount ?? 0;
+
+        if (
+          !Number.isFinite(shippingNormalCost) ||
+          shippingNormalCost < 0
+        ) {
+          throw new Error("SHIPPING_NORMAL_COST_INVALID");
+        }
+
+        if (
+          !Number.isFinite(shippingDiscount) ||
+          shippingDiscount < 0
+        ) {
+          throw new Error("SHIPPING_DISCOUNT_INVALID");
+        }
+
+        if (shippingDiscount > shippingNormalCost) {
+          throw new Error("SHIPPING_DISCOUNT_EXCEEDS_NORMAL_COST");
+        }
+
+        /**
+         * INTERNAL wajib memiliki normal shipping cost positif.
+         * Rp0 hanya sah untuk PICKUP atau setelah discount
+         * benar-benar menutup biaya normal.
+         */
+        if (
+          normalizedShippingProvider === "INTERNAL" &&
+          shippingNormalCost <= 0
+        ) {
+          throw new Error("INTERNAL_SHIPPING_COST_INVALID");
+        }
+
+        if (
+          normalizedShippingProvider === "INTERNAL" &&
+          shippingCost > shippingNormalCost
+        ) {
+          throw new Error("INTERNAL_SHIPPING_COST_EXCEEDS_NORMAL_COST");
+        }
+
+        if (
+          normalizedShippingProvider === "PICKUP" &&
+          shippingCost !== 0
+        ) {
+          throw new Error("PICKUP_SHIPPING_COST_INVALID");
+        }
+
+        console.info("[CHECKOUT_SHIPPING_SERVER]", {
+          userId,
+          addressId,
+          requestedProvider: normalizedShippingProvider,
+          quoteProvider: shippingResult.provider,
+          shippingService: shippingResult.serviceName,
+          shippingCost,
+          normalShippingCost: shippingNormalCost,
+          shippingDiscount,
+          distanceKm: shippingResult.distanceKm,
+        });
         /**
          * ====================================================
          * DECIMAL SHIPPING VALUE

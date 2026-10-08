@@ -16,6 +16,8 @@ export class PickupShippingProvider implements ShippingProvider {
       available: true,
       serviceName: "Ambil di Tempat",
       shippingCost: 0,
+      normalShippingCost: 0,
+      shippingDiscount: 0,
       distanceKm: null,
       isFreeShipping: false,
       reason: null,

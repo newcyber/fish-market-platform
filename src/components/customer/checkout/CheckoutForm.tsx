@@ -348,7 +348,7 @@ export default function CheckoutForm({
    */
 
   const [selectedShippingProvider, setSelectedShippingProvider] =
-    useState<ShippingProviderCode>("INTERNAL");
+    useState<ShippingProviderCode | null>(null);
 
   /**
 
