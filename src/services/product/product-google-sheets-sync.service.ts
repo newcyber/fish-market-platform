@@ -72,6 +72,12 @@ interface PisjoSkuCandidate {
   conditionTokens: string[];
 }
 
+interface PisjoProductCandidate {
+  id: string;
+  name: string;
+  productTokens: string[];
+}
+
 const HARGA_JUAL_PISJO_SHEET = "HARGA JUAL PISJO";
 
 /**
@@ -105,14 +111,33 @@ function normalizeMatchText(value: string): string {
 }
 
 /**
+ * Canonicalize product-name tokens without destroying meaningful
+ * differentiators such as size, grade, or shorthand.
+ *
+ * Important examples:
+ *   "2X"   -> "2X"
+ *   "2 X"  -> "2X"
+ *   "2x"   -> "2X"
+ *
+ * This matters for product names such as:
+ *   VANAME SUPER JUMBO 2X (SJ)
+ */
+function normalizeProductMatchText(value: string): string {
+  return normalizeMatchText(value)
+    .replace(/\b(\d+)\s*X\b/g, "$1X")
+    .replace(/\bX\s*(\d+)\b/g, "X$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Product names in HARGA JUAL PISJO are often short names such as
  * "BANDENG", while Product.name in the marketplace can contain
  * merchandising descriptors such as "Ikan Bandeng Fresh Frozen".
  *
  * We intentionally remove only generic descriptors here. We do NOT use
  * a blind `includes()` match because that can incorrectly map e.g.
- * BANDENG to both BANDENG and BANDENG HITAM. Ambiguous candidates are
- * rejected by the resolver below.
+ * BANDENG to both BANDENG and BANDENG HITAM.
  */
 const GENERIC_PRODUCT_TOKENS = new Set([
   "IKAN",
@@ -125,65 +150,73 @@ const GENERIC_PRODUCT_TOKENS = new Set([
 ]);
 
 function getProductMatchTokens(value: string): string[] {
-  return normalizeMatchText(value)
+  return normalizeProductMatchText(value)
     .split(" ")
     .filter((token) => token.length > 1)
     .filter((token) => !GENERIC_PRODUCT_TOKENS.has(token));
 }
 
-function resolvePisjoProductCandidates(
+function scorePisjoProductName(
   sourceProductName: string,
-  candidates: PisjoSkuCandidate[],
-): PisjoSkuCandidate[] {
-  const sourceNormalized = normalizeMatchText(sourceProductName);
+  candidateProductName: string,
+): number {
+  const sourceNormalized = normalizeProductMatchText(sourceProductName);
+  const candidateNormalized = normalizeProductMatchText(candidateProductName);
   const sourceTokens = getProductMatchTokens(sourceProductName);
+  const candidateTokens = getProductMatchTokens(candidateProductName);
 
-  if (!sourceNormalized || sourceTokens.length === 0) {
-    return [];
+  if (!sourceNormalized || sourceTokens.length === 0 || !candidateNormalized) {
+    return 0;
   }
 
+  if (candidateNormalized === sourceNormalized) {
+    return 300;
+  }
+
+  if (candidateTokens.length === 0) {
+    return 0;
+  }
+
+  const sourceSet = new Set(sourceTokens);
+  const candidateSet = new Set(candidateTokens);
+
+  const sourceSubsetOfCandidate = sourceTokens.every((token) =>
+    candidateSet.has(token),
+  );
+
+  const candidateSubsetOfSource = candidateTokens.every((token) =>
+    sourceSet.has(token),
+  );
+
+  // A short spreadsheet name may be a subset of the marketplace name,
+  // e.g. BANDENG -> IKAN BANDENG FRESH FROZEN.
+  if (sourceSubsetOfCandidate) {
+    return (
+      220 -
+      Math.max(candidateTokens.length - sourceTokens.length, 0) * 2
+    );
+  }
+
+  // Also allow the spreadsheet to contain a fuller descriptive name.
+  if (candidateSubsetOfSource) {
+    return (
+      210 -
+      Math.max(sourceTokens.length - candidateTokens.length, 0) * 2
+    );
+  }
+
+  return 0;
+}
+
+function resolvePisjoProductNameCandidates(
+  sourceProductName: string,
+  candidates: PisjoProductCandidate[],
+): PisjoProductCandidate[] {
   const scored = candidates
-    .map((candidate) => {
-      const candidateNormalized = normalizeMatchText(candidate.productName);
-      const candidateTokens = candidate.productTokens;
-
-      // Highest confidence: exact normalized product name.
-      if (candidateNormalized === sourceNormalized) {
-        return { candidate, score: 300 };
-      }
-
-      if (candidateTokens.length === 0) {
-        return { candidate, score: 0 };
-      }
-
-      const sourceSet = new Set(sourceTokens);
-      const candidateSet = new Set(candidateTokens);
-      const sourceSubsetOfCandidate = sourceTokens.every((token) =>
-        candidateSet.has(token),
-      );
-      const candidateSubsetOfSource = candidateTokens.every((token) =>
-        sourceSet.has(token),
-      );
-
-      // A short spreadsheet name may be a subset of the marketplace name,
-      // e.g. BANDENG -> IKAN BANDENG FRESH FROZEN.
-      if (sourceSubsetOfCandidate) {
-        return {
-          candidate,
-          score: 200 - Math.max(candidateTokens.length - sourceTokens.length, 0),
-        };
-      }
-
-      // Also allow the spreadsheet to contain a fuller descriptive name.
-      if (candidateSubsetOfSource) {
-        return {
-          candidate,
-          score: 190 - Math.max(sourceTokens.length - candidateTokens.length, 0),
-        };
-      }
-
-      return { candidate, score: 0 };
-    })
+    .map((candidate) => ({
+      candidate,
+      score: scorePisjoProductName(sourceProductName, candidate.name),
+    }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score);
 
@@ -192,6 +225,7 @@ function resolvePisjoProductCandidates(
   }
 
   const bestScore = scored[0]?.score ?? 0;
+
   return scored
     .filter((item) => item.score === bestScore)
     .map((item) => item.candidate);
@@ -216,6 +250,8 @@ function normalizeWeightToken(value: string): string | null {
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
+    .replace(/[–—−]/g, "-")
+    .replace(/\s*-\s*/g, "-")
     .replace(/[^A-Z0-9.,-]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
@@ -1396,6 +1432,24 @@ class ProductGoogleSheetsSyncService {
       );
     }
 
+    const productRecords = await prisma.product.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    const productCandidates: PisjoProductCandidate[] = productRecords.map(
+      (product) => ({
+        id: product.id,
+        name: product.name,
+        productTokens: getProductMatchTokens(product.name),
+      }),
+    );
+
     const skuRecords = await prisma.productSku.findMany({
       where: {
         isActive: true,
@@ -1442,6 +1496,18 @@ class ProductGoogleSheetsSyncService {
       };
     });
 
+    const skuCandidatesByProductId = new Map<string, PisjoSkuCandidate[]>();
+
+    for (const candidate of candidates) {
+      const group = skuCandidatesByProductId.get(candidate.productId);
+
+      if (group) {
+        group.push(candidate);
+      } else {
+        skuCandidatesByProductId.set(candidate.productId, [candidate]);
+      }
+    }
+
     const ambiguousMatches: string[] = [];
     const missingMatches: string[] = [];
     const productNotFoundMatches: string[] = [];
@@ -1464,22 +1530,27 @@ class ProductGoogleSheetsSyncService {
         continue;
       }
 
-      const productCandidates = resolvePisjoProductCandidates(
-        row.productName,
-        candidates,
-      );
-
       const descriptor =
         `${row.productName} | ${row.weightLabel} | ${row.conditionLabel}`;
 
       /**
-       * Google Sheets HARGA JUAL PISJO hanya berfungsi sebagai sumber harga.
+       * Resolve the PRODUCT first, independently from ProductSku.
        *
-       * Product, variant, dan SKU wajib sudah tersedia di database.
-       * Jangan membuat atau memaksakan mapping ke product lain hanya
-       * agar baris spreadsheet dapat diproses.
+       * The previous implementation built the product candidate list from
+       * active ProductSku rows only. That meant an existing Product with no
+       * active SKU was incorrectly reported as PRODUCT_NOT_FOUND.
+       *
+       * Keeping product resolution separate gives us an accurate distinction:
+       *   PRODUCT_NOT_FOUND  -> product name cannot be resolved
+       *   VARIANT_NOT_FOUND  -> product exists, but required active SKU/variant
+       *                         does not exist
        */
-      if (productCandidates.length === 0) {
+      const resolvedProducts = resolvePisjoProductNameCandidates(
+        row.productName,
+        productCandidates,
+      );
+
+      if (resolvedProducts.length === 0) {
         productNotFoundMatches.push(descriptor);
         missingMatches.push(`${descriptor} → PRODUCT_NOT_FOUND`);
 
@@ -1490,6 +1561,60 @@ class ProductGoogleSheetsSyncService {
             weightLabel: row.weightLabel,
             conditionLabel: row.conditionLabel,
             reason: "PRODUCT_NOT_FOUND",
+          });
+        }
+
+        continue;
+      }
+
+      if (resolvedProducts.length > 1) {
+        const productNames = resolvedProducts
+          .map((product) => product.name)
+          .join(", ");
+
+        ambiguousMatches.push(
+          `${descriptor} → PRODUCT_AMBIGUOUS: ${productNames}`,
+        );
+
+        if (ambiguousMatches.length <= 10) {
+          console.warn("[PISJO_SYNC_PRODUCT_AMBIGUOUS]", {
+            rowNumber: row.rowNumber,
+            productName: row.productName,
+            weightLabel: row.weightLabel,
+            conditionLabel: row.conditionLabel,
+            candidates: resolvedProducts.map((product) => ({
+              id: product.id,
+              name: product.name,
+            })),
+          });
+        }
+
+        continue;
+      }
+
+      const resolvedProduct = resolvedProducts[0];
+      const productSkuCandidates =
+        skuCandidatesByProductId.get(resolvedProduct.id) ?? [];
+
+      /**
+       * Product exists but currently has no active ProductSku.
+       * This must not be classified as PRODUCT_NOT_FOUND.
+       */
+      if (productSkuCandidates.length === 0) {
+        variantNotFoundMatches.push(
+          `${descriptor} → PRODUCT_FOUND_NO_ACTIVE_SKU`,
+        );
+        missingMatches.push(
+          `${descriptor} → PRODUCT_FOUND_NO_ACTIVE_SKU`,
+        );
+
+        if (variantNotFoundMatches.length <= 10) {
+          console.warn("[PISJO_SYNC_PRODUCT_FOUND_NO_ACTIVE_SKU]", {
+            rowNumber: row.rowNumber,
+            productId: resolvedProduct.id,
+            productName: resolvedProduct.name,
+            weightLabel: row.weightLabel,
+            conditionLabel: row.conditionLabel,
           });
         }
 
@@ -1511,16 +1636,7 @@ class ProductGoogleSheetsSyncService {
        * mempunyai SKU dengan condition.
        */
       const productGroups = new Map<string, PisjoSkuCandidate[]>();
-
-      for (const candidate of productCandidates) {
-        const group = productGroups.get(candidate.productId);
-
-        if (group) {
-          group.push(candidate);
-        } else {
-          productGroups.set(candidate.productId, [candidate]);
-        }
-      }
+      productGroups.set(resolvedProduct.id, productSkuCandidates);
 
       const matches: PisjoSkuCandidate[] = [];
 
@@ -1561,7 +1677,7 @@ class ProductGoogleSheetsSyncService {
             conditionLabel: row.conditionLabel,
             sourceWeight,
             sourceCondition,
-            productCandidates: productCandidates.map((candidate) => ({
+            productCandidates: productSkuCandidates.map((candidate) => ({
               sku: candidate.sku,
               productName: candidate.productName,
               productId: candidate.productId,
@@ -1706,14 +1822,14 @@ class ProductGoogleSheetsSyncService {
       invalidRows: invalidRows.length,
       priceUpdated,
       stockUpdated: 0,
-      missingSkus: missingMatches.length,
+      missingSkus: variantNotFoundMatches.length,
       inactiveSkus: 0,
       ambiguousMatches: ambiguousMatches.length,
       productNotFound: productNotFoundMatches.length,
       variantNotFound: variantNotFoundMatches.length,
       changedRows,
       errors: invalidRows.slice(0, MAX_RESULT_ERRORS),
-      missingSkuValues: missingMatches.slice(0, MAX_RESULT_ERRORS),
+      missingSkuValues: variantNotFoundMatches.slice(0, MAX_RESULT_ERRORS),
       productNotFoundValues: productNotFoundMatches.slice(
         0,
         MAX_RESULT_ERRORS,

@@ -36,6 +36,9 @@ interface SyncResponse {
     stockUpdated?: number;
     missingSkus?: number;
     inactiveSkus?: number;
+    productNotFound?: number;
+    variantNotFound?: number;
+    ambiguousMatches?: number;
     changedRows?: number;
   };
 }
@@ -61,6 +64,15 @@ function formatResult(
   return [
     parts.join(" dan "),
     `${data?.changedRows ?? 0} SKU berubah`,
+    data?.productNotFound
+      ? `${data.productNotFound} produk tidak ditemukan`
+      : null,
+    data?.variantNotFound
+      ? `${data.variantNotFound} varian/SKU tidak ditemukan`
+      : null,
+    data?.ambiguousMatches
+      ? `${data.ambiguousMatches} mapping ambigu`
+      : null,
     data?.missingSkus
       ? `${data.missingSkus} SKU tidak ditemukan`
       : null,
