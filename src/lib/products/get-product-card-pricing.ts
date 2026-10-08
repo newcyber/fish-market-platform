@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 import type { ProductPricingResult } from "@/services/pricing/product-pricing.service";
 
 export interface ProductCardPricing {
@@ -62,6 +63,21 @@ export async function getProductCardPricing(
 
   const skuIds = skus.map((sku) => sku.id);
 
+  const skuAvailability =
+    await ProductInventoryAvailabilityService.getSkuAvailabilities(
+      skuIds,
+    );
+
+  const availableQuantityBySkuId = new Map(
+    skuAvailability.map((item) => [
+      item.skuId,
+      item.availableQuantity,
+    ]),
+  );
+
+  const getAvailableQuantity = (skuId: string) =>
+    availableQuantityBySkuId.get(skuId) ?? 0;
+
   // These are the only pricing overrides that can change a product card.
   // They are loaded in bulk, not once per SKU.
   const [promotions, flashSaleItems] = await Promise.all([
@@ -90,13 +106,13 @@ export async function getProductCardPricing(
 
   // Same candidate strategy as before, but membership checks are O(1).
   for (const sku of lowestNormalSkuByProduct.values()) {
-    if (sku.stock > 0) {
+    if (getAvailableQuantity(sku.id) > 0) {
       candidateSkuIds.add(sku.id);
     }
   }
 
   for (const sku of skus) {
-    if (sku.stock <= 0) {
+    if (getAvailableQuantity(sku.id) <= 0) {
       continue;
     }
 
@@ -127,7 +143,7 @@ export async function getProductCardPricing(
 
   for (const skuId of candidateSkuIds) {
     const sku = skuById.get(skuId);
-    if (!sku || sku.stock <= 0) {
+    if (!sku || getAvailableQuantity(sku.id) <= 0) {
       continue;
     }
 

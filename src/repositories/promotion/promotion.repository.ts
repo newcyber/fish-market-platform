@@ -5,6 +5,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { ProductInventoryAvailabilityService } from "@/services/product/product-inventory-availability.service";
 
 export interface FindManyPromotionsInput {
   skip?: number;
@@ -189,6 +190,22 @@ private static readonly promotionInclude = {
       },
     });
 
+    const skuIds = products.flatMap((product) =>
+      product.skus.map((sku) => sku.id)
+    );
+
+    const availabilities =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        skuIds
+      );
+
+    const availabilityBySkuId = new Map(
+      availabilities.map((availability) => [
+        availability.skuId,
+        availability.availableQuantity,
+      ])
+    );
+
     return products.map((product) => ({
       id: product.id,
       name: product.name,
@@ -199,7 +216,9 @@ private static readonly promotionInclude = {
         id: sku.id,
         sku: sku.sku,
         price: sku.price.toString(),
-        stock: sku.stock,
+        stock:
+          availabilityBySkuId.get(sku.id) ??
+          0,
         isActive: sku.isActive,
         options: sku.skuOptions
           .map((item) => ({
@@ -554,6 +573,66 @@ private static readonly customerPromotionSelect =
   },
 });
 
+  /**
+   * ============================================================
+   * HYDRATE CUSTOMER PROMOTION AVAILABILITY
+   * ============================================================
+   *
+   * Promotion menyimpan target pada SKU, sedangkan availability
+   * canonical dapat berasal dari physical inventory pool.
+   *
+   * Semua SKU di seluruh promotion diambil sekaligus agar tidak
+   * terjadi query availability per SKU (N+1).
+   */
+  private static async hydrateCustomerPromotionAvailability<
+    T extends {
+      items: Array<{
+        id: string;
+        sku: {
+          id: string;
+          stock: number;
+        };
+      }>;
+    },
+  >(promotions: T[]) {
+    const skuIds = [
+      ...new Set(
+        promotions.flatMap((promotion) =>
+          promotion.items.map((item) => item.sku.id)
+        )
+      ),
+    ];
+
+    if (skuIds.length === 0) {
+      return promotions;
+    }
+
+    const availabilities =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        skuIds
+      );
+
+    const availabilityBySkuId = new Map(
+      availabilities.map((availability) => [
+        availability.skuId,
+        availability.availableQuantity,
+      ])
+    );
+
+    return promotions.map((promotion) => ({
+      ...promotion,
+      items: promotion.items.map((item) => ({
+        ...item,
+        sku: {
+          ...item.sku,
+          stock:
+            availabilityBySkuId.get(item.sku.id) ??
+            0,
+        },
+      })),
+    }));
+  }
+
 /**
  * ============================================================
  * FIND ACTIVE FOR CUSTOMER
@@ -575,7 +654,7 @@ private static readonly customerPromotionSelect =
 static async findActiveForCustomer(
   now = new Date()
 ) {
-  return prisma.promotion.findMany({
+  const promotions = await prisma.promotion.findMany({
     where: {
       status: PromotionStatus.ACTIVE,
 
@@ -647,6 +726,8 @@ static async findActiveForCustomer(
 
     select: this.customerPromotionSelect,
   });
+
+  return this.hydrateCustomerPromotionAvailability(promotions);
 }
 
 /**
@@ -670,7 +751,7 @@ static async findActiveBySlugForCustomer(
     return null;
   }
 
-  return prisma.promotion.findFirst({
+  const promotion = await prisma.promotion.findFirst({
     where: {
       slug,
 
@@ -727,6 +808,16 @@ static async findActiveBySlugForCustomer(
 
     select: this.customerPromotionSelect,
   });
+
+  if (!promotion) {
+    return null;
+  }
+
+  const hydrated = await this.hydrateCustomerPromotionAvailability([
+    promotion,
+  ]);
+
+  return hydrated[0] ?? null;
 }
 
     /**

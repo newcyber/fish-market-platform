@@ -1143,6 +1143,14 @@ export class ProductService {
     }
 
     /**
+     * Physical-pool products keep inventory exclusively in
+     * ProductInventoryPool. ProductSku.stock must not be writable
+     * through the Product Form for these products.
+     */
+    const hasPhysicalInventoryPool =
+      existing.inventoryPools.length > 0;
+
+    /**
      * ==========================================================
      * VALIDATE SLUG
      * ==========================================================
@@ -1415,7 +1423,8 @@ if (
 
               ...(input.stock !==
                 undefined &&
-                  groups === undefined && {
+                  groups === undefined &&
+                  !hasPhysicalInventoryPool && {
                   stock:
                 input.stock,
               }),
@@ -1544,7 +1553,9 @@ if (
               input.skus,
               mapExistingVariantGroups(
                 existing.variantGroups
-              )
+              ),
+              undefined,
+              hasPhysicalInventoryPool
             );
           }
 
@@ -1582,8 +1593,10 @@ const stockAggregate =
   });
 
 const totalSkuStock =
-  stockAggregate._sum.stock ??
-  0;
+  hasPhysicalInventoryPool
+    ? existing.stock
+    : stockAggregate._sum.stock ??
+      0;
 
 await tx.product.update({
   where: {
@@ -2444,7 +2457,8 @@ await tx.product.update({
           id,
           skuInputs,
           groupRecords,
-          maps
+          maps,
+          hasPhysicalInventoryPool
         );
 
         /**
@@ -2483,8 +2497,10 @@ const stockAggregate =
   });
 
 const totalSkuStock =
-  stockAggregate._sum.stock ??
-  0;
+  hasPhysicalInventoryPool
+    ? existing.stock
+    : stockAggregate._sum.stock ??
+      0;
 
 await tx.product.update({
   where: {
@@ -2515,7 +2531,8 @@ await tx.product.update({
   productId: string,
   skuInputs: ProductSkuInput[],
   groups: CreatedGroup[],
-  maps?: ReturnType<typeof buildOptionMaps>
+  maps?: ReturnType<typeof buildOptionMaps>,
+  skipStockMutation = false
 ) {
   const optionMaps =
     maps || buildOptionMaps(groups);
@@ -2951,10 +2968,12 @@ const updateSkuStockWithLedger =
        * --------------------------------------------------------
        */
 
-      await updateSkuStockWithLedger(
-        skuId,
-        rawInput.stock
-      );
+      if (!skipStockMutation) {
+        await updateSkuStockWithLedger(
+          skuId,
+          rawInput.stock
+        );
+      }
 
       /**
        * --------------------------------------------------------

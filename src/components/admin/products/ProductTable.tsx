@@ -75,6 +75,10 @@ export interface ProductTableItem {
 
   stock: number;
 
+  inventoryMode: "LEGACY" | "PHYSICAL_POOL";
+
+  physicalStockGrams: number;
+
   stockItems: ProductStockItem[];
 
   priceItems: ProductPriceItem[];
@@ -128,9 +132,37 @@ function ProductThumbnail({
 
 function ProductStockStatus({
   stock,
+  inventoryMode,
+  physicalStockGrams,
 }: {
   stock: number;
+  inventoryMode: "LEGACY" | "PHYSICAL_POOL";
+  physicalStockGrams: number;
 }) {
+  if (inventoryMode === "PHYSICAL_POOL") {
+    if (physicalStockGrams <= 0) {
+      return (
+        <Badge variant="destructive" className="whitespace-nowrap">
+          Habis · Fisik
+        </Badge>
+      );
+    }
+
+    const kg = physicalStockGrams / 1000;
+    const label = Number.isInteger(kg)
+      ? `${kg.toLocaleString("id-ID")} kg`
+      : `${kg.toLocaleString("id-ID", { maximumFractionDigits: 3 })} kg`;
+
+    return (
+      <Badge
+        variant="outline"
+        className="whitespace-nowrap border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300"
+        title="Stok fisik dari ProductInventoryPool"
+      >
+        Fisik · {label}
+      </Badge>
+    );
+  }
   if (stock <= 0) {
     return (
       <Badge variant="destructive" className="whitespace-nowrap">
@@ -451,26 +483,6 @@ export function ProductTable({
   const someVisibleSelected =
     visibleSelectedCount > 0 && !allVisibleSelected;
 
-  useEffect(() => {
-    setSelectedIds(new Set());
-  }, [filterKey]);
-
-  useEffect(() => {
-    const visibleIds = new Set(visibleProductIds);
-
-    setSelectedIds((current) => {
-      const next = new Set(
-        [...current].filter((id) => visibleIds.has(id))
-      );
-
-      if (next.size === current.size) {
-        return current;
-      }
-
-      return next;
-    });
-  }, [visibleProductIds]);
-
   function toggleSelected(id: string, checked: boolean) {
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -677,7 +689,7 @@ export function ProductTable({
                     </TableCell>
 
                     <TableCell className="text-center">
-                      <ProductStockStatus stock={product.stock} />
+                      <ProductStockStatus stock={product.stock} inventoryMode={product.inventoryMode} physicalStockGrams={product.physicalStockGrams} />
                     </TableCell>
 
                     <TableCell>
@@ -768,7 +780,7 @@ export function ProductTable({
                     </p>
 
                     <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                      <ProductStockStatus stock={product.stock} />
+                      <ProductStockStatus stock={product.stock} inventoryMode={product.inventoryMode} physicalStockGrams={product.physicalStockGrams} />
 
                       {product.stockItems.length > 1 && (
                         <span className="text-[11px] text-muted-foreground">

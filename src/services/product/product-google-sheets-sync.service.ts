@@ -2618,6 +2618,16 @@ class ProductGoogleSheetsSyncService {
         `);
 
         const skuByCode = new Map(lockedSkus.map((item) => [item.sku, item]));
+        const poolProductIds = new Set(
+          (await tx.productInventoryPool.findMany({
+            where: {
+              productId: {
+                in: [...new Set(lockedSkus.map((item) => item.productId))],
+              },
+            },
+            select: { productId: true },
+          })).map((item) => item.productId),
+        );
         const missingSkus: string[] = [];
         const inactiveSkus: string[] = [];
         const affectedProductIds = new Set<string>();
@@ -2641,13 +2651,18 @@ class ProductGoogleSheetsSyncService {
           const data: { price?: number; stock?: number } = {};
           const priceBefore = Number(current.price);
           const stockBefore = current.stock;
+          const isPhysicalPoolBacked = poolProductIds.has(current.productId);
 
           if (row.price !== undefined && priceBefore !== row.price) {
             data.price = row.price;
             priceUpdated += 1;
           }
 
-          if (row.stock !== undefined && stockBefore !== row.stock) {
+          if (
+            !isPhysicalPoolBacked &&
+            row.stock !== undefined &&
+            stockBefore !== row.stock
+          ) {
             data.stock = row.stock;
             stockUpdated += 1;
           }
@@ -2680,7 +2695,10 @@ class ProductGoogleSheetsSyncService {
         }
 
         for (const productId of affectedProductIds) {
-          if (type === "STOCK" || type === "PRICE_STOCK") {
+          if (
+            (type === "STOCK" || type === "PRICE_STOCK") &&
+            !poolProductIds.has(productId)
+          ) {
             const stockAggregate = await tx.productSku.aggregate({
               where: { productId, isActive: true },
               _sum: { stock: true },

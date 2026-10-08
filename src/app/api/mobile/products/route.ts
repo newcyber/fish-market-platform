@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/mobile-response";
 
 import ProductService from "@/services/product/product.service";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 
 /**
  * ============================================================
@@ -114,15 +115,42 @@ export async function GET(
           categoryId,
           featured,
           discounted,
-
-          /**
-           * Public mobile catalog hanya boleh
-           * menampilkan product published.
-           */
           published: true,
         },
         page,
         limit
+      );
+
+    /**
+     * ========================================================
+     * INVENTORY AVAILABILITY
+     * ========================================================
+     *
+     * ProductInventoryAvailabilityService membutuhkan
+     * SKU id sebagai identifier.
+     *
+     * ProductService harus mengembalikan sku.id.
+     */
+    const skuIds = result.items.flatMap(
+      (product) =>
+        (product.skus ?? []).map(
+          (sku) => sku.id
+        )
+    );
+
+    const availability =
+      skuIds.length > 0
+        ? await ProductInventoryAvailabilityService.getSkuAvailabilities(
+            skuIds
+          )
+        : [];
+
+    const availabilityBySkuId =
+      new Map(
+        availability.map((item) => [
+          item.skuId,
+          item,
+        ])
       );
 
     const items =
@@ -132,7 +160,7 @@ export async function GET(
             product.images?.find(
               (image) =>
                 !image.mediaType ||
-                image.mediaType === "IMAGE",
+                image.mediaType === "IMAGE"
             ) ?? null;
 
           const activeSkus =
@@ -143,7 +171,9 @@ export async function GET(
 
           const minSkuPrice =
             hasActiveSku
-              ? Number(activeSkus[0].price)
+              ? Number(
+                  activeSkus[0].price
+                )
               : Number(product.price);
 
           const maxSkuPrice =
@@ -157,7 +187,12 @@ export async function GET(
 
           const hasAvailableSkuStock =
             activeSkus.some(
-              (sku) => sku.stock > 0
+              (sku) =>
+                (
+                  availabilityBySkuId.get(
+                    sku.id
+                  )?.availableQuantity ?? 0
+                ) > 0
             );
 
           return {
@@ -195,16 +230,22 @@ export async function GET(
               product.featured,
 
             pricing: {
-              minPrice: minSkuPrice,
-              maxPrice: maxSkuPrice,
+              minPrice:
+                minSkuPrice,
+
+              maxPrice:
+                maxSkuPrice,
+
               isRange:
-                minSkuPrice !== maxSkuPrice,
+                minSkuPrice !==
+                maxSkuPrice,
             },
 
             stock: {
-              available: hasActiveSku
-                ? hasAvailableSkuStock
-                : (product.stock ?? 0) > 0,
+              available:
+                hasActiveSku
+                  ? hasAvailableSkuStock
+                  : (product.stock ?? 0) > 0,
             },
           };
         }

@@ -7,6 +7,7 @@ import CartService from "@/services/cart/cart.service";
 import ProductService from "@/services/product/product.service";
 import ProductPricingService from "@/services/pricing/product-pricing.service";
 import { prisma } from "@/lib/prisma";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 
 interface GetCartProductVariantsInput {
   cartItemId: string;
@@ -170,6 +171,18 @@ export async function getCartProductVariants(
      * ==========================================================
      */
 
+    const availability =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        product.skus.map((sku) => sku.id)
+      );
+
+    const availabilityBySkuId = new Map(
+      availability.map((item) => [
+        item.skuId,
+        item,
+      ])
+    );
+
     const pricingBySkuId = new Map(
       await prisma.$transaction(async (tx) =>
         Promise.all(
@@ -199,7 +212,10 @@ export async function getCartProductVariants(
           sku: sku.sku,
           price:
             Number(sku.price),
-          stock: sku.stock,
+          stock:
+            availabilityBySkuId.get(
+              sku.id
+            )?.availableQuantity ?? 0,
           isActive:
             sku.isActive,
 

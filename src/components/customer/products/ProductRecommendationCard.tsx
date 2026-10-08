@@ -25,6 +25,7 @@ export interface ProductRecommendation {
   }>;
   hasVariants?: boolean;
   purchaseCount?: number;
+  usesPhysicalPool?: boolean;
 }
 
 interface ProductRecommendationCardProps {
@@ -111,7 +112,9 @@ const outOfStock =
             </div>
           ) : product.stock > 0 ? (
             <p className="mt-1 text-[11px] text-slate-400">
-              Stok {product.stock}
+              {product.usesPhysicalPool
+                ? "Stok tersedia"
+                : `Stok ${product.stock}`}
             </p>
           ) : (
             <p className="mt-1 text-[11px] font-medium text-red-500">

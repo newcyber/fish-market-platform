@@ -25,6 +25,7 @@ import { getProductRatings } from "@/lib/products/get-product-ratings";
 
 import CategoryService from "@/services/category/category.service";
 import settingsService from "@/services/settings/settings.service";
+import { ProductInventoryAvailabilityService } from "@/services/product/product-inventory-availability.service";
 
 import { getSiteUrls } from "@/services/site/site-url.service";
 
@@ -112,6 +113,7 @@ function serializeProducts(
       isThumbnail: boolean;
     }>;
     skus: Array<{
+      id: string;
       price: unknown;
       stock: number;
     }>;
@@ -119,6 +121,14 @@ function serializeProducts(
   productRatings: Map<
     string,
     { averageRating: number | null; reviewCount: number }
+  >,
+  availabilityBySkuId: Map<
+    string,
+    Awaited<
+      ReturnType<
+        typeof ProductInventoryAvailabilityService.getSkuAvailabilities
+      >
+    >[number]
   >,
 ): HomeProductCardProduct[] {
   return products.map((product) => ({
@@ -147,13 +157,31 @@ function serializeProducts(
       productRatings.get(product.id)?.reviewCount ??
       0,
 
-    stock: product.stock ?? 0,
+    stock: (() => {
+      const availableStocks = product.skus
+        .map(
+          (sku) =>
+            availabilityBySkuId.get(sku.id)?.availableQuantity ??
+            0,
+        );
+
+      return product.skus.length > 0
+        ? availableStocks.reduce(
+            (total, stock) => total + stock,
+            0,
+          )
+        : Math.max(0, product.stock ?? 0);
+    })(),
 
     hasVariants: product.skus.length > 1,
 
     lowStockVariantStock: (() => {
       const lowStocks = product.skus
-        .map((sku) => sku.stock)
+        .map(
+          (sku) =>
+            availabilityBySkuId.get(sku.id)?.availableQuantity ??
+            0,
+        )
         .filter(
           (stock) =>
             stock > 0 &&
@@ -168,7 +196,9 @@ function serializeProducts(
     isOutOfStock:
       product.skus.length > 0
         ? product.skus.every(
-            (sku) => sku.stock <= 0,
+            (sku) =>
+              (availabilityBySkuId.get(sku.id)?.availableQuantity ?? 0) <=
+              0,
           )
         : (product.stock ?? 0) <= 0,
 
@@ -230,6 +260,7 @@ export default async function FreshFishLandingPage() {
           },
 
           select: {
+            id: true,
             price: true,
             stock: true,
           },
@@ -249,10 +280,27 @@ export default async function FreshFishLandingPage() {
       products.map((product) => product.id),
     );
 
+  const skuIds = products.flatMap((product) =>
+    product.skus.map((sku) => sku.id),
+  );
+
+  const skuAvailabilities =
+    await ProductInventoryAvailabilityService.getSkuAvailabilities(
+      skuIds,
+    );
+
+  const availabilityBySkuId = new Map(
+    skuAvailabilities.map((availability) => [
+      availability.skuId,
+      availability,
+    ]),
+  );
+
   const serializedProducts =
     serializeProducts(
       products,
       productRatings,
+      availabilityBySkuId,
     );
 
   const storeName =

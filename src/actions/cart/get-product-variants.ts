@@ -3,6 +3,7 @@
 import ProductService from "@/services/product/product.service";
 import ProductPricingService from "@/services/pricing/product-pricing.service";
 import { prisma } from "@/lib/prisma";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 
 interface GetProductVariantsInput {
   productId: string;
@@ -101,6 +102,18 @@ export async function getProductVariants(
      *
      * SKU tetap tersedia untuk dipilih.
      */
+    const availability =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        product.skus.map((sku) => sku.id)
+      );
+
+    const availabilityBySkuId = new Map(
+      availability.map((item) => [
+        item.skuId,
+        item,
+      ])
+    );
+
     const pricingBySkuId = new Map(
       await prisma.$transaction(async (tx) =>
         Promise.all(
@@ -129,7 +142,9 @@ export async function getProductVariants(
             Number(sku.price),
 
           stock:
-            sku.stock,
+            availabilityBySkuId.get(
+              sku.id
+            )?.availableQuantity ?? 0,
 
           isActive:
             sku.isActive,

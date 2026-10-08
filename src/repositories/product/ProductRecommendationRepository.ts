@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { OrderStatus } from "@prisma/client";
 
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
+
 export class ProductRecommendationRepository {
   /**
    * ============================================================
@@ -168,6 +170,22 @@ export class ProductRecommendationRepository {
         )
       );
 
+    const skuIds = products.flatMap((product) =>
+      product.skus.map((sku) => sku.id)
+    );
+
+    const availability =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        skuIds,
+      );
+
+    const availabilityBySkuId = new Map(
+      availability.map((item) => [
+        item.skuId,
+        item,
+      ])
+    );
+
     return ranked
       .map((item) => {
         const product =
@@ -190,15 +208,41 @@ export class ProductRecommendationRepository {
                 price >= 0
             );
 
+        const skuAvailabilities =
+          product.skus.map(
+            (sku) =>
+              availabilityBySkuId.get(
+                sku.id
+              )
+          );
+
+        const availableQuantities =
+          skuAvailabilities
+            .map(
+              (item) =>
+                item?.availableQuantity ?? 0
+            )
+            .filter(
+              (quantity) =>
+                quantity > 0
+            );
+
         const stock =
-          product.skus.reduce(
-            (total, sku) =>
-              total +
-              Math.max(
+          product.skus.length === 0
+            ? Math.max(
                 0,
-                sku.stock
-              ),
-            0
+                product.stock ?? 0,
+              )
+            : availableQuantities.length > 0
+              ? Math.max(
+                  ...availableQuantities
+                )
+              : 0;
+
+        const usesPhysicalPool =
+          skuAvailabilities.some(
+            (item) =>
+              item?.usesPhysicalPool === true
           );
 
         const price =
@@ -222,6 +266,7 @@ export class ProductRecommendationRepository {
     product.skus.length > 1,
   purchaseCount:
     item.purchaseCount,
+  usesPhysicalPool,
 };
       })
       .filter(
@@ -301,6 +346,22 @@ export class ProductRecommendationRepository {
         take: safeLimit,
       });
 
+    const skuIds = products.flatMap((product) =>
+      product.skus.map((sku) => sku.id)
+    );
+
+    const availability =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        skuIds,
+      );
+
+    const availabilityBySkuId = new Map(
+      availability.map((item) => [
+        item.skuId,
+        item,
+      ])
+    );
+
     return products.map(
       (product) => {
         const prices =
@@ -319,15 +380,41 @@ export class ProductRecommendationRepository {
             ? Math.min(...prices)
             : Number(product.price);
 
+        const skuAvailabilities =
+          product.skus.map(
+            (sku) =>
+              availabilityBySkuId.get(
+                sku.id
+              )
+          );
+
+        const availableQuantities =
+          skuAvailabilities
+            .map(
+              (item) =>
+                item?.availableQuantity ?? 0
+            )
+            .filter(
+              (quantity) =>
+                quantity > 0
+            );
+
         const stock =
-          product.skus.reduce(
-            (total, sku) =>
-              total +
-              Math.max(
+          product.skus.length === 0
+            ? Math.max(
                 0,
-                sku.stock
-              ),
-            0
+                product.stock ?? 0,
+              )
+            : availableQuantities.length > 0
+              ? Math.max(
+                  ...availableQuantities
+                )
+              : 0;
+
+        const usesPhysicalPool =
+          skuAvailabilities.some(
+            (item) =>
+              item?.usesPhysicalPool === true
           );
 
         return {
@@ -344,6 +431,7 @@ export class ProductRecommendationRepository {
   images: product.images,
   hasVariants:
     product.skus.length > 1,
+  usesPhysicalPool,
 };
       }
     );

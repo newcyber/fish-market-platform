@@ -50,7 +50,7 @@ export default async function EditProductPage({
   const { id } = await params;
 
   const [product, categories] = await Promise.all([
-    ProductService.getProductById(id),
+    ProductService.getProductForAdmin(id),
 
     prisma.category.findMany({
       where: {
@@ -275,6 +275,11 @@ export default async function EditProductPage({
 
     stock:
       product.stock,
+
+    inventoryMode:
+      product.inventoryPools.length > 0
+        ? "PHYSICAL_POOL"
+        : "LEGACY",
 
     weightGrams:
       product.weightGrams ?? null,

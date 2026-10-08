@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/mobile-response";
 
 import ProductService from "@/services/product/product.service";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 
 /**
  * ============================================================
@@ -112,6 +113,21 @@ export async function GET(
         })
       ) ?? [];
 
+    const skuIds =
+      product.skus?.map((sku) => sku.id) ?? [];
+
+    const availability =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        skuIds,
+      );
+
+    const availabilityBySkuId = new Map(
+      availability.map((item) => [
+        item.skuId,
+        item,
+      ])
+    );
+
     const skus =
       product.skus?.map(
         (sku) => ({
@@ -123,7 +139,9 @@ export async function GET(
             Number(sku.price),
 
           stock:
-            sku.stock,
+            availabilityBySkuId.get(
+              sku.id
+            )?.availableQuantity ?? 0,
 
           isActive:
             sku.isActive,

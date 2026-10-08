@@ -191,6 +191,7 @@ interface ProductFormProps {
       optionRefs?: string[];
       isActive?: boolean;
     }>;
+    inventoryMode?: "LEGACY" | "PHYSICAL_POOL";
   };
 
   submitLabel?: string;
@@ -693,6 +694,9 @@ export function ProductForm({
   afterImageUpload,
   showPreviewAfterSuccess = false,
 }: ProductFormProps) {
+  const isPhysicalInventoryPool =
+    defaultValues?.inventoryMode === "PHYSICAL_POOL";
+
   const router =
     useRouter();
 
@@ -2365,7 +2369,9 @@ const totalSkuStock =
 
           <div className="space-y-2">
   <Label htmlFor="stock">
-    Stok Produk
+    {isPhysicalInventoryPool
+      ? "Stok Fisik (dikelola Inventory Pool)"
+      : "Stok Produk"}
   </Label>
 
   <Input
@@ -2379,8 +2385,10 @@ const totalSkuStock =
         ? totalSkuStock
         : form.stock
     }
+    readOnly={isPhysicalInventoryPool || hasVariants}
+    disabled={isPhysicalInventoryPool}
     onChange={
-      hasVariants
+      hasVariants || isPhysicalInventoryPool
         ? undefined
         : (event) =>
             setForm(
@@ -2397,9 +2405,6 @@ const totalSkuStock =
                   ),
               })
             )
-    }
-    readOnly={
-      hasVariants
     }
     required
   />
@@ -3188,9 +3193,7 @@ const totalSkuStock =
                           value={
                             sku.stock
                           }
-                          onChange={(
-                            event
-                          ) =>
+                          onChange={(event) =>
                             updateSku(
                               skuIndex,
                               "stock",

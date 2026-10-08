@@ -40,6 +40,7 @@ import { prisma } from "@/lib/prisma";
 import ReorderService from "@/services/order/reorder.service";
 
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 
 import PromoPopup from "@/components/customer/promo/PromoPopup";
 
@@ -401,12 +402,12 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
           },
 
           select: {
+            id: true,
+
             price: true,
 
             stock: true,
           },
-
-          take: 1,
         },
       },
 
@@ -491,6 +492,8 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
           },
 
           select: {
+            id: true,
+
             price: true,
 
             stock: true,
@@ -554,6 +557,8 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
           },
 
           select: {
+            id: true,
+
             price: true,
             stock: true,
           },
@@ -729,11 +734,11 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
 
                 /**
                  * ==================================================
-                 * ACTIVE SKU
+                 * ACTIVE SKUS
                  * ==================================================
                  *
-                 * SKU aktif dengan harga terendah digunakan
-                 * oleh serializeHomepageProduct().
+                 * Semua SKU aktif diperlukan agar availability
+                 * physical inventory dapat dihitung per SKU.
                  */
 
                 skus: {
@@ -746,6 +751,8 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
                   },
 
                   select: {
+                    id: true,
+
                     price: true,
 
                     stock: true,
@@ -864,16 +871,6 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
 
   /**
    * ==========================================================
-   * SERIALIZE FEATURED PRODUCTS
-   * ==========================================================
-   */
-
-  const serializedFeaturedProducts = featuredProducts.map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
-  );
-
-  /**
-   * ==========================================================
    * BEST SELLING PRODUCTS
    * ==========================================================
    */
@@ -922,6 +919,8 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
               },
 
               select: {
+                id: true,
+
                 price: true,
 
                 stock: true,
@@ -930,6 +929,82 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
           },
         })
       : [];
+
+  /**
+   * ==========================================================
+   * PHYSICAL INVENTORY AVAILABILITY
+   * ==========================================================
+   *
+   * ProductSku.stock bukan source of truth untuk product yang
+   * sudah menggunakan ProductInventoryPool.
+   *
+   * Hydrate seluruh SKU homepage dari availability service
+   * sebelum masuk ke serializer / Quick Add.
+   * ==========================================================
+   */
+
+  const homepageSkuIds = Array.from(
+    new Set([
+      ...featuredProducts.flatMap((product) =>
+        (product.skus ?? []).map((sku) => sku.id),
+      ),
+      ...bestSellingProducts.flatMap((product) =>
+        (product.skus ?? []).map((sku) => sku.id),
+      ),
+      ...newestProducts.flatMap((product) =>
+        (product.skus ?? []).map((sku) => sku.id),
+      ),
+      ...allProducts.flatMap((product) =>
+        (product.skus ?? []).map((sku) => sku.id),
+      ),
+      ...repeatPurchaseItems.flatMap((item) =>
+        (item.product?.skus ?? []).map((sku) => sku.id),
+      ),
+    ]),
+  );
+
+  const homepageSkuAvailability =
+    await ProductInventoryAvailabilityService.getSkuAvailabilities(
+      homepageSkuIds,
+    );
+
+  const homepageAvailabilityBySkuId = new Map(
+    homepageSkuAvailability.map((item) => [
+      item.skuId,
+      item.availableQuantity,
+    ]),
+  );
+
+  const withHomepageSkuAvailability = <
+    T extends {
+      skus?: Array<{
+        id: string;
+        stock: number;
+      }>;
+    },
+  >(
+    product: T,
+  ): T => ({
+    ...product,
+    skus: product.skus?.map((sku) => ({
+      ...sku,
+      stock: homepageAvailabilityBySkuId.get(sku.id) ?? 0,
+    })),
+  });
+
+  /**
+   * ==========================================================
+   * SERIALIZE FEATURED PRODUCTS
+   * ==========================================================
+   */
+
+  const serializedFeaturedProducts = featuredProducts.map((product) =>
+    serializeHomepageProduct(
+      withHomepageSkuAvailability(product),
+      productRatings.get(product.id),
+      homepagePricing.get(product.id),
+    ),
+  );
 
   /**
    * ==========================================================
@@ -956,7 +1031,11 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
       }
 
       return {
-        ...serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
+        ...serializeHomepageProduct(
+      withHomepageSkuAvailability(product),
+      productRatings.get(product.id),
+      homepagePricing.get(product.id),
+    ),
 
         soldQuantity: group._sum.quantity ?? 0,
       };
@@ -972,7 +1051,11 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
    */
 
   const serializedNewestProducts = newestProducts.map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
+    serializeHomepageProduct(
+      withHomepageSkuAvailability(product),
+      productRatings.get(product.id),
+      homepagePricing.get(product.id),
+    ),
   );
 
   /**
@@ -982,7 +1065,11 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
    */
 
   const serializedAllProducts = allProducts.map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
+    serializeHomepageProduct(
+      withHomepageSkuAvailability(product),
+      productRatings.get(product.id),
+      homepagePricing.get(product.id),
+    ),
   );
 
   /**
@@ -1016,7 +1103,11 @@ export default async function SharedHomePage({ mode }: SharedHomePageProps) {
   const serializedRepeatPurchaseProducts = Array.from(
     repeatPurchaseProductMap.values(),
   ).map((product) =>
-    serializeHomepageProduct(product, productRatings.get(product.id), homepagePricing.get(product.id)),
+    serializeHomepageProduct(
+      withHomepageSkuAvailability(product),
+      productRatings.get(product.id),
+      homepagePricing.get(product.id),
+    ),
   );
 
   /**

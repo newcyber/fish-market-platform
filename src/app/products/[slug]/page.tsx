@@ -29,6 +29,7 @@ import {
 
 import ProductService from "@/services/product/product.service";
 import ProductPricingService from "@/services/pricing/product-pricing.service";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 import { prisma } from "@/lib/prisma";
 import settingsService from "@/services/settings/settings.service";
 import { getSiteUrls } from "@/services/site/site-url.service";
@@ -356,6 +357,26 @@ const product = isAdminPreview
     (sku) => sku.isActive && sku.productId === product.id,
   );
 
+  const skuAvailability =
+    await ProductInventoryAvailabilityService.getSkuAvailabilities(
+      activeSkus.map((sku) => sku.id),
+    );
+
+  const availabilityBySkuId = new Map(
+    skuAvailability.map((item) => [
+      item.skuId,
+      item,
+    ]),
+  );
+
+  const hasAvailableSku =
+    activeSkus.some(
+      (sku) =>
+        (availabilityBySkuId.get(
+          sku.id,
+        )?.availableQuantity ?? 0) > 0,
+    );
+
   /**
    * ==========================================================
    * ACTIVE FLASH SALE ITEMS
@@ -578,14 +599,20 @@ const product = isAdminPreview
         })),
         skus: activeSkus.map((sku, index) => ({
           price: displayPricing[index]?.finalPrice ?? sku.price,
-          stock: sku.stock,
+          stock:
+            availabilityBySkuId.get(
+              sku.id,
+            )?.availableQuantity ?? 0,
           isActive: sku.isActive,
         })),
         price:
           activeSkus.length === 0
             ? displayPricing[0]?.finalPrice ?? product.price
             : undefined,
-        stock: product.stock,
+        stock:
+          activeSkus.length === 0
+            ? product.stock
+            : null,
         isPublished: product.isPublished,
         isPreOrder: product.isPreOrder,
 
@@ -662,11 +689,17 @@ const product = isAdminPreview
    * ==========================================================
    */
 
-  const stock = product.stock;
-
   const isPreOrder = product.isPreOrder === true;
 
-  const outOfStock = !isPreOrder && stock <= 0;
+  const stock = activeSkus.length > 0
+    ? null
+    : Math.max(0, product.stock ?? 0);
+
+  const outOfStock =
+    !isPreOrder &&
+    (activeSkus.length > 0
+      ? !hasAvailableSku
+      : (stock ?? 0) <= 0);
 
   /**
    * ============================================================
@@ -847,7 +880,9 @@ const product = isAdminPreview
                         ? "Pre-Order"
                         : outOfStock
                           ? "Stok habis"
-                          : `Stok tersedia (${stock} tersedia)`}
+                          : activeSkus.length > 0
+                           ? "Stok tersedia"
+                           : `Stok tersedia (${stock} tersedia)`}
                     </span>
                   </div>
 
@@ -901,7 +936,11 @@ const product = isAdminPreview
                   >
                     <AddToCartButton
                       productId={product.id}
-                      stock={product.stock}
+                      stock={
+                        activeSkus.length > 0
+                          ? undefined
+                          : product.stock
+                      }
                       basePrice={Number(product.price)}
                       isPreOrder={product.isPreOrder}
                       preOrderMinDays={product.preOrderMinDays}
@@ -912,7 +951,10 @@ const product = isAdminPreview
                         sku: sku.sku,
                         productId: sku.productId,
                         price: Number(sku.price),
-                        stock: sku.stock,
+                        stock:
+                          availabilityBySkuId.get(
+                            sku.id,
+                          )?.availableQuantity ?? 0,
                         isActive: sku.isActive,
                         skuOptions: sku.skuOptions.map((skuOption) => ({
                           id: skuOption.id,
@@ -974,7 +1016,11 @@ const product = isAdminPreview
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Ketersediaan</p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {outOfStock ? "Stok sedang habis" : `${stock} tersedia`}
+                            {outOfStock
+                              ? "Stok sedang habis"
+                              : activeSkus.length > 0
+                                ? "Stok tersedia"
+                                : `${stock} tersedia`}
                           </p>
                         </div>
                       </div>

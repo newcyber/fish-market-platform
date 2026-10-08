@@ -10,6 +10,8 @@ import ProductPricingService, {
 
 import { CartError } from "@/services/cart/cart.error";
 
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
+
 /**
  * ============================================================
  * CART SERVICE - SKU BASED
@@ -802,7 +804,14 @@ static async addItem({
            * ======================================================
            */
           const availableStock =
-  sku?.stock ?? product.stock;
+  sku
+    ? (
+        await ProductInventoryAvailabilityService.getSkuAvailability(
+          sku.id,
+          tx,
+        )
+      ).availableQuantity
+    : Math.max(0, product.stock);
 
 /**
  * Pre-Order boleh masuk cart walaupun
@@ -1308,8 +1317,14 @@ if (!hasOwnership) {
        */
 
       const availableStock =
-        sku?.stock ??
-        product.stock;
+        sku
+          ? (
+              await ProductInventoryAvailabilityService.getSkuAvailability(
+                sku.id,
+                tx,
+              )
+            ).availableQuantity
+          : Math.max(0, product.stock);
 
       /**
        * ==========================================================
@@ -2555,7 +2570,14 @@ static async mergeGuestCartIntoCustomerCart({
        * ------------------------------------------------------
        */
       const availableStock =
-        sku?.stock ?? product.stock;
+        sku
+          ? (
+              await ProductInventoryAvailabilityService.getSkuAvailability(
+                sku.id,
+                tx,
+              )
+            ).availableQuantity
+          : Math.max(0, product.stock);
 
       if (availableStock <= 0) {
         throw new CartError(

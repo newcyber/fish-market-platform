@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { ProductService } from "@/services/product/product.service";
+import { ProductInventoryAvailabilityService } from "@/services/product/product-inventory-availability.service";
 
 import { ProductToolbar } from "@/components/admin/products/ProductToolbar";
 
@@ -174,6 +173,29 @@ export default async function ProductsPage({
 
   /**
    * ========================================================
+   * INVENTORY AVAILABILITY
+   * ========================================================
+   *
+   * Admin product list must display the same availability source
+   * used by customer cart/checkout. Pool-backed products must not
+   * read ProductSku.stock as physical availability.
+   */
+
+  const allSkuIds = result.items.flatMap((product) =>
+    product.skus.map((sku) => sku.id)
+  );
+
+  const availabilityList =
+    await ProductInventoryAvailabilityService.getSkuAvailabilities(
+      allSkuIds
+    );
+
+  const availabilityMap = new Map(
+    availabilityList.map((item) => [item.skuId, item])
+  );
+
+  /**
+   * ========================================================
    * TABLE DATA
    * ========================================================
    */
@@ -184,7 +206,40 @@ export default async function ProductsPage({
         product: Awaited<
           typeof result.items
         >[number]
-      ) => ({
+      ) => {
+        const productAvailabilities = product.skus
+          .map((sku) => availabilityMap.get(sku.id))
+          .filter(Boolean);
+
+        const usesPhysicalPool = productAvailabilities.some(
+          (item) => item!.usesPhysicalPool
+        );
+
+        const uniquePoolStockGrams = new Map<string, number>();
+
+        for (const item of productAvailabilities) {
+          if (item?.usesPhysicalPool && item.poolId) {
+            uniquePoolStockGrams.set(
+              item.poolId,
+              item.stockGrams ?? 0
+            );
+          }
+        }
+
+        const physicalStockGrams =
+          [...uniquePoolStockGrams.values()].reduce(
+            (sum, grams) => sum + grams,
+            0
+          );
+
+        const legacyStock = productAvailabilities
+          .filter((item) => !item!.usesPhysicalPool)
+          .reduce(
+            (sum, item) => sum + item!.availableQuantity,
+            0
+          );
+
+        return {
         id: product.id,
 
         name: product.name,
@@ -231,18 +286,43 @@ export default async function ProductsPage({
               : Number(product.price);
           })(),
 
+        inventoryMode: usesPhysicalPool ? "PHYSICAL_POOL" : "LEGACY",
+
+        physicalStockGrams,
+
         stock:
-          product.stock,
+          usesPhysicalPool
+            ? 0
+            : legacyStock,
 
         stockItems:
-          product.skus.map((sku) => ({
-            skuId: sku.id,
+          product.skus.map((sku) => {
+            const availability = availabilityMap.get(sku.id);
 
-            sku: sku.sku,
+            return {
+              skuId: sku.id,
 
-            stock: sku.stock,
+              sku: sku.sku,
 
-            optionLabels:
+              stock:
+              availability?.availableQuantity ?? 0,
+
+              usesPhysicalPool:
+              availability?.usesPhysicalPool ?? false,
+
+              poolId:
+              availability?.poolId ?? null,
+
+              sizeLabel:
+              availability?.sizeLabel ?? null,
+
+              weightGrams:
+              availability?.weightGrams ?? null,
+
+              stockGrams:
+              availability?.stockGrams ?? null,
+
+              optionLabels:
               sku.skuOptions
                 .map(
                   (skuOption) => ({
@@ -267,7 +347,8 @@ export default async function ProductsPage({
                   (option) =>
                     `${option.groupName}: ${option.optionLabel}`
                 ),
-          })),
+            };
+          }),
 
         priceItems:
           product.skus.map((sku) => ({
@@ -310,7 +391,8 @@ export default async function ProductsPage({
 
         published:
           product.isPublished,
-      })
+      };
+      }
     );
 
   /**

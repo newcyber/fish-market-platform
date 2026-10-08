@@ -53,7 +53,7 @@ const cart =
      * ==========================================================
      */
     return mobileSuccess({
-      cart: serializeCart(cart),
+      cart: await serializeCart(cart),
     });
   } catch (error) {
     /**

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
+import { ProductInventoryAvailabilityService } from "@/services/product/product-inventory-availability.service";
+
 /**
  * ============================================================
  * PRODUCT FILTERS
@@ -206,6 +208,14 @@ export class ProductRepository {
             sortOrder: "asc" as const,
           },
         },
+      },
+    },
+
+    inventoryPools: {
+      select: {
+        id: true,
+        sizeVariantOptionId: true,
+        stockGrams: true,
       },
     },
 
@@ -560,12 +570,137 @@ static async findMany(
    * Admin membutuhkan include lengkap karena tabel menampilkan
    * gambar, SKU, variant options, harga, dan stok.
    */
+  /**
+   * ============================================================
+   * FIND PRODUCT IDS BY ADMIN STOCK AVAILABILITY
+   * ============================================================
+   *
+   * Stock filter tidak boleh menggunakan Product.stock untuk
+   * pool-backed product karena physical inventory adalah source
+   * of truth.
+   *
+   * Availability dihitung melalui service canonical agar aturan
+   * legacy vs physical pool tetap identik dengan customer flow.
+   *
+   * Product-level semantics:
+   * - legacy      = jumlah availability seluruh active SKU
+   * - pool-backed = availability maksimum dari SKU yang memakai
+   *                 pool, karena beberapa weight SKU dapat berbagi
+   *                 physical pool dan tidak boleh dijumlahkan ganda.
+   */
+  private static async findProductIdsByAdminStockAvailability(
+    stock: NonNullable<ProductFilters["stock"]>,
+  ): Promise<string[]> {
+    const products = await prisma.product.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        skus: {
+          where: {
+            isActive: true,
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    const skuIds = products.flatMap((product) =>
+      product.skus.map((sku) => sku.id),
+    );
+
+    const availabilities =
+      await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        skuIds,
+      );
+
+    const byProduct = new Map<
+      string,
+      typeof availabilities
+    >();
+
+    for (const availability of availabilities) {
+      const current =
+        byProduct.get(availability.productId) ?? [];
+
+      current.push(availability);
+      byProduct.set(
+        availability.productId,
+        current,
+      );
+    }
+
+    const matches: string[] = [];
+
+    for (const product of products) {
+      const productAvailabilities =
+        byProduct.get(product.id) ?? [];
+
+      const usesPhysicalPool =
+        productAvailabilities.some(
+          (item) => item.usesPhysicalPool,
+        );
+
+      const availableQuantity = usesPhysicalPool
+        ? productAvailabilities.reduce(
+            (max, item) =>
+              Math.max(
+                max,
+                item.availableQuantity,
+              ),
+            0,
+          )
+        : productAvailabilities.reduce(
+            (sum, item) =>
+              sum + item.availableQuantity,
+            0,
+          );
+
+      const matchesStock =
+        stock === "available"
+          ? availableQuantity > 5
+          : stock === "low"
+            ? availableQuantity > 0 &&
+              availableQuantity <= 5
+            : availableQuantity === 0;
+
+      if (matchesStock) {
+        matches.push(product.id);
+      }
+    }
+
+    return matches;
+  }
+
   static async findManyAdminPaginated(
     filters: ProductFilters = {},
     page = 1,
     limit = 20
   ) {
-    const where = this.buildFilteredWhere(filters);
+    const stockMatchedIds =
+      filters.stock
+        ? await this.findProductIdsByAdminStockAvailability(
+            filters.stock,
+          )
+        : null;
+
+    const where = this.buildFilteredWhere(
+      {
+        ...filters,
+        stock: undefined,
+      },
+      stockMatchedIds
+        ? {
+            id: {
+              in: stockMatchedIds,
+            },
+          }
+        : {},
+    );
+
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.min(50, Math.max(1, Math.floor(limit)));
     const skip = (safePage - 1) * safeLimit;
@@ -653,11 +788,36 @@ static async findMany(
       ),
     ];
 
+    const stockMatchedIds =
+      filters.stock
+        ? await this.findProductIdsByAdminStockAvailability(
+            filters.stock,
+          )
+        : null;
+
     const where = this.buildFilteredWhere(
-      filters,
+      {
+        ...filters,
+        stock: undefined,
+      },
       normalizedExcludedIds.length > 0
-        ? { id: { notIn: normalizedExcludedIds } }
-        : {}
+        ? {
+            id: {
+              ...(stockMatchedIds
+                ? {
+                    in: stockMatchedIds,
+                  }
+                : {}),
+              notIn: normalizedExcludedIds,
+            },
+          }
+        : stockMatchedIds
+          ? {
+              id: {
+                in: stockMatchedIds,
+              },
+            }
+          : {},
     );
 
     if (action === "delete") {
@@ -857,6 +1017,7 @@ include: {
     },
 
     select: {
+      id: true,
       price: true,
       stock: true,
     },

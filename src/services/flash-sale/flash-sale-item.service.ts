@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
 
 import { createAuditLog } from "@/services/audit/audit-log.service";
+import { ProductInventoryAvailabilityService } from "@/services/product/product-inventory-availability.service";
 
 /**
  * ============================================================
@@ -437,7 +438,7 @@ export default class FlashSaleItemService {
    */
   private static validateStockLimit(
     stockLimit: number,
-    skuStock: number
+    availableQuantity: number
   ) {
     const normalizedStockLimit =
       this.validateInteger(
@@ -448,10 +449,10 @@ export default class FlashSaleItemService {
 
     if (
       normalizedStockLimit >
-      skuStock
+      availableQuantity
     ) {
       throw new Error(
-        `Stock limit Flash Sale tidak boleh lebih besar dari stock SKU (${skuStock}).`
+        `Stock limit Flash Sale tidak boleh lebih besar dari availability SKU (${availableQuantity}).`
       );
     }
 
@@ -715,10 +716,15 @@ export default class FlashSaleItemService {
      * STOCK LIMIT
      * --------------------------------------------------------
      */
+    const availability =
+      await ProductInventoryAvailabilityService.getSkuAvailability(
+        sku.id
+      );
+
     const stockLimit =
       this.validateStockLimit(
         input.stockLimit,
-        sku.stock
+        availability.availableQuantity
       );
 
     /**
@@ -926,7 +932,14 @@ export default class FlashSaleItemService {
       const { product, sku } = await this.resolveSku(input.productId!, input.skuId!);
       const originalPrice = this.getCanonicalOriginalPrice(sku);
       const flashPrice = this.validateFlashPrice(input.flashPrice, originalPrice);
-      const stockLimit = this.validateStockLimit(input.stockLimit, sku.stock);
+      const availability =
+        await ProductInventoryAvailabilityService.getSkuAvailability(
+          sku.id
+        );
+      const stockLimit = this.validateStockLimit(
+        input.stockLimit,
+        availability.availableQuantity
+      );
       const perUserLimit = this.validatePerUserLimit(input.perUserLimit ?? 0, stockLimit);
       const sortOrder = this.validateSortOrder(input.sortOrder ?? 0);
       const isActive = input.isActive ?? true;
@@ -1247,19 +1260,42 @@ export default class FlashSaleItemService {
 
       /**
        * --------------------------------------------------------
+       * CHANGE DETECTION
+       * --------------------------------------------------------
+       */
+      const productChanged =
+        input.productId !== undefined &&
+        input.productId.trim() !==
+          current.productId;
+
+      const skuChanged =
+        input.skuId !== undefined &&
+        input.skuId.trim() !==
+          current.skuId;
+
+      /**
+       * --------------------------------------------------------
        * STOCK LIMIT
        * --------------------------------------------------------
        */
+      const availability =
+        await ProductInventoryAvailabilityService.getSkuAvailability(
+          sku.id,
+          tx,
+        );
+
       const stockLimit =
         input.stockLimit !== undefined
           ? this.validateStockLimit(
               input.stockLimit,
-              sku.stock
+              availability.availableQuantity
             )
-          : this.validateStockLimit(
-              current.stockLimit,
-              sku.stock
-            );
+          : (productChanged || skuChanged)
+            ? this.validateStockLimit(
+                current.stockLimit,
+                availability.availableQuantity
+              )
+            : current.stockLimit;
 
       if (
         stockLimit <
@@ -1321,16 +1357,6 @@ export default class FlashSaleItemService {
        *
        * Check dilakukan di transaction yang sama dengan update.
        */
-      const productChanged =
-        input.productId !== undefined &&
-        input.productId.trim() !==
-          current.productId;
-
-      const skuChanged =
-        input.skuId !== undefined &&
-        input.skuId.trim() !==
-          current.skuId;
-
       if (
         productChanged ||
         skuChanged

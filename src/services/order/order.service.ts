@@ -28,6 +28,8 @@ import {
   awardOrderRewardPointsTx,
   getSkuOptionSnapshotFromSku,
 } from "@/services/reward-point/reward-point.service";
+import ProductPhysicalInventoryService from "@/services/product/product-physical-inventory.service";
+import ProductInventoryAvailabilityService from "@/services/product/product-inventory-availability.service";
 export interface OrderDashboardSummary {
   totalOrders: number;
   pendingPayments: number;
@@ -877,6 +879,15 @@ class OrderService {
           },
           deletedAt: null,
         },
+        include: {
+          inventoryPools: {
+            select: {
+              id: true,
+              sizeVariantOptionId: true,
+              stockGrams: true,
+            },
+          },
+        },
       });
       if (products.length !== productIds.length) {
         const foundIds = new Set(products.map((product) => product.id));
@@ -938,6 +949,16 @@ class OrderService {
         );
       }
       const skuMap = new Map(skus.map((sku) => [sku.id, sku]));
+const skuAvailabilityList = await ProductInventoryAvailabilityService.getSkuAvailabilities(
+        skuIds,
+        tx,
+      );
+      const skuAvailabilityMap = new Map(
+        skuAvailabilityList.map((availability) => [
+          availability.skuId,
+          availability,
+        ]),
+      );
       /**
        * ========================================================
        * 5. VALIDATE PRODUCT ↔ SKU RELATION
@@ -1023,10 +1044,30 @@ class OrderService {
          * Produk normal tetap wajib memiliki stock
          * yang mencukupi.
          */
-        if (!product.isPreOrder && sku.stock < requiredQuantity) {
-          throw new Error(
-            `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${sku.stock}.`,
-          );
+        if (!product.isPreOrder) {
+          const availability = skuAvailabilityMap.get(sku.id);
+
+          if (!availability) {
+            throw new Error(
+              `Ketersediaan SKU "${sku.sku}" tidak dapat ditentukan. Silakan coba lagi.`,
+            );
+          }
+
+          if (availability.availableQuantity < requiredQuantity) {
+            if (availability.usesPhysicalPool) {
+              const availableGrams = availability.stockGrams ?? 0;
+              const requiredGrams =
+                (availability.weightGrams ?? 0) * requiredQuantity;
+
+              throw new Error(
+                `Stok fisik SKU "${sku.sku}" tidak mencukupi. Dibutuhkan ${requiredGrams} gram, tersedia ${availableGrams} gram.`,
+              );
+            }
+
+            throw new Error(
+              `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${availability.availableQuantity}.`,
+            );
+          }
         }
         /**
          * ======================================================
@@ -1387,30 +1428,62 @@ class OrderService {
       }
       /**
        * ========================================================
-       * 14. ATOMIC SKU STOCK DECREMENT
+       * 14. CONSUME PHYSICAL INVENTORY + LEGACY SKU STOCK
        * ========================================================
        *
-       * Jangan update Product.stock lagi.
+       * Pool-backed products consume physical grams from
+       * ProductInventoryPool. Legacy products keep the existing
+       * ProductSku.stock + StockLedger flow.
+       */
+      const physicalInventoryItems = normalizedItems.filter((item) => {
+        const product = productMap.get(item.productId);
+        const availability = skuAvailabilityMap.get(item.skuId);
+
+        return Boolean(
+          product &&
+            !product.isPreOrder &&
+            availability?.usesPhysicalPool,
+        );
+      });
+
+      if (physicalInventoryItems.length > 0) {
+        await ProductPhysicalInventoryService.consumeForOrder(
+          physicalInventoryItems.map((item) => ({
+            skuId: item.skuId,
+            quantity: item.quantity,
+          })),
+          {
+            orderNumber: order.orderNumber,
+            actorUserId: input.userId,
+          },
+          tx,
+        );
+      }
+
+      /**
+       * Legacy ProductSku stock mutation.
        *
-       * Canonical stock:
-       *
-       *   ProductSku.stock
-       *
-       * Guard:
-       *
-       *   stock >= quantity
-       *
-       * sehingga dua checkout bersamaan tidak dapat
-       * mengurangi stock menjadi negatif.
+       * Physical-pool SKUs MUST NOT be decremented here because their
+       * ProductSku.stock is no longer the source of truth.
        */
       for (const [skuId, quantity] of stockRequirement) {
         const sku = skuMap.get(skuId);
         if (!sku) {
           throw new Error("SKU tidak ditemukan.");
         }
+
         const product = productMap.get(sku.productId);
         if (!product) {
           throw new Error("Produk tidak ditemukan.");
+        }
+
+        const availability = skuAvailabilityMap.get(sku.id);
+
+        if (
+          product.isPreOrder ||
+          availability?.usesPhysicalPool
+        ) {
+          continue;
         }
 
         const stockBefore = sku.stock;
@@ -1429,20 +1502,15 @@ class OrderService {
             },
           },
         });
+
         if (result.count !== 1) {
           throw new Error(
             `Stok SKU "${sku.sku}" berubah sebelum transaksi selesai. Silakan coba lagi.`,
           );
         }
+
         const stockAfter = stockBefore - quantity;
-        /**
-         * ======================================================
-         * STOCK LEDGER
-         * ======================================================
-         *
-         * skuId wajib disimpan agar histori stok
-         * dapat dilacak sampai level SKU.
-         */
+
         await tx.stockLedger.create({
           data: {
             productId: sku.productId,
@@ -1775,6 +1843,15 @@ class OrderService {
           },
           deletedAt: null,
         },
+        include: {
+          inventoryPools: {
+            select: {
+              id: true,
+              sizeVariantOptionId: true,
+              stockGrams: true,
+            },
+          },
+        },
       });
       if (products.length !== productIds.length) {
         const foundIds = new Set(products.map((product) => product.id));
@@ -2029,11 +2106,18 @@ class OrderService {
         }
 
         /**
-         * Pre-Order tidak mempunyai
-         * physical stock reservation.
+         * Pool-backed products are reconciled by physical grams.
          *
-         * Normal product menggunakan
-         * quantity order sebagai reservation.
+         * ProductSku.stock must never be changed for these products.
+         */
+        if (product.inventoryPools.length > 0) {
+          continue;
+        }
+
+        /**
+         * Legacy products use ProductSku.stock.
+         *
+         * Pre-Order has no physical SKU reservation.
          */
         const physicalQuantity = product.isPreOrder ? 0 : item.quantity;
 
@@ -2149,6 +2233,14 @@ class OrderService {
 
           if (!product) {
             throw new Error(`Produk untuk SKU "${sku.sku}" tidak ditemukan.`);
+          }
+
+          /**
+           * Pool-backed products use physical grams and are validated
+           * atomically by ProductPhysicalInventoryService below.
+           */
+          if (product.inventoryPools.length > 0) {
+            continue;
           }
 
           /**
@@ -2355,7 +2447,27 @@ class OrderService {
       if (itemsChanged) {
         /**
          * ==========================================================
-         * 15. ADJUST SKU STOCK BY ORDER ITEM DELTA
+         * 15A. RECONCILE PHYSICAL INVENTORY POOLS
+         * ==========================================================
+         *
+         * Pool-backed products are measured in grams, not SKU units.
+         *
+         * This handles quantity changes, SKU/size/weight changes and
+         * NORMAL/PRE-ORDER transitions in the same transaction as the
+         * order update.
+         */
+        await ProductPhysicalInventoryService.reconcileForOrder(
+          finalItems,
+          {
+            orderNumber: order.orderNumber,
+            actorUserId: input.userId,
+          },
+          tx,
+        );
+
+        /**
+         * ==========================================================
+         * 15B. ADJUST LEGACY SKU STOCK BY ORDER ITEM DELTA
          * ==========================================================
          *
          * oldQuantity = quantity order sebelum perubahan
@@ -3521,7 +3633,29 @@ class OrderService {
     );
     /**
      * ========================================================
-     * 9. RESTORE SKU STOCK + CREATE LEDGER
+     * 9. RESTORE PHYSICAL INVENTORY POOL
+     * ========================================================
+     *
+     * Pool-backed products do not use ProductSku.stock.
+     * The exact grams consumed by this order are recovered from
+     * ProductInventoryPoolLedger SALE entries created at checkout.
+     *
+     * This must happen inside the same cancellation transaction so
+     * physical inventory restore and Order -> CANCELLED are atomic.
+     *
+     * Legacy ProductSku stock restoration remains below.
+     */
+    await ProductPhysicalInventoryService.restoreForOrder(
+      currentOrder.orderNumber,
+      {
+        actorUserId: userId ?? null,
+      },
+      tx,
+    );
+
+    /**
+     * ========================================================
+     * 10. RESTORE SKU STOCK + CREATE LEDGER
      * ========================================================
      *
      * Canonical stock:
@@ -3640,7 +3774,7 @@ class OrderService {
     }
     /**
      * ========================================================
-     * 10. SET ORDER = CANCELLED
+     * 11. SET ORDER = CANCELLED
      * ========================================================
      *
      * Order sudah di-lock dengan FOR UPDATE,
@@ -5250,6 +5384,11 @@ class OrderService {
             isPreOrder: true,
             preOrderMinDays: true,
             preOrderMaxDays: true,
+            inventoryPools: {
+              select: {
+                id: true,
+              },
+            },
           },
         });
         const productMap = new Map(
@@ -5342,7 +5481,15 @@ class OrderService {
            * Stock ProductSku tetap menjadi canonical stock
            * untuk produk normal.
            */
-          if (!product.isPreOrder && sku.stock < item.quantity) {
+          const isPhysicalPoolBacked =
+            !product.isPreOrder &&
+            product.inventoryPools.length > 0;
+
+          if (
+            !product.isPreOrder &&
+            !isPhysicalPoolBacked &&
+            sku.stock < item.quantity
+          ) {
             throw new Error(
               `Stok SKU "${sku.sku}" tidak mencukupi. Stok tersedia: ${sku.stock}.`,
             );
@@ -5833,10 +5980,55 @@ class OrderService {
         }
         /**
          * ====================================================
-         * AGGREGATE STOCK REQUIREMENTS PER SKU
+         * CONSUME PHYSICAL INVENTORY FOR POOL-BACKED PRODUCTS
          * ====================================================
          *
-         * Stock canonical berada pada ProductSku.stock.
+         * Product yang memiliki ProductInventoryPool menggunakan
+         * stok fisik dalam gram sebagai source of truth.
+         *
+         * ProductSku.stock TIDAK boleh dikurangi untuk product
+         * pool-backed, karena nilainya hanya legacy/presentation.
+         *
+         * Pre-Order dikecualikan karena tidak mengonsumsi stok fisik.
+         *
+         * Semua proses tetap berada dalam transaction yang sama.
+         * Jika physical inventory gagal, seluruh checkout rollback.
+         * ====================================================
+         */
+        const physicalInventoryItems = normalizedItems
+          .filter((item) => {
+            const product = productMap.get(item.productId);
+
+            return Boolean(
+              product &&
+                !product.isPreOrder &&
+                product.inventoryPools.length > 0,
+            );
+          })
+          .map((item) => ({
+            skuId: item.skuId,
+            quantity: item.quantity,
+          }));
+
+        if (physicalInventoryItems.length > 0) {
+          await ProductPhysicalInventoryService.consumeForOrder(
+            physicalInventoryItems,
+            {
+              orderNumber: createdOrder.orderNumber,
+              actorUserId: userId,
+            },
+            tx,
+          );
+        }
+
+        /**
+         * ====================================================
+         * AGGREGATE LEGACY STOCK REQUIREMENTS PER SKU
+         * ====================================================
+         *
+         * Hanya legacy product yang masuk ke requirements ini.
+         * Pool-backed product sudah dikonsumsi melalui
+         * ProductPhysicalInventoryService.
          *
          * Product yang sama boleh memiliki beberapa SKU dengan
          * stock terpisah.
@@ -5867,6 +6059,21 @@ class OrderService {
           if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
             throw new Error(`Quantity untuk SKU "${item.skuId}" tidak valid.`);
           }
+
+          const itemProduct = productMap.get(item.productId);
+          if (!itemProduct) {
+            throw new Error(
+              `Produk untuk SKU "${item.skuId}" tidak ditemukan saat checkout.`,
+            );
+          }
+
+          if (
+            itemProduct.isPreOrder ||
+            itemProduct.inventoryPools.length > 0
+          ) {
+            continue;
+          }
+
           stockRequirements.set(
             item.skuId,
             (stockRequirements.get(item.skuId) ?? 0) + item.quantity,
