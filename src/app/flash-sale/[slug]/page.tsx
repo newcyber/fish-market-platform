@@ -26,6 +26,8 @@ import FlashSaleRepository from
 import settingsService from
   "@/services/settings/settings.service";
 
+import { getSiteUrls } from "@/services/site/site-url.service";
+
 import {
   buildSeoMetadata,
   type SeoSettings,
@@ -61,6 +63,7 @@ export async function generateMetadata({
   params,
 }: FlashSaleDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
+  const siteUrls = await getSiteUrls();
 
   const [settings, flashSale] =
     await Promise.all([
@@ -89,6 +92,7 @@ export async function generateMetadata({
 
   if (!flashSale) {
     return buildSeoMetadata(seoSettings, {
+      baseUrl: siteUrls.storefrontUrl,
       pathname: `/flash-sale/${encodeURIComponent(slug)}`,
       title: "Flash Sale Tidak Ditemukan",
       noIndex: true,
@@ -114,6 +118,7 @@ export async function generateMetadata({
     undefined;
 
   return buildSeoMetadata(seoSettings, {
+    baseUrl: siteUrls.storefrontUrl,
     pathname: `/flash-sale/${flashSale.slug}`,
     title,
     description,

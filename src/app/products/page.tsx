@@ -37,6 +37,7 @@ import ProductCategoryNavigation from
   "@/components/customer/products/ProductCategoryNavigation";
 
 import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 import {
   buildSeoMetadata,
@@ -95,6 +96,8 @@ export async function generateMetadata({
       ? params.category.trim().toLowerCase()
       : undefined;
 
+  const siteUrls = await getSiteUrls();
+
   const [settings, categories] = await Promise.all([
     settingsService.getSettings(),
     CategoryService.getCategories({
@@ -135,6 +138,7 @@ export async function generateMetadata({
 
   if (categorySlug && !selectedCategory) {
     return buildSeoMetadata(seoSettings, {
+      baseUrl: siteUrls.storefrontUrl,
       pathname: "/products",
       title: "Kategori Tidak Ditemukan",
       noIndex: true,
@@ -161,6 +165,7 @@ export async function generateMetadata({
     : "/products";
 
   return buildSeoMetadata(seoSettings, {
+      baseUrl: siteUrls.storefrontUrl,
     pathname,
     title,
     description,

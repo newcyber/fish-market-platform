@@ -28,6 +28,7 @@ export type ProductJsonLdInput = {
   sku?: string | null;
   category?: {
     name?: string | null;
+    slug?: string | null;
   } | null;
   images?: ProductImage[];
   skus?: ProductSku[];
@@ -278,6 +279,11 @@ function buildBreadcrumbJsonLd(
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const productUrl = resolveCanonicalUrl(baseUrl, product.slug);
   const productsUrl = new URL("/products", baseUrl).toString();
+  const categorySlug = normalizeText(product.category?.slug);
+  const categoryName = normalizeText(product.category?.name);
+  const categoryUrl = categorySlug
+    ? new URL(`/kategori/${encodeURIComponent(categorySlug)}`, baseUrl).toString()
+    : productsUrl;
 
   return {
     "@context": "https://schema.org",
@@ -298,6 +304,12 @@ function buildBreadcrumbJsonLd(
       {
         "@type": "ListItem",
         position: 3,
+        name: categoryName || "Kategori",
+        item: categoryUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
         name,
         item: productUrl,
       },
@@ -334,10 +346,6 @@ export function buildProductJsonLd(
     name,
     description,
     url: productUrl,
-    brand: {
-      "@type": "Brand",
-      name: options.storeName,
-    },
   };
 
   if (images.length > 0) {
@@ -378,20 +386,39 @@ export function buildProductJsonLd(
     const lowPrice = Math.min(...prices);
     const highPrice = Math.max(...prices);
 
-    productSchema.offers = {
-      "@type": "AggregateOffer",
-      url: productUrl,
-      priceCurrency: options.currency ?? "IDR",
-      lowPrice,
-      highPrice,
-      offerCount: prices.length,
-      availability: resolveAvailability(product),
-      itemCondition: "https://schema.org/NewCondition",
-      seller: {
-        "@type": "Organization",
-        name: options.storeName,
-      },
-    };
+    if (prices.length === 1) {
+      // Google merchant listings require an Offer. Use the simpler
+      // shape when the product has a single sellable price.
+      productSchema.offers = {
+        "@type": "Offer",
+        url: productUrl,
+        priceCurrency: options.currency ?? "IDR",
+        price: lowPrice,
+        availability: resolveAvailability(product),
+        itemCondition: "https://schema.org/NewCondition",
+        seller: {
+          "@type": "Organization",
+          name: options.storeName,
+        },
+      };
+    } else {
+      // Keep AggregateOffer for products with multiple active SKU prices
+      // until variant-specific canonical URLs are introduced.
+      productSchema.offers = {
+        "@type": "AggregateOffer",
+        url: productUrl,
+        priceCurrency: options.currency ?? "IDR",
+        lowPrice,
+        highPrice,
+        offerCount: prices.length,
+        availability: resolveAvailability(product),
+        itemCondition: "https://schema.org/NewCondition",
+        seller: {
+          "@type": "Organization",
+          name: options.storeName,
+        },
+      };
+    }
   }
 
   return productSchema;

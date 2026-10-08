@@ -253,6 +253,20 @@ export function buildSeoMetadata(
 
     description,
 
+    applicationName: storeName,
+
+    creator: storeName,
+
+    publisher: storeName,
+
+    referrer: "origin-when-cross-origin",
+
+    formatDetection: {
+      telephone: true,
+      address: false,
+      email: true,
+    },
+
     keywords: normalizeSeoText(settings.seoKeywords) || undefined,
 
     alternates: {

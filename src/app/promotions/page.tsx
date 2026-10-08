@@ -18,6 +18,7 @@ import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import PromotionService from "@/services/promotion/promotion.service";
 
 import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 import {
   buildSeoMetadata,
@@ -136,6 +137,7 @@ function getDiscountLabel(
 export async function generateMetadata(): Promise<Metadata> {
   const settings =
     await settingsService.getSettings();
+  const siteUrls = await getSiteUrls();
 
   const seoSettings: SeoSettings = {
     seoTitle: settings.seoTitle,
@@ -169,6 +171,7 @@ export async function generateMetadata(): Promise<Metadata> {
     `Temukan berbagai promo dan penawaran menarik di ${storeName}.`;
 
   return buildSeoMetadata(seoSettings, {
+      baseUrl: siteUrls.storefrontUrl,
     pathname: "/promotions",
     title,
     description,

@@ -222,7 +222,7 @@ export default function HomeCategoryShortcuts({
           "
         >
           {visibleCategories.map((category, index) => {
-            const categoryHref = `${productsHref}?category=${encodeURIComponent(
+            const categoryHref = `/kategori/${encodeURIComponent(
               category.slug,
             )}`;
 

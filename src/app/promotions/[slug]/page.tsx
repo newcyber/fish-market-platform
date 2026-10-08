@@ -20,6 +20,7 @@ import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import PromotionService from "@/services/promotion/promotion.service";
 
 import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 import {
   buildSeoMetadata,
@@ -42,6 +43,8 @@ export async function generateMetadata({
   params,
 }: PromotionDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
+
+  const siteUrls = await getSiteUrls();
 
   const [settings, promotion] =
     await Promise.all([
@@ -71,6 +74,7 @@ export async function generateMetadata({
 
   if (!promotion) {
     return buildSeoMetadata(seoSettings, {
+      baseUrl: siteUrls.storefrontUrl,
       pathname: `/promotions/${encodeURIComponent(slug)}`,
       title: "Promo Tidak Ditemukan",
       noIndex: true,
@@ -96,6 +100,7 @@ export async function generateMetadata({
     undefined;
 
   return buildSeoMetadata(seoSettings, {
+      baseUrl: siteUrls.storefrontUrl,
     pathname: `/promotions/${promotion.slug}`,
     title,
     description,

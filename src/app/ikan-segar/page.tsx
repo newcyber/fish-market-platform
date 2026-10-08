@@ -66,6 +66,7 @@ function buildSeoSettings(
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await settingsService.getSettings();
+  const siteUrls = await getSiteUrls();
 
   const storeName =
     settings.storeName?.trim() || "PISJO";
@@ -76,8 +77,9 @@ export async function generateMetadata(): Promise<Metadata> {
       : DEFAULT_DESCRIPTION;
 
   return buildSeoMetadata(
-    buildSeoSettings(settings),
+    settings,
     {
+      baseUrl: siteUrls.storefrontUrl,
       pathname: PAGE_PATH,
       title:
         storeName === "PISJO"
@@ -299,7 +301,7 @@ export default async function FreshFishLandingPage() {
         : `Ikan Segar Jogja | ${storeName}`,
     description: pageDescription,
     inLanguage: "id-ID",
-        isPartOf: {
+    isPartOf: {
       "@id": `${storefrontUrl}/#website`,
     },
     about: {
@@ -435,6 +437,7 @@ export default async function FreshFishLandingPage() {
               <p className="text-sm font-bold text-slate-900">
                 Pilihan produk
               </p>
+
               <p className="text-xs text-slate-500">
                 Beragam ikan untuk kebutuhan Anda
               </p>
@@ -450,6 +453,7 @@ export default async function FreshFishLandingPage() {
               <p className="text-sm font-bold text-slate-900">
                 Belanja lebih mudah
               </p>
+
               <p className="text-xs text-slate-500">
                 Pesan langsung melalui marketplace
               </p>
@@ -465,6 +469,7 @@ export default async function FreshFishLandingPage() {
               <p className="text-sm font-bold text-slate-900">
                 Opsi pengiriman
               </p>
+
               <p className="text-xs text-slate-500">
                 Tersedia sesuai area dan metode pengiriman
               </p>

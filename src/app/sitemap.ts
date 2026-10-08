@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import ProductService from "@/services/product/product.service";
 import PromotionService from "@/services/promotion/promotion.service";
 import FlashSaleService from "@/services/flash-sale/flash-sale.service";
+import { prisma } from "@/lib/prisma";
 import { getSiteUrls } from "@/services/site/site-url.service";
 
 export const dynamic = "force-dynamic";
@@ -44,10 +45,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ];
   }
 
-  const [products, promotions, flashSales] = await Promise.all([
+  const [products, promotions, flashSales, categories] = await Promise.all([
     ProductService.getPublishedProductsForSitemap(),
     PromotionService.getActiveForCustomer(),
     FlashSaleService.getActiveForCustomer(),
+    prisma.category.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        products: {
+          some: {
+            deletedAt: null,
+            isPublished: true,
+          },
+        },
+      },
+      select: {
+        slug: true,
+        image: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        sortOrder: "asc",
+      },
+    }),
   ]);
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -59,6 +80,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+
+    ...categories.map((category) => ({
+      url: `${baseUrl}/kategori/${encodeURIComponent(category.slug)}`,
+      lastModified: category.updatedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+      ...(category.image
+        ? {
+            images: [
+              new URL(
+                category.image,
+                `${baseUrl}/`,
+              ).toString(),
+            ],
+          }
+        : {}),
+    })),
 
     { url: `${baseUrl}/flash-sale`, changeFrequency: "daily", priority: 0.8 },
     { url: `${baseUrl}/promotions`, changeFrequency: "daily", priority: 0.8 },
@@ -87,12 +125,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...staticPages,
-    ...products.map((product) => ({
-      url: `${baseUrl}/products/${product.slug}`,
-      lastModified: product.updatedAt,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    })),
+    ...products.map((product) => {
+      const image = product.images.find(
+        (item) =>
+          (!item.mediaType || item.mediaType === "IMAGE") &&
+          Boolean(item.image?.trim()),
+      )?.image;
+
+      return {
+        url: `${baseUrl}/products/${product.slug}`,
+        lastModified: product.updatedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+        ...(image
+          ? {
+              images: [
+                new URL(image, `${baseUrl}/`).toString(),
+              ],
+            }
+          : {}),
+      };
+    }),
     ...promotions.map((promotion) => ({
       url: `${baseUrl}/promotions/${promotion.slug}`,
       lastModified: promotion.updatedAt,

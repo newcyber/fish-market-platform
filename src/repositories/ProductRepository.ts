@@ -1028,6 +1028,17 @@ include: {
       select: {
         slug: true,
         updatedAt: true,
+        images: {
+          orderBy: [
+            { isThumbnail: "desc" },
+            { sortOrder: "asc" },
+          ],
+          take: 1,
+          select: {
+            image: true,
+            mediaType: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

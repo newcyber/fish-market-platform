@@ -1,4 +1,7 @@
 import ProductService from "@/services/product/product.service";
+import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
+import { buildProductSeoContent, resolveSeoImageUrl } from "./seo.utils";
 
 import {
   analyzeSeoMetadata,
@@ -22,13 +25,49 @@ export async function analyzeProductSeo(
     return null;
   }
 
+  const [settings, siteUrls] = await Promise.all([
+    settingsService.getSettings(),
+    getSiteUrls(),
+  ]);
+
+  const storeName =
+    settings.storeName?.trim() || "Pisjo Market";
+  const seoContent = buildProductSeoContent({
+    productName: product.name,
+    categoryName: product.category?.name,
+    description: product.description,
+    storeName,
+    locationLabel: "Jogja",
+  });
+
+  const canonicalUrl = new URL(
+    `/products/${encodeURIComponent(product.slug)}`,
+    `${siteUrls.storefrontUrl.replace(/\/+$/, "")}/`,
+  ).toString();
+
+  const productImage = product.images?.find(
+    (image) =>
+      (!image.mediaType || image.mediaType === "IMAGE") &&
+      Boolean(image.image?.trim()),
+  )?.image;
+
+  const ogImage = productImage
+    ? resolveSeoImageUrl(productImage, siteUrls.storefrontUrl)
+    : settings.seoOgImage;
+
   const analysis = analyzeSeoMetadata({
     entityType: "product",
 
     name: product.name,
     slug: product.slug,
 
-    description: product.description,
+    // Analyze the metadata actually emitted by the public product page.
+    title: seoContent.title,
+    description: seoContent.description,
+    canonicalUrl,
+    ogTitle: seoContent.title,
+    ogDescription: seoContent.description,
+    ogImage,
 
     categoryName:
       product.category?.name ?? null,

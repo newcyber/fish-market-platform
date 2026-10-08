@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/terms-and-conditions" },
   title: "Syarat dan Ketentuan",
   description:
     "Syarat dan Ketentuan penggunaan layanan Pisjo Market.",

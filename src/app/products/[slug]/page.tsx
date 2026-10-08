@@ -8,6 +8,7 @@ import { buildSeoMetadata, type SeoSettings } from "@/lib/seo/seo-metadata";
 import { notFound } from "next/navigation";
 
 import { ProductJsonLd } from "@/lib/seo/product-jsonld";
+import { buildProductSeoContent } from "@/lib/seo/seo.utils";
 
 import DynamicSiteHeader from "@/components/layout/DynamicSiteHeader";
 import MobileBottomNavigation from "@/components/layout/MobileBottomNavigation";
@@ -115,9 +116,15 @@ export async function generateMetadata({
 
   const productName = product.name.trim();
 
-  const productDescription =
-    product.description?.trim() ||
-    `Beli ${product.name.trim()} secara online di ${storeName}. Cek harga, stok, dan pilihan produk ikan atau seafood di Pisjo Market Jogja.`;
+  const productSeo = buildProductSeoContent({
+    productName,
+    categoryName: product.category?.name,
+    description: product.description,
+    storeName,
+    locationLabel: "Jogja",
+  });
+
+  const productDescription = productSeo.description;
 
   const productImage = product.images
     .filter(
@@ -141,7 +148,7 @@ export async function generateMetadata({
   return buildSeoMetadata(seoSettings, {
     pathname: `/products/${product.slug}`,
     baseUrl: siteUrls.storefrontUrl,
-    title: `${productName} | ${storeName} Jogja`,
+    title: productSeo.title,
     description: productDescription,
     ogTitle,
     ogDescription,
@@ -224,49 +231,6 @@ const product = isAdminPreview
       : Promise.resolve(false),
     ProductReviewService.getPublicSummary(product.id),
   ]);
-
-const productJsonLd = (
-  <ProductJsonLd
-    product={{
-      name: product.name,
-      description: product.description,
-      slug: product.slug,
-      sku: product.sku,
-      category: product.category,
-      images: product.images.map((image) => ({
-        image: image.image,
-        isThumbnail: image.isThumbnail,
-        sortOrder: image.sortOrder,
-        mediaType: image.mediaType,
-        createdAt: image.createdAt,
-      })),
-      skus: product.skus,
-      price: product.price,
-      stock: product.stock,
-      isPublished: product.isPublished,
-      isPreOrder: product.isPreOrder,
-
-      aggregateRating: productReviewSummary.reviewCount > 0
-        ? {
-            ratingValue: productReviewSummary.averageRating,
-            reviewCount: productReviewSummary.reviewCount,
-          }
-        : null,
-
-      reviews: productReviewSummary.reviews.map((review) => ({
-        username: review.username,
-        rating: review.rating,
-        review: review.review,
-        createdAt: review.createdAt,
-      })),
-    }}
-    options={{
-      baseUrl: siteUrls.storefrontUrl,
-      storeName: settings.storeName?.trim() || "Pisjo Market Platform",
-      currency: "IDR",
-    }}
-  />
-);
 
   /**
    * ==========================================================
@@ -597,6 +561,57 @@ const productJsonLd = (
           },
         ];
 
+  const productJsonLd = (
+    <ProductJsonLd
+      product={{
+        name: product.name,
+        description: product.description,
+        slug: product.slug,
+        sku: product.sku,
+        category: product.category,
+        images: product.images.map((image) => ({
+          image: image.image,
+          isThumbnail: image.isThumbnail,
+          sortOrder: image.sortOrder,
+          mediaType: image.mediaType,
+          createdAt: image.createdAt,
+        })),
+        skus: activeSkus.map((sku, index) => ({
+          price: displayPricing[index]?.finalPrice ?? sku.price,
+          stock: sku.stock,
+          isActive: sku.isActive,
+        })),
+        price:
+          activeSkus.length === 0
+            ? displayPricing[0]?.finalPrice ?? product.price
+            : undefined,
+        stock: product.stock,
+        isPublished: product.isPublished,
+        isPreOrder: product.isPreOrder,
+
+        aggregateRating:
+          productReviewSummary.reviewCount > 0
+            ? {
+                ratingValue: productReviewSummary.averageRating,
+                reviewCount: productReviewSummary.reviewCount,
+              }
+            : null,
+
+        reviews: productReviewSummary.reviews.map((review) => ({
+          username: review.username,
+          rating: review.rating,
+          review: review.review,
+          createdAt: review.createdAt,
+        })),
+      }}
+      options={{
+        baseUrl: siteUrls.storefrontUrl,
+        storeName: settings.storeName?.trim() || "Pisjo Market Platform",
+        currency: "IDR",
+      }}
+    />
+  );
+
   const displayOriginalPrices = displayPricing.map((pricing) =>
     Number(pricing.originalPrice),
   );
@@ -711,7 +726,7 @@ const productJsonLd = (
               <ChevronRight className="h-4 w-4 text-slate-400" />
 
               <Link
-                href="/products"
+                href={`/kategori/${encodeURIComponent(product.category.slug)}`}
                 className="text-slate-500 transition hover:text-cyan-600"
               >
                 {product.category.name}
@@ -968,7 +983,10 @@ const productJsonLd = (
                         <Tag className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Kategori</p>
-                          <Link href="/products" className="mt-1 inline-flex text-xs font-medium text-cyan-700 hover:underline">
+                          <Link
+                            href={`/kategori/${encodeURIComponent(product.category.slug)}`}
+                            className="mt-1 inline-flex text-xs font-medium text-cyan-700 hover:underline"
+                          >
                             {product.category.name}
                           </Link>
                         </div>
@@ -1505,9 +1523,7 @@ const productJsonLd = (
             <ProductRecommendationSection
               title="Produk terkait"
               products={relatedProducts}
-              href={`/products?category=${encodeURIComponent(
-                product.category.slug,
-              )}#categories`}
+              href={`/kategori/${encodeURIComponent(product.category.slug)}`}
               showViewAll
             />
 

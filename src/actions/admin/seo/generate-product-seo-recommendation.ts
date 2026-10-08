@@ -11,6 +11,7 @@ import type {
 import { analyzeProductSeo } from "@/lib/seo/product-seo-analyzer";
 import settingsService from "@/services/settings/settings.service";
 import ProductService from "@/services/product/product.service";
+import { buildProductSeoContent } from "@/lib/seo/seo.utils";
 
 export interface GenerateProductSeoRecommendationActionResult {
   success: boolean;
@@ -70,6 +71,17 @@ export async function generateProductSeoRecommendationAction(
       };
     }
 
+    const storeName =
+      settings.storeName?.trim() || "Pisjo Market";
+
+    const seoContent = buildProductSeoContent({
+      productName: product.name,
+      categoryName: product.category?.name,
+      description: product.description,
+      storeName,
+      locationLabel: "Jogja",
+    });
+
     const input: AiSeoRecommendationInput = {
       entityType: "product",
       entityId: product.id,
@@ -78,12 +90,11 @@ export async function generateProductSeoRecommendationAction(
         product.description,
       slug: product.slug,
       currentMetadata: {
-        title: null,
-        description:
-          product.description,
+        title: seoContent.title,
+        description: seoContent.description,
         canonicalUrl: null,
-        ogTitle: null,
-        ogDescription: null,
+        ogTitle: seoContent.title,
+        ogDescription: seoContent.description,
         ogImage: null,
       },
       analysis:

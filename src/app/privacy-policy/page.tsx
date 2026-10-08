@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/privacy-policy" },
   title: "Kebijakan Privasi",
   description:
     "Kebijakan Privasi Pisjo Market mengenai pengumpulan, penggunaan, penyimpanan, dan perlindungan data pribadi pengguna.",

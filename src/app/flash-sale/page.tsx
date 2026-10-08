@@ -23,6 +23,7 @@ import FlashSaleRepository from
   "@/repositories/flash-sale/flash-sale.repository";
 
 import settingsService from "@/services/settings/settings.service";
+import { getSiteUrls } from "@/services/site/site-url.service";
 
 import {
   buildSeoMetadata,
@@ -103,6 +104,8 @@ function formatDate(
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const siteUrls = await getSiteUrls();
+
   const [settings, flashSales] =
     await Promise.all([
       settingsService.getSettings(),
@@ -142,6 +145,7 @@ export async function generateMetadata(): Promise<Metadata> {
     `Dapatkan harga promo terbaik melalui Flash Sale di ${storeName}.`;
 
   return buildSeoMetadata(seoSettings, {
+      baseUrl: siteUrls.storefrontUrl,
     pathname: "/flash-sale",
     title,
     description,

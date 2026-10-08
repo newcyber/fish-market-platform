@@ -467,7 +467,7 @@ export default async function SiteJsonLd({
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(graph),
+        __html: JSON.stringify(graph).replace(/</g, "\\u003c"),
       }}
     />
   );
