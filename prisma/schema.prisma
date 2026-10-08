@@ -1061,6 +1061,8 @@ model Product {
 
   skus ProductSku[]
 
+  inventoryPools ProductInventoryPool[] @relation("ProductInventoryPools")
+
   weightOptions ProductWeightOption[] @relation("ProductWeightOptions")
 
   weightVariantPrices ProductWeightVariantPrice[] @relation("ProductWeightVariantPriceProduct")
@@ -1568,15 +1570,16 @@ model ProductVariantGroup {
 }
 
 model ProductVariantOption {
-  id         String              @id @default(uuid())
-  groupId    String
-  group      ProductVariantGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  label      String
-  sortOrder  Int                 @default(0)
-  isActive   Boolean             @default(true)
-  skuOptions ProductSkuOption[]
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  id             String                 @id @default(uuid())
+  groupId        String
+  group          ProductVariantGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  label          String
+  sortOrder      Int                    @default(0)
+  isActive       Boolean                @default(true)
+  skuOptions     ProductSkuOption[]
+  inventoryPools ProductInventoryPool[] @relation("ProductInventoryPoolsBySize")
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@unique([groupId, label])
   @@index([groupId])
@@ -1822,6 +1825,60 @@ model ProductWeightVariantPrice {
   @@index([productId, variantOptionId])
 }
 
+model ProductInventoryPool {
+  id String @id @default(uuid())
+
+  /// Canonical marketplace product family.
+  productId String
+  product   Product @relation("ProductInventoryPools", fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Variant option from the ProductVariantGroup named "Ukuran".
+  sizeVariantOptionId String
+  sizeVariantOption   ProductVariantOption @relation("ProductInventoryPoolsBySize", fields: [sizeVariantOptionId], references: [id], onDelete: Restrict)
+
+  /// Physical inventory in grams.
+  stockGrams Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledgers ProductInventoryPoolLedger[]
+
+  @@unique([productId, sizeVariantOptionId])
+  @@index([productId])
+  @@index([sizeVariantOptionId])
+  @@index([stockGrams])
+}
+
+model ProductInventoryPoolLedger {
+  id String @id @default(uuid())
+
+  poolId String
+  pool   ProductInventoryPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  productId           String
+  sizeVariantOptionId String
+
+  /// Positive = increase, negative = decrease.
+  quantityGrams    Int
+  stockBeforeGrams Int
+  stockAfterGrams  Int
+
+  /// Examples: GOOGLE_SHEETS_SYNC, SALE, RETURN, ADJUSTMENT.
+  type String
+
+  actorUserId String?
+  note        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([poolId])
+  @@index([productId])
+  @@index([sizeVariantOptionId])
+  @@index([type])
+  @@index([createdAt])
+}
+
 model StockLedger {
   /**
    * ============================================================
@@ -1987,7 +2044,6 @@ model Order {
 
   /**
    * Shipping economics snapshot.
-   *
    * shippingNormalCost = tariff before internal/free-shipping subsidy.
    * shippingDiscount = internal shipping subsidy applied before voucher.
    * shippingCost = customer shipping before voucher discount (legacy/customer quote snapshot).

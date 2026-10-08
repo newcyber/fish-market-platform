@@ -70,6 +70,7 @@ interface PisjoSkuCandidate {
   productTokens: string[];
   weightTokens: string[];
   conditionTokens: string[];
+  sizeTokens: string[];
 }
 
 interface PisjoProductCandidate {
@@ -231,6 +232,101 @@ function resolvePisjoProductNameCandidates(
     .map((item) => item.candidate);
 }
 
+/**
+ * Normalize the commercial size/grade used by HARGA JUAL PISJO.
+ *
+ * Vaname is represented differently between the spreadsheet and the
+ * marketplace catalog:
+ *
+ *   Sheet:     VANAME SUPER JUMBO 2X (SJ)
+ *   Database:  Product = Udang Vaname Kualitas Ekspor
+ *              SKU option "Ukuran" = Super Jumbo
+ *
+ * Keep this normalization isolated from generic product-name matching so
+ * other products continue to use the existing matching behavior.
+ */
+function normalizeSizeToken(value: string): string | null {
+  const normalized = normalizeMatchText(value);
+
+  if (/\bSUPER\s*JUMBO\b/.test(normalized)) {
+    return "SUPER JUMBO";
+  }
+
+  if (/\bEXTRA\s*BESAR\b/.test(normalized)) {
+    return "EXTRA BESAR";
+  }
+
+  if (/\bBESAR\b/.test(normalized)) {
+    return "BESAR";
+  }
+
+  if (/\bSEDANG\b/.test(normalized)) {
+    return "SEDANG";
+  }
+
+  return null;
+}
+
+interface PisjoSourceProductMapping {
+  sourceProductName: string;
+  productName: string;
+  sizeToken: string | null;
+}
+
+/**
+ * Resolve spreadsheet-specific product aliases into the canonical
+ * marketplace product family.
+ *
+ * This is deliberately explicit for Vaname because the spreadsheet uses
+ * commercial grade names while the database stores the family at Product
+ * level and the grade at ProductSku variant level.
+ */
+function resolvePisjoSourceProductMapping(
+  sourceProductName: string,
+): PisjoSourceProductMapping {
+  const normalized = normalizeProductMatchText(sourceProductName);
+
+  if (/\bVANAME\b/.test(normalized)) {
+    if (/\bSUPER\s*JUMBO\b/.test(normalized)) {
+      return {
+        sourceProductName,
+        productName: "Udang Vaname Kualitas Ekspor",
+        sizeToken: "SUPER JUMBO",
+      };
+    }
+
+    if (/\bEXTRA\s*BESAR\b/.test(normalized)) {
+      return {
+        sourceProductName,
+        productName: "Udang Vaname Kualitas Ekspor",
+        sizeToken: "EXTRA BESAR",
+      };
+    }
+
+    if (/\bSEDANG\b/.test(normalized)) {
+      return {
+        sourceProductName,
+        productName: "Udang Vaname Kualitas Ekspor",
+        sizeToken: "SEDANG",
+      };
+    }
+
+    if (/\bBESAR\b/.test(normalized)) {
+      return {
+        sourceProductName,
+        productName: "Udang Vaname Kualitas Ekspor",
+        sizeToken: "BESAR",
+      };
+    }
+  }
+
+  return {
+    sourceProductName,
+    productName: sourceProductName,
+    sizeToken: null,
+  };
+}
+
 function normalizeConditionToken(value: string): string | null {
   const normalized = normalizeMatchText(value);
 
@@ -286,24 +382,40 @@ function normalizeWeightToken(value: string): string | null {
   return `${grams.join("-")}G`;
 }
 
-function extractVariantTokens(labels: string[]): {
+function extractVariantTokens(
+  options: Array<{
+    label: string;
+    groupName?: string | null;
+  }>,
+): {
   weightTokens: string[];
   conditionTokens: string[];
+  sizeTokens: string[];
 } {
   const weightTokens = new Set<string>();
   const conditionTokens = new Set<string>();
+  const sizeTokens = new Set<string>();
 
-  for (const label of labels) {
+  for (const option of options) {
+    const label = option.label;
+    const groupName = option.groupName ?? "";
+
     const weight = normalizeWeightToken(label);
     if (weight) weightTokens.add(weight);
 
     const condition = normalizeConditionToken(label);
     if (condition) conditionTokens.add(condition);
+
+    if (normalizeMatchText(groupName) === "UKURAN") {
+      const size = normalizeSizeToken(label);
+      if (size) sizeTokens.add(size);
+    }
   }
 
   return {
     weightTokens: [...weightTokens],
     conditionTokens: [...conditionTokens],
+    sizeTokens: [...sizeTokens],
   };
 }
 
@@ -1472,6 +1584,11 @@ class ProductGoogleSheetsSyncService {
             variantOption: {
               select: {
                 label: true,
+                group: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -1481,7 +1598,10 @@ class ProductGoogleSheetsSyncService {
 
     const candidates: PisjoSkuCandidate[] = skuRecords.map((record) => {
       const tokens = extractVariantTokens(
-        record.skuOptions.map((item) => item.variantOption.label),
+        record.skuOptions.map((item) => ({
+          label: item.variantOption.label,
+          groupName: item.variantOption.group.name,
+        })),
       );
 
       return {
@@ -1493,6 +1613,7 @@ class ProductGoogleSheetsSyncService {
         productTokens: getProductMatchTokens(record.product.name),
         weightTokens: tokens.weightTokens,
         conditionTokens: tokens.conditionTokens,
+        sizeTokens: tokens.sizeTokens,
       };
     });
 
@@ -1530,23 +1651,23 @@ class ProductGoogleSheetsSyncService {
         continue;
       }
 
+      const sourceMapping = resolvePisjoSourceProductMapping(
+        row.productName,
+      );
+
       const descriptor =
         `${row.productName} | ${row.weightLabel} | ${row.conditionLabel}`;
 
       /**
        * Resolve the PRODUCT first, independently from ProductSku.
        *
-       * The previous implementation built the product candidate list from
-       * active ProductSku rows only. That meant an existing Product with no
-       * active SKU was incorrectly reported as PRODUCT_NOT_FOUND.
-       *
-       * Keeping product resolution separate gives us an accurate distinction:
-       *   PRODUCT_NOT_FOUND  -> product name cannot be resolved
-       *   VARIANT_NOT_FOUND  -> product exists, but required active SKU/variant
-       *                         does not exist
+       * Most products use their sheet name directly. Vaname is the
+       * intentional exception: the sheet contains commercial grade names,
+       * while the catalog stores "Udang Vaname Kualitas Ekspor" as Product
+       * and stores the grade in the SKU's "Ukuran" variant.
        */
       const resolvedProducts = resolvePisjoProductNameCandidates(
-        row.productName,
+        sourceMapping.productName,
         productCandidates,
       );
 
@@ -1635,30 +1756,44 @@ class ProductGoogleSheetsSyncService {
        * dipakai sebagai syarat matching jika product tersebut memang
        * mempunyai SKU dengan condition.
        */
-      const productGroups = new Map<string, PisjoSkuCandidate[]>();
-      productGroups.set(resolvedProduct.id, productSkuCandidates);
-
       const matches: PisjoSkuCandidate[] = [];
 
-      for (const group of productGroups.values()) {
-        const isConditionBased = group.some(
-          (candidate) => candidate.conditionTokens.length > 0,
-        );
+      /**
+       * Match the SKU using the dimensions actually represented by the
+       * spreadsheet and the catalog:
+       *
+       *   - weight: always required
+       *   - condition: required when the product has condition-based SKUs
+       *   - size: required for mapped Vaname rows
+       *
+       * Condition matching is evaluated per candidate instead of globally.
+       * This avoids rejecting valid weight-only SKUs just because another
+       * SKU under the same product happens to have a condition option.
+       */
+      const isConditionBased = productSkuCandidates.some(
+        (candidate) => candidate.conditionTokens.length > 0,
+      );
 
-        for (const candidate of group) {
-          if (!candidate.weightTokens.includes(sourceWeight)) {
-            continue;
-          }
-
-          if (
-            isConditionBased &&
-            !candidate.conditionTokens.includes(sourceCondition)
-          ) {
-            continue;
-          }
-
-          matches.push(candidate);
+      for (const candidate of productSkuCandidates) {
+        if (!candidate.weightTokens.includes(sourceWeight)) {
+          continue;
         }
+
+        if (
+          isConditionBased &&
+          !candidate.conditionTokens.includes(sourceCondition)
+        ) {
+          continue;
+        }
+
+        if (
+          sourceMapping.sizeToken &&
+          !candidate.sizeTokens.includes(sourceMapping.sizeToken)
+        ) {
+          continue;
+        }
+
+        matches.push(candidate);
       }
 
       /**
@@ -1683,7 +1818,9 @@ class ProductGoogleSheetsSyncService {
               productId: candidate.productId,
               weightTokens: candidate.weightTokens,
               conditionTokens: candidate.conditionTokens,
+              sizeTokens: candidate.sizeTokens,
             })),
+            sourceSize: sourceMapping.sizeToken,
           });
         }
 
@@ -1905,14 +2042,20 @@ class ProductGoogleSheetsSyncService {
     const productCandidates = products.map((product) => ({
       id: product.id,
       name: product.name,
-      normalizedName: normalizeMatchText(product.name),
+      normalizedName: normalizeProductMatchText(product.name),
       productTokens: getProductMatchTokens(product.name),
     }));
 
     const productNotFound: string[] = [];
     const ambiguousProducts: string[] = [];
+    const unmappedSizeValues: string[] = [];
 
-    const matchedRows = new Map<
+    /**
+     * Non-variant/simple products keep the existing Product.stock path.
+     * Variant products represented by a Sheet size/grade use the new
+     * ProductInventoryPool path and never write Product.stock directly.
+     */
+    const legacyProductRows = new Map<
       string,
       {
         productId: string;
@@ -1921,79 +2064,98 @@ class ProductGoogleSheetsSyncService {
       }
     >();
 
+    const poolRows = new Map<
+      string,
+      {
+        productId: string;
+        productName: string;
+        sizeVariantOptionId: string;
+        sizeLabel: string;
+        stockKg: number;
+      }
+    >();
+
     for (const row of parsed.rows) {
-      const sourceNormalized = normalizeMatchText(row.productName);
-      const sourceTokens = getProductMatchTokens(row.productName);
+      const mapping = resolvePisjoSourceProductMapping(row.productName);
+      const candidates = resolvePisjoProductNameCandidates(
+        mapping.productName,
+        productCandidates,
+      );
 
-      const scored = productCandidates
-        .map((candidate) => {
-          if (candidate.normalizedName === sourceNormalized) {
-            return { candidate, score: 300 };
-          }
-
-          if (
-            sourceTokens.length > 0 &&
-            sourceTokens.every((token) =>
-              candidate.productTokens.includes(token),
-            )
-          ) {
-            return {
-              candidate,
-              score:
-                200 +
-                sourceTokens.length * 5 -
-                Math.max(
-                  candidate.productTokens.length - sourceTokens.length,
-                  0,
-                ),
-            };
-          }
-
-          return null;
-        })
-        .filter(
-          (
-            item,
-          ): item is {
-            candidate: (typeof productCandidates)[number];
-            score: number;
-          } => Boolean(item),
-        )
-        .sort((a, b) => b.score - a.score);
-
-      const bestScore = scored[0]?.score;
-      const matches =
-        bestScore === undefined
-          ? []
-          : scored.filter((item) => item.score === bestScore);
-
-      if (matches.length === 0) {
+      if (candidates.length === 0) {
         const descriptor = `${row.productName} | ${row.stockKg} KG`;
         productNotFound.push(`${descriptor} → PRODUCT_NOT_FOUND`);
-
-        if (productNotFound.length <= 10) {
-          console.warn("[PISJO_STOCK_PRODUCT_NOT_FOUND]", {
-            rowNumber: row.rowNumber,
-            productName: row.productName,
-            stockKg: row.stockKg,
-            reason: "PRODUCT_NOT_FOUND",
-          });
-        }
-
         continue;
       }
 
-      if (matches.length > 1) {
+      if (candidates.length > 1) {
         ambiguousProducts.push(
-          `${row.productName} → ${matches
-            .map((match) => match.candidate.name)
-            .join(", ")}`,
+          `${row.productName} → ${candidates.map((candidate) => candidate.name).join(", ")}`,
         );
         continue;
       }
 
-      const candidate = matches[0].candidate;
-      const previous = matchedRows.get(candidate.id);
+      const candidate = candidates[0];
+
+      /**
+       * Vaname/grade-based rows are physical stock pools keyed by Product
+       * + Ukuran. The Sheet gives us kilograms for the grade, not SKU units.
+       */
+      if (mapping.sizeToken) {
+        const sizeOptions = await prisma.productVariantOption.findMany({
+          where: {
+            isActive: true,
+            group: {
+              productId: candidate.id,
+              name: {
+                equals: "Ukuran",
+                mode: "insensitive",
+              },
+            },
+          },
+          select: {
+            id: true,
+            label: true,
+          },
+        });
+
+        const matchingSizeOptions = sizeOptions.filter(
+          (option) => normalizeSizeToken(option.label) === mapping.sizeToken,
+        );
+
+        if (matchingSizeOptions.length !== 1) {
+          const available = sizeOptions.map((option) => option.label).join(", ") || "-";
+          unmappedSizeValues.push(
+            `${row.productName} → ukuran ${mapping.sizeToken} tidak memiliki target SKU pool. Tersedia: ${available}`,
+          );
+          continue;
+        }
+
+        const sizeVariantOption = matchingSizeOptions[0];
+        const key = `${candidate.id}::${sizeVariantOption.id}`;
+        const previous = poolRows.get(key);
+
+        if (previous) {
+          if (previous.stockKg !== row.stockKg) {
+            ambiguousProducts.push(
+              `${row.productName} → lebih dari satu STOK/KG untuk ukuran ${sizeVariantOption.label}.`,
+            );
+          }
+          continue;
+        }
+
+        poolRows.set(key, {
+          productId: candidate.id,
+          productName: candidate.name,
+          sizeVariantOptionId: sizeVariantOption.id,
+          sizeLabel: sizeVariantOption.label,
+          stockKg: row.stockKg,
+        });
+
+        continue;
+      }
+
+      const previous = legacyProductRows.get(candidate.id);
 
       if (previous) {
         if (previous.stockKg !== row.stockKg) {
@@ -2004,22 +2166,25 @@ class ProductGoogleSheetsSyncService {
         continue;
       }
 
-      matchedRows.set(candidate.id, {
+      legacyProductRows.set(candidate.id, {
         productId: candidate.id,
         productName: candidate.name,
         stockKg: row.stockKg,
       });
     }
 
-    if (matchedRows.size === 0) {
+    if (poolRows.size === 0 && legacyProductRows.size === 0) {
       throw new Error(
         [
-          `Tidak ada produk PISJO yang cocok dengan Product aktif.`,
+          "Tidak ada data STOK/KG yang dapat dipetakan ke inventory.",
           productNotFound.length
             ? `${productNotFound.length} produk tidak ditemukan.`
             : "",
+          unmappedSizeValues.length
+            ? `${unmappedSizeValues.length} ukuran belum memiliki target inventory pool.`
+            : "",
           ambiguousProducts.length
-            ? `${ambiguousProducts.length} produk ambigu.`
+            ? `${ambiguousProducts.length} baris ambigu.`
             : "",
         ]
           .filter(Boolean)
@@ -2028,48 +2193,41 @@ class ProductGoogleSheetsSyncService {
     }
 
     let stockUpdated = 0;
+    let poolUpdated = 0;
     let changedRows = 0;
 
     await prisma.$transaction(
       async (tx) => {
-        const productIds = [...matchedRows.keys()];
+        /**
+         * Legacy/simple products remain compatible with the existing
+         * Product.stock path. This branch is deliberately untouched for
+         * products that do not have a Sheet size/grade mapping.
+         */
+        for (const [productId, item] of legacyProductRows) {
+          const locked = await tx.$queryRaw<
+            Array<{
+              id: string;
+              name: string;
+              stock: number;
+            }>
+          >(Prisma.sql`
+            SELECT "id", "name", "stock"
+            FROM "Product"
+            WHERE "id" = ${productId}
+            FOR UPDATE
+          `);
 
-        const lockedProducts = await tx.$queryRaw<
-          Array<{
-            id: string;
-            name: string;
-            stock: number;
-          }>
-        >(Prisma.sql`
-          SELECT "id", "name", "stock"
-          FROM "Product"
-          WHERE "id" IN (${Prisma.join(productIds)})
-          FOR UPDATE
-        `);
-
-        const lockedById = new Map(
-          lockedProducts.map((product) => [product.id, product]),
-        );
-
-        for (const [productId, item] of matchedRows) {
-          const current = lockedById.get(productId);
-
-          if (!current) {
-            continue;
-          }
+          const current = locked[0];
+          if (!current) continue;
 
           const stockBefore = current.stock;
           const stockAfter = item.stockKg;
 
-          if (stockBefore === stockAfter) {
-            continue;
-          }
+          if (stockBefore === stockAfter) continue;
 
           await tx.product.update({
             where: { id: productId },
-            data: {
-              stock: stockAfter,
-            },
+            data: { stock: stockAfter },
           });
 
           await tx.stockLedger.create({
@@ -2089,6 +2247,83 @@ class ProductGoogleSheetsSyncService {
           stockUpdated += 1;
           changedRows += 1;
         }
+
+        /**
+         * Physical pool path for grade/size based stock such as Vaname.
+         * STOK/KG is converted to grams and stored as physical inventory.
+         */
+        for (const item of poolRows.values()) {
+          const stockGrams = item.stockKg * 1000;
+
+          const pool = await tx.productInventoryPool.findUnique({
+            where: {
+              productId_sizeVariantOptionId: {
+                productId: item.productId,
+                sizeVariantOptionId: item.sizeVariantOptionId,
+              },
+            },
+            select: {
+              id: true,
+              stockGrams: true,
+            },
+          });
+
+          if (!pool) {
+            const created = await tx.productInventoryPool.create({
+              data: {
+                productId: item.productId,
+                sizeVariantOptionId: item.sizeVariantOptionId,
+                stockGrams,
+              },
+            });
+
+            await tx.productInventoryPoolLedger.create({
+              data: {
+                poolId: created.id,
+                productId: item.productId,
+                sizeVariantOptionId: item.sizeVariantOptionId,
+                type: "GOOGLE_SHEETS_SYNC",
+                quantityGrams: stockGrams,
+                stockBeforeGrams: 0,
+                stockAfterGrams: stockGrams,
+                actorUserId: actorUserId ?? null,
+                note:
+                  `Initial physical stock dari ${HARGA_JUAL_PISJO_SHEET} ` +
+                  `STOK/KG untuk ${item.productName} / ${item.sizeLabel}.`,
+              },
+            });
+
+            poolUpdated += 1;
+            changedRows += 1;
+            continue;
+          }
+
+          if (pool.stockGrams === stockGrams) continue;
+
+          await tx.productInventoryPool.update({
+            where: { id: pool.id },
+            data: { stockGrams },
+          });
+
+          await tx.productInventoryPoolLedger.create({
+            data: {
+              poolId: pool.id,
+              productId: item.productId,
+              sizeVariantOptionId: item.sizeVariantOptionId,
+              type: "GOOGLE_SHEETS_SYNC",
+              quantityGrams: stockGrams - pool.stockGrams,
+              stockBeforeGrams: pool.stockGrams,
+              stockAfterGrams: stockGrams,
+              actorUserId: actorUserId ?? null,
+              note:
+                `Sinkronisasi physical stock dari ${HARGA_JUAL_PISJO_SHEET} ` +
+                `STOK/KG untuk ${item.productName} / ${item.sizeLabel}.`,
+            },
+          });
+
+          poolUpdated += 1;
+          changedRows += 1;
+        }
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
@@ -2101,24 +2336,30 @@ class ProductGoogleSheetsSyncService {
       type: "STOCK" as const,
       actorUserId: actorUserId ?? null,
       stockSource: "STOK/KG",
-      stockLevel: "PRODUCT",
+      stockLevel: "SIZE_POOL_AND_PRODUCT",
       processedRows: parsed.rows.length,
-      matchedRows: matchedRows.size,
+      matchedRows: poolRows.size + legacyProductRows.size,
       invalidRows: parsed.invalidRows.length,
       stockUpdated,
+      poolUpdated,
       priceUpdated: 0,
       changedRows,
       missingSkus: 0,
       inactiveSkus: 0,
       productNotFound: productNotFound.length,
       ambiguousMatches: ambiguousProducts.length,
-      errors: parsed.invalidRows.slice(0, MAX_RESULT_ERRORS),
+      unmappedSize: unmappedSizeValues.length,
+      errors: [
+        ...parsed.invalidRows,
+        ...unmappedSizeValues.map((reason) => ({ rowNumber: 0, reason })),
+      ].slice(0, MAX_RESULT_ERRORS),
       missingSkuValues: [],
       productNotFoundValues: productNotFound.slice(0, MAX_RESULT_ERRORS),
       ambiguousSkuValues: ambiguousProducts.slice(
         0,
         MAX_RESULT_ERRORS,
       ),
+      unmappedSizeValues: unmappedSizeValues.slice(0, MAX_RESULT_ERRORS),
       inactiveSkuValues: [],
       detectedColumns: {
         productColumn: parsed.productColumn,
@@ -2172,8 +2413,9 @@ class ProductGoogleSheetsSyncService {
     if (isHargaSheet && type === "PRICE_STOCK") {
       // PRICE dan STOCK tetap diproses melalui pipeline terpisah.
       // Harga -> ProductSku.price
-      // STOK/KG -> Product.stock
-      // Jadi keduanya tidak pernah dicampur ke SKU yang sama.
+      // STOK/KG -> physical inventory pool untuk produk ber-grade,
+      // atau Product.stock untuk produk simple/legacy.
+      // Jadi physical stock tidak dipaksa menjadi SKU unit stock.
       const priceSummary = await this.syncHargaJualPisjoPrice(
         config,
         actorUserId,
