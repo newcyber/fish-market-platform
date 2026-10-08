@@ -271,22 +271,33 @@ export default async function ShippingLabelPage({
   const addressRecord =
     (order.address as unknown as Record<string, unknown> | null) ?? {};
 
-  const shippingRaw = String(
+  // Provider adalah sumber kebenaran utama.
+  // Jangan mengambil shippingService lebih dulu karena order PICKUP lama
+  // dapat masih memiliki shippingService internal.
+  const providerRaw = String(
+    readOptionalValue(orderRecord, ["shippingProvider"]) ?? "",
+  )
+    .trim()
+    .toUpperCase();
+
+  const methodFallbackRaw = String(
     readOptionalValue(orderRecord, [
       "shippingMethod",
       "deliveryMethod",
       "fulfillmentMethod",
       "shippingService",
-      "shippingProvider",
     ]) ?? "",
-  ).toUpperCase();
+  )
+    .trim()
+    .toUpperCase();
 
   const isPickup =
-    shippingRaw.includes("PICKUP") ||
-    shippingRaw.includes("PICK UP") ||
-    shippingRaw.includes("AMBIL") ||
-    shippingRaw.includes("SELF_PICKUP") ||
-    shippingRaw.includes("SELF PICKUP");
+    providerRaw === "PICKUP" ||
+    methodFallbackRaw.includes("PICKUP") ||
+    methodFallbackRaw.includes("PICK UP") ||
+    methodFallbackRaw.includes("AMBIL") ||
+    methodFallbackRaw.includes("SELF_PICKUP") ||
+    methodFallbackRaw.includes("SELF PICKUP");
 
   const trackingNumber = String(order.trackingNumber ?? "").trim();
 
@@ -404,8 +415,11 @@ export default async function ShippingLabelPage({
         : "";
 
   const shippingLabel = isPickup ? "AMBIL DI TEMPAT" : "KURIR INTERNAL";
-  const referenceNumber =
-    trackingNumber || String(order.orderNumber ?? order.id);
+  // Pickup tidak menggunakan nomor resi, termasuk jika data lama masih
+  // memiliki trackingNumber internal.
+  const referenceNumber = isPickup
+    ? String(order.orderNumber ?? order.id)
+    : trackingNumber || String(order.orderNumber ?? order.id);
 
   return (
     <main className="min-h-screen bg-slate-100 p-3 md:p-8 print:bg-white print:p-0">

@@ -7,6 +7,7 @@ import {
   MapPin,
   Package,
   Receipt,
+  Store,
   Truck,
   User,
 } from "lucide-react";
@@ -319,7 +320,42 @@ export default async function OrderDetailPage({
       }
     : null;
 
-  const shippingStatus = getShippingStatus(order.status);
+  const shippingProvider = String(order.shippingProvider ?? "")
+    .trim()
+    .toUpperCase();
+
+  const shippingService = String(order.shippingService ?? "").trim();
+
+  const isPickup =
+    shippingProvider === "PICKUP" ||
+    shippingService.toUpperCase().includes("PICKUP") ||
+    shippingService.toUpperCase().includes("AMBIL DI TEMPAT");
+
+  const shippingMethodLabel = isPickup
+    ? "Ambil di Tempat"
+    : shippingProvider === "INTERNAL"
+      ? "Kurir Internal"
+      : shippingProvider || shippingService || "Belum ditentukan";
+
+  const shippingMethodDescription = isPickup
+    ? "Customer mengambil pesanan langsung di toko. Tidak menggunakan kurir dan tidak membutuhkan nomor resi."
+    : shippingProvider === "INTERNAL"
+      ? shippingService
+        ? `Pengiriman menggunakan ${shippingService}.`
+        : "Pesanan menggunakan Kurir Internal Pisjo."
+      : shippingService
+        ? `Metode pengiriman: ${shippingService}.`
+        : "Metode pengiriman belum ditentukan.";
+
+  const shippingStatus = isPickup
+    ? {
+        label: "Ambil di Tempat",
+        description:
+          "Pesanan tidak dikirim. Customer mengambil pesanan langsung di toko.",
+        className:
+          "border-emerald-200 bg-emerald-50 text-emerald-700",
+      }
+    : getShippingStatus(order.status);
 
   const productCount = order.items.reduce(
     (total, item) => total + item.quantity,
@@ -810,12 +846,63 @@ export default async function OrderDetailPage({
         <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-3">
           <SectionHeader
             icon={Truck}
-            title="Pengiriman"
-            description="Informasi pengiriman dan nomor resi order"
+            title="Metode Pengiriman"
+            description="Metode fulfillment, status pengiriman, dan nomor resi order"
           />
 
-          <div className="p-4 sm:p-5">
-            {order.trackingNumber ? (
+          <div className="space-y-4 p-4 sm:p-5">
+            <div
+              className={`rounded-xl border p-4 sm:p-5 ${
+                isPickup
+                  ? "border-emerald-200 bg-emerald-50/70"
+                  : "border-[var(--pisjo-primary)]/20 bg-[var(--pisjo-soft-blue)]/30"
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--pisjo-text-secondary)]">
+                    Metode Pengiriman
+                  </p>
+
+                  <p
+                    className={`mt-1 text-lg font-extrabold ${
+                      isPickup
+                        ? "text-emerald-700"
+                        : "text-[var(--pisjo-navy)]"
+                    }`}
+                  >
+                    {shippingMethodLabel}
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-[var(--pisjo-text-secondary)]">
+                    {shippingMethodDescription}
+                  </p>
+                </div>
+
+                <span
+                  className={`inline-flex w-fit shrink-0 rounded-lg border px-2.5 py-1 text-xs font-bold ${
+                    isPickup
+                      ? "border-emerald-200 bg-white text-emerald-700"
+                      : "border-[var(--pisjo-primary)]/20 bg-white text-[var(--pisjo-ocean)]"
+                  }`}
+                >
+                  {isPickup ? "PICKUP" : shippingProvider || "BELUM ADA"}
+                </span>
+              </div>
+            </div>
+
+            {isPickup ? (
+              <div className="rounded-xl border border-dashed border-emerald-200 bg-white p-4">
+                <p className="text-sm font-bold text-emerald-800">
+                  Tidak perlu membuat resi kurir
+                </p>
+                <p className="mt-1 text-xs leading-5 text-emerald-700">
+                  Gunakan nomor pesanan sebagai referensi saat customer datang
+                  mengambil barang. Data nomor resi internal tidak digunakan
+                  untuk metode Ambil di Tempat.
+                </p>
+              </div>
+            ) : order.trackingNumber ? (
               <div className="rounded-xl border border-slate-200 bg-[var(--pisjo-soft-blue)]/30 p-4 sm:p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
@@ -840,17 +927,37 @@ export default async function OrderDetailPage({
                     </div>
                   </div>
 
-                  <div className="shrink-0">
-                    <PrintInternalShippingLabelButton
-                      orderId={order.id}
-                      trackingNumber={order.trackingNumber}
-                    />
-                  </div>
+                  {!isPickup ? (
+                    <div className="shrink-0">
+                      <PrintInternalShippingLabelButton
+                        orderId={order.id}
+                        trackingNumber={order.trackingNumber}
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 <p className="mt-4 border-t border-slate-200 pt-3 text-xs leading-5 text-[var(--pisjo-text-secondary)]">
                   {shippingStatus.description}
                 </p>
+              </div>
+            ) : isPickup ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm">
+                    <Store className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-bold text-emerald-800">
+                      Ambil di Tempat
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-emerald-700">
+                      Customer mengambil pesanan langsung di toko. Tidak ada
+                      pengiriman kurir dan tidak ada nomor resi.
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 sm:p-6">

@@ -728,9 +728,11 @@ try {
                     </p>
 
                     <p className="mt-1 font-medium text-slate-900">
-                      {order.shippingProvider === "INTERNAL"
-                        ? "Kurir Internal"
-                        : order.shippingProvider}
+                      {order.shippingProvider === "PICKUP"
+                        ? "Ambil di Tempat"
+                        : order.shippingProvider === "INTERNAL"
+                          ? "Kurir Internal"
+                          : order.shippingProvider}
                     </p>
                   </div>
 
@@ -740,8 +742,10 @@ try {
                     </p>
 
                     <p className="mt-1 font-medium text-slate-900">
-                      {order.shippingService ??
-                        "Pengiriman Internal Pisjo Market"}
+                      {order.shippingProvider === "PICKUP"
+                        ? "Ambil di Tempat"
+                        : order.shippingService ??
+                          "Pengiriman Internal Pisjo Market"}
                     </p>
                   </div>
 

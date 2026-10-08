@@ -376,14 +376,21 @@ export default async function CustomerOrderTrackingPage({
    * ==========================================================
    */
 
+  const isPickup =
+    order.shippingProvider === "PICKUP";
+
   const shippingProvider =
-    order.shippingProvider === "INTERNAL"
-      ? "Kurir Pisjo"
-      : order.shippingProvider;
+    isPickup
+      ? "Ambil di Tempat"
+      : order.shippingProvider === "INTERNAL"
+        ? "Kurir Internal"
+        : order.shippingProvider;
 
   const shippingService =
-    order.shippingService ??
-    "Pengiriman Internal Pisjo Market";
+    isPickup
+      ? "Ambil di Tempat"
+      : order.shippingService ??
+        "Pengiriman Internal Pisjo Market";
 
   /**
    * ==========================================================
@@ -1750,16 +1757,18 @@ return (
       </p>
     </div>
 
-    {/* NOMOR RESI */}
+    {/* NOMOR RESI / PICKUP */}
     <div
       className={`
         rounded-xl
         border
         p-4
         ${
-          order.trackingNumber
-            ? "border-cyan-100 bg-cyan-50/60"
-            : "border-slate-100 bg-slate-50"
+          isPickup
+            ? "border-emerald-100 bg-emerald-50/60"
+            : order.trackingNumber
+              ? "border-cyan-100 bg-cyan-50/60"
+              : "border-slate-100 bg-slate-50"
         }
       `}
     >
@@ -1780,10 +1789,10 @@ return (
             text-slate-400
           "
         >
-          Nomor Resi
+          {isPickup ? "Resi" : "Nomor Resi"}
         </p>
 
-        {order.trackingNumber && (
+        {!isPickup && order.trackingNumber && (
           <span
             className="
               shrink-0
@@ -1803,7 +1812,18 @@ return (
         )}
       </div>
 
-      {order.trackingNumber ? (
+      {isPickup ? (
+        <p
+          className="
+            mt-1
+            text-sm
+            font-semibold
+            text-emerald-700
+          "
+        >
+          Pesanan diambil langsung di toko. Tidak menggunakan nomor resi.
+        </p>
+      ) : order.trackingNumber ? (
         <p
           className="
             mt-2
