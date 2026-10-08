@@ -278,6 +278,7 @@ export class StorageService {
     `${randomUUID()}.apk`;
 
   const filepath = path.join(
+    /* turbopackIgnore: true */
     LANDING_ANDROID_UPLOAD_DIRECTORY,
     generatedFileName,
   );
@@ -401,6 +402,7 @@ static async deleteLandingAndroidApk(
 
     const filename = `${randomUUID()}${extension}`;
     const filepath = path.join(
+      /* turbopackIgnore: true */
       PRODUCT_VIDEO_UPLOAD_DIRECTORY,
       filename
     );
@@ -749,6 +751,7 @@ static async savePromoImage(
 
     const filepath =
       path.join(
+        /* turbopackIgnore: true */
         directory,
         filename
       );
@@ -917,6 +920,7 @@ static async savePromoImage(
 
       const filepath =
         path.join(
+          /* turbopackIgnore: true */
           directory,
           filename
         );
