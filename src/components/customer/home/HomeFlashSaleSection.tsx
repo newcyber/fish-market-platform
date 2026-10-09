@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ChevronRight,
   Package,
-  Plus,
+  ShoppingCart,
   Timer,
   Zap,
 } from "lucide-react";
@@ -806,41 +806,47 @@ function FlashSaleProductCard({
       </p>
     </div>
 
-    {/* SELECT VARIANT */}
-    <button
-  type="button"
-  onClick={() =>
-    onQuickAdd(item)
-  }
-  aria-label={`Tambah ${item.product.name} ke keranjang`}
-  title="Tambah ke keranjang"
-  className="
-    inline-flex
-    h-9
-    w-9
-    shrink-0
-    items-center
-    justify-center
-    rounded-full
-    bg-[var(--ocean-900)]
-    text-white
-    shadow-sm
-    transition
-    hover:scale-105
-    hover:bg-[var(--ocean-950)]
-    active:scale-95
-    focus:outline-none
-    focus:ring-2
-    focus:ring-[var(--ocean-900)]/30
-  "
->
-  <Plus
-    aria-hidden="true"
-    className="h-5 w-5"
-    strokeWidth={2.5}
-  />
-</button>
   </div>
+
+  {/* BUY NOW */}
+  <button
+    type="button"
+    onClick={() => onQuickAdd(item)}
+    disabled={item.stockLimit <= 0}
+    aria-label={`Beli sekarang ${item.product.name}`}
+    className="
+      mt-2
+      inline-flex
+      h-9
+      w-full
+      items-center
+      justify-center
+      gap-2
+      rounded-lg
+      bg-gradient-to-r
+      from-red-600
+      to-orange-500
+      px-3
+      text-xs
+      font-black
+      text-white
+      shadow-sm
+      transition
+      hover:from-red-700
+      hover:to-orange-600
+      active:scale-[0.98]
+      focus:outline-none
+      focus:ring-2
+      focus:ring-red-500/40
+      disabled:cursor-not-allowed
+      disabled:opacity-50
+      sm:h-10
+      sm:text-sm
+    "
+  >
+    <ShoppingCart aria-hidden="true" className="h-4 w-4" />
+    Beli Sekarang
+  </button>
 
   {/* STOCK */}
   <div className="mt-2">

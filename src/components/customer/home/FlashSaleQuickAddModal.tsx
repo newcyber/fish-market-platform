@@ -11,6 +11,7 @@ import {
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
 import { addToCartAction } from "@/actions/cart/add-to-cart";
 
@@ -101,6 +102,7 @@ export default function FlashSaleQuickAddModal({
   onClose,
 }: FlashSaleQuickAddModalProps) {
   const product = item.product;
+  const router = useRouter();
 
   const variantGroups = useMemo(
     () =>
@@ -424,7 +426,7 @@ export default function FlashSaleQuickAddModal({
    * ADD TO CART
    * ============================================================
    */
-  async function handleAddToCart() {
+  async function handleAddToCart(buyNow = false) {
     setMessage(null);
     setSuccess(false);
 
@@ -482,6 +484,12 @@ export default function FlashSaleQuickAddModal({
       );
 
       setSuccess(true);
+
+      if (buyNow) {
+        onClose();
+        router.push("/customer/checkout");
+        return;
+      }
 
       window.setTimeout(() => {
         onClose();
@@ -1100,62 +1108,53 @@ return createPortal(
           p-4
         "
       >
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          disabled={
-            isSubmitting ||
-            success ||
-            !selectedSku ||
-            maxQuantity <= 0
-          }
-          className="
-            flex
-            h-12
-            w-full
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            bg-[var(--ocean-900)]
-            px-4
-            text-sm
-            font-black
-            text-white
-            shadow-sm
-            transition
-            hover:bg-[var(--ocean-950)]
-            active:scale-[0.99]
-            disabled:cursor-not-allowed
-            disabled:opacity-50
-          "
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2
-                className="
-                  h-5
-                  w-5
-                  animate-spin
-                "
-              />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => handleAddToCart(false)}
+            disabled={
+              isSubmitting ||
+              success ||
+              !selectedSku ||
+              maxQuantity <= 0
+            }
+            className="
+              flex h-11 w-full items-center justify-center gap-2 rounded-xl
+              border border-[var(--ocean-900)] bg-white px-3 text-sm font-black
+              text-[var(--ocean-900)] shadow-sm transition hover:bg-sky-50
+              active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50
+            "
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Tambah ke Keranjang
+          </button>
 
-              Menambahkan...
-            </>
-          ) : success ? (
-            <>
-              <Check className="h-5 w-5" />
-
-              Berhasil Ditambahkan
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="h-5 w-5" />
-
-              Tambah ke Keranjang
-            </>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={() => handleAddToCart(true)}
+            disabled={
+              isSubmitting ||
+              success ||
+              !selectedSku ||
+              maxQuantity <= 0
+            }
+            className="
+              flex h-11 w-full items-center justify-center gap-2 rounded-xl
+              bg-gradient-to-r from-red-600 to-orange-500 px-3 text-sm font-black
+              text-white shadow-sm transition hover:from-red-700 hover:to-orange-600
+              active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50
+            "
+          >
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : success ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <ShoppingCart className="h-4 w-4" />
+            )}
+            Beli Sekarang
+          </button>
+        </div>
       </div>
     </div>
   </div>,
