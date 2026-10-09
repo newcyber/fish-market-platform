@@ -4,26 +4,16 @@ import Link from "next/link";
 
 import {
   Calendar,
-  Eye,
-  MoreHorizontal,
   Package,
-  Pencil,
 } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
-import { DeleteFlashSaleButton } from "@/components/admin/flash-sales/DeleteFlashSaleButton";
+import { FlashSaleRowActions } from "@/components/admin/flash-sales/FlashSaleRowActions";
 
 import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export interface FlashSaleTableItem {
   id: string;
@@ -334,73 +324,10 @@ export function FlashSaleTable({
 {/* ==================================== */}
 
 <td className="px-6 py-4 text-right">
-  <DropdownMenu>
-    <DropdownMenuTrigger
-      className="
-        inline-flex
-        h-9
-        w-9
-        items-center
-        justify-center
-        rounded-md
-        transition-colors
-        hover:bg-accent
-        hover:text-accent-foreground
-        focus-visible:outline-none
-        focus-visible:ring-2
-        focus-visible:ring-ring
-        focus-visible:ring-offset-2
-        disabled:pointer-events-none
-        disabled:opacity-50
-      "
-    >
-      <MoreHorizontal className="h-4 w-4" />
-
-      <span className="sr-only">
-        Buka menu
-      </span>
-    </DropdownMenuTrigger>
-
-    <DropdownMenuContent
-      align="end"
-    >
-      <DropdownMenuItem>
-        <Link
-          href={`/admin/flash-sales/${flashSale.id}`}
-          className="
-            flex
-            w-full
-            items-center
-          "
-        >
-          <Eye className="mr-2 h-4 w-4" />
-
-          Lihat Detail
-        </Link>
-      </DropdownMenuItem>
-
-      <DropdownMenuItem>
-        <Link
-          href={`/admin/flash-sales/${flashSale.id}/edit`}
-          className="
-            flex
-            w-full
-            items-center
-          "
-        >
-          <Pencil className="mr-2 h-4 w-4" />
-
-          Edit Flash Sale
-        </Link>
-      </DropdownMenuItem>
-
-            <DeleteFlashSaleButton
-                flashSaleId={flashSale.id}
-                flashSaleName={flashSale.name}
-            />
-
-    </DropdownMenuContent>
-  </DropdownMenu>
+  <FlashSaleRowActions
+    flashSaleId={flashSale.id}
+    flashSaleName={flashSale.name}
+  />
 </td>
                       </tr>
                     );

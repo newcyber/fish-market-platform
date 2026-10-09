@@ -62,14 +62,15 @@ export function DeleteFlashSaleButton({
 
   return (
     <>
-      <DropdownMenuItem
-        onSelect={(event) => {
-          event.preventDefault();
-          setError(null);
-          setIsOpen(true);
+
+        <DropdownMenuItem
+        onSelect={() => {
+            setError(null);
+            setIsOpen(true);
         }}
         className="text-red-600 focus:bg-red-50 focus:text-red-700"
-      >
+        >
+
         <Trash2 className="mr-2 h-4 w-4" />
         Hapus Flash Sale
       </DropdownMenuItem>
