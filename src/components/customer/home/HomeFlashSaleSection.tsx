@@ -270,16 +270,16 @@ function Countdown({
         className="
           rounded-xl
           border
-          border-red-300/50
+          border-rose-200
           bg-gradient-to-r
-          from-red-700/70
-          to-orange-500/40
+          from-blue-600/95
+          to-cyan-400/85
           px-2.5
           py-1.5
           text-[10px]
           font-black
           text-white
-          shadow-[0_0_18px_rgba(239,68,68,0.40)]
+          shadow-[0_0_18px_rgba(251,113,133,0.98)]
           backdrop-blur-md
           sm:rounded-2xl
           sm:px-3
@@ -325,6 +325,11 @@ function Countdown({
 
   return (
     <div
+      style={{
+        border: "1px solid #fda4af",
+        background: "linear-gradient(135deg, rgba(76,5,25,0.98), rgba(190,18,60,0.96) 55%, rgba(244,63,94,0.88))",
+        boxShadow: "0 0 0 2px rgba(251,113,133,0.55), 0 0 12px 4px rgba(251,113,133,0.98), 0 0 30px 10px rgba(225,29,72,0.92), 0 0 58px 18px rgba(190,18,60,0.78), inset 0 0 18px rgba(254,205,211,0.48)",
+      }}
       className="
         group/timer
         relative
@@ -333,22 +338,22 @@ function Countdown({
         gap-1.5
         rounded-xl
         border
-        border-orange-300/50
+        border-rose-200
         bg-gradient-to-br
-        from-red-950/55
-        via-red-700/25
-        to-orange-500/15
+        from-rose-950/95
+        via-rose-700/70
+        to-red-400/40
         px-2
         py-1.5
-        shadow-[0_0_18px_rgba(239,68,68,0.25)]
+        shadow-[0_0_18px_rgba(244,63,94,0.92)]
         ring-1
-        ring-red-400/20
+        ring-rose-300/80
         backdrop-blur-md
         transition-all
         duration-300
-        hover:border-orange-200/80
-        hover:shadow-[0_0_28px_rgba(239,68,68,0.55)]
-        hover:ring-orange-300/40
+        hover:border-rose-100
+        hover:shadow-[0_0_28px_rgba(251,113,133,1)]
+        hover:ring-rose-200/90
         sm:gap-2
         sm:rounded-2xl
         sm:px-3
@@ -362,7 +367,7 @@ function Countdown({
           absolute
           -inset-1
           rounded-2xl
-          bg-red-500/15
+          bg-rose-400/45
           blur-md
           opacity-70
           transition-opacity
@@ -383,18 +388,18 @@ function Countdown({
           justify-center
           rounded-lg
           border
-          border-orange-300/40
+          border-rose-200
           bg-gradient-to-br
-          from-red-500/30
-          to-orange-400/15
-          text-orange-200
-          shadow-[0_0_12px_rgba(249,115,22,0.35)]
+          from-rose-400/80
+          to-red-300/55
+          text-rose-50
+          shadow-[0_0_12px_rgba(251,113,133,0.95)]
           ring-1
           ring-white/10
           transition
           duration-300
           group-hover/timer:scale-105
-          group-hover/timer:shadow-[0_0_18px_rgba(249,115,22,0.65)]
+          group-hover/timer:shadow-[0_0_18px_rgba(251,113,133,1)]
           sm:h-8
           sm:w-8
           sm:rounded-xl
@@ -405,7 +410,7 @@ function Countdown({
           className="
             h-3.5
             w-3.5
-            drop-shadow-[0_0_5px_rgba(253,224,71,0.8)]
+            drop-shadow-[0_0_5px_rgba(254,205,211,1)]
             sm:h-4
             sm:w-4
           "
@@ -421,8 +426,8 @@ function Countdown({
             uppercase
             leading-none
             tracking-[0.12em]
-            text-orange-100/85
-            drop-shadow-[0_0_5px_rgba(251,146,60,0.35)]
+            text-rose-50
+            drop-shadow-[0_0_5px_rgba(251,113,133,0.92)]
             sm:text-[9px]
             sm:tracking-[0.14em]
           "
@@ -438,26 +443,32 @@ function Countdown({
             >
               {/* TIME BOX */}
               <div
+                style={{
+                  border: "1px solid #a5f3fc",
+                  background: "linear-gradient(180deg, rgba(251,113,133,0.94), rgba(190,18,60,0.96) 58%, rgba(76,5,25,0.98))",
+                  boxShadow: "0 0 8px 2px rgba(251,113,133,0.98), 0 0 20px 5px rgba(14,165,233,0.82), inset 0 0 12px rgba(224,255,255,0.4)",
+                  textShadow: "0 0 8px rgba(254,205,211,1), 0 0 16px rgba(251,113,133,0.98)",
+                }}
                 className="
                   min-w-[34px]
                   rounded-lg
                   border
-                  border-red-300/30
+                  border-rose-200/90
                   bg-gradient-to-b
-                  from-red-500/20
-                  via-red-900/30
-                  to-black/15
+                  from-sky-300/55
+                  via-rose-800/85
+                  to-rose-950/80
                   px-1
                   py-1
                   text-center
-                  shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_10px_rgba(239,68,68,0.18)]
+                  shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_10px_rgba(251,113,133,0.82)]
                   ring-1
-                  ring-red-400/10
+                  ring-rose-300/70
                   backdrop-blur-sm
                   transition
                   duration-300
-                  group-hover/timer:border-orange-300/50
-                  group-hover/timer:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_14px_rgba(239,68,68,0.30)]
+                  group-hover/timer:border-rose-200
+                  group-hover/timer:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_14px_rgba(251,113,133,1)]
                   sm:min-w-[40px]
                   sm:rounded-xl
                   sm:px-1.5
@@ -465,17 +476,18 @@ function Countdown({
                 "
               >
                 <div
+  style={{ color: "#fff1f2", textShadow: "0 0 8px #fb7185, 0 0 16px #e11d48" }}
   className="
     text-xs
     font-black
     leading-4
     tabular-nums
-    text-red-300
-    drop-shadow-[0_0_7px_rgba(248,113,113,0.85)]
+    text-rose-200
+    drop-shadow-[0_0_5px_rgba(34,211,238,1)] drop-shadow-[0_0_14px_rgba(251,113,133,1)]
     transition
     duration-300
-    group-hover/timer:text-orange-200
-    group-hover/timer:drop-shadow-[0_0_10px_rgba(251,146,60,0.95)]
+    group-hover/timer:text-rose-50
+    group-hover/timer:drop-shadow-[0_0_10px_rgba(251,113,133,1)]
     sm:text-sm
   "
 >
@@ -507,8 +519,8 @@ function Countdown({
                     text-[10px]
                     font-black
                     leading-none
-                    text-orange-200/70
-                    drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]
+                    text-rose-50/70
+                    drop-shadow-[0_0_4px_rgba(251,113,133,0.98)]
                     sm:text-xs
                   "
                 >
@@ -1152,6 +1164,10 @@ export default function HomeFlashSaleSection({
           ==================================================== */}
 
           <div
+            style={{
+              border: "1px solid rgba(148, 163, 184, 0.65)",
+              boxShadow: "0 14px 38px rgba(0, 80, 150, 0.18)",
+            }}
             className="
               relative
               mx-auto
@@ -1164,8 +1180,6 @@ export default function HomeFlashSaleSection({
               border-white/70
               bg-[var(--ocean-900)]
               shadow-[0_14px_38px_rgba(0,80,150,0.18)]
-              ring-1
-              ring-cyan-300/20
               sm:mb-6
             "
           >
