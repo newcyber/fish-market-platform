@@ -265,7 +265,8 @@ export default async function FlashSalePage() {
                   max-w-2xl
                   text-base
                   leading-7
-                  text-slate-300
+                  text-white/90
+                  drop-shadow-[0_1px_3px_rgba(0,20,60,0.35)]
                   sm:text-lg
                 "
               >
@@ -418,27 +419,35 @@ export default async function FlashSalePage() {
       {/* ====================================================== */}
 
       <section
+        style={{
+          background:
+            "linear-gradient(105deg, #063B82 0%, #0877C9 48%, #0EA5E9 72%, #063B82 100%)",
+          boxShadow: "0 18px 42px rgba(0, 94, 184, 0.18)",
+        }}
         className="
           relative
           isolate
           overflow-hidden
           border-b
-          border-(--ice-200)
-          bg-linear-to-br
-          from-slate-950
-          via-slate-900
-          to-emerald-950
+          border-sky-200/40
         "
       >
+
+        {/* BLUE OCEAN GLOW */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_18%_15%,rgba(56,189,248,0.45),transparent_42%),radial-gradient(ellipse_at_82%_25%,rgba(34,211,238,0.24),transparent_38%),linear-gradient(105deg,rgba(3,37,91,0.82),rgba(0,104,190,0.42)_52%,rgba(3,37,91,0.16))]"
+        />
 
         {/* HERO BACKGROUND */}
         {primaryCampaign.banner && (
           <div
             className="
+              pointer-events-none
               absolute
               inset-0
-              -z-10
-              opacity-20
+              z-0
+              opacity-45
             "
           >
             <Image
@@ -447,7 +456,7 @@ export default async function FlashSalePage() {
               }
               alt=""
               fill
-              className="object-cover"
+              className="object-cover object-center"
               priority
             />
           </div>
@@ -455,21 +464,25 @@ export default async function FlashSalePage() {
 
         {/* DECORATION */}
         <div
+          aria-hidden="true"
           className="
+            pointer-events-none
             absolute
             -right-24
             -top-24
-            -z-10
+            z-0
             h-72
             w-72
             rounded-full
-            bg-emerald-500/20
+            bg-cyan-300/25
             blur-3xl
           "
         />
 
         <div
           className="
+            relative
+            z-10
             mx-auto
             max-w-7xl
             px-4
@@ -491,13 +504,16 @@ export default async function FlashSalePage() {
                 gap-2
                 rounded-full
                 border
-                border-red-400/30
-                bg-red-500/10
+                border-orange-200/70
+                bg-gradient-to-r
+                from-red-600
+                to-orange-500
                 px-4
                 py-2
                 text-sm
                 font-bold
-                text-red-300
+                text-white
+                shadow-[0_0_18px_rgba(255,90,54,0.30)]
               "
             >
               <Flame
@@ -515,13 +531,22 @@ export default async function FlashSalePage() {
                 font-black
                 tracking-tight
                 text-white
+                drop-shadow-[0_3px_18px_rgba(0,20,60,0.32)]
                 sm:text-5xl
                 lg:text-6xl
               "
             >
-              {
-                primaryCampaign.name
-              }
+              {primaryCampaign.name
+                .split(/(Akhir Pekan)/i)
+                .map((part, index) =>
+                  part.toLowerCase() === "akhir pekan" ? (
+                    <span key={index} className="text-[#78F05A] drop-shadow-[0_2px_14px_rgba(120,240,90,0.18)]">
+                      {part}
+                    </span>
+                  ) : (
+                    <span key={index}>{part}</span>
+                  )
+                )}
             </h1>
 
             {/* DESCRIPTION */}
@@ -560,20 +585,21 @@ export default async function FlashSalePage() {
                   gap-2
                   rounded-xl
                   border
-                  border-white/10
-                  bg-white/5
+                  border-sky-100/30
+                  bg-blue-950/25
                   px-4
                   py-3
                   text-sm
-                  text-slate-200
-                  backdrop-blur
+                  text-white
+                  shadow-[0_4px_18px_rgba(0,25,70,0.16)]
+                  backdrop-blur-md
                 "
               >
                 <Clock3
                   className="
                     h-4
                     w-4
-                    text-emerald-400
+                    text-cyan-300
                   "
                 />
 
@@ -591,20 +617,21 @@ export default async function FlashSalePage() {
                   gap-2
                   rounded-xl
                   border
-                  border-white/10
-                  bg-white/5
+                  border-sky-100/30
+                  bg-blue-950/25
                   px-4
                   py-3
                   text-sm
-                  text-slate-200
-                  backdrop-blur
+                  text-white
+                  shadow-[0_4px_18px_rgba(0,25,70,0.16)]
+                  backdrop-blur-md
                 "
               >
                 <ShoppingBag
                   className="
                     h-4
                     w-4
-                    text-emerald-400
+                    text-cyan-300
                   "
                 />
 
