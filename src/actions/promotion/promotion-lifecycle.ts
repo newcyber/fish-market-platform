@@ -9,6 +9,7 @@ import {
 } from "next/cache";
 
 import PromotionService from "@/services/promotion/promotion.service";
+import BroadcastService from "@/services/broadcast/broadcast.service";
 
 /**
  * ============================================================
@@ -200,6 +201,9 @@ export async function schedulePromotionAction(
     endAt
   );
 
+  const updatedPromotion = await PromotionService.getById(promotionId);
+  if (updatedPromotion) await BroadcastService.syncPromotionBroadcast(updatedPromotion);
+
   /**
    * ----------------------------------------------------------
    * REVALIDATE
@@ -250,6 +254,9 @@ export async function activatePromotionAction(
     promotionId
   );
 
+  const updatedPromotion = await PromotionService.getById(promotionId);
+  if (updatedPromotion) await BroadcastService.syncPromotionBroadcast(updatedPromotion);
+
   revalidatePromotionPaths(
     promotionId,
     promotion.slug
@@ -285,6 +292,9 @@ export async function endPromotionAction(
     promotionId
   );
 
+  const updatedPromotion = await PromotionService.getById(promotionId);
+  if (updatedPromotion) await BroadcastService.syncPromotionBroadcast(updatedPromotion);
+
   revalidatePromotionPaths(
     promotionId,
     promotion.slug
@@ -319,6 +329,9 @@ export async function cancelPromotionAction(
   await PromotionService.cancel(
     promotionId
   );
+
+  const updatedPromotion = await PromotionService.getById(promotionId);
+  if (updatedPromotion) await BroadcastService.syncPromotionBroadcast(updatedPromotion);
 
   revalidatePromotionPaths(
     promotionId,

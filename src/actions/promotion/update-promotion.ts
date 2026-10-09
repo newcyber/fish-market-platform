@@ -14,6 +14,7 @@ import {
 } from "@prisma/client";
 
 import PromotionService from "@/services/promotion/promotion.service";
+import BroadcastService from "@/services/broadcast/broadcast.service";
 
 import type {
   ActionResult,
@@ -351,6 +352,8 @@ export async function updatePromotionAction(
           "Promotion tidak ditemukan atau gagal diperbarui.",
       };
     }
+
+    await BroadcastService.syncPromotionBroadcast(updated);
 
     revalidatePath(
       "/admin/promotions"

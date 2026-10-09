@@ -4,6 +4,7 @@ import {
 
 import FlashSaleRepository from "@/repositories/flash-sale/flash-sale.repository";
 import { prisma } from "@/lib/prisma";
+import BroadcastService from "@/services/broadcast/broadcast.service";
 import { createAuditLog } from "@/services/audit/audit-log.service";
 
 /**
@@ -719,6 +720,9 @@ static async getActiveItemsByProductId(
       );
 
       return createdFlashSale;
+    }).then(async (createdFlashSale) => {
+      await BroadcastService.syncFlashSaleBroadcast(createdFlashSale);
+      return createdFlashSale;
     });
   }
 
@@ -1092,6 +1096,9 @@ static async getActiveItemsByProductId(
         tx
       );
 
+      return updatedFlashSale;
+    }).then(async (updatedFlashSale) => {
+      await BroadcastService.syncFlashSaleBroadcast(updatedFlashSale);
       return updatedFlashSale;
     });
   }

@@ -183,12 +183,21 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       },
 
       {
+        id: "broadcasts",
+        title: "Broadcast Customer",
+        href: "/admin/broadcasts",
+        icon: "promotions",
+        roles: ADMIN_ROLES,
+        order: 3,
+      },
+
+      {
         id: "voucher-settings",
         title: "Voucher",
         href: "/admin/vouchers",
         icon: "voucher",
         roles: SUPER_ADMIN_ONLY,
-        order: 3,
+        order: 4,
       },
 
       {
@@ -196,7 +205,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         title: "Image Banner",
         href: "/admin/promotions/image-banners",
         icon: "image-banner",
-        order: 4,
+        order: 5,
         roles: SUPER_ADMIN_ONLY,
       },
 
@@ -205,7 +214,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
         title: "Image Popup",
         href: "/admin/promotions/image-popup",
         icon: "image-popup",
-        order: 5,
+        order: 6,
         roles: SUPER_ADMIN_ONLY,
       },
     ],

@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import BroadcastService from "@/services/broadcast/broadcast.service";
 
 import PromotionRepository, {
   CreatePromotionInput,
@@ -1635,7 +1636,10 @@ this.assertStatusTransition(
           tx
         );
       }
-    );
+    ).then(async (promotion) => {
+      await BroadcastService.syncPromotionBroadcast(promotion);
+      return promotion;
+    });
   }
 
   /**
@@ -1733,7 +1737,10 @@ this.assertStatusTransition(
           tx
         );
       }
-    );
+    ).then(async (promotion) => {
+      await BroadcastService.syncPromotionBroadcast(promotion);
+      return promotion;
+    });
   }
 
   /**
