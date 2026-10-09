@@ -420,14 +420,15 @@ function Countdown({
       {/* COUNTDOWN CONTENT */}
       <div className="relative z-10 min-w-0">
         <p
+          style={{ color: "#FFFFFF" }}
           className="
             text-[8px]
             font-black
             uppercase
             leading-none
             tracking-[0.12em]
-            text-rose-50
-            drop-shadow-[0_0_5px_rgba(251,113,133,0.92)]
+            text-white
+            drop-shadow-[0_1px_2px_rgba(120,25,15,0.18)]
             sm:text-[9px]
             sm:tracking-[0.14em]
           "
@@ -495,6 +496,7 @@ function Countdown({
 </div>
 
                 <div
+                  style={{ color: "#FFFFFF", textShadow: "0 0 4px rgba(255,255,255,0.28)" }}
                   className="
                     mt-0.5
                     text-[6px]
@@ -502,7 +504,7 @@ function Countdown({
                     uppercase
                     leading-none
                     tracking-wide
-                    text-[#FFF3E8]/80
+                    text-white
                     sm:text-[7px]
                   "
                 >
