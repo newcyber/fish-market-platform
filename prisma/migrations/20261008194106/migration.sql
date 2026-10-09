@@ -1,2 +1,2 @@
 -- DropIndex
-DROP INDEX "Notification_broadcastId_idx";
+DROP INDEX IF EXISTS "Notification_broadcastId_idx";

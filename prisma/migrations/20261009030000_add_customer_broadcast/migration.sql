@@ -50,7 +50,6 @@ CREATE UNIQUE INDEX "BroadcastRecipient_notificationId_key" ON "BroadcastRecipie
 CREATE UNIQUE INDEX "BroadcastRecipient_broadcastId_userId_key" ON "BroadcastRecipient"("broadcastId", "userId");
 CREATE INDEX "BroadcastRecipient_broadcastId_status_idx" ON "BroadcastRecipient"("broadcastId", "status");
 CREATE INDEX "BroadcastRecipient_userId_createdAt_idx" ON "BroadcastRecipient"("userId", "createdAt");
-CREATE INDEX "Notification_broadcastId_idx" ON "Notification"("broadcastId");
 
 ALTER TABLE "Broadcast"
   ADD CONSTRAINT "Broadcast_createdById_fkey"
