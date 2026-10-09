@@ -535,19 +535,23 @@ static async getActiveItemsByProductId(
 
     /**
      * --------------------------------------------------------
-     * CHECK SLUG DUPLICATE
+     * ENSURE SLUG UNIQUE
      * --------------------------------------------------------
+     *
+     * Unique constraint berlaku juga untuk record soft-deleted.
+     * Tambahkan suffix numerik jika slug dasar sudah pernah dipakai.
      */
 
-    const existing =
-      await FlashSaleRepository.findBySlug(
-        slug
-      );
+    let uniqueSlug = slug;
+    let suffix = 2;
 
-    if (existing) {
-      throw new Error(
-        "Slug Flash Sale sudah digunakan."
-      );
+    while (
+      await FlashSaleRepository.findAnyBySlug(
+        uniqueSlug
+      )
+    ) {
+      uniqueSlug = `${slug}-${suffix}`;
+      suffix += 1;
     }
 
     /**
@@ -681,7 +685,7 @@ static async getActiveItemsByProductId(
         await FlashSaleRepository.create(
           {
             name,
-            slug,
+            slug: uniqueSlug,
             description:
               input.description?.trim() ||
               null,

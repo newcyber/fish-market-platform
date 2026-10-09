@@ -994,6 +994,20 @@ static async findById(
   }
 
   /**
+   * Memeriksa bentrok slug di semua record, termasuk soft-deleted,
+   * karena database tetap menerapkan unique constraint pada slug.
+   */
+  static async findAnyBySlug(
+    slug: string
+  ) {
+    return prisma.flashSale.findUnique({
+      where: {
+        slug,
+      },
+    });
+  }
+
+  /**
    * ============================================================
    * ADMIN - CREATE FLASH SALE
    * ============================================================
@@ -1960,39 +1974,39 @@ static async findDuplicateItem(
    * ============================================================
    */
 
- static async updateItem(
-  tx: Prisma.TransactionClient,
-  flashSaleId: string,
-  itemId: string,
-  data: Prisma.FlashSaleItemUpdateInput
-) {
-  const result =
-    await tx.flashSaleItem.updateMany({
+  static async updateItem(
+    tx: Prisma.TransactionClient,
+    flashSaleId: string,
+    itemId: string,
+    data: Prisma.FlashSaleItemUpdateInput
+  ) {
+    // updateMany does not support nested relation writes such as sku.connect.
+    // Verify ownership first, then use update so Prisma can apply relation updates.
+    const existingItem = await tx.flashSaleItem.findFirst({
       where: {
         id: itemId,
         flashSaleId,
       },
-
-      data,
+      select: { id: true },
     });
 
-  if (result.count === 0) {
-    throw new Error(
-      "Item Flash Sale tidak ditemukan pada Flash Sale yang dipilih."
-    );
+    if (!existingItem) {
+      throw new Error(
+        "Item Flash Sale tidak ditemukan pada Flash Sale yang dipilih."
+      );
+    }
+
+    return tx.flashSaleItem.update({
+      where: {
+        id: itemId,
+      },
+      data,
+      include: {
+        product: true,
+        sku: true,
+      },
+    });
   }
-
-  return tx.flashSaleItem.findUniqueOrThrow({
-    where: {
-      id: itemId,
-    },
-
-    include: {
-      product: true,
-      sku: true,
-    },
-  });
-}
 
     /**
    * ============================================================
