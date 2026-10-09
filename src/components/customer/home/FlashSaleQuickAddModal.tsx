@@ -72,6 +72,7 @@ interface FlashSaleItem {
   flashPrice: NumericValue;
   stockLimit: number;
   soldQuantity: number;
+  perUserLimit: number | null;
   product: FlashSaleProduct;
   sku: FlashSaleSku | null;
 }
@@ -244,9 +245,7 @@ export default function FlashSaleQuickAddModal({
             flashSaleItem.product.id ===
               product.id &&
             flashSaleItem.sku?.id ===
-              selectedSku.id &&
-            flashSaleItem.stockLimit >
-              flashSaleItem.soldQuantity
+              selectedSku.id
         ) ?? null
       );
     }, [
@@ -270,24 +269,21 @@ export default function FlashSaleQuickAddModal({
           activeFlashSaleItem.stockLimit -
             activeFlashSaleItem.soldQuantity
         )
-      : Infinity;
+      : 0;
 
+  // Customer tetap dapat membeli lebih dari sisa kuota promo,
+  // selama stok fisik cukup. Unit yang tidak memenuhi syarat
+  // Flash Sale dihitung dengan harga normal sesuai pricing service.
   const maxQuantity =
     selectedSku
-      ? Math.max(
-          0,
-          Math.min(
-            physicalStock,
-            flashSaleRemaining
-          )
-        )
+      ? Math.max(0, physicalStock)
       : 0;
 
   /**
-   * Quantity efektif selalu berada dalam batas stock/kuota.
+   * Quantity efektif selalu berada dalam batas stok fisik.
    *
-   * Tidak perlu effect untuk melakukan clamp. Dengan cara ini
-   * perubahan variant tidak memicu setState sinkron tambahan.
+   * Kuota Flash Sale menentukan eligibility harga, bukan batas
+   * jumlah pembelian dengan harga normal.
    */
   const effectiveQuantity =
     maxQuantity <= 0
@@ -302,16 +298,34 @@ export default function FlashSaleQuickAddModal({
    * PRICE
    * ============================================================
    */
-  const currentPrice =
-    activeFlashSaleItem
-      ? activeFlashSaleItem.flashPrice
-      : selectedSku?.price ??
-        product.price;
+  const normalPrice =
+    selectedSku?.price ??
+    product.price;
 
   const originalPrice =
     activeFlashSaleItem?.originalPrice ??
-    selectedSku?.price ??
-    product.price;
+    normalPrice;
+
+  // Samakan dengan ProductPricingService: Flash Sale berlaku
+  // hanya bila SELURUH quantity memenuhi sisa kuota dan perUserLimit.
+  // Jika quantity melampaui salah satu batas, seluruh quantity
+  // menggunakan harga normal (bukan hanya unit selebihnya).
+  const flashSaleQuantityEligible =
+    Boolean(activeFlashSaleItem) &&
+    flashSaleRemaining > 0 &&
+    effectiveQuantity <= flashSaleRemaining &&
+    (
+      activeFlashSaleItem?.perUserLimit == null ||
+      effectiveQuantity <= activeFlashSaleItem.perUserLimit
+    );
+
+  const currentPrice =
+    flashSaleQuantityEligible && activeFlashSaleItem
+      ? activeFlashSaleItem.flashPrice
+      : normalPrice;
+
+  const totalPrice =
+    toNumber(currentPrice) * effectiveQuantity;
 
   const isDiscounted =
     toNumber(currentPrice) <
@@ -446,7 +460,7 @@ export default function FlashSaleQuickAddModal({
 
     if (maxQuantity <= 0) {
       setMessage(
-        "Stok atau kuota Flash Sale sudah habis."
+        "Stok produk sedang habis."
       );
       return;
     }
@@ -723,11 +737,24 @@ return createPortal(
 
             <div className="shrink-0 text-right">
               <p
-                className="
+                className={`
+                  mb-1
+                  text-[10px]
+                  font-extrabold
+                  ${activeFlashSaleItem ? "text-red-600" : "text-slate-500"}
+                `}
+              >
+                {flashSaleQuantityEligible
+                  ? "HARGA FLASH SALE"
+                  : "HARGA NORMAL"}
+              </p>
+
+              <p
+                className={`
                   text-sm
                   font-black
-                  text-[var(--ocean-900)]
-                "
+                  ${flashSaleQuantityEligible ? "text-red-600" : "text-[var(--ocean-900)]"}
+                `}
               >
                 {formatRupiah(currentPrice)}
               </p>
@@ -906,7 +933,9 @@ return createPortal(
                   text-slate-500
                 "
               >
-                Stok tersedia
+                {activeFlashSaleItem
+                  ? "Sisa kuota Flash Sale"
+                  : "Stok tersedia"}
               </p>
 
               <p
@@ -918,7 +947,9 @@ return createPortal(
                 "
               >
                 {selectedSku
-                  ? maxQuantity
+                  ? activeFlashSaleItem
+                    ? flashSaleRemaining
+                    : maxQuantity
                   : 0}
               </p>
             </div>
@@ -957,7 +988,9 @@ return createPortal(
                   text-slate-400
                 "
               >
-                Maksimal sesuai stok
+                {activeFlashSaleItem
+                  ? "Jika jumlah melewati kuota atau batas per customer, semua unit memakai harga normal"
+                  : "Maksimal sesuai stok produk"}
               </p>
             </div>
 
@@ -1039,6 +1072,45 @@ return createPortal(
                 <Plus className="h-4 w-4" />
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* ====================================================
+            PRICE BREAKDOWN / TOTAL
+        ==================================================== */}
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-medium text-slate-500">
+              Harga per unit
+            </span>
+            <span className={`font-bold ${flashSaleQuantityEligible ? "text-red-600" : "text-slate-800"}`}>
+              {formatRupiah(currentPrice)}
+            </span>
+          </div>
+
+          {activeFlashSaleItem &&
+            (
+              flashSaleQuantityEligible ||
+              flashSaleRemaining <= 0 ||
+              effectiveQuantity > flashSaleRemaining
+            ) && (
+              <p className={`mt-2 text-[11px] font-semibold ${flashSaleQuantityEligible ? "text-emerald-700" : "text-amber-700"}`}>
+                {flashSaleQuantityEligible
+                  ? `Flash Sale berlaku untuk ${effectiveQuantity} unit`
+                  : flashSaleRemaining <= 0
+                    ? "Kuota Flash Sale habis; harga normal berlaku"
+                    : `Jumlah melebihi sisa kuota ${flashSaleRemaining} unit; seluruh jumlah memakai harga normal`}
+              </p>
+            )}
+
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+            <span className="text-sm font-black text-slate-900">
+              Total ({effectiveQuantity} unit)
+            </span>
+            <span className="text-lg font-black text-[var(--ocean-900)]">
+              {formatRupiah(totalPrice)}
+            </span>
           </div>
         </div>
 

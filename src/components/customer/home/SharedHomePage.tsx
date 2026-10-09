@@ -120,6 +120,8 @@ function serializeFlashSale(
 
       soldQuantity: item.soldQuantity,
 
+      perUserLimit: item.perUserLimit,
+
       /**
        * ======================================================
        * PRODUCT

@@ -102,11 +102,8 @@ interface FlashSaleItem {
   flashPrice: NumericValue;
   stockLimit: number;
   soldQuantity: number;
+  perUserLimit: number | null;
   product: FlashSaleProduct;
-  /**
-   * SKU can be null for legacy/migrated records.
-   * Customer rendering must remain resilient to that state.
-   */
   sku: FlashSaleSku | null;
 }
 
@@ -1043,15 +1040,29 @@ export default function HomeFlashSaleSection({
     };
   }, [flashSale.endAt]);
 
-  const items = useMemo(
-    () =>
-      flashSale.items
-        .filter(
-          (item) => item.stockLimit > 0
-        )
-        .slice(0, 12),
-    [flashSale.items]
-  );
+  const items = useMemo(() => {
+    const uniqueProducts = new Map<string, FlashSaleItem>();
+
+    for (const item of flashSale.items) {
+      if (item.stockLimit <= 0) {
+        continue;
+      }
+
+      const existing = uniqueProducts.get(item.product.id);
+
+      // Jika produk punya beberapa varian Flash Sale,
+      // tampilkan satu kartu dengan varian berharga promo terendah.
+      if (
+        !existing ||
+        toNumber(item.flashPrice) < toNumber(existing.flashPrice)
+      ) {
+        uniqueProducts.set(item.product.id, item);
+      }
+    }
+
+    // Batas 12 diterapkan setelah deduplikasi produk.
+    return Array.from(uniqueProducts.values()).slice(0, 12);
+  }, [flashSale.items]);
 
   if (
     items.length === 0 ||
