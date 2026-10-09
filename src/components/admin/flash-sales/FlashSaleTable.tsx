@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { DeleteFlashSaleButton } from "@/components/admin/flash-sales/DeleteFlashSaleButton";
 
 import {
   Card,
@@ -392,6 +393,12 @@ export function FlashSaleTable({
           Edit Flash Sale
         </Link>
       </DropdownMenuItem>
+
+            <DeleteFlashSaleButton
+                flashSaleId={flashSale.id}
+                flashSaleName={flashSale.name}
+            />
+
     </DropdownMenuContent>
   </DropdownMenu>
 </td>
