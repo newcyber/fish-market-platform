@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Package,
   ShoppingCart,
+  ShieldCheck,
   Sparkles,
   User,
 } from "lucide-react";
@@ -1044,6 +1045,24 @@ export default async function DynamicSiteFooter() {
                       <span>
                         Bantuan
                       </span>
+                    </Link>
+                  </li>
+
+                  <li>
+                    <Link
+                      href="/kebijakan-pengembalian"
+                      className="
+                        flex
+                        items-center
+                        gap-2.5
+                        text-sm
+                        text-slate-500
+                        transition
+                        hover:text-slate-900
+                      "
+                    >
+                      <ShieldCheck className="h-4 w-4 shrink-0" />
+                      <span>Kebijakan Pengembalian</span>
                     </Link>
                   </li>
 

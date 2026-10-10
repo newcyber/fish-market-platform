@@ -95,6 +95,13 @@ export default function SiteFooter() {
                 Pesanan Saya
               </Link>
 
+              <Link
+                href="/kebijakan-pengembalian"
+                className="block text-sm text-slate-500 transition hover:text-slate-900"
+              >
+                Kebijakan Pengembalian
+              </Link>
+
             </div>
 
           </div>

@@ -42,6 +42,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "yearly",
         priority: 0.3,
       },
+      {
+        url: `${baseUrl}/kebijakan-pengembalian`,
+        changeFrequency: "yearly",
+        priority: 0.4,
+      },
     ];
   }
 
@@ -120,6 +125,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${baseUrl}/terms-and-conditions`,
       changeFrequency: "yearly",
       priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/kebijakan-pengembalian`,
+      changeFrequency: "yearly",
+      priority: 0.4,
     },
   ];
 
