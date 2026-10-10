@@ -413,7 +413,8 @@ export default async function OrderDetailPage({
           </div>
 
           <div className="flex flex-wrap gap-2 xl:justify-end">
-            {isPaid &&
+            {!isPickup &&
+            isPaid &&
             (order.status === OrderStatus.PROCESSING ||
               order.status === OrderStatus.SHIPPING) ? (
               <AssignCourierOrderButton
