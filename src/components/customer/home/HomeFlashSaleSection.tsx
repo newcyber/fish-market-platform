@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Package,
   ShoppingCart,
-  Timer,
   Zap,
 } from "lucide-react";
 
@@ -263,27 +262,7 @@ function Countdown({
 }) {
   if (remaining.isExpired) {
     return (
-      <div
-        className="
-          rounded-xl
-          border
-          border-[#FFD2C3]
-          bg-gradient-to-r
-          from-[#C91F1F]
-          to-[#FF5A36]
-          px-2.5
-          py-1.5
-          text-[10px]
-          font-black
-          text-white
-          shadow-[0_0_14px_rgba(255,55,35,0.52)]
-          backdrop-blur-md
-          sm:rounded-2xl
-          sm:px-3
-          sm:py-2
-          sm:text-[11px]
-        "
-      >
+      <div className="rounded-full border border-[#FFD2C3] bg-gradient-to-r from-[#C91F1F] to-[#FF5A36] px-3 py-2 text-[10px] font-black text-white shadow-[0_0_14px_rgba(255,55,35,0.52)] backdrop-blur-md sm:text-[11px]">
         Promo berakhir
       </div>
     );
@@ -292,237 +271,47 @@ function Countdown({
   const units =
     remaining.days > 0
       ? [
-          {
-            value: remaining.days,
-            label: "Hari",
-          },
-          {
-            value: remaining.hours,
-            label: "Jam",
-          },
-          {
-            value: remaining.minutes,
-            label: "Menit",
-          },
+          { value: remaining.days, label: "Hari" },
+          { value: remaining.hours, label: "Jam" },
+          { value: remaining.minutes, label: "Menit" },
         ]
       : [
-          {
-            value: remaining.hours,
-            label: "Jam",
-          },
-          {
-            value: remaining.minutes,
-            label: "Menit",
-          },
-          {
-            value: remaining.seconds,
-            label: "Detik",
-          },
+          { value: remaining.hours, label: "Jam" },
+          { value: remaining.minutes, label: "Menit" },
+          { value: remaining.seconds, label: "Detik" },
         ];
 
   return (
-    <div
-      style={{
-        border: "1px solid rgba(255, 210, 195, 0.98)",
-        background: "linear-gradient(135deg, #C91F1F 0%, #E52B20 48%, #FF5A36 100%)",
-        boxShadow: "0 0 0 1px rgba(255, 74, 54, 0.38), 0 0 12px 3px rgba(255, 55, 35, 0.58), 0 0 26px 7px rgba(220, 25, 25, 0.38), inset 0 1px 0 rgba(255,255,255,0.32)",
-      }}
-      className="
-        group/timer
-        relative
-        flex
-        items-center
-        gap-1.5
-        rounded-xl
-        border
-        border-[#FFD2C3]
-        bg-gradient-to-br
-        from-[#C91F1F]
-        via-[#E52B20]
-        to-[#FF5A36]
-        px-2
-        py-1.5
-        shadow-[0_0_20px_rgba(255,55,35,0.62)]
-        ring-1
-        ring-[#FFB09A]/80
-        backdrop-blur-md
-        transition-all
-        duration-300
-        hover:border-white
-        hover:shadow-[0_0_28px_rgba(255,55,35,0.78)]
-        hover:ring-[#FFD2C3]
-        sm:gap-2
-        sm:rounded-2xl
-        sm:px-3
-        sm:py-2
-      "
-    >
+    <div className="group/timer relative flex shrink-0 items-center gap-1 sm:gap-2">
       <span
         aria-hidden="true"
-        className="
-          pointer-events-none
-          absolute
-          -inset-1
-          rounded-2xl
-          bg-[#FF4A36]/40
-          blur-md
-          opacity-65
-          transition-opacity
-          duration-300
-          group-hover/timer:opacity-100
-        "
+        className="pointer-events-none absolute -inset-1 rounded-full bg-red-500/20 blur-md sm:-inset-1.5 sm:bg-red-500/25"
       />
-      {/* TIMER ICON */}
-      <div
-        className="
-          relative
-          z-10
-          flex
-          h-7
-          w-7
-          shrink-0
-          items-center
-          justify-center
-          rounded-lg
-          border
-          border-rose-200
-          bg-gradient-to-br
-          from-rose-400/80
-          to-red-300/55
-          text-rose-50
-          shadow-[0_0_12px_rgba(251,113,133,0.95)]
-          ring-1
-          ring-white/10
-          transition
-          duration-300
-          group-hover/timer:scale-105
-          group-hover/timer:shadow-[0_0_18px_rgba(251,113,133,1)]
-          sm:h-8
-          sm:w-8
-          sm:rounded-xl
-        "
-      >
-        <Timer
-          aria-hidden="true"
-          className="
-            h-3.5
-            w-3.5
-            drop-shadow-[0_0_5px_rgba(254,205,211,1)]
-            sm:h-4
-            sm:w-4
-          "
-        />
-      </div>
 
-      {/* COUNTDOWN CONTENT */}
       <div className="relative z-10 min-w-0">
-        <p
-          style={{ color: "#FFFFFF" }}
-          className="
-            text-[8px]
-            font-black
-            uppercase
-            leading-none
-            tracking-[0.12em]
-            text-white
-            drop-shadow-[0_1px_2px_rgba(120,25,15,0.18)]
-            sm:text-[9px]
-            sm:tracking-[0.14em]
-          "
-        >
-          Berakhir dalam
-        </p>
-
-        <div className="mt-1 flex items-center gap-0.5 sm:gap-1">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {units.map((unit, index) => (
-            <div
-              key={unit.label}
-              className="flex items-center gap-0.5 sm:gap-1"
-            >
-              {/* TIME BOX */}
+            <div key={unit.label} className="flex items-center gap-1 sm:gap-2">
               <div
                 style={{
                   border: "1px solid rgba(255, 225, 210, 0.98)",
-                  background: "linear-gradient(180deg, rgba(255, 85, 55, 0.98), rgba(190, 20, 25, 0.98) 58%, rgba(105, 10, 18, 0.98))",
-                  boxShadow: "0 0 8px 2px rgba(255, 65, 45, 0.70), 0 0 16px 3px rgba(220, 25, 25, 0.42), inset 0 0 10px rgba(255, 225, 210, 0.28)",
-                  textShadow: "0 0 5px rgba(255,255,255,0.65), 0 0 12px rgba(255,65,45,0.72)",
+                  background: "linear-gradient(180deg, #FF5544 0%, #E52B20 48%, #B91420 100%)",
+                  boxShadow: "0 0 0 1px rgba(255, 74, 54, 0.24), 0 0 8px 2px rgba(255, 65, 45, 0.58), inset 0 1px 0 rgba(255,255,255,0.28)",
+                  borderRadius: "50%",
+                  aspectRatio: "1 / 1",
+                  textShadow: "0 0 5px rgba(255,255,255,0.45)",
                 }}
-                className="
-                  min-w-[34px]
-                  rounded-lg
-                  border
-                  border-rose-200/90
-                  bg-gradient-to-b
-                  from-sky-300/55
-                  via-rose-800/85
-                  to-rose-950/80
-                  px-1
-                  py-1
-                  text-center
-                  shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_10px_rgba(251,113,133,0.82)]
-                  ring-1
-                  ring-rose-300/70
-                  backdrop-blur-sm
-                  transition
-                  duration-300
-                  group-hover/timer:border-rose-200
-                  group-hover/timer:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_14px_rgba(251,113,133,1)]
-                  sm:min-w-[40px]
-                  sm:rounded-xl
-                  sm:px-1.5
-                  sm:py-1.5
-                "
+                className="relative box-border flex h-8 w-8 min-h-8 min-w-8 flex-none flex-col items-center justify-center rounded-full text-center [border-radius:9999px] sm:h-11 sm:w-11 sm:min-h-11 sm:min-w-[44px]"
               >
-                <div
-                  style={{ color: "#FFFFFF", textShadow: "0 0 5px rgba(255,255,255,0.95), 0 0 10px rgba(255,65,45,0.95), 0 0 18px rgba(220,25,25,0.78)" }}
-  className="
-    text-xs
-    font-black
-    leading-4
-    tabular-nums
-    text-white
-    drop-shadow-[0_0_6px_rgba(255,255,255,0.95)] drop-shadow-[0_0_14px_rgba(255,65,45,0.95)]
-    transition
-    duration-300
-    group-hover/timer:text-rose-50
-    group-hover/timer:drop-shadow-[0_0_10px_rgba(251,113,133,1)]
-    sm:text-sm
-  "
->
-  {String(unit.value).padStart(2, "0")}
-</div>
-
-                <div
-                  style={{ color: "#FFFFFF", textShadow: "0 0 4px rgba(255,255,255,0.28)" }}
-                  className="
-                    mt-0.5
-                    text-[6px]
-                    font-bold
-                    uppercase
-                    leading-none
-                    tracking-wide
-                    text-white
-                    sm:text-[7px]
-                  "
-                >
+                <span className="block text-[11px] font-black leading-none tabular-nums text-white sm:text-base sm:leading-[17px]">
+                  {String(unit.value).padStart(2, "0")}
+                </span>
+                <span className="mt-0.5 hidden text-[5px] font-semibold uppercase leading-[6px] tracking-normal text-white sm:block sm:text-[7px] sm:leading-[8px] sm:tracking-wide">
                   {unit.label}
-                </div>
+                </span>
               </div>
-
-              {/* SEPARATOR */}
               {index < units.length - 1 && (
-                <span
-                  aria-hidden="true"
-                  className="
-                    px-0.5
-                    text-[10px]
-                    font-black
-                    leading-none
-                    text-white/85
-                    drop-shadow-[0_0_6px_rgba(255,65,45,0.82)]
-                    sm:text-xs
-                  "
-                >
+                <span aria-hidden="true" className="text-[8px] font-black leading-none text-white/90 drop-shadow-[0_0_5px_rgba(255,65,45,0.75)] sm:text-xs">
                   :
                 </span>
               )}
@@ -1372,23 +1161,18 @@ export default function HomeFlashSaleSection({
             >
               {/* TOP */}
 
-              <div
-                className="
-                  flex
-                  items-start
-                  justify-between
-                  gap-4
-                "
-              >
-                {/* LEFT */}
-
-                <div className="min-w-0">
-                  {/* BADGE */}
-
+              <div className="relative flex flex-col gap-2 sm:block">
+                {/* BADGE + TITLE */}
+                <div className="min-w-0 w-full sm:w-auto sm:pr-44">
+{/* BADGE + COUNTDOWN: satu baris pada mobile */}
+                  <div className="mb-2 flex min-w-0 items-center justify-between gap-2 sm:mb-0 sm:block">
                   <div
                     className="
                       relative
                       inline-flex
+                      w-fit
+                      max-w-full
+                      shrink-0
                       items-center
                       gap-1.5
                       overflow-hidden
@@ -1439,30 +1223,45 @@ export default function HomeFlashSaleSection({
                         relative
                         h-3.5
                         w-3.5
+                        shrink-0
                         fill-yellow-300
                         text-yellow-100
                         drop-shadow-[0_0_5px_rgba(253,224,71,0.95)]
                       "
                     />
 
-                    <span className="relative">
+                    <span className="relative whitespace-nowrap">
                       {bannerContent?.label ||
                         "Flash Sale"}
                     </span>
+                  </div>
+                  <div className="shrink-0 sm:hidden">
+                    <Countdown remaining={remaining} />
+                  </div>
+                  </div>
+                  <div className="absolute right-0 top-0 hidden sm:block">
+                    <Countdown remaining={remaining} />
                   </div>
 
                   {/* TITLE */}
 
                   <h2
                     className="
-                      mt-4
-                      max-w-[420px]
-                      text-[23px]
+                      mt-0
+                      block
+                      min-w-0
+                      w-full
+                      max-w-full
+                      [overflow-wrap:normal]
+                      text-[16px]
                       font-black
-                      leading-[1.05]
+                      leading-[1.2]
                       tracking-tight
                       text-white
+                      sm:mt-4
+                      sm:max-w-[420px]
                       sm:text-3xl
+                      sm:leading-[1.05]
                       lg:text-4xl
                     "
                   >
@@ -1473,6 +1272,7 @@ export default function HomeFlashSaleSection({
                       className="
                         block
                         text-[var(--fresh-400)]
+                        sm:inline
                         drop-shadow-[0_0_10px_rgba(132,204,22,0.28)]
                       "
                     >
@@ -1480,14 +1280,6 @@ export default function HomeFlashSaleSection({
                         "Harga Lebih Menarik."}
                     </span>
                   </h2>
-                </div>
-
-                {/* COUNTDOWN */}
-
-                <div className="shrink-0">
-                  <Countdown
-                    remaining={remaining}
-                  />
                 </div>
               </div>
 
