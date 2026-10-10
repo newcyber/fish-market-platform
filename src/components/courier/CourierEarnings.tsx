@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { WalletCards, Clock3, CheckCircle2, BarChart3, ChevronRight } from "lucide-react";
+import { WalletCards, Clock3, CheckCircle2, BarChart3 } from "lucide-react";
 import { money, shortDate, CourierHeader } from "@/components/courier/CourierUi";
 
 type EarningsData = {

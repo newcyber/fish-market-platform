@@ -8,7 +8,6 @@ import type { CourierAssignmentListItem } from "@/services/courier/courier.servi
 import {
   CourierHeader,
   dateTime,
-  money,
   OperationalBadge,
   shortDate,
   StatusBadge,

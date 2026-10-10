@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import courierBannerImage from "./pisjo-courier-banner.webp";
 import {
   ClipboardList,
   CheckCircle2,
@@ -96,11 +98,25 @@ export function CourierDashboard({
       <CourierHeader title="Dashboard Kurir" menu />
 
       <div className="space-y-3 px-3 py-3">
-        <section className="overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0B84F3] to-[#0868D7] p-4 text-white shadow-[0_2px_8px_rgba(15,46,94,0.08)]">
-          <p className="text-[22px] font-bold">Halo, Kurir PISJO</p>
-          <p className="mt-1 max-w-[250px] text-[14px] leading-5 text-white/90">
-            Kelola tugas pengantaran yang menjadi tanggung jawab Anda hari ini.
-          </p>
+        <section className="relative isolate min-h-[142px] overflow-hidden rounded-[18px] bg-[#0879E8] p-4 text-white shadow-[0_2px_8px_rgba(15,46,94,0.08)]">
+          <Image
+            src={courierBannerImage}
+            alt="Kurir PISJO mengantarkan ikan segar"
+            fill
+            priority
+            sizes="(max-width: 640px) 100vw, 600px"
+            className="z-0 object-cover object-[58%_center]"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-[#0879E8]/95 via-[#0879E8]/75 to-[#0879E8]/5"
+          />
+          <div className="relative z-20 max-w-[66%] sm:max-w-[62%]">
+            <p className="text-[20px] font-bold leading-7 sm:text-[22px]">Halo, Kurir PISJO</p>
+            <p className="mt-1 text-[13px] leading-[18px] text-white/95 sm:text-[14px] sm:leading-5">
+              Kelola tugas pengantaran yang menjadi tanggung jawab Anda hari ini.
+            </p>
+          </div>
         </section>
 
         <section className="flex items-center justify-between rounded-[18px] border border-[#DCE6F1] bg-white px-4 py-3 shadow-[0_2px_8px_rgba(15,46,94,0.08)]">

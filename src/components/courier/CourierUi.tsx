@@ -7,16 +7,14 @@ import {
   Home,
   WalletCards,
   History,
-  Bell,
   Menu,
   ArrowLeft,
   MapPin,
   CheckCircle2,
   Circle,
-  PackageCheck,
-  Navigation,
 } from "lucide-react";
 import { useState } from "react";
+import { CourierNotificationBell } from "@/components/courier/CourierNotificationBell";
 
 export const COURIER_STATUS_LABELS: Record<string, string> = {
   ASSIGNED: "Ditugaskan",
@@ -161,13 +159,7 @@ export function CourierHeader({
           ) : null}
         </div>
 
-        <button
-          type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#DCE6F1] bg-white"
-          aria-label="Notifikasi"
-        >
-          <Bell className="h-5 w-5 text-[#0F2448]" />
-        </button>
+        <CourierNotificationBell />
       </header>
 
       {open ? (
